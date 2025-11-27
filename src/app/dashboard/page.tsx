@@ -1,6 +1,5 @@
 'use client';
 
-import { Toaster } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { showConfirmDialog } from '@/lib/utils/confirm';
@@ -33,17 +32,6 @@ export default function Dashboard() {
 
     return (
         <ProtectedRoute>
-            <Toaster
-                position="top-right"
-                theme="dark"
-                toastOptions={{
-                    style: {
-                        background: '#1e293b',
-                        color: '#f1f5f9',
-                        border: '1px solid #334155',
-                    },
-                }}
-            />
             <div className="min-h-screen bg-gray-100 p-8">
                 <div className="max-w-4xl mx-auto">
                     <h1 className="text-3xl font-bold mb-8">Dashboard</h1>

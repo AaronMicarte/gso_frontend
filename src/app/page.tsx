@@ -3,18 +3,30 @@ import { LoginForm } from '@/components/auth/LoginForm';
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex bg-white">
-      {/* Left side - Empty white space */}
-      <div className="hidden lg:flex lg:flex-1"></div>
+    <div className="min-h-screen flex relative">
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
+        <Image
+          src="/assets/images/login/elsal bg.jpg"
+          alt="El Salvador Background"
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/40"></div>
+      </div>
+
+      {/* Left side - Empty space */}
+      <div className="hidden lg:flex lg:flex-1 relative z-10"></div>
 
       {/* Right side - Login Container */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 min-h-screen">
-        <div className="w-full max-w-md bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 min-h-screen relative z-10">
+        <div className="w-full max-w-md bg-slate-800/95 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-slate-700">
           {/* Logo */}
           <div className="flex justify-center mb-8">
             <div className="relative w-[240px] h-[85px]">
               <Image
-                src="/assets/images/city of el salvador logo.png"
+                src="/assets/images/login/elsal white logo.png"
                 alt="City of El Salvador Logo"
                 fill
                 sizes="240px"
