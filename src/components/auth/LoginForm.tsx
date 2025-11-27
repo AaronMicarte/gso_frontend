@@ -21,7 +21,7 @@ export function LoginForm() {
       const response = await login(credentials);
       setToken(response.token);
       toast.success('Login successful! Redirecting...');
-      setTimeout(() => router.push('/dashboard'), 1500);
+      setTimeout(() => router.push('/dashboard'), 500);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Invalid credentials. Please try again.';
       toast.error(errorMessage);
@@ -40,9 +40,21 @@ export function LoginForm() {
         position="top-right"
         toastOptions={{
           style: {
-            background: '#1f2937',
-            color: '#f9fafb',
-            border: '1px solid #6b7280',
+            background: '#1e293b',
+            color: '#f1f5f9',
+            border: '1px solid #334155',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#f1f5f9',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#f1f5f9',
+            },
           },
         }}
       />

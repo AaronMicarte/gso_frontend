@@ -1,11 +1,22 @@
 'use client';
 
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { showConfirmDialog } from '@/lib/utils/confirm';
 
 export default function Dashboard() {
     const { user, loading, logout } = useAuth();
+
+    const handleLogout = () => {
+        showConfirmDialog({
+            title: 'Logout Confirmation',
+            description: 'Are you sure you want to logout?',
+            confirmText: 'Logout',
+            cancelText: 'Cancel',
+            onConfirm: logout,
+        });
+    };
 
     if (loading) {
         return (
@@ -24,11 +35,12 @@ export default function Dashboard() {
         <ProtectedRoute>
             <Toaster
                 position="top-right"
+                theme="dark"
                 toastOptions={{
                     style: {
-                        background: '#1f2937',
-                        color: '#f9fafb',
-                        border: '1px solid #6b7280',
+                        background: '#1e293b',
+                        color: '#f1f5f9',
+                        border: '1px solid #334155',
                     },
                 }}
             />
@@ -41,8 +53,8 @@ export default function Dashboard() {
                         <p className="mb-2"><strong>Role:</strong> {user.Role}</p>
                         <p className="mb-4"><strong>Department:</strong> {user.Department}</p>
                         <button
-                            onClick={logout}
-                            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                            onClick={handleLogout}
+                            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
                         >
                             Logout
                         </button>

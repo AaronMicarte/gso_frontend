@@ -7,7 +7,7 @@ export function Input({ label, error, className, ...props }: InputProps) {
   return (
     <div className="mb-6">
       {label && (
-        <label className="block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+        <label className="block text-sm font-semibold text-white mb-2 uppercase tracking-wide">
           {label}
         </label>
       )}
