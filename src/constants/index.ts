@@ -8,8 +8,16 @@ export const API_ROUTES = {
 // App Routes
 export const APP_ROUTES = {
     HOME: '/',
-    DASHBOARD: '/dashboard',
+    ADMIN_DASHBOARD: '/admin/dashboard',
+    STAFF_DASHBOARD: '/staff/dashboard',
+    CUSTODIAN_DASHBOARD: '/custodian/dashboard',
 } as const;
 
-// Token key for localStorage
-export const AUTH_TOKEN_KEY = 'auth_token';
+// Role names from database
+export const USER_ROLES = {
+    ADMIN: 'Admin',
+    GSO_STAFF: 'GSO Staff',
+    PROPERTY_CUSTODIAN: 'Property Custodian',
+    DEPARTMENT_HEAD: 'Department Head',
+    END_USER: 'End User',
+} as const;

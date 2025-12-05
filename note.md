@@ -1,0 +1,19 @@
+PRODUCTI\\ON CHECKLIST:
+- Proper TypeScript types (no 'any')
+- Error handling with user-friendly messages
+- Loading states for async operations
+- Environment variables for config
+- Consistent code structure
+- Security best practices (XSS, CORS, token validation)
+- Input validation (frontend + backend)
+- Proper HTTP status codes (200, 401, 422, 500)
+- Database relationships work (foreign keys valid)
+- Maintainable, scalable.
+- Must always be production ready.
+- No console.log in production code
+- Mobile responsive UI- Accessibility (a11y) - screen readers, keyboard nav
+- API response caching strategy
+- Proper date/time handling (timezone aware PH MANILA TIME)
+- Form validation library 
+- SAME CODING STYE. CONSISTENT
+- BRUTAL HONEST ALWAYS PLEASE THANKS BRO
