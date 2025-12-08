@@ -138,6 +138,11 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                                         </p>
                                         <p className="text-xs text-slate-500 truncate">
                                             {activity.description} • {activity.user}
+                                            {activity.type === 'login' && activity.ip_address && (
+                                                <span className="ml-1 text-slate-400">
+                                                    ({activity.ip_address})
+                                                </span>
+                                            )}
                                         </p>
                                     </div>
                                     <span className="text-xs text-slate-400 whitespace-nowrap">

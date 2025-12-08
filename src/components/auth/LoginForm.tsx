@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -30,6 +30,7 @@ export function LoginForm() {
   const [lockout, setLockout] = useState<LockoutState | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const {
     register,
@@ -38,6 +39,17 @@ export function LoginForm() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  // Show success toast if returning from MFA setup
+  useEffect(() => {
+    if (searchParams.get('mfa_setup') === 'complete') {
+      toast.success('MFA Setup Complete!', {
+        description: 'Please login again to verify your new security setup.',
+      });
+      // Clean URL
+      router.replace('/');
+    }
+  }, [searchParams, router]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -92,7 +104,32 @@ export function LoginForm() {
 
     try {
       const response = await login(data);
-      // No token to store - session is in httpOnly cookie (secure!)
+
+      // Check if MFA is required (either setup or verification)
+      if (response.mfa_required && response.user_id) {
+        const isSetupRequired = response.mfa_setup_required === true;
+
+        // If MFA setup required, redirect to dedicated setup page
+        if (isSetupRequired) {
+          sessionStorage.setItem('mfa_setup_pending', JSON.stringify({
+            userId: response.user_id,
+            userRole: response.user?.Role,
+          }));
+          router.push('/setup-mfa');
+          return;
+        }
+
+        // MFA already enabled, redirect to verification page
+        sessionStorage.setItem('mfa_verify_pending', JSON.stringify({
+          userId: response.user_id,
+          userName: response.user?.FullName || response.user?.Username || 'User',
+          userRole: response.user?.Role || 'User',
+        }));
+        router.push('/verify-mfa');
+        return;
+      }
+
+      // No MFA required - login successful
       setLockout(null);
       toast.success('Login successful!', {
         description: `Welcome back, ${response.user.FullName || response.user.Username}!`

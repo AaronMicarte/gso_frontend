@@ -26,6 +26,7 @@ export interface Activity {
     user: string;
     timestamp: string;
     timeAgo: string;
+    ip_address?: string | null;
 }
 
 export interface RecentActivityResponse {

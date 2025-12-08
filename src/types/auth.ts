@@ -14,8 +14,23 @@ export interface User {
 
 export interface AuthResponse {
   message: string;
+  mfa_required?: boolean;
+  mfa_setup_required?: boolean;
+  user_id?: number;
   user: User;
   // NOTE: No token - using httpOnly session cookie for security
+}
+
+// MFA pending response (when MFA is required but not yet verified)
+export interface MFAPendingResponse {
+  message: string;
+  mfa_required: true;
+  user_id: number;
+  user: {
+    UserID: number;
+    Username: string;
+    FullName: string;
+  };
 }
 
 export interface ApiError {
