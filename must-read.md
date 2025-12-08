@@ -22,3 +22,4 @@ PRODUCTI\\ON CHECKLIST:
 - SAME LOADING SCREEN PLEASE
 - CONSISTENT
 - BRUTAL HONEST ALWAYS
+- always add the zonner for each like success or idk to know... hope it gets! USE SONNER!
