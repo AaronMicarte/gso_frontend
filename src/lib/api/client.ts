@@ -67,6 +67,11 @@ apiClient.interceptors.response.use(
                 });
             }
 
+            // Pass through 422 validation errors with full response data
+            if (error.response.status === 422) {
+                return Promise.reject(error);
+            }
+
             const message = (data?.message as string) || 'An error occurred';
             return Promise.reject(new Error(message));
         } else if (error.request) {

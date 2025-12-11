@@ -29,6 +29,14 @@ import {
     FileBarChart,
     Wrench,
     FolderTree,
+    Menu,
+    X,
+    Tag,
+    FileType,
+    Box,
+    Ruler,
+    Truck,
+    Briefcase,
 } from 'lucide-react';
 
 // Navigation structure with sections and collapsible groups
@@ -104,8 +112,15 @@ const navSections: NavSection[] = [
                 label: 'Master Data',
                 icon: FolderTree,
                 children: [
-                    { label: 'Property Types', href: '/admin/property-types', icon: Tags },
-                    { label: 'Categories', href: '/admin/categories', icon: FolderTree },
+                    { label: 'Categories', href: '/admin/masterdata/categories', icon: FolderTree },
+                    { label: 'Classifications', href: '/admin/masterdata/classifications', icon: Tag },
+                    { label: 'Departments', href: '/admin/masterdata/departments', icon: Building2 },
+                    { label: 'Property Classifications', href: '/admin/masterdata/property-classifications', icon: FileType },
+                    { label: 'Property Types', href: '/admin/masterdata/property-types', icon: Box },
+                    { label: 'Units of Measure', href: '/admin/masterdata/units-of-measure', icon: Ruler },
+                    { label: 'Suppliers', href: '/admin/masterdata/suppliers', icon: Truck },
+                    { label: 'Positions', href: '/admin/masterdata/positions', icon: Briefcase },
+                    { label: 'End Users', href: '/admin/masterdata/end-users', icon: Users },
                 ],
             },
         ],
@@ -197,7 +212,7 @@ const navSections: NavSection[] = [
                 icon: Users,
                 children: [
                     { label: 'Users', href: '/admin/users', icon: Users },
-                    { label: 'Departments', href: '/admin/departments', icon: Building2 },
+                    { label: 'Departments', href: '/admin/masterdata/departments', icon: Building2 },
                     { label: 'Suppliers', href: '/admin/suppliers', icon: Building2 },
                 ],
             },
@@ -328,6 +343,7 @@ export default function AdminLayout({
     const { user, loading, logout } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         // Not authenticated - redirect to login
@@ -366,10 +382,34 @@ export default function AdminLayout({
 
     return (
         <div className="min-h-screen bg-slate-100 flex">
+            {/* Mobile Header */}
+            <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-slate-800 border-b border-slate-700 z-50 flex items-center justify-between px-4">
+                <div>
+                    <h1 className="text-lg font-bold text-[var(--primary)]">IAMS-GSO</h1>
+                    <p className="text-[10px] text-slate-400">El Salvador City</p>
+                </div>
+                <button
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="p-2 text-white hover:bg-slate-700 rounded-lg transition-colors"
+                    aria-label="Toggle menu"
+                >
+                    {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </button>
+            </header>
+
+            {/* Mobile Overlay */}
+            {mobileMenuOpen && (
+                <div
+                    className="lg:hidden fixed inset-0 bg-black/50 z-40 mt-16"
+                    onClick={() => setMobileMenuOpen(false)}
+                />
+            )}
+
             {/* Sidebar - Fixed, Non-scrollable */}
-            <aside className="w-64 bg-slate-800 text-white flex flex-col fixed h-screen">
-                {/* Logo/Brand - Fixed at top */}
-                <div className="p-4 border-b border-slate-700 flex-shrink-0">
+            <aside className={`w-64 bg-slate-800 text-white flex flex-col fixed h-screen z-40 transition-transform duration-300 lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+                }`}>
+                {/* Logo/Brand - Fixed at top - Hidden on mobile */}
+                <div className="p-4 border-b border-slate-700 flex-shrink-0 hidden lg:block">
                     <h1 className="text-xl font-bold text-[var(--primary)]">IAMS-GSO</h1>
                     <p className="text-xs text-slate-400 mt-1">El Salvador City</p>
                 </div>
@@ -414,7 +454,7 @@ export default function AdminLayout({
             </aside>
 
             {/* Main Content - Offset by sidebar width */}
-            <main className="flex-1 ml-64 overflow-auto">
+            <main className="flex-1 lg:ml-64 overflow-auto pt-16 lg:pt-0">
                 {children}
             </main>
         </div>

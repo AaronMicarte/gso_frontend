@@ -2,39 +2,52 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createCategory } from '@/lib/api/categories';
-import { CategoryInput } from '@/types/masterData';
+import { CategoryInput } from '@/types/property';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { useCreateCategory } from '@/lib/hooks/masterData';
 
 export default function NewCategoryPage() {
     const router = useRouter();
-    const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [formData, setFormData] = useState<CategoryInput>({
-        CategoryName: '',
-        Description: '',
+        name: '',
+        description: '',
     });
+
+    const createCategoryMutation = useCreateCategory();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
         setErrors({});
 
-        try {
-            await createCategory(formData);
-            toast.success('Category created successfully');
-            router.push('/admin/categories');
-        } catch (err: unknown) {
-            const error = err as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
-            if (error?.response?.data?.errors) {
-                setErrors(error.response.data.errors);
-            } else {
-                toast.error(error?.response?.data?.message || 'Failed to create category');
-            }
-        } finally {
-            setLoading(false);
-        }
+        createCategoryMutation.mutate(formData, {
+            onSuccess: () => {
+                toast.success('Category created successfully');
+                router.push('/admin/masterdata/categories');
+            },
+            onError: (error: any) => {
+                if (error?.response?.data?.errors) {
+                    const backendErrors = error.response.data.errors;
+                    const mappedErrors: Record<string, string[]> = {};
+
+                    if (backendErrors.name) mappedErrors.name = backendErrors.name;
+                    if (backendErrors.description) mappedErrors.description = backendErrors.description;
+
+                    // Map backend PascalCase to frontend camelCase
+                    if (backendErrors.CategoryName) mappedErrors.name = backendErrors.CategoryName;
+                    if (backendErrors.Description) mappedErrors.description = backendErrors.Description;
+
+                    setErrors(mappedErrors);
+
+                    if (Object.keys(mappedErrors).length === 0 && Object.keys(backendErrors).length > 0) {
+                        toast.error('Please check the form for errors');
+                    }
+                } else {
+                    toast.error(error?.message || 'Failed to create category');
+                }
+            },
+        });
     };
 
     const handleChange = (field: keyof CategoryInput, value: string) => {
@@ -79,16 +92,16 @@ export default function NewCategoryPage() {
                         </label>
                         <input
                             type="text"
-                            id="CategoryName"
-                            value={formData.CategoryName}
-                            onChange={(e) => handleChange('CategoryName', e.target.value)}
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.CategoryName ? 'border-red-500' : 'border-slate-300'
+                            id="name"
+                            value={formData.name}
+                            onChange={(e) => handleChange('name', e.target.value)}
+                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.name ? 'border-red-500' : 'border-slate-300'
                                 }`}
                             placeholder="e.g., Information Technology"
                             required
                         />
-                        {errors.CategoryName && (
-                            <p className="mt-1 text-sm text-red-600">{errors.CategoryName[0]}</p>
+                        {errors.name && (
+                            <p className="mt-1 text-sm text-red-600">{errors.name[0]}</p>
                         )}
                     </div>
 
@@ -98,16 +111,16 @@ export default function NewCategoryPage() {
                             Description
                         </label>
                         <textarea
-                            id="Description"
-                            value={formData.Description}
-                            onChange={(e) => handleChange('Description', e.target.value)}
+                            id="description"
+                            value={formData.description}
+                            onChange={(e) => handleChange('description', e.target.value)}
                             rows={4}
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.Description ? 'border-red-500' : 'border-slate-300'
+                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.description ? 'border-red-500' : 'border-slate-300'
                                 }`}
                             placeholder="Enter category description (optional)"
                         />
-                        {errors.Description && (
-                            <p className="mt-1 text-sm text-red-600">{errors.Description[0]}</p>
+                        {errors.description && (
+                            <p className="mt-1 text-sm text-red-600">{errors.description[0]}</p>
                         )}
                     </div>
 
@@ -122,11 +135,11 @@ export default function NewCategoryPage() {
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={createCategoryMutation.isPending}
                             className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Save className="w-4 h-4" />
-                            {loading ? 'Saving...' : 'Save Category'}
+                            {createCategoryMutation.isPending ? 'Saving...' : 'Save Category'}
                         </button>
                     </div>
                 </form>

@@ -2,70 +2,73 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getCategory, updateCategory } from '@/lib/api/categories';
-import { Category, CategoryInput } from '@/types/masterData';
+import { Category, CategoryInput } from '@/types/property';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { useCategory, useUpdateCategory } from '@/lib/hooks/masterData';
 
 export default function EditCategoryPage() {
     const router = useRouter();
     const params = useParams();
     const id = Number(params.id);
 
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
-    const [category, setCategory] = useState<Category | null>(null);
     const [formData, setFormData] = useState<CategoryInput>({
-        CategoryName: '',
-        Description: '',
+        name: '',
+        description: '',
     });
 
-    useEffect(() => {
-        const fetchCategory = async () => {
-            try {
-                const data = await getCategory(id);
-                setCategory(data);
-                setFormData({
-                    CategoryName: data.CategoryName,
-                    Description: data.Description || '',
-                });
-            } catch (err) {
-                toast.error('Failed to load category');
-                router.push('/admin/categories');
-            } finally {
-                setLoading(false);
-            }
-        };
+    const { data: category, isLoading: loading } = useCategory(id);
+    const updateCategoryMutation = useUpdateCategory();
 
-        if (id) {
-            fetchCategory();
+    useEffect(() => {
+        if (category) {
+            setFormData({
+                name: category.name,
+                description: category.description || '',
+            });
         }
-    }, [id, router]);
+    }, [category]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSaving(true);
         setErrors({});
 
-        try {
-            await updateCategory(id, formData);
-            toast.success('Category updated successfully');
-            router.push('/admin/categories');
-        } catch (err: unknown) {
-            const error = err as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
-            if (error?.response?.data?.errors) {
-                setErrors(error.response.data.errors);
-            } else {
-                toast.error(error?.response?.data?.message || 'Failed to update category');
+        updateCategoryMutation.mutate(
+            { id, data: formData },
+            {
+                onSuccess: () => {
+                    toast.success('Category updated successfully');
+                    router.push('/admin/masterdata/categories');
+                },
+                onError: (error: any) => {
+                    if (error?.response?.data?.errors) {
+                        const backendErrors = error.response.data.errors;
+                        const mappedErrors: Record<string, string[]> = {};
+
+                        if (backendErrors.name) mappedErrors.name = backendErrors.name;
+                        if (backendErrors.description) mappedErrors.description = backendErrors.description;
+
+                        // Map backend PascalCase to frontend camelCase
+                        if (backendErrors.CategoryName) mappedErrors.name = backendErrors.CategoryName;
+                        if (backendErrors.Description) mappedErrors.description = backendErrors.Description;
+
+                        setErrors(mappedErrors);
+
+                        if (Object.keys(mappedErrors).length === 0 && Object.keys(backendErrors).length > 0) {
+                            toast.error('Please check the form for errors');
+                        }
+                    } else {
+                        toast.error(error?.message || 'Failed to update category');
+                    }
+                },
             }
-        } finally {
-            setSaving(false);
-        }
+        );
     };
 
     const handleChange = (field: keyof CategoryInput, value: string) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
+        // Clear error for this field
         if (errors[field]) {
             setErrors((prev) => {
                 const newErrors = { ...prev };
@@ -115,20 +118,20 @@ export default function EditCategoryPage() {
                 <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
                     {/* Category Name */}
                     <div className="mb-6">
-                        <label htmlFor="CategoryName" className="block text-sm font-medium text-slate-700 mb-2">
+                        <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-2">
                             Category Name <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
-                            id="CategoryName"
-                            value={formData.CategoryName}
-                            onChange={(e) => handleChange('CategoryName', e.target.value)}
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.CategoryName ? 'border-red-500' : 'border-slate-300'
+                            id="name"
+                            value={formData.name}
+                            onChange={(e) => handleChange('name', e.target.value)}
+                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.name ? 'border-red-500' : 'border-slate-300'
                                 }`}
                             required
                         />
-                        {errors.CategoryName && (
-                            <p className="mt-1 text-sm text-red-600">{errors.CategoryName[0]}</p>
+                        {errors.name && (
+                            <p className="mt-1 text-sm text-red-600">{errors.name[0]}</p>
                         )}
                     </div>
 
@@ -138,15 +141,15 @@ export default function EditCategoryPage() {
                             Description
                         </label>
                         <textarea
-                            id="Description"
-                            value={formData.Description}
-                            onChange={(e) => handleChange('Description', e.target.value)}
+                            id="description"
+                            value={formData.description}
+                            onChange={(e) => handleChange('description', e.target.value)}
                             rows={4}
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.Description ? 'border-red-500' : 'border-slate-300'
+                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.description ? 'border-red-500' : 'border-slate-300'
                                 }`}
                         />
-                        {errors.Description && (
-                            <p className="mt-1 text-sm text-red-600">{errors.Description[0]}</p>
+                        {errors.description && (
+                            <p className="mt-1 text-sm text-red-600">{errors.description[0]}</p>
                         )}
                     </div>
 
@@ -156,14 +159,14 @@ export default function EditCategoryPage() {
                             <div>
                                 <span className="text-slate-600">Created:</span>
                                 <span className="ml-2 text-slate-800">
-                                    {new Date(category.CreatedDate).toLocaleString('en-PH')}
+                                    {new Date(category.created_at).toLocaleString('en-PH')}
                                 </span>
                             </div>
-                            {category.UpdatedDate && (
+                            {category.updated_at && (
                                 <div>
                                     <span className="text-slate-600">Last Updated:</span>
                                     <span className="ml-2 text-slate-800">
-                                        {new Date(category.UpdatedDate).toLocaleString('en-PH')}
+                                        {new Date(category.updated_at).toLocaleString('en-PH')}
                                     </span>
                                 </div>
                             )}
@@ -181,11 +184,11 @@ export default function EditCategoryPage() {
                         </button>
                         <button
                             type="submit"
-                            disabled={saving}
+                            disabled={updateCategoryMutation.isPending}
                             className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Save className="w-4 h-4" />
-                            {saving ? 'Saving...' : 'Save Changes'}
+                            {updateCategoryMutation.isPending ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>
                 </form>

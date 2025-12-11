@@ -1,5 +1,6 @@
-import apiClient from './client';
-import { Category, CategoryInput, ApiResponse, PaginatedResponse } from '@/types/masterData';
+import apiClient from '../client';
+import { Category, CategoryInput } from '@/types/property';
+import { ApiResponse, PaginatedResponse } from '@/types/masterData';
 
 export interface CategoryFilters {
     search?: string;
@@ -22,7 +23,7 @@ export async function getCategories(filters?: CategoryFilters): Promise<Paginate
     if (filters?.sort_order) params.append('sort_order', filters.sort_order);
 
     const response = await apiClient.get<PaginatedResponse<Category>>(
-        `/admin/categories?${params.toString()}`
+        `/admin/master-data/categories?${params.toString()}`
     );
     return response.data;
 }
@@ -31,7 +32,7 @@ export async function getCategories(filters?: CategoryFilters): Promise<Paginate
  * Fetch all categories without pagination
  */
 export async function getAllCategories(): Promise<Category[]> {
-    const response = await apiClient.get<ApiResponse<Category[]>>('/admin/categories?per_page=all');
+    const response = await apiClient.get<ApiResponse<Category[]>>('/admin/master-data/categories?per_page=all');
     return response.data.data || [];
 }
 
@@ -39,7 +40,7 @@ export async function getAllCategories(): Promise<Category[]> {
  * Fetch a single category by ID
  */
 export async function getCategory(id: number): Promise<Category> {
-    const response = await apiClient.get<ApiResponse<Category>>(`/admin/categories/${id}`);
+    const response = await apiClient.get<ApiResponse<Category>>(`/admin/master-data/categories/${id}`);
     if (!response.data.data) {
         throw new Error('Category not found');
     }
@@ -50,7 +51,11 @@ export async function getCategory(id: number): Promise<Category> {
  * Create a new category
  */
 export async function createCategory(data: CategoryInput): Promise<Category> {
-    const response = await apiClient.post<ApiResponse<Category>>('/admin/categories', data);
+    const payload = {
+        CategoryName: data.name,
+        Description: data.description
+    };
+    const response = await apiClient.post<ApiResponse<Category>>('/admin/master-data/categories', payload);
     if (!response.data.data) {
         throw new Error(response.data.message || 'Failed to create category');
     }
@@ -61,7 +66,11 @@ export async function createCategory(data: CategoryInput): Promise<Category> {
  * Update an existing category
  */
 export async function updateCategory(id: number, data: CategoryInput): Promise<Category> {
-    const response = await apiClient.put<ApiResponse<Category>>(`/admin/categories/${id}`, data);
+    const payload = {
+        CategoryName: data.name,
+        Description: data.description
+    };
+    const response = await apiClient.put<ApiResponse<Category>>(`/admin/master-data/categories/${id}`, payload);
     if (!response.data.data) {
         throw new Error(response.data.message || 'Failed to update category');
     }
@@ -72,5 +81,5 @@ export async function updateCategory(id: number, data: CategoryInput): Promise<C
  * Delete a category
  */
 export async function deleteCategory(id: number): Promise<void> {
-    await apiClient.delete(`/admin/categories/${id}`);
+    await apiClient.delete(`/admin/master-data/categories/${id}`);
 }

@@ -301,19 +301,19 @@ export default function AdminDashboardPage() {
     };
 
     return (
-        <div className="p-6">
+        <div className="p-4 sm:p-6 lg:p-8">
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-800">
+            <div className="mb-6 sm:mb-8">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
                     {getGreeting()}, {user?.FullName || user?.Username}! 👋
                 </h1>
-                <p className="text-slate-500 mt-1">
+                <p className="text-sm sm:text-base text-slate-500 mt-1">
                     Here&apos;s what&apos;s happening with your inventory today.
                 </p>
             </div>
 
             {/* Main Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
                     title="Total Assets"
                     value={stats?.totalAssets ?? 0}
@@ -349,7 +349,7 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Secondary Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
                     title="Departments"
                     value={stats?.totalDepartments ?? 0}
@@ -369,7 +369,7 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                 {/* Recent Activity - Takes 2 columns on large screens */}
                 <div className="lg:col-span-2">
                     <RecentActivity

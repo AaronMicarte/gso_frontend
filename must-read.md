@@ -1,4 +1,4 @@
-PRODUCTI\\ON CHECKLIST:
+NOTE REMINDER TO FOLLOW:
 - Proper TypeScript types (no 'any')
 - Error handling with user-friendly messages
 - Loading states for async operations
@@ -8,7 +8,7 @@ PRODUCTI\\ON CHECKLIST:
 - Input validation (frontend + backend)
 - Proper HTTP status codes (200, 401, 422, 500)
 - Database relationships work (foreign keys valid)
-- Maintainable, scalable.
+- Maintainable, scalable. folders
 - Must always be production ready.
 - No console.log in production code
 - Mobile responsive UI- Accessibility (a11y) - screen readers, keyboard nav
@@ -21,5 +21,4 @@ PRODUCTI\\ON CHECKLIST:
 - WEB-BASED IAMS GSO FOR EL SALVADOR CITY WITH AUTOMATED REPORTING AND QR-BASED CHECKING OF PROPERTY?
 - SAME LOADING SCREEN PLEASE
 - CONSISTENT
-- BRUTAL HONEST ALWAYS
 - always add the zonner for each like success or idk to know... hope it gets! USE SONNER!

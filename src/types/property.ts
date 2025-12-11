@@ -64,11 +64,18 @@ export interface PropertyType {
 }
 
 export interface Category {
-    CategoryID: number;
-    CategoryName: string;
-    Description?: string;
-    CreatedDate: string;
-    UpdatedDate?: string;
+    id: number;
+    name: string;
+    description?: string | null;
+    created_at: string;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+    is_deleted?: boolean;
+}
+
+export interface CategoryInput {
+    name: string;
+    description?: string;
 }
 
 export interface Classification {
