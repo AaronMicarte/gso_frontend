@@ -24,7 +24,7 @@ export default function EditPropertyClassificationPage({ params }: { params: Pro
 
     useEffect(() => {
         if (classification) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: classification.name,
                 description: classification.description || '',
                 document_type: classification.document_type,

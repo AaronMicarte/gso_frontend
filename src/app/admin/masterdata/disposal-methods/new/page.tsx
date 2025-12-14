@@ -23,12 +23,13 @@ export default function NewDisposalMethodPage() {
 
         createDisposalMethodMutation.mutate(formData, {
             onSuccess: () => {
-                toast.success('Disposal method created successfully');
-                router.push('/admin/masterdata/disposal-methods');
+                // Toast is handled by the hook
+                setTimeout(() => router.push('/admin/masterdata/disposal-methods'), 100);
             },
-            onError: (error: any) => {
-                if (error?.response?.data?.errors) {
-                    const backendErrors = error.response.data.errors;
+            onError: (error: unknown) => {
+                const err = error as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
+                if (err.response?.data?.errors) {
+                    const backendErrors = err.response.data.errors;
                     const mappedErrors: Record<string, string[]> = {};
                     // Map backend errors to frontend fields if necessary
                     if (backendErrors.MethodName) mappedErrors.name = backendErrors.MethodName;
@@ -41,7 +42,7 @@ export default function NewDisposalMethodPage() {
                         setErrors(mappedErrors);
                     }
                 } else {
-                    toast.error('Failed to create disposal method');
+                    toast.error(err.response?.data?.message || (error as Error).message || 'Failed to create disposal method');
                 }
             },
         });

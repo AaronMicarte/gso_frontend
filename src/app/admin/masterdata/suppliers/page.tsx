@@ -170,9 +170,16 @@ export default function SuppliersPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-                                        <span className="text-xs text-slate-500">
-                                            {supplier.contact_number || '-'}
-                                        </span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs text-slate-500">
+                                                {supplier.contact_number || '-'}
+                                            </span>
+                                            {supplier.tin && (
+                                                <span className="text-xs text-slate-500">
+                                                    TIN: {supplier.tin}
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => router.push(`/admin/masterdata/suppliers/${supplier.id}`)}
@@ -212,6 +219,9 @@ export default function SuppliersPage() {
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                                 Contact Number
                                             </th>
+                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                                TIN
+                                            </th>
                                             <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                                 Actions
                                             </th>
@@ -236,6 +246,11 @@ export default function SuppliersPage() {
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm text-slate-600">
                                                         {supplier.contact_number || '-'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm text-slate-600">
+                                                        {supplier.tin || '-'}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">

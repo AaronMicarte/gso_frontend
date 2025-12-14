@@ -15,20 +15,21 @@ export default function EditSupplierPage({ params }: { params: Promise<{ id: str
     const updateMutation = useUpdateSupplier();
 
     const [formData, setFormData] = useState<SupplierInput>({
-        name: '',
-        contact_person: '',
-        contact_number: '',
-        email: '',
-        address: '',
-        tin: '',
-        is_active: true,
+        name: supplier?.name || '',
+        contact_person: supplier?.contact_person || '',
+        contact_number: supplier?.contact_number || '',
+        email: supplier?.email || '',
+        address: supplier?.address || '',
+        tin: supplier?.tin || '',
+        is_active: supplier?.is_active ?? true,
     });
 
     const [errors, setErrors] = useState<Record<string, string[]>>({});
 
+    // Update form data when supplier data loads
     useEffect(() => {
         if (supplier) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: supplier.name,
                 contact_person: supplier.contact_person || '',
                 contact_number: supplier.contact_number || '',

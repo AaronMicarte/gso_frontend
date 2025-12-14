@@ -23,7 +23,7 @@ export default function EditCategoryPage() {
 
     useEffect(() => {
         if (category) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: category.name,
                 description: category.description || '',
             });

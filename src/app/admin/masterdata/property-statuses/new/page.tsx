@@ -23,12 +23,13 @@ export default function NewPropertyStatusPage() {
 
         createPropertyStatusMutation.mutate(formData, {
             onSuccess: () => {
-                toast.success('Property status created successfully');
-                router.push('/admin/masterdata/property-statuses');
+                // Toast is handled by the hook
+                setTimeout(() => router.push('/admin/masterdata/property-statuses'), 100);
             },
-            onError: (error: any) => {
-                if (error?.response?.data?.errors) {
-                    const backendErrors = error.response.data.errors;
+            onError: (error: unknown) => {
+                const err = error as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
+                if (err.response?.data?.errors) {
+                    const backendErrors = err.response.data.errors;
                     const mappedErrors: Record<string, string[]> = {};
                     // Map backend errors to frontend fields if necessary
                     if (backendErrors.StatusName) mappedErrors.name = backendErrors.StatusName;
@@ -41,7 +42,7 @@ export default function NewPropertyStatusPage() {
                         setErrors(mappedErrors);
                     }
                 } else {
-                    toast.error('Failed to create property status');
+                    toast.error(err.response?.data?.message || (error as Error).message || 'Failed to create property status');
                 }
             },
         });

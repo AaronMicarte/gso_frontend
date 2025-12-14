@@ -26,12 +26,13 @@ export default function NewClassificationPage() {
 
         createMutation.mutate(formData, {
             onSuccess: () => {
-                toast.success('Classification created successfully');
-                router.push('/admin/masterdata/classifications');
+                // Toast is handled by the hook
+                setTimeout(() => router.push('/admin/masterdata/classifications'), 100);
             },
-            onError: (error: any) => {
-                if (error?.response?.data?.errors) {
-                    const backendErrors = error.response.data.errors;
+            onError: (error: unknown) => {
+                const err = error as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
+                if (err.response?.data?.errors) {
+                    const backendErrors = err.response.data.errors;
                     const mappedErrors: Record<string, string[]> = {};
                     if (backendErrors.ClassificationName) mappedErrors.name = backendErrors.ClassificationName;
                     if (backendErrors.CategoryID) mappedErrors.category_id = backendErrors.CategoryID;
@@ -44,7 +45,7 @@ export default function NewClassificationPage() {
                         setErrors(mappedErrors);
                     }
                 } else {
-                    toast.error('Failed to create classification');
+                    toast.error(err.response?.data?.message || (error as Error).message || 'Failed to create classification');
                 }
             },
         });

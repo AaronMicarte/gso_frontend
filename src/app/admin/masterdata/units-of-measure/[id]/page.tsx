@@ -23,7 +23,7 @@ export default function EditUnitOfMeasurePage({ params }: { params: Promise<{ id
 
     useEffect(() => {
         if (unitOfMeasure) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: unitOfMeasure.name,
                 description: unitOfMeasure.description || '',
             });

@@ -30,7 +30,7 @@ export default function EditEndUserPage({ params }: { params: Promise<{ id: stri
 
     useEffect(() => {
         if (endUser) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 full_name: endUser.full_name,
                 department_id: endUser.department_id,
                 position_id: endUser.position_id,

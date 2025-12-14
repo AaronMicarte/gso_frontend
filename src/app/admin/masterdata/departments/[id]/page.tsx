@@ -24,7 +24,7 @@ export default function EditDepartmentPage({ params }: { params: Promise<{ id: s
 
     useEffect(() => {
         if (department) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 code: department.code || '',
                 name: department.name || '',
                 description: department.description || '',

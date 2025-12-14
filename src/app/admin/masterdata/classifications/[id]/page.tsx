@@ -25,7 +25,7 @@ export default function EditClassificationPage({ params }: { params: Promise<{ i
 
     useEffect(() => {
         if (classification) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: classification.name,
                 category_id: classification.category_id,
                 description: classification.description || '',

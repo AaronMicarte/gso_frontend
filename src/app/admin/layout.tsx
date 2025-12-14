@@ -37,6 +37,7 @@ import {
     Ruler,
     Truck,
     Briefcase,
+    CheckCircle,
 } from 'lucide-react';
 
 // Navigation structure with sections and collapsible groups
@@ -114,13 +115,17 @@ const navSections: NavSection[] = [
                 children: [
                     { label: 'Categories', href: '/admin/masterdata/categories', icon: FolderTree },
                     { label: 'Classifications', href: '/admin/masterdata/classifications', icon: Tag },
+                    { label: 'Conditions', href: '/admin/masterdata/conditions', icon: CheckCircle },
                     { label: 'Departments', href: '/admin/masterdata/departments', icon: Building2 },
-                    { label: 'Property Classifications', href: '/admin/masterdata/property-classifications', icon: FileType },
-                    { label: 'Property Types', href: '/admin/masterdata/property-types', icon: Box },
-                    { label: 'Units of Measure', href: '/admin/masterdata/units-of-measure', icon: Ruler },
-                    { label: 'Suppliers', href: '/admin/masterdata/suppliers', icon: Truck },
-                    { label: 'Positions', href: '/admin/masterdata/positions', icon: Briefcase },
+                    { label: 'Disposal Methods', href: '/admin/masterdata/disposal-methods', icon: Trash2 },
                     { label: 'End Users', href: '/admin/masterdata/end-users', icon: Users },
+                    { label: 'Positions', href: '/admin/masterdata/positions', icon: Briefcase },
+                    { label: 'Property Classifications', href: '/admin/masterdata/property-classifications', icon: FileType },
+                    { label: 'Property Statuses', href: '/admin/masterdata/property-statuses', icon: Package },
+                    { label: 'Property Types', href: '/admin/masterdata/property-types', icon: Box },
+                    { label: 'Suppliers', href: '/admin/masterdata/suppliers', icon: Truck },
+                    { label: 'Units of Measure', href: '/admin/masterdata/units-of-measure', icon: Ruler },
+                    { label: 'User Roles', href: '/admin/masterdata/user-roles', icon: ShieldCheck },
                 ],
             },
         ],

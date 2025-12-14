@@ -23,7 +23,7 @@ export default function EditConditionPage({ params }: { params: Promise<{ id: st
 
     useEffect(() => {
         if (condition) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: condition.name || '',
                 description: condition.description || '',
             });

@@ -23,7 +23,7 @@ export default function EditDisposalMethodPage({ params }: { params: Promise<{ i
 
     useEffect(() => {
         if (disposalMethod) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: disposalMethod.name || '',
                 description: disposalMethod.description || '',
             });

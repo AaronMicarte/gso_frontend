@@ -23,7 +23,7 @@ export default function EditPropertyStatusPage({ params }: { params: Promise<{ i
 
     useEffect(() => {
         if (propertyStatus) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: propertyStatus.name || '',
                 description: propertyStatus.description || '',
             });

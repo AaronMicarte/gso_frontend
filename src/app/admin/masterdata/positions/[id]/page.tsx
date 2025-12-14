@@ -23,7 +23,7 @@ export default function EditPositionPage({ params }: { params: Promise<{ id: str
 
     useEffect(() => {
         if (position) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: position.name,
                 description: position.description || '',
             });

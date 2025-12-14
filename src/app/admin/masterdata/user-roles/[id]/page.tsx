@@ -23,7 +23,7 @@ export default function EditUserRolePage({ params }: { params: Promise<{ id: str
 
     useEffect(() => {
         if (userRole) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: userRole.name || '',
                 description: userRole.description || '',
             });

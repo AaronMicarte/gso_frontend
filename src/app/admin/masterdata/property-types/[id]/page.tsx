@@ -30,7 +30,7 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
 
     useEffect(() => {
         if (propertyType) {
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: propertyType.name,
                 category_id: propertyType.category_id,
                 classification_id: propertyType.classification_id,

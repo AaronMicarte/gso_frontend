@@ -30,12 +30,13 @@ export default function NewPropertyTypePage() {
 
         createMutation.mutate(formData, {
             onSuccess: () => {
-                toast.success('Property type created successfully');
-                router.push('/admin/masterdata/property-types');
+                // Toast is handled by the hook
+                setTimeout(() => router.push('/admin/masterdata/property-types'), 100);
             },
-            onError: (error: any) => {
-                if (error?.response?.data?.errors) {
-                    const backendErrors = error.response.data.errors;
+            onError: (error: unknown) => {
+                const err = error as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
+                if (err.response?.data?.errors) {
+                    const backendErrors = err.response.data.errors;
                     const mappedErrors: Record<string, string[]> = {};
 
                     if (backendErrors.name) mappedErrors.name = backendErrors.name;
@@ -57,7 +58,7 @@ export default function NewPropertyTypePage() {
                         toast.error('Please check the form for errors');
                     }
                 } else {
-                    toast.error('Failed to create property type');
+                    toast.error(err.response?.data?.message || (error as Error).message || 'Failed to create property type');
                 }
             },
         });
