@@ -136,6 +136,15 @@ export interface Condition {
     id: number;
     name: string;
     description?: string | null;
+    created_at: string;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+    is_deleted?: boolean;
+}
+
+export interface ConditionInput {
+    name: string;
+    description?: string;
 }
 
 // ============================================
@@ -146,6 +155,53 @@ export interface PropertyStatus {
     id: number;
     name: string;
     description?: string | null;
+    created_at: string;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+    is_deleted?: boolean;
+}
+
+export interface PropertyStatusInput {
+    name: string;
+    description?: string;
+}
+
+// ============================================
+// DISPOSAL METHODS
+// ============================================
+
+export interface DisposalMethod {
+    id: number;
+    name: string;
+    description?: string | null;
+    created_at: string;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+    is_deleted?: boolean;
+}
+
+export interface DisposalMethodInput {
+    name: string;
+    description?: string;
+}
+
+// ============================================
+// USER ROLES
+// ============================================
+
+export interface UserRole {
+    id: number;
+    name: string;
+    description?: string | null;
+    created_at: string;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+    is_deleted?: boolean;
+}
+
+export interface UserRoleInput {
+    name: string;
+    description?: string;
 }
 
 // ============================================

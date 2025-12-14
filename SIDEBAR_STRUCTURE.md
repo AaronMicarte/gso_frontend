@@ -143,6 +143,28 @@
   - Property categories
   - Property types
   - Custom fields
+- 🏢 Departments
+  - Add departments
+  - Edit departments
+  - Department hierarchy
+- 💼 Positions
+  - Manage positions
+  - Link to departments
+- 📦 Units of Measure
+  - Manage measurement units
+  - Unit conversions
+- ✅ Conditions
+  - Property condition types
+  - Condition assessments
+- 📊 Property Statuses
+  - Manage property statuses
+  - Status tracking
+- 🗑️ Disposal Methods
+  - Disposal method types
+  - Disposal procedures
+- 🎭 User Roles
+  - System user roles
+  - Permission management
 
 ### Reports & Analytics
 - 📈 Dashboard Analytics
