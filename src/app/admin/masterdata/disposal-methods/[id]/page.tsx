@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { DisposalMethodInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDisposalMethod, useUpdateDisposalMethod } from '@/lib/hooks/masterData';
@@ -41,9 +42,10 @@ export default function EditDisposalMethodPage({ params }: { params: Promise<{ i
                     toast.success('Disposal method updated successfully');
                     router.push('/admin/masterdata/disposal-methods');
                 },
-                onError: (error: any) => {
-                    if (error?.response?.data?.errors) {
-                        const backendErrors = error.response.data.errors;
+                onError: (error: Error) => {
+                    const apiError = error as ApiError;
+                    if (apiError?.response?.data?.errors) {
+                        const backendErrors = apiError.response.data.errors;
                         const mappedErrors: Record<string, string[]> = {};
                         // Map backend errors to frontend fields if necessary
                         if (backendErrors.MethodName) mappedErrors.name = backendErrors.MethodName;
@@ -76,7 +78,7 @@ export default function EditDisposalMethodPage({ params }: { params: Promise<{ i
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-slate-800 mb-2">Disposal Method Not Found</h1>
-                    <p className="text-slate-600 mb-4">The disposal method you're looking for doesn't exist.</p>
+                    <p className="text-slate-600 mb-4">The disposal method you&apos;re looking for doesn&apos;t exist.</p>
                     <button
                         onClick={() => router.push('/admin/masterdata/disposal-methods')}
                         className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)]"

@@ -9,7 +9,6 @@ import {
     Boxes,
     Package,
     BarChart3,
-    Settings,
     LogOut,
     LucideIcon,
     ChevronDown,
@@ -19,7 +18,6 @@ import {
     PackagePlus,
     UserPlus,
     Building2,
-    Tags,
     RefreshCw,
     Trash2,
     QrCode,
@@ -28,8 +26,6 @@ import {
     FileBarChart,
     Wrench,
     FolderTree,
-    Menu,
-    X,
     Tag,
     FileType,
     Box,
@@ -242,9 +238,18 @@ const navSections: NavSection[] = [
 
 // Collapsible menu item component
 function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
-    const [isOpen, setIsOpen] = useState(false);
     const hasChildren = item.children && item.children.length > 0;
     const Icon = item.icon;
+
+    // Initialize open state based on active child
+    const [isOpen, setIsOpen] = useState(() => {
+        if (hasChildren && item.children) {
+            return item.children.some(
+                (child) => child.href && pathname.startsWith(child.href)
+            );
+        }
+        return false;
+    });
 
     // Auto-open if any child is active
     useEffect(() => {
@@ -252,7 +257,10 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
             const hasActiveChild = item.children.some(
                 (child) => child.href && pathname.startsWith(child.href)
             );
-            if (hasActiveChild) setIsOpen(true);
+            if (hasActiveChild) {
+                // eslint-disable-next-line react-hooks/set-state-in-effect
+                setIsOpen(true);
+            }
         }
     }, [pathname, hasChildren, item.children]);
 

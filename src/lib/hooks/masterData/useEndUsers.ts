@@ -9,6 +9,7 @@ import {
     EndUserFilters,
 } from '@/lib/api/masterData/endUsers';
 import { EndUser, EndUserInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const endUserKeys = {
@@ -57,8 +58,8 @@ export function useCreateEndUser() {
             queryClient.invalidateQueries({ queryKey: endUserKeys.allEndUsers() });
             toast.success('End user created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create end user';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create end user';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdateEndUser() {
             queryClient.invalidateQueries({ queryKey: endUserKeys.allEndUsers() });
             toast.success('End user updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update end user';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update end user';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeleteEndUser() {
             queryClient.invalidateQueries({ queryKey: endUserKeys.allEndUsers() });
             toast.success('End user deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete end user';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete end user';
             toast.error('Deletion Failed', { description: message });
         },
     });

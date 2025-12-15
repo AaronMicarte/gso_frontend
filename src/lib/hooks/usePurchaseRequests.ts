@@ -6,8 +6,11 @@ import {
     updatePurchaseRequest,
     deletePurchaseRequest,
     approvePurchaseRequest,
-    rejectPurchaseRequest
+    rejectPurchaseRequest,
+    setBudgetCheckedPurchaseRequest
 } from '@/lib/api/procurement/purchaseRequests';
+import { UpdatePurchaseRequestPayload } from '@/types/procurement';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const usePurchaseRequests = (params?: {
@@ -42,8 +45,8 @@ export const useCreatePurchaseRequest = () => {
             queryClient.invalidateQueries({ queryKey: ['purchase-requests'] });
             toast.success('Purchase Request created successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to create Purchase Request');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to create Purchase Request');
         },
     });
 };
@@ -51,14 +54,14 @@ export const useCreatePurchaseRequest = () => {
 export const useUpdatePurchaseRequest = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: number; data: any }) => updatePurchaseRequest(id, data),
+        mutationFn: ({ id, data }: { id: number; data: UpdatePurchaseRequestPayload }) => updatePurchaseRequest(id, data),
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['purchase-requests'] });
             queryClient.invalidateQueries({ queryKey: ['purchase-request', variables.id] });
             toast.success('Purchase Request updated successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to update Purchase Request');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to update Purchase Request');
         },
     });
 };
@@ -71,8 +74,8 @@ export const useDeletePurchaseRequest = () => {
             queryClient.invalidateQueries({ queryKey: ['purchase-requests'] });
             toast.success('Purchase Request deleted successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to delete Purchase Request');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to delete Purchase Request');
         },
     });
 };
@@ -86,8 +89,8 @@ export const useApprovePurchaseRequest = () => {
             queryClient.invalidateQueries({ queryKey: ['purchase-request', id] });
             toast.success('Purchase Request approved successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to approve Purchase Request');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to approve Purchase Request');
         },
     });
 };
@@ -101,8 +104,23 @@ export const useRejectPurchaseRequest = () => {
             queryClient.invalidateQueries({ queryKey: ['purchase-request', id] });
             toast.success('Purchase Request rejected successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to reject Purchase Request');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to reject Purchase Request');
+        },
+    });
+};
+
+export const useSetBudgetCheckedPurchaseRequest = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: setBudgetCheckedPurchaseRequest,
+        onSuccess: (data, id) => {
+            queryClient.invalidateQueries({ queryKey: ['purchase-requests'] });
+            queryClient.invalidateQueries({ queryKey: ['purchase-request', id] });
+            toast.success('Purchase Request marked as budget checked successfully');
+        },
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to set budget checked status');
         },
     });
 };

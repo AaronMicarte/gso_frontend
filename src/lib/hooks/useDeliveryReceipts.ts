@@ -9,6 +9,7 @@ import {
     DeliveryReceiptFilters,
 } from '@/lib/api/procurement/deliveryReceipts';
 import { CreateDeliveryReceiptPayload, UpdateDeliveryReceiptPayload } from '@/types/procurement';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const deliveryReceiptKeys = {
@@ -45,8 +46,8 @@ export function useCreateDeliveryReceipt() {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
             toast.success('Delivery Receipt created successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to create Delivery Receipt');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to create Delivery Receipt');
         },
     });
 }
@@ -61,8 +62,8 @@ export function useUpdateDeliveryReceipt() {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });
             toast.success('Delivery Receipt updated successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to update Delivery Receipt');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to update Delivery Receipt');
         },
     });
 }
@@ -76,8 +77,8 @@ export function useApproveDeliveryReceipt() {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });
             toast.success('Delivery Receipt approved successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to approve Delivery Receipt');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to approve Delivery Receipt');
         },
     });
 }
@@ -91,8 +92,8 @@ export function useRejectDeliveryReceipt() {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });
             toast.success('Delivery Receipt rejected successfully');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to reject Delivery Receipt');
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to reject Delivery Receipt');
         },
     });
 }

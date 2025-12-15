@@ -4,6 +4,44 @@
  */
 
 // ============================================
+// LEGACY TYPES (PascalCase - for Property/Procurement system)
+// ============================================
+
+export interface Supplier {
+    SupplierID: number;
+    SupplierName: string;
+    ContactPerson?: string;
+    Address?: string;
+    ContactNumber?: string;
+    Email?: string;
+    TIN?: string;
+    IsActive: boolean;
+    CreatedDate: string;
+    UpdatedDate?: string;
+}
+
+export interface UnitOfMeasure {
+    UnitOfMeasureID: number;
+    UnitName: string;
+    Description?: string;
+}
+
+export interface Category {
+    id: number;
+    name: string;
+    description?: string | null;
+    created_at: string;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+    is_deleted?: boolean;
+}
+
+export interface CategoryInput {
+    name: string;
+    description?: string;
+}
+
+// ============================================
 // PROPERTY INVENTORY
 // ============================================
 
@@ -63,21 +101,6 @@ export interface PropertyType {
     PropertyClassification?: PropertyClassification;
 }
 
-export interface Category {
-    id: number;
-    name: string;
-    description?: string | null;
-    created_at: string;
-    updated_at?: string | null;
-    deleted_at?: string | null;
-    is_deleted?: boolean;
-}
-
-export interface CategoryInput {
-    name: string;
-    description?: string;
-}
-
 export interface Classification {
     ClassificationID: number;
     ClassificationName: string;
@@ -103,12 +126,6 @@ export interface Condition {
 export interface PropertyStatus {
     PropertyStatusID: number;
     StatusName: string;
-    Description?: string;
-}
-
-export interface UnitOfMeasure {
-    UnitOfMeasureID: number;
-    UnitName: string;
     Description?: string;
 }
 
@@ -390,19 +407,6 @@ export interface Position {
     PositionID: number;
     PositionName: string;
     Description?: string;
-    CreatedDate: string;
-    UpdatedDate?: string;
-}
-
-export interface Supplier {
-    SupplierID: number;
-    SupplierName: string;
-    ContactPerson: string;
-    Address: string;
-    ContactNumber: string;
-    Email?: string;
-    TIN?: string;
-    IsActive: boolean;
     CreatedDate: string;
     UpdatedDate?: string;
 }

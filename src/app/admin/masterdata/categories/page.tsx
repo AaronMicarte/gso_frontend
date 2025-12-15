@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCategories, useDeleteCategory } from '@/lib/hooks/masterData';
-import { Category } from '@/types/property';
+import { Category } from '@/types/masterData';
 import { showConfirmDialog } from '@/lib/utils/confirm';
 import { Plus, Search, Edit, Trash2, FolderTree, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';

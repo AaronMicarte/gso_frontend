@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { AxiosError } from 'axios';
 import {
     getPurchaseOrders,
     getPurchaseOrder,
@@ -8,8 +9,11 @@ import {
     rejectPurchaseOrder,
     PurchaseOrderFilters,
 } from '@/lib/api/procurement/purchaseOrders';
-import { CreatePurchaseOrderPayload, UpdatePurchaseOrderPayload } from '@/types/procurement';
+import type { PaginatedResponse } from '@/types/masterData';
+import type { CreatePurchaseOrderPayload, UpdatePurchaseOrderPayload, PurchaseOrder } from '@/types/procurement';
 import { toast } from 'sonner';
+
+type ApiError = AxiosError<{ message?: string }>;
 
 export const purchaseOrderKeys = {
     all: ['purchase-orders'] as const,
@@ -20,7 +24,7 @@ export const purchaseOrderKeys = {
 };
 
 export function usePurchaseOrders(filters?: PurchaseOrderFilters) {
-    return useQuery({
+    return useQuery<PaginatedResponse<PurchaseOrder>, ApiError>({
         queryKey: purchaseOrderKeys.list(filters),
         queryFn: () => getPurchaseOrders(filters),
         staleTime: 5 * 60 * 1000,
@@ -29,7 +33,7 @@ export function usePurchaseOrders(filters?: PurchaseOrderFilters) {
 }
 
 export function usePurchaseOrder(id: number | null) {
-    return useQuery({
+    return useQuery<PurchaseOrder, ApiError>({
         queryKey: id ? purchaseOrderKeys.detail(id) : ['purchase-order-null'],
         queryFn: () => getPurchaseOrder(id!),
         enabled: !!id,
@@ -39,13 +43,13 @@ export function usePurchaseOrder(id: number | null) {
 
 export function useCreatePurchaseOrder() {
     const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (data: CreatePurchaseOrderPayload) => createPurchaseOrder(data),
+    return useMutation<PurchaseOrder, ApiError, CreatePurchaseOrderPayload>({
+        mutationFn: (data) => createPurchaseOrder(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all });
             toast.success('Purchase Order created successfully');
         },
-        onError: (error: any) => {
+        onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to create Purchase Order');
         },
     });
@@ -53,15 +57,15 @@ export function useCreatePurchaseOrder() {
 
 export function useUpdatePurchaseOrder() {
     const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, data }: { id: number; data: UpdatePurchaseOrderPayload }) =>
+    return useMutation<PurchaseOrder, ApiError, { id: number; data: UpdatePurchaseOrderPayload }>({
+        mutationFn: ({ id, data }) =>
             updatePurchaseOrder(id, data),
         onSuccess: (_, { id }) => {
             queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all });
             queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(id) });
             toast.success('Purchase Order updated successfully');
         },
-        onError: (error: any) => {
+        onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to update Purchase Order');
         },
     });
@@ -69,14 +73,14 @@ export function useUpdatePurchaseOrder() {
 
 export function useApprovePurchaseOrder() {
     const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (id: number) => approvePurchaseOrder(id),
+    return useMutation<void, ApiError, number>({
+        mutationFn: (id) => approvePurchaseOrder(id),
         onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all });
             queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(id) });
             toast.success('Purchase Order approved successfully');
         },
-        onError: (error: any) => {
+        onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to approve Purchase Order');
         },
     });
@@ -84,14 +88,14 @@ export function useApprovePurchaseOrder() {
 
 export function useRejectPurchaseOrder() {
     const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (id: number) => rejectPurchaseOrder(id),
+    return useMutation<void, ApiError, number>({
+        mutationFn: (id) => rejectPurchaseOrder(id),
         onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all });
             queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(id) });
             toast.success('Purchase Order rejected successfully');
         },
-        onError: (error: any) => {
+        onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to reject Purchase Order');
         },
     });

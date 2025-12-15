@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConditionInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCondition, useUpdateCondition } from '@/lib/hooks/masterData';
@@ -41,9 +42,10 @@ export default function EditConditionPage({ params }: { params: Promise<{ id: st
                     toast.success('Condition updated successfully');
                     router.push('/admin/masterdata/conditions');
                 },
-                onError: (error: any) => {
-                    if (error?.response?.data?.errors) {
-                        const backendErrors = error.response.data.errors;
+                onError: (error: Error) => {
+                    const apiError = error as ApiError;
+                    if (apiError?.response?.data?.errors) {
+                        const backendErrors = apiError.response.data.errors;
                         const mappedErrors: Record<string, string[]> = {};
                         // Map backend errors to frontend fields if necessary
                         if (backendErrors.ConditionName) mappedErrors.name = backendErrors.ConditionName;
@@ -76,7 +78,7 @@ export default function EditConditionPage({ params }: { params: Promise<{ id: st
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-slate-800 mb-2">Condition Not Found</h1>
-                    <p className="text-slate-600 mb-4">The condition you're looking for doesn't exist.</p>
+                    <p className="text-slate-600 mb-4">The condition you&apos;re looking for doesn&apos;t exist.</p>
                     <button
                         onClick={() => router.push('/admin/masterdata/conditions')}
                         className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)]"

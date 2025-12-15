@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEndUser, useUpdateEndUser, useAllDepartments, useAllPositions } from '@/lib/hooks/masterData';
-import { EndUserInput } from '@/types/masterData';
+import { EndUserInput, Department, Position } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -52,9 +53,10 @@ export default function EditEndUserPage({ params }: { params: Promise<{ id: stri
                     toast.success('End user updated successfully');
                     router.push('/admin/masterdata/end-users');
                 },
-                onError: (error: any) => {
-                    if (error?.response?.data?.errors) {
-                        const backendErrors = error.response.data.errors;
+                onError: (error: Error) => {
+                    const apiError = error as ApiError;
+                    if (apiError?.response?.data?.errors) {
+                        const backendErrors = apiError.response.data.errors;
                         const mappedErrors: Record<string, string[]> = {};
 
                         if (backendErrors.full_name) mappedErrors.full_name = backendErrors.full_name;
@@ -231,9 +233,9 @@ export default function EditEndUserPage({ params }: { params: Promise<{ id: stri
                                 required
                             >
                                 <option value={0}>Select a department</option>
-                                {departments?.map((dept: any) => (
-                                    <option key={dept.id} value={dept.id}>
-                                        {dept.name}
+                                {departments?.map((dept: Department) => (
+                                    <option key={dept.DepartmentID} value={dept.DepartmentID}>
+                                        {dept.DepartmentName}
                                     </option>
                                 ))}
                             </select>
@@ -257,7 +259,7 @@ export default function EditEndUserPage({ params }: { params: Promise<{ id: stri
                                 required
                             >
                                 <option value={0}>Select a position</option>
-                                {positions?.map((pos: any) => (
+                                {positions?.map((pos: Position) => (
                                     <option key={pos.id} value={pos.id}>
                                         {pos.name}
                                     </option>

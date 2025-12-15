@@ -188,7 +188,7 @@ export default function SetupMFAPage() {
                                     )}
                                 </div>
                             </div>                            <div className="text-center mb-6">
-                                <p className="text-xs text-slate-500 mb-2">Can't scan? Enter this code manually:</p>
+                                <p className="text-xs text-slate-500 mb-2">Can&apos;t scan? Enter this code manually:</p>
                                 <div className="inline-flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-lg">
                                     <code className="text-sm font-mono text-slate-300">{secretData.secret}</code>
                                     <button
@@ -200,7 +200,7 @@ export default function SetupMFAPage() {
                                 </div>
                                 {/* Manual entry backup */}
                                 <div className="text-center text-xs text-slate-500 mt-2">
-                                    If scanning doesn't work, you can manually enter this code in your authenticator app:
+                                    If scanning doesn&apos;t work, you can manually enter this code in your authenticator app:
                                     <br />
                                     <code className="bg-slate-900/50 px-2 py-1 rounded mt-1 inline-block font-mono text-slate-300">{secretData.secret}</code>
                                 </div>
@@ -209,7 +209,7 @@ export default function SetupMFAPage() {
                             {/* Can't use authenticator? - REMOVED FOR CLEANER LAYOUT */}
 
                             <Button size="lg" onClick={() => setStep(2)} className="w-full">
-                                I've Scanned the Code
+                                I&apos;ve Scanned the Code
                             </Button>
 
                             {/* Retry button if QR failed */}

@@ -73,7 +73,7 @@ export function LoginForm() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [lockout?.locked]);
+  }, [lockout?.locked, lockout?.seconds]);
 
   // Get dashboard route based on user role
   const getDashboardRoute = (role: string): string => {

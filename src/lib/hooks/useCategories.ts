@@ -9,7 +9,21 @@ import {
     CategoryFilters,
 } from '@/lib/api/masterData/categories';
 import { Category, CategoryInput } from '@/types/property';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
+
+type CreateCategoryContext = {
+    previousCategories?: Category[];
+};
+
+type UpdateCategoryContext = {
+    previousCategory?: Category;
+    previousAllCategories?: Category[];
+};
+
+type DeleteCategoryContext = {
+    previousAllCategories?: Category[];
+};
 
 // Query keys for better cache management
 export const categoryKeys = {
@@ -55,14 +69,14 @@ export function useCategory(id: number | null) {
 export function useCreateCategory() {
     const queryClient = useQueryClient();
 
-    return useMutation({
+    return useMutation<Category, unknown, CategoryInput, CreateCategoryContext>({
         mutationFn: createCategory,
         onMutate: async (newCategory) => {
             // Cancel outgoing refetches
             await queryClient.cancelQueries({ queryKey: categoryKeys.lists() });
 
             // Snapshot previous value
-            const previousCategories = queryClient.getQueryData(categoryKeys.allCategories());
+            const previousCategories = queryClient.getQueryData<Category[]>(categoryKeys.allCategories());
 
             // Optimistically update cache
             queryClient.setQueryData(categoryKeys.allCategories(), (old: Category[] | undefined) => {
@@ -70,7 +84,7 @@ export function useCreateCategory() {
                 const tempCategory: Category = {
                     id: Date.now(),
                     name: newCategory.name,
-                    description: newCategory.description || null,
+                    description: newCategory.description ?? null,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                     deleted_at: null,
@@ -89,12 +103,12 @@ export function useCreateCategory() {
                 description: 'The new category has been added to the system.',
             });
         },
-        onError: (error: any, _newCategory, context) => {
+        onError: (error: unknown, _newCategory, context) => {
             // Rollback on error
             if (context?.previousCategories) {
                 queryClient.setQueryData(categoryKeys.allCategories(), context.previousCategories);
             }
-            const message = error?.response?.data?.message || 'Failed to create category';
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create category';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -104,28 +118,38 @@ export function useCreateCategory() {
 export function useUpdateCategory() {
     const queryClient = useQueryClient();
 
-    return useMutation({
-        mutationFn: ({ id, data }: { id: number; data: CategoryInput }) => updateCategory(id, data),
+    return useMutation<Category, unknown, { id: number; data: CategoryInput }, UpdateCategoryContext>({
+        mutationFn: ({ id, data }) => updateCategory(id, data),
         onMutate: async ({ id, data }) => {
             // Cancel queries
             await queryClient.cancelQueries({ queryKey: categoryKeys.lists() });
             await queryClient.cancelQueries({ queryKey: categoryKeys.detail(id) });
 
             // Snapshot
-            const previousCategory = queryClient.getQueryData(categoryKeys.detail(id));
-            const previousAllCategories = queryClient.getQueryData(categoryKeys.allCategories());
+            const previousCategory = queryClient.getQueryData<Category>(categoryKeys.detail(id));
+            const previousAllCategories = queryClient.getQueryData<Category[]>(categoryKeys.allCategories());
 
             // Optimistic update
             queryClient.setQueryData(categoryKeys.detail(id), (old: Category | undefined) => {
                 if (!old) return old;
-                return { ...old, ...data, UpdatedDate: new Date().toISOString() };
+                return {
+                    ...old,
+                    name: data.name,
+                    description: data.description ?? null,
+                    updated_at: new Date().toISOString(),
+                };
             });
 
             queryClient.setQueryData(categoryKeys.allCategories(), (old: Category[] | undefined) => {
                 if (!old) return old;
                 return old.map((cat) =>
                     cat.id === id
-                        ? { ...cat, ...data, updated_at: new Date().toISOString() }
+                        ? {
+                            ...cat,
+                            name: data.name,
+                            description: data.description ?? null,
+                            updated_at: new Date().toISOString(),
+                        }
                         : cat
                 );
             });
@@ -138,7 +162,7 @@ export function useUpdateCategory() {
             queryClient.invalidateQueries({ queryKey: categoryKeys.allCategories() });
             toast.success('Category updated successfully!');
         },
-        onError: (error: any, variables, context) => {
+        onError: (error: unknown, variables, context) => {
             // Rollback
             if (context?.previousCategory) {
                 queryClient.setQueryData(categoryKeys.detail(variables.id), context.previousCategory);
@@ -146,7 +170,7 @@ export function useUpdateCategory() {
             if (context?.previousAllCategories) {
                 queryClient.setQueryData(categoryKeys.allCategories(), context.previousAllCategories);
             }
-            const message = error?.response?.data?.message || 'Failed to update category';
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update category';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -156,14 +180,14 @@ export function useUpdateCategory() {
 export function useDeleteCategory() {
     const queryClient = useQueryClient();
 
-    return useMutation({
+    return useMutation<void, unknown, number, DeleteCategoryContext>({
         mutationFn: deleteCategory,
         onMutate: async (id) => {
             // Cancel queries
             await queryClient.cancelQueries({ queryKey: categoryKeys.lists() });
 
             // Snapshot
-            const previousAllCategories = queryClient.getQueryData(categoryKeys.allCategories());
+            const previousAllCategories = queryClient.getQueryData<Category[]>(categoryKeys.allCategories());
 
             // Optimistic removal
             queryClient.setQueryData(categoryKeys.allCategories(), (old: Category[] | undefined) => {
@@ -180,12 +204,12 @@ export function useDeleteCategory() {
                 description: 'The category has been removed from the system.',
             });
         },
-        onError: (error: any, _id, context) => {
+        onError: (error: unknown, _id, context) => {
             // Rollback
             if (context?.previousAllCategories) {
                 queryClient.setQueryData(categoryKeys.allCategories(), context.previousAllCategories);
             }
-            const message = error?.response?.data?.message || 'Failed to delete category';
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete category';
             toast.error('Deletion Failed', { description: message });
         },
     });

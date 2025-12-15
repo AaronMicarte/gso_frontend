@@ -9,6 +9,7 @@ import {
     PropertyClassificationFilters,
 } from '@/lib/api/masterData/propertyClassifications';
 import { PropertyClassification, PropertyClassificationInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const propertyClassificationKeys = {
@@ -57,8 +58,8 @@ export function useCreatePropertyClassification() {
             queryClient.invalidateQueries({ queryKey: propertyClassificationKeys.allPropertyClassifications() });
             toast.success('Property classification created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create property classification';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create property classification';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdatePropertyClassification() {
             queryClient.invalidateQueries({ queryKey: propertyClassificationKeys.allPropertyClassifications() });
             toast.success('Property classification updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update property classification';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update property classification';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeletePropertyClassification() {
             queryClient.invalidateQueries({ queryKey: propertyClassificationKeys.allPropertyClassifications() });
             toast.success('Property classification deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete property classification';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete property classification';
             toast.error('Deletion Failed', { description: message });
         },
     });

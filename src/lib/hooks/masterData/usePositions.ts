@@ -9,6 +9,7 @@ import {
     PositionFilters,
 } from '@/lib/api/masterData/positions';
 import { Position, PositionInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const positionKeys = {
@@ -57,8 +58,8 @@ export function useCreatePosition() {
             queryClient.invalidateQueries({ queryKey: positionKeys.allPositions() });
             toast.success('Position created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create position';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create position';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdatePosition() {
             queryClient.invalidateQueries({ queryKey: positionKeys.allPositions() });
             toast.success('Position updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update position';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update position';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeletePosition() {
             queryClient.invalidateQueries({ queryKey: positionKeys.allPositions() });
             toast.success('Position deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete position';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete position';
             toast.error('Deletion Failed', { description: message });
         },
     });

@@ -9,6 +9,7 @@ import {
     CategoryFilters,
 } from '@/lib/api/masterData/categories';
 import { Category, CategoryInput } from '@/types/property';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 // Query keys for better cache management
@@ -89,12 +90,12 @@ export function useCreateCategory() {
                 description: 'The new category has been added to the system.',
             });
         },
-        onError: (error: any, _newCategory, context) => {
+        onError: (error: Error, _newCategory, context) => {
             // Rollback on error
             if (context?.previousCategories) {
                 queryClient.setQueryData(categoryKeys.allCategories(), context.previousCategories);
             }
-            const message = error?.response?.data?.message || 'Failed to create category';
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create category';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -138,7 +139,7 @@ export function useUpdateCategory() {
             queryClient.invalidateQueries({ queryKey: categoryKeys.allCategories() });
             toast.success('Category updated successfully!');
         },
-        onError: (error: any, variables, context) => {
+        onError: (error: Error, variables, context) => {
             // Rollback
             if (context?.previousCategory) {
                 queryClient.setQueryData(categoryKeys.detail(variables.id), context.previousCategory);
@@ -146,7 +147,7 @@ export function useUpdateCategory() {
             if (context?.previousAllCategories) {
                 queryClient.setQueryData(categoryKeys.allCategories(), context.previousAllCategories);
             }
-            const message = error?.response?.data?.message || 'Failed to update category';
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update category';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -180,12 +181,12 @@ export function useDeleteCategory() {
                 description: 'The category has been removed from the system.',
             });
         },
-        onError: (error: any, _id, context) => {
+        onError: (error: Error, _id, context) => {
             // Rollback
             if (context?.previousAllCategories) {
                 queryClient.setQueryData(categoryKeys.allCategories(), context.previousAllCategories);
             }
-            const message = error?.response?.data?.message || 'Failed to delete category';
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete category';
             toast.error('Deletion Failed', { description: message });
         },
     });

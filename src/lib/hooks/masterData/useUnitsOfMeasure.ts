@@ -9,6 +9,7 @@ import {
     UnitOfMeasureFilters,
 } from '@/lib/api/masterData/unitsOfMeasure';
 import { UnitOfMeasure, UnitOfMeasureInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const unitOfMeasureKeys = {
@@ -57,8 +58,8 @@ export function useCreateUnitOfMeasure() {
             queryClient.invalidateQueries({ queryKey: unitOfMeasureKeys.allUnits() });
             toast.success('Unit of measure created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create unit of measure';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create unit of measure';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdateUnitOfMeasure() {
             queryClient.invalidateQueries({ queryKey: unitOfMeasureKeys.allUnits() });
             toast.success('Unit of measure updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update unit of measure';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update unit of measure';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeleteUnitOfMeasure() {
             queryClient.invalidateQueries({ queryKey: unitOfMeasureKeys.allUnits() });
             toast.success('Unit of measure deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete unit of measure';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete unit of measure';
             toast.error('Deletion Failed', { description: message });
         },
     });

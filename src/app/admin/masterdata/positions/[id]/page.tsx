@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePosition, useUpdatePosition } from '@/lib/hooks/masterData';
 import { PositionInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 import { ArrowLeft, Save } from 'lucide-react';
 
@@ -41,9 +42,10 @@ export default function EditPositionPage({ params }: { params: Promise<{ id: str
                     toast.success('Position updated successfully');
                     router.push('/admin/masterdata/positions');
                 },
-                onError: (error: any) => {
-                    if (error?.response?.data?.errors) {
-                        const backendErrors = error.response.data.errors;
+                onError: (error: Error) => {
+                    const apiError = error as ApiError;
+                    if (apiError?.response?.data?.errors) {
+                        const backendErrors = apiError.response.data.errors;
                         const mappedErrors: Record<string, string[]> = {};
 
                         if (backendErrors.name) mappedErrors.name = backendErrors.name;
@@ -80,7 +82,7 @@ export default function EditPositionPage({ params }: { params: Promise<{ id: str
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-slate-800 mb-2">Position Not Found</h1>
-                    <p className="text-slate-600 mb-4">The position you're looking for doesn't exist.</p>
+                    <p className="text-slate-600 mb-4">The position you&apos;re looking for doesn&apos;t exist.</p>
                     <button
                         onClick={() => router.push('/admin/masterdata/positions')}
                         className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)]"

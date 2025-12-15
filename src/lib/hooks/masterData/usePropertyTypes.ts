@@ -9,6 +9,7 @@ import {
     PropertyTypeFilters,
 } from '@/lib/api/masterData/propertyTypes';
 import { PropertyType, PropertyTypeInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const propertyTypeKeys = {
@@ -57,8 +58,8 @@ export function useCreatePropertyType() {
             queryClient.invalidateQueries({ queryKey: propertyTypeKeys.allPropertyTypes() });
             toast.success('Property type created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create property type';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create property type';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdatePropertyType() {
             queryClient.invalidateQueries({ queryKey: propertyTypeKeys.allPropertyTypes() });
             toast.success('Property type updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update property type';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update property type';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeletePropertyType() {
             queryClient.invalidateQueries({ queryKey: propertyTypeKeys.allPropertyTypes() });
             toast.success('Property type deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete property type';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete property type';
             toast.error('Deletion Failed', { description: message });
         },
     });

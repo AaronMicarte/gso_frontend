@@ -2,13 +2,12 @@
 
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreatePurchaseOrder } from '@/lib/hooks/usePurchaseOrders';
 import { usePurchaseRequests, usePurchaseRequest } from '@/lib/hooks/usePurchaseRequests';
 import { useSuppliers } from '@/lib/hooks/masterData/useSuppliers';
-import { Supplier } from '@/types/masterData';
 import { PurchaseRequest } from '@/types/procurement';
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -52,7 +51,6 @@ export default function CreatePurchaseOrderPage() {
         register,
         control,
         handleSubmit,
-        watch,
         setValue,
         formState: { errors, isSubmitting },
     } = useForm<POFormValues>({
@@ -69,7 +67,7 @@ export default function CreatePurchaseOrderPage() {
         name: 'items',
     });
 
-    const selectedPRId = watch('PurchaseRequestID');
+    const selectedPRId = useWatch({ control, name: 'PurchaseRequestID' });
 
     // Set initial PR from URL param
     useEffect(() => {
@@ -93,10 +91,10 @@ export default function CreatePurchaseOrderPage() {
         }
     }, [selectedPR, replace]);
 
-    const items = watch('items');
-    const totalAmount = items?.reduce((sum, item) => {
+    const items = useWatch({ control, name: 'items' }) ?? [];
+    const totalAmount = items.reduce((sum, item) => {
         return sum + (item.Quantity * item.UnitCost || 0);
-    }, 0) || 0;
+    }, 0);
 
     const onSubmit = (data: POFormValues) => {
         createMutation.mutate(data, {
@@ -187,9 +185,9 @@ export default function CreatePurchaseOrderPage() {
                                     }`}
                             >
                                 <option value="">Select Supplier...</option>
-                                {suppliersData?.data?.map((supplier: Supplier) => (
-                                    <option key={supplier.SupplierID} value={supplier.SupplierID}>
-                                        {supplier.SupplierName}
+                                {suppliersData?.data?.map((supplier) => (
+                                    <option key={supplier.id} value={supplier.id}>
+                                        {supplier.name}
                                     </option>
                                 ))}
                             </select>

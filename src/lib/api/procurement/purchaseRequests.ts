@@ -76,3 +76,8 @@ export const rejectPurchaseRequest = async (id: number) => {
     const response = await axios.post(`/admin/procurement/purchase-requests/${id}/reject`);
     return response.data;
 };
+
+export const setBudgetCheckedPurchaseRequest = async (id: number) => {
+    const response = await axios.post(`/admin/procurement/purchase-requests/${id}/budget-checked`);
+    return response.data;
+};

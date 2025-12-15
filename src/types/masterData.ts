@@ -312,42 +312,20 @@ export interface PaginatedResponse<T> {
 }
 
 // ============================================
-// SUPPLIERS
+// CATEGORIES (Property)
 // ============================================
 
-export interface Supplier {
-    SupplierID: number;
-    SupplierName: string;
-    ContactPerson?: string;
-    ContactNumber?: string;
-    Email?: string;
-    Address?: string;
-    IsActive?: number;
-    CreatedDate: string;
-    UpdatedDate?: string;
+export interface Category {
+    id: number;
+    name: string;
+    description?: string | null;
+    created_at: string;
+    updated_at?: string | null;
     deleted_at?: string | null;
+    is_deleted?: boolean;
 }
 
-export interface SupplierInput {
-    SupplierName: string;
-    ContactPerson?: string;
-    ContactNumber?: string;
-    Email?: string;
-    Address?: string;
-}
-
-// ============================================
-// UNITS OF MEASURE
-// ============================================
-
-export interface UnitOfMeasure {
-    UnitOfMeasureID: number;
-    UnitName: string;
-    Description?: string;
-    deleted_at?: string | null;
-}
-
-export interface UnitOfMeasureInput {
-    UnitName: string;
-    Description?: string;
+export interface CategoryInput {
+    name: string;
+    description?: string;
 }

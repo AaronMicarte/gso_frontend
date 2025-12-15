@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateEndUser, useAllDepartments, useAllPositions } from '@/lib/hooks/masterData';
-import { EndUserInput } from '@/types/masterData';
+import { EndUserInput, Department, Position } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,10 +34,10 @@ export default function NewEndUserPage() {
                 // Toast is handled by the hook
                 setTimeout(() => router.push('/admin/masterdata/end-users'), 100);
             },
-            onError: (error: unknown) => {
-                const err = error as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
-                if (err.response?.data?.errors) {
-                    const backendErrors = err.response.data.errors;
+            onError: (error: Error) => {
+                const apiError = error as ApiError;
+                if (apiError?.response?.data?.errors) {
+                    const backendErrors = apiError.response.data.errors;
                     const mappedErrors: Record<string, string[]> = {};
 
                     if (backendErrors.full_name) mappedErrors.full_name = backendErrors.full_name;
@@ -58,7 +59,7 @@ export default function NewEndUserPage() {
                         toast.error('Please check the form for errors');
                     }
                 } else {
-                    toast.error(err.response?.data?.message || (error as Error).message || 'Failed to create end user');
+                    toast.error(apiError?.response?.data?.message || error.message || 'Failed to create end user');
                 }
             },
         });
@@ -195,9 +196,9 @@ export default function NewEndUserPage() {
                                 required
                             >
                                 <option value={0}>Select a department</option>
-                                {departments?.map((dept: any) => (
-                                    <option key={dept.id} value={dept.id}>
-                                        {dept.name}
+                                {departments?.map((dept: Department) => (
+                                    <option key={dept.DepartmentID} value={dept.DepartmentID}>
+                                        {dept.DepartmentName}
                                     </option>
                                 ))}
                             </select>
@@ -221,7 +222,7 @@ export default function NewEndUserPage() {
                                 required
                             >
                                 <option value={0}>Select a position</option>
-                                {positions?.map((pos: any) => (
+                                {positions?.map((pos: Position) => (
                                     <option key={pos.id} value={pos.id}>
                                         {pos.name}
                                     </option>

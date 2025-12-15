@@ -9,6 +9,7 @@ import {
     ClassificationFilters,
 } from '@/lib/api/masterData/classifications';
 import { Classification, ClassificationInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const classificationKeys = {
@@ -58,8 +59,8 @@ export function useCreateClassification() {
             queryClient.invalidateQueries({ queryKey: classificationKeys.allClassifications() });
             toast.success('Classification created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create classification';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create classification';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -76,8 +77,8 @@ export function useUpdateClassification() {
             queryClient.invalidateQueries({ queryKey: classificationKeys.allClassifications() });
             toast.success('Classification updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update classification';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update classification';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -93,8 +94,8 @@ export function useDeleteClassification() {
             queryClient.invalidateQueries({ queryKey: classificationKeys.allClassifications() });
             toast.success('Classification deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete classification';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete classification';
             toast.error('Deletion Failed', { description: message });
         },
     });

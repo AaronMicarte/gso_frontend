@@ -9,6 +9,7 @@ import {
     DepartmentFilters,
 } from '@/lib/api/masterData/departments';
 import { Department, DepartmentInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const departmentKeys = {
@@ -57,8 +58,8 @@ export function useCreateDepartment() {
             queryClient.invalidateQueries({ queryKey: departmentKeys.allDepartments() });
             toast.success('Department created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create department';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create department';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdateDepartment() {
             queryClient.invalidateQueries({ queryKey: departmentKeys.allDepartments() });
             toast.success('Department updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update department';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update department';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeleteDepartment() {
             queryClient.invalidateQueries({ queryKey: departmentKeys.allDepartments() });
             toast.success('Department deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete department';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete department';
             toast.error('Deletion Failed', { description: message });
         },
     });

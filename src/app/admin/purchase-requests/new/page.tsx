@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreatePurchaseRequest } from '@/lib/hooks/usePurchaseRequests';
-import { useDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitOfMeasures';
 import { useAuth } from '@/lib/hooks/useAuth';
 import {
@@ -18,7 +16,6 @@ import {
     User,
     FileText
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 // Zod Schema
 const prItemSchema = z.object({
@@ -39,16 +36,13 @@ type PRFormValues = z.infer<typeof prSchema>;
 export default function CreatePurchaseRequestPage() {
     const router = useRouter();
     const createMutation = useCreatePurchaseRequest();
-    const { data: departmentsData, isLoading: isLoadingDepts } = useDepartments({ per_page: 100 }); // Fetch all departments
-    const { data: unitsOfMeasureData, isLoading: isLoadingUOM } = useAllUnitsOfMeasure();
+    const { data: unitsOfMeasureData } = useAllUnitsOfMeasure();
     const { user } = useAuth();
 
     const {
         register,
         control,
         handleSubmit,
-        watch,
-        setValue,
         formState: { errors, isSubmitting },
     } = useForm<PRFormValues>({
         resolver: zodResolver(prSchema),
@@ -64,7 +58,7 @@ export default function CreatePurchaseRequestPage() {
     });
 
     // Watch items to calculate total
-    const items = watch('items');
+    const items = useWatch({ control, name: 'items' }) ?? [];
     const totalAmount = items.reduce((sum, item) => {
         return sum + (item.Quantity * item.UnitCost || 0);
     }, 0);
@@ -128,7 +122,7 @@ export default function CreatePurchaseRequestPage() {
                                 })}
                             </div>
                             <p className="text-xs text-slate-500">
-                                Automatically set to today's date
+                                Automatically set to today&apos;s date
                             </p>
                         </div>
 

@@ -22,4 +22,5 @@ NOTE REMINDER TO FOLLOW:
 - WEB-BASED IAMS GSO FOR EL SALVADOR CITY WITH AUTOMATED REPORTING AND QR-BASED CHECKING OF PROPERTY?
 - SAME LOADING SCREEN PLEASE
 - CONSISTENT
-- always add the zonner for each like success or idk to know... hope it gets! USE SONNER!
+- always add the confirmation message for each like success or idk to know... hope it gets! USE SONNER!
+- use radix for dialog modal?

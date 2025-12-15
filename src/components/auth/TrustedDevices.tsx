@@ -116,7 +116,7 @@ export default function TrustedDevices() {
                 <div className="text-center py-8 text-gray-500">
                     <Smartphone className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No trusted devices registered.</p>
-                    <p className="text-sm mt-1">When you check "Trust this device" during MFA verification, it will appear here.</p>
+                    <p className="text-sm mt-1">When you check &quot;Trust this device&quot; during MFA verification, it will appear here.</p>
                 </div>
             )}
 
@@ -191,7 +191,7 @@ export default function TrustedDevices() {
                     <li>• Trusted devices can skip MFA verification for 30 days.</li>
                     <li>• You can remove a device at any time to require MFA again.</li>
                     <li>• All trusted devices are automatically removed when you change your password.</li>
-                    <li>• For security, review this list regularly and remove any devices you don't recognize.</li>
+                    <li>• For security, review this list regularly and remove any devices you don&apos;t recognize.</li>
                 </ul>
             </div>
         </div>

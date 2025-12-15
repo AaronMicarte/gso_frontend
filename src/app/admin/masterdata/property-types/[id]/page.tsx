@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePropertyType, useUpdatePropertyType, useAllCategories, useAllClassifications, useAllPropertyClassifications } from '@/lib/hooks/masterData';
-import { PropertyTypeInput } from '@/types/masterData';
+import { PropertyTypeInput, Classification, PropertyClassification, Category } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,9 +52,10 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
                     toast.success('Property type updated successfully');
                     router.push('/admin/masterdata/property-types');
                 },
-                onError: (error: any) => {
-                    if (error?.response?.data?.errors) {
-                        const backendErrors = error.response.data.errors;
+                onError: (error: Error) => {
+                    const apiError = error as ApiError;
+                    if (apiError?.response?.data?.errors) {
+                        const backendErrors = apiError.response.data.errors;
                         const mappedErrors: Record<string, string[]> = {};
 
                         if (backendErrors.name) mappedErrors.name = backendErrors.name;
@@ -188,7 +190,7 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
                                 required
                             >
                                 <option value={0}>Select a category</option>
-                                {categories?.map((category: any) => (
+                                {categories?.map((category: Category) => (
                                     <option key={category.id} value={category.id}>
                                         {category.name}
                                     </option>
@@ -214,7 +216,7 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
                                 required
                             >
                                 <option value={0}>Select a classification</option>
-                                {classifications?.map((classification: any) => (
+                                {classifications?.map((classification: Classification) => (
                                     <option key={classification.id} value={classification.id}>
                                         {classification.name}
                                     </option>
@@ -240,7 +242,7 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
                                 required
                             >
                                 <option value={0}>Select a property classification</option>
-                                {propertyClassifications?.map((pc: any) => (
+                                {propertyClassifications?.map((pc: PropertyClassification) => (
                                     <option key={pc.id} value={pc.id}>
                                         {pc.name}
                                     </option>

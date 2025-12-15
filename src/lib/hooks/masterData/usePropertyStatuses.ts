@@ -9,6 +9,7 @@ import {
     PropertyStatusFilters,
 } from '@/lib/api/masterData/propertyStatuses';
 import { PropertyStatus, PropertyStatusInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const propertyStatusKeys = {
@@ -57,8 +58,8 @@ export function useCreatePropertyStatus() {
             queryClient.invalidateQueries({ queryKey: propertyStatusKeys.allPropertyStatuses() });
             toast.success('Property status created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create property status';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create property status';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdatePropertyStatus() {
             queryClient.invalidateQueries({ queryKey: propertyStatusKeys.allPropertyStatuses() });
             toast.success('Property status updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update property status';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update property status';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeletePropertyStatus() {
             queryClient.invalidateQueries({ queryKey: propertyStatusKeys.allPropertyStatuses() });
             toast.success('Property status deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete property status';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete property status';
             toast.error('Deletion Failed', { description: message });
         },
     });

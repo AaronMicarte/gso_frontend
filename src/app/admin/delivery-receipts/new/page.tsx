@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,7 +43,6 @@ export default function CreateDeliveryReceiptPage() {
         control,
         handleSubmit,
         watch,
-        setValue,
         formState: { errors, isSubmitting },
     } = useForm<DRFormValues>({
         resolver: zodResolver(drSchema),

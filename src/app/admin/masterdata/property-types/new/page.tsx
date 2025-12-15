@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreatePropertyType, useAllCategories, useAllClassifications, useAllPropertyClassifications } from '@/lib/hooks/masterData';
-import { PropertyTypeInput } from '@/types/masterData';
+import { PropertyTypeInput, Classification, PropertyClassification, Category } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,10 +34,10 @@ export default function NewPropertyTypePage() {
                 // Toast is handled by the hook
                 setTimeout(() => router.push('/admin/masterdata/property-types'), 100);
             },
-            onError: (error: unknown) => {
-                const err = error as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
-                if (err.response?.data?.errors) {
-                    const backendErrors = err.response.data.errors;
+            onError: (error: Error) => {
+                const apiError = error as ApiError;
+                if (apiError?.response?.data?.errors) {
+                    const backendErrors = apiError.response.data.errors;
                     const mappedErrors: Record<string, string[]> = {};
 
                     if (backendErrors.name) mappedErrors.name = backendErrors.name;
@@ -58,7 +59,7 @@ export default function NewPropertyTypePage() {
                         toast.error('Please check the form for errors');
                     }
                 } else {
-                    toast.error(err.response?.data?.message || (error as Error).message || 'Failed to create property type');
+                    toast.error(apiError?.response?.data?.message || error.message || 'Failed to create property type');
                 }
             },
         });
@@ -153,7 +154,7 @@ export default function NewPropertyTypePage() {
                                 required
                             >
                                 <option value={0}>Select a category</option>
-                                {categories?.map((category: any) => (
+                                {categories?.map((category: Category) => (
                                     <option key={category.id} value={category.id}>
                                         {category.name}
                                     </option>
@@ -179,7 +180,7 @@ export default function NewPropertyTypePage() {
                                 required
                             >
                                 <option value={0}>Select a classification</option>
-                                {classifications?.map((classification: any) => (
+                                {classifications?.map((classification: Classification) => (
                                     <option key={classification.id} value={classification.id}>
                                         {classification.name}
                                     </option>
@@ -205,7 +206,7 @@ export default function NewPropertyTypePage() {
                                 required
                             >
                                 <option value={0}>Select a property classification</option>
-                                {propertyClassifications?.map((pc: any) => (
+                                {propertyClassifications?.map((pc: PropertyClassification) => (
                                     <option key={pc.id} value={pc.id}>
                                         {pc.name}
                                     </option>

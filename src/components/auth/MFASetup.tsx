@@ -137,7 +137,7 @@ export default function MFASetup() {
                         <div>
                             <h4 className="font-medium text-blue-900 mb-1">Security Benefits</h4>
                             <p className="text-sm text-blue-700">
-                                With 2FA enabled, you'll need both your password and a verification code from your authenticator app to sign in.
+                                With 2FA enabled, you&apos;ll need both your password and a verification code from your authenticator app to sign in.
                             </p>
                         </div>
                     </div>

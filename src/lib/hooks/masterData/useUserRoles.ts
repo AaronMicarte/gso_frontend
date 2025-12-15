@@ -9,6 +9,7 @@ import {
     UserRoleFilters,
 } from '@/lib/api/masterData/userRoles';
 import { UserRole, UserRoleInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const userRoleKeys = {
@@ -57,8 +58,8 @@ export function useCreateUserRole() {
             queryClient.invalidateQueries({ queryKey: userRoleKeys.allUserRoles() });
             toast.success('User role created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create user role';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create user role';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdateUserRole() {
             queryClient.invalidateQueries({ queryKey: userRoleKeys.allUserRoles() });
             toast.success('User role updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update user role';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update user role';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeleteUserRole() {
             queryClient.invalidateQueries({ queryKey: userRoleKeys.allUserRoles() });
             toast.success('User role deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete user role';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete user role';
             toast.error('Deletion Failed', { description: message });
         },
     });

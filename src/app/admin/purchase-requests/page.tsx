@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { usePurchaseRequests, useDeletePurchaseRequest } from '@/lib/hooks/usePurchaseRequests';
-import { showConfirmDialog } from '@/lib/utils/confirm';
+import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
 import {
     Plus,
     Search,
@@ -22,17 +22,12 @@ export default function PurchaseRequestsPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined);
+
+    const statusParam = searchParams.get('status');
+    const statusFilter = statusParam ? parseInt(statusParam) : undefined;
+
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
-
-    // Initialize status filter from URL params
-    useEffect(() => {
-        const statusParam = searchParams.get('status');
-        if (statusParam) {
-            setStatusFilter(parseInt(statusParam));
-        }
-    }, [searchParams]);
 
     const { data, isLoading, refetch } = usePurchaseRequests({
         search: debouncedSearch || undefined,
@@ -44,6 +39,7 @@ export default function PurchaseRequestsPage() {
     });
 
     const deleteMutation = useDeletePurchaseRequest();
+    const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
     const purchaseRequests = data?.data || [];
     const pagination = data;
@@ -60,7 +56,7 @@ export default function PurchaseRequestsPage() {
     // Refetch when component mounts to ensure fresh data
     useEffect(() => {
         refetch();
-    }, []);
+    }, [refetch]);
 
     const handleDelete = (id: number, prNumber: string) => {
         showConfirmDialog({
@@ -94,6 +90,13 @@ export default function PurchaseRequestsPage() {
                 return (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                         <XCircle className="w-3 h-3" />
+                        {statusName}
+                    </span>
+                );
+            case 5: // Budget Checked
+                return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <CheckCircle className="w-3 h-3" />
                         {statusName}
                     </span>
                 );
@@ -140,8 +143,15 @@ export default function PurchaseRequestsPage() {
                         value={statusFilter || ''}
                         onChange={(e) => {
                             const val = e.target.value;
-                            setStatusFilter(val ? parseInt(val) : undefined);
+                            const params = new URLSearchParams(searchParams.toString());
+                            if (val) {
+                                params.set('status', val);
+                            } else {
+                                params.delete('status');
+                            }
+                            // Reset to page 1 when filter changes
                             setCurrentPage(1);
+                            router.push(`?${params.toString()}`);
                         }}
                         className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] text-sm"
                     >
@@ -275,6 +285,7 @@ export default function PurchaseRequestsPage() {
                     </div>
                 )}
             </div>
+            <ConfirmDialog />
         </div>
     );
 }

@@ -3,15 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePurchaseOrders } from '@/lib/hooks/usePurchaseOrders';
+import { PurchaseOrder } from '@/types/procurement';
 import {
     Plus,
     Search,
-    Filter,
-    MoreVertical,
     Eye,
-    Edit,
-    Trash2,
-    FileText,
     CheckCircle,
     XCircle,
     Clock
@@ -122,7 +118,7 @@ export default function PurchaseOrdersPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                data?.data?.map((po: any) => (
+                                data?.data?.map((po: PurchaseOrder) => (
                                     <tr key={po.PurchaseOrderID} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 font-medium text-slate-900">
                                             {po.PONumber}

@@ -9,6 +9,7 @@ import {
     DisposalMethodFilters,
 } from '@/lib/api/masterData/disposalMethods';
 import { DisposalMethod, DisposalMethodInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const disposalMethodKeys = {
@@ -57,8 +58,8 @@ export function useCreateDisposalMethod() {
             queryClient.invalidateQueries({ queryKey: disposalMethodKeys.allDisposalMethods() });
             toast.success('Disposal method created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create disposal method';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create disposal method';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdateDisposalMethod() {
             queryClient.invalidateQueries({ queryKey: disposalMethodKeys.allDisposalMethods() });
             toast.success('Disposal method updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update disposal method';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update disposal method';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeleteDisposalMethod() {
             queryClient.invalidateQueries({ queryKey: disposalMethodKeys.allDisposalMethods() });
             toast.success('Disposal method deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete disposal method';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete disposal method';
             toast.error('Deletion Failed', { description: message });
         },
     });

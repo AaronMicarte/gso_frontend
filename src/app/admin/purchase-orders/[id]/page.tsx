@@ -13,13 +13,13 @@ import {
 } from '@/lib/hooks/usePurchaseOrders';
 import { useSuppliers } from '@/lib/hooks/masterData/useSuppliers';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { showConfirmDialog } from '@/lib/utils/confirm';
+import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
+import { PurchaseOrderDetail } from '@/types/procurement';
+import { Supplier } from '@/types/masterData';
 import {
     ArrowLeft,
-    Save,
     Plus,
     Trash2,
-    AlertCircle,
     CheckCircle,
     XCircle,
     Printer,
@@ -55,12 +55,13 @@ export default function PurchaseOrderDetailsPage() {
     const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
 
-    const { data: po, isLoading, refetch } = usePurchaseOrder(id);
+    const { data: po, isLoading } = usePurchaseOrder(id);
     const { data: suppliersData } = useSuppliers({ per_page: 100 });
 
     const updateMutation = useUpdatePurchaseOrder();
     const approveMutation = useApprovePurchaseOrder();
     const rejectMutation = useRejectPurchaseOrder();
+    const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
     const {
         register,
@@ -68,7 +69,7 @@ export default function PurchaseOrderDetailsPage() {
         handleSubmit,
         reset,
         watch,
-        formState: { errors, isSubmitting },
+        formState: { isSubmitting },
     } = useForm<POFormValues>({
         resolver: zodResolver(poSchema),
         defaultValues: {
@@ -93,7 +94,7 @@ export default function PurchaseOrderDetailsPage() {
                 DeliveryTerm: po.DeliveryTerm || '',
                 PaymentTerm: po.PaymentTerm || '',
                 Remarks: po.Remarks || '',
-                items: po.details?.map((d: any) => ({
+                items: po.details?.map((d: PurchaseOrderDetail) => ({
                     ItemDescription: d.ItemDescription,
                     Quantity: d.Quantity,
                     UnitCost: d.UnitCost,
@@ -236,9 +237,9 @@ export default function PurchaseOrderDetailsPage() {
                                     {...register('SupplierID', { valueAsNumber: true })}
                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                                 >
-                                    {suppliersData?.data?.map((supplier: any) => (
-                                        <option key={supplier.SupplierID} value={supplier.SupplierID}>
-                                            {supplier.SupplierName}
+                                    {suppliersData?.data?.map((supplier: Supplier) => (
+                                        <option key={supplier.id} value={supplier.id}>
+                                            {supplier.name}
                                         </option>
                                     ))}
                                 </select>
@@ -400,7 +401,7 @@ export default function PurchaseOrderDetailsPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {po.details?.map((item: any, i: number) => (
+                                    {po.details?.map((item: PurchaseOrderDetail, i: number) => (
                                         <tr key={i}>
                                             <td className="px-4 py-3 font-medium text-slate-900">{item.ItemDescription}</td>
                                             <td className="px-4 py-3 text-center text-slate-600">{item.Quantity}</td>
@@ -449,6 +450,7 @@ export default function PurchaseOrderDetailsPage() {
                     </div>
                 )}
             </form>
+            <ConfirmDialog />
         </div>
     );
 }

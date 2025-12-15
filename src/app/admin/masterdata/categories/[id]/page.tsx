@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Category, CategoryInput } from '@/types/property';
+import { CategoryInput } from '@/types/masterData';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategory, useUpdateCategory } from '@/lib/hooks/masterData';
@@ -41,9 +41,10 @@ export default function EditCategoryPage() {
                     toast.success('Category updated successfully');
                     router.push('/admin/masterdata/categories');
                 },
-                onError: (error: any) => {
-                    if (error?.response?.data?.errors) {
-                        const backendErrors = error.response.data.errors;
+                onError: (error: Error) => {
+                    const apiError = error as ApiError;
+                    if (apiError?.response?.data?.errors) {
+                        const backendErrors = apiError.response.data.errors;
                         const mappedErrors: Record<string, string[]> = {};
 
                         if (backendErrors.name) mappedErrors.name = backendErrors.name;

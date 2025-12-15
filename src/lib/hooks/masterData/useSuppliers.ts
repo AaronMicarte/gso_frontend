@@ -9,6 +9,7 @@ import {
     SupplierFilters,
 } from '@/lib/api/masterData/suppliers';
 import { Supplier, SupplierInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const supplierKeys = {
@@ -57,8 +58,8 @@ export function useCreateSupplier() {
             queryClient.invalidateQueries({ queryKey: supplierKeys.allSuppliers() });
             toast.success('Supplier created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create supplier';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create supplier';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdateSupplier() {
             queryClient.invalidateQueries({ queryKey: supplierKeys.allSuppliers() });
             toast.success('Supplier updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update supplier';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update supplier';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeleteSupplier() {
             queryClient.invalidateQueries({ queryKey: supplierKeys.allSuppliers() });
             toast.success('Supplier deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete supplier';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete supplier';
             toast.error('Deletion Failed', { description: message });
         },
     });

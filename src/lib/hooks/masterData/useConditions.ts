@@ -9,6 +9,7 @@ import {
     ConditionFilters,
 } from '@/lib/api/masterData/conditions';
 import { Condition, ConditionInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
 export const conditionKeys = {
@@ -57,8 +58,8 @@ export function useCreateCondition() {
             queryClient.invalidateQueries({ queryKey: conditionKeys.allConditions() });
             toast.success('Condition created successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to create condition';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to create condition';
             toast.error('Creation Failed', { description: message });
         },
     });
@@ -75,8 +76,8 @@ export function useUpdateCondition() {
             queryClient.invalidateQueries({ queryKey: conditionKeys.allConditions() });
             toast.success('Condition updated successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to update condition';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to update condition';
             toast.error('Update Failed', { description: message });
         },
     });
@@ -92,8 +93,8 @@ export function useDeleteCondition() {
             queryClient.invalidateQueries({ queryKey: conditionKeys.allConditions() });
             toast.success('Condition deleted successfully!');
         },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || 'Failed to delete condition';
+        onError: (error: Error) => {
+            const message = (error as ApiError)?.response?.data?.message || 'Failed to delete condition';
             toast.error('Deletion Failed', { description: message });
         },
     });

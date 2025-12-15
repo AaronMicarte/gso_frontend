@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CategoryInput } from '@/types/property';
+import { CategoryInput } from '@/types/masterData';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCreateCategory } from '@/lib/hooks/masterData';

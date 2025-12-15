@@ -9,13 +9,13 @@ import {
     usePurchaseRequest,
     useUpdatePurchaseRequest,
     useApprovePurchaseRequest,
-    useRejectPurchaseRequest
+    useRejectPurchaseRequest,
+    useSetBudgetCheckedPurchaseRequest
 } from '@/lib/hooks/usePurchaseRequests';
 import { useDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitOfMeasures';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { Department, UnitOfMeasure } from '@/types/masterData';
-import { showConfirmDialog } from '@/lib/utils/confirm';
+import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
 import {
     ArrowLeft,
     Plus,
@@ -55,13 +55,15 @@ export default function PurchaseRequestDetailsPage() {
     const { data: departmentsData } = useDepartments({ per_page: 100 });
     const { data: unitsOfMeasureData, isLoading: isLoadingUOM, error: uomError } = useAllUnitsOfMeasure();
 
-    const uniqueUOMs = unitsOfMeasureData?.filter((uom: UnitOfMeasure, index: number, self: UnitOfMeasure[]) =>
-        index === self.findIndex((t: UnitOfMeasure) => t.UnitOfMeasureID === uom.UnitOfMeasureID)
+    const uniqueUOMs = unitsOfMeasureData?.filter((uom, index, self) =>
+        index === self.findIndex((t) => t.id === uom.id)
     );
 
     const updateMutation = useUpdatePurchaseRequest();
     const approveMutation = useApprovePurchaseRequest();
     const rejectMutation = useRejectPurchaseRequest();
+    const budgetCheckedMutation = useSetBudgetCheckedPurchaseRequest();
+    const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
     const {
         register,
@@ -114,6 +116,39 @@ export default function PurchaseRequestDetailsPage() {
     };
 
     const handleApprove = () => {
+        // Prevent approval if budget is not checked. Offer to set it, then continue to approve.
+        if (!isBudgetChecked) {
+            showConfirmDialog({
+                title: 'Cannot Approve — Budget Not Checked',
+                description:
+                    'This Purchase Request has not been marked as Budget Checked. It cannot be approved until the budget is checked. Would you like to set Budget Checked now?',
+                confirmText: 'Set Budget Checked',
+                cancelText: 'Cancel',
+                onConfirm: async () => {
+                    // Wrap the mutation in a promise so we can await its completion
+                    await new Promise<void>((resolve, reject) => {
+                        budgetCheckedMutation.mutate(id, {
+                            onSuccess: () => resolve(),
+                            onError: (err) => reject(err),
+                        });
+                    });
+
+                    // After marking as budget checked, prompt for approval as normal
+                    showConfirmDialog({
+                        title: 'Approve Purchase Request',
+                        description: 'Budget has been checked. Are you sure you want to approve this request? This will allow PO creation.',
+                        confirmText: 'Approve',
+                        cancelText: 'Cancel',
+                        onConfirm: () => {
+                            approveMutation.mutate(id);
+                            router.push('/admin/purchase-requests');
+                        },
+                    });
+                },
+            });
+            return;
+        }
+
         showConfirmDialog({
             title: 'Approve Purchase Request',
             description: 'Are you sure you want to approve this request? This will allow PO creation.',
@@ -139,6 +174,18 @@ export default function PurchaseRequestDetailsPage() {
         });
     };
 
+    const handleSetBudgetChecked = () => {
+        showConfirmDialog({
+            title: 'Set Budget Checked',
+            description: 'Mark this PR as budget checked? This is a placeholder for real Budget Officer review (outside GSO scope).',
+            confirmText: 'Set Budget Checked',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+                budgetCheckedMutation.mutate(id);
+            },
+        });
+    };
+
     if (isLoading) {
         return <div className="p-6 text-center">Loading...</div>;
     }
@@ -150,6 +197,7 @@ export default function PurchaseRequestDetailsPage() {
     const isPending = pr.PRStatusID === 1;
     const isApproved = pr.PRStatusID === 2;
     const isRejected = pr.PRStatusID === 3;
+    const isBudgetChecked = pr.PRStatusID === 5;
     const isAdmin = user?.Role?.toLowerCase() === 'admin';
     // In a real GSO system, only the requester should edit their pending request.
     // Admins/GSO Staff should only Approve (Process) or Reject (Return).
@@ -172,6 +220,7 @@ export default function PurchaseRequestDetailsPage() {
                             {isPending && <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex items-center gap-1"><Clock className="w-3 h-3" /> Pending</span>}
                             {isApproved && <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Approved</span>}
                             {isRejected && <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full flex items-center gap-1"><XCircle className="w-3 h-3" /> Rejected</span>}
+                            {isBudgetChecked && <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Budget Checked</span>}
                         </div>
                         <p className="text-slate-500 text-sm mt-1">
                             Requested by <span className="font-medium text-slate-700">{pr.requester?.FullName || 'Unknown User'}</span> on {format(new Date(pr.CreatedDate), 'MMM dd, yyyy')}
@@ -196,9 +245,19 @@ export default function PurchaseRequestDetailsPage() {
                             </button>
                             <button
                                 onClick={handleApprove}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
+                                disabled={!isBudgetChecked}
+                                className={`px-4 py-2 rounded-lg transition-colors font-medium text-sm text-white ${isBudgetChecked
+                                    ? 'bg-green-600 hover:bg-green-700'
+                                    : 'bg-green-600 opacity-60 cursor-not-allowed'
+                                    }`}
                             >
                                 Approve
+                            </button>
+                            <button
+                                onClick={handleSetBudgetChecked}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                            >
+                                Set Budget Checked
                             </button>
                         </>
                     )}
@@ -424,6 +483,7 @@ export default function PurchaseRequestDetailsPage() {
                     </div>
                 )}
             </form>
+            <ConfirmDialog />
         </div>
     );
 }
