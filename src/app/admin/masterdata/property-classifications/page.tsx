@@ -26,7 +26,7 @@ export default function PropertyClassificationsPage() {
     const deleteMutation = useDeletePropertyClassification();
 
     const propertyClassifications = data?.data || [];
-    const pagination = data?.pagination;
+    const pagination = data;
     const totalPages = pagination?.last_page || 1;
 
     // Debounce search to avoid too many API calls
@@ -163,8 +163,8 @@ export default function PropertyClassificationsPage() {
                                             </h3>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className={`px-2 py-0.5 text-xs rounded-full ${classification.document_type === 'ICS'
-                                                        ? 'bg-blue-100 text-blue-700'
-                                                        : 'bg-green-100 text-green-700'
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : 'bg-green-100 text-green-700'
                                                     }`}>
                                                     {classification.document_type}
                                                 </span>
@@ -237,8 +237,8 @@ export default function PropertyClassificationsPage() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${classification.document_type === 'ICS'
-                                                            ? 'bg-blue-100 text-blue-700'
-                                                            : 'bg-green-100 text-green-700'
+                                                        ? 'bg-blue-100 text-blue-700'
+                                                        : 'bg-green-100 text-green-700'
                                                         }`}>
                                                         {classification.document_type}
                                                     </span>

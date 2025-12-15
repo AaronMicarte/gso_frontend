@@ -10,6 +10,11 @@ export interface User {
   FullName: string;
   Role: string;
   Department: string;
+  DepartmentID: number;
+  department?: {
+    DepartmentID: number;
+    DepartmentName: string;
+  };
 }
 
 export interface AuthResponse {

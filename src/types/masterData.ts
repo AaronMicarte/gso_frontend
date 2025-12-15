@@ -7,20 +7,20 @@
 // ============================================
 
 export interface Department {
-    id: number;
-    code: string;
-    name: string;
-    description?: string | null;
-    created_at: string;
-    updated_at?: string | null;
+    DepartmentID: number;
+    DepartmentName: string;
+    Description?: string | null;
+    DepartmentCode?: string | null;
+    IsActive?: number;
+    CreatedDate: string;
+    UpdatedDate?: string | null;
     deleted_at?: string | null;
-    is_deleted?: boolean;
 }
 
 export interface DepartmentInput {
-    code: string;
-    name: string;
-    description?: string;
+    DepartmentName: string;
+    Description?: string;
+    DepartmentCode?: string;
 }
 
 // ============================================
@@ -300,14 +300,54 @@ export interface ApiResponse<T> {
 }
 
 export interface PaginatedResponse<T> {
-    success: boolean;
     data: T[];
-    pagination: {
-        total: number;
-        per_page: number;
-        current_page: number;
-        last_page: number;
-        from: number;
-        to: number;
-    };
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+    from: number;
+    to: number;
+    prev_page_url?: string;
+    next_page_url?: string;
+}
+
+// ============================================
+// SUPPLIERS
+// ============================================
+
+export interface Supplier {
+    SupplierID: number;
+    SupplierName: string;
+    ContactPerson?: string;
+    ContactNumber?: string;
+    Email?: string;
+    Address?: string;
+    IsActive?: number;
+    CreatedDate: string;
+    UpdatedDate?: string;
+    deleted_at?: string | null;
+}
+
+export interface SupplierInput {
+    SupplierName: string;
+    ContactPerson?: string;
+    ContactNumber?: string;
+    Email?: string;
+    Address?: string;
+}
+
+// ============================================
+// UNITS OF MEASURE
+// ============================================
+
+export interface UnitOfMeasure {
+    UnitOfMeasureID: number;
+    UnitName: string;
+    Description?: string;
+    deleted_at?: string | null;
+}
+
+export interface UnitOfMeasureInput {
+    UnitName: string;
+    Description?: string;
 }

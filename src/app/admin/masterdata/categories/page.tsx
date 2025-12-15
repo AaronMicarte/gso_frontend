@@ -26,7 +26,7 @@ export default function CategoriesPage() {
     const deleteMutation = useDeleteCategory();
 
     const categories = data?.data || [];
-    const pagination = data?.pagination;
+    const pagination = data;
     const totalPages = pagination?.last_page || 1;
 
     // Debounce search to avoid too many API calls

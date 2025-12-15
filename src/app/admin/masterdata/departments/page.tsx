@@ -26,7 +26,7 @@ export default function DepartmentsPage() {
     const deleteMutation = useDeleteDepartment();
 
     const departments = data?.data || [];
-    const pagination = data?.pagination;
+    const pagination = data;
     const totalPages = pagination?.last_page || 1;
 
     // Debounce search to avoid too many API calls
@@ -153,28 +153,28 @@ export default function DepartmentsPage() {
                         <div className="lg:hidden space-y-3">
                             {departments.map((department: Department) => (
                                 <div
-                                    key={`mobile-department-${department.id}`}
+                                    key={`mobile-department-${department.DepartmentID}`}
                                     className="bg-white rounded-lg shadow-sm border border-slate-200 p-4"
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex-1">
                                             <h3 className="font-semibold text-slate-900 mb-1">
-                                                {department.name}
+                                                {department.DepartmentName}
                                             </h3>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">
-                                                    {department.code}
+                                                    {department.DepartmentCode}
                                                 </span>
                                             </div>
                                             <p className="text-sm text-slate-600">
-                                                {department.description || 'No description'}
+                                                {department.Description || 'No description'}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                                         <span className="text-xs text-slate-500">
-                                            {department.created_at
-                                                ? new Date(department.created_at).toLocaleDateString('en-PH', {
+                                            {department.CreatedDate
+                                                ? new Date(department.CreatedDate).toLocaleDateString('en-PH', {
                                                     year: 'numeric',
                                                     month: 'short',
                                                     day: 'numeric',
@@ -184,14 +184,14 @@ export default function DepartmentsPage() {
                                         </span>
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => router.push(`/admin/masterdata/departments/${department.id}`)}
+                                                onClick={() => router.push(`/admin/masterdata/departments/${department.DepartmentID}`)}
                                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                 title="Edit"
                                             >
                                                 <Edit className="w-4 h-4" />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(department.id, department.name)}
+                                                onClick={() => handleDelete(department.DepartmentID, department.DepartmentName)}
                                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                 title="Delete"
                                             >
@@ -228,24 +228,24 @@ export default function DepartmentsPage() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
                                         {departments.map((department: Department) => (
-                                            <tr key={`desktop-department-${department.id}`} className="hover:bg-slate-50 transition-colors">
+                                            <tr key={`desktop-department-${department.DepartmentID}`} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4">
-                                                    <div className="font-medium text-slate-900">{department.name}</div>
+                                                    <div className="font-medium text-slate-900">{department.DepartmentName}</div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span className="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-full">
-                                                        {department.code}
+                                                        {department.DepartmentCode}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm text-slate-600">
-                                                        {department.description || '-'}
+                                                        {department.Description || '-'}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm text-slate-600">
-                                                        {department.created_at
-                                                            ? new Date(department.created_at).toLocaleDateString('en-PH', {
+                                                        {department.CreatedDate
+                                                            ? new Date(department.CreatedDate).toLocaleDateString('en-PH', {
                                                                 year: 'numeric',
                                                                 month: 'short',
                                                                 day: 'numeric',
@@ -257,14 +257,14 @@ export default function DepartmentsPage() {
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={() => router.push(`/admin/masterdata/departments/${department.id}`)}
+                                                            onClick={() => router.push(`/admin/masterdata/departments/${department.DepartmentID}`)}
                                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                             title="Edit"
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDelete(department.id, department.name)}
+                                                            onClick={() => handleDelete(department.DepartmentID, department.DepartmentName)}
                                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                             title="Delete"
                                                         >

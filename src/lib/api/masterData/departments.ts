@@ -40,9 +40,9 @@ export async function getDepartment(id: number): Promise<Department> {
 
 export async function createDepartment(data: DepartmentInput): Promise<Department> {
     const payload = {
-        DepartmentCode: data.code,
-        DepartmentName: data.name,
-        Description: data.description,
+        DepartmentCode: data.DepartmentCode,
+        DepartmentName: data.DepartmentName,
+        Description: data.Description,
     };
     const response = await apiClient.post<ApiResponse<Department>>('/admin/master-data/departments', payload);
     if (!response.data.data) {
@@ -53,9 +53,9 @@ export async function createDepartment(data: DepartmentInput): Promise<Departmen
 
 export async function updateDepartment(id: number, data: DepartmentInput): Promise<Department> {
     const payload = {
-        DepartmentCode: data.code,
-        DepartmentName: data.name,
-        Description: data.description,
+        DepartmentCode: data.DepartmentCode,
+        DepartmentName: data.DepartmentName,
+        Description: data.Description,
     };
     const response = await apiClient.put<ApiResponse<Department>>(`/admin/master-data/departments/${id}`, payload);
     if (!response.data.data) {

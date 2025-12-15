@@ -1,4 +1,5 @@
 NOTE REMINDER TO FOLLOW:
+- FOLLOW HOW REAL GSO IAMS IN REAL LIFE!
 - Proper TypeScript types (no 'any')
 - Error handling with user-friendly messages
 - Loading states for async operations

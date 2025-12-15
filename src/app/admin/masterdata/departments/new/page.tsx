@@ -11,9 +11,9 @@ export default function NewDepartmentPage() {
     const router = useRouter();
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [formData, setFormData] = useState<DepartmentInput>({
-        code: '',
-        name: '',
-        description: '',
+        DepartmentCode: '',
+        DepartmentName: '',
+        Description: '',
     });
 
     const createDepartmentMutation = useCreateDepartment();
@@ -93,8 +93,8 @@ export default function NewDepartmentPage() {
                         <input
                             type="text"
                             id="code"
-                            value={formData.code}
-                            onChange={(e) => handleChange('code', e.target.value)}
+                            value={formData.DepartmentCode}
+                            onChange={(e) => handleChange('DepartmentCode', e.target.value)}
                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.code ? 'border-red-500' : 'border-slate-300'
                                 }`}
                             placeholder="e.g., ICT"
@@ -113,8 +113,8 @@ export default function NewDepartmentPage() {
                         <input
                             type="text"
                             id="name"
-                            value={formData.name}
-                            onChange={(e) => handleChange('name', e.target.value)}
+                            value={formData.DepartmentName}
+                            onChange={(e) => handleChange('DepartmentName', e.target.value)}
                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.name ? 'border-red-500' : 'border-slate-300'
                                 }`}
                             placeholder="e.g., Information and Communications Technology"
@@ -132,8 +132,8 @@ export default function NewDepartmentPage() {
                         </label>
                         <textarea
                             id="description"
-                            value={formData.description}
-                            onChange={(e) => handleChange('description', e.target.value)}
+                            value={formData.Description}
+                            onChange={(e) => handleChange('Description', e.target.value)}
                             rows={4}
                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.description ? 'border-red-500' : 'border-slate-300'
                                 }`}

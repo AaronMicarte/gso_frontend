@@ -14,9 +14,9 @@ export default function EditDepartmentPage({ params }: { params: Promise<{ id: s
 
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [formData, setFormData] = useState<DepartmentInput>({
-        code: '',
-        name: '',
-        description: '',
+        DepartmentCode: '',
+        DepartmentName: '',
+        Description: '',
     });
 
     const { data: department, isLoading: loading } = useDepartment(id);
@@ -25,9 +25,9 @@ export default function EditDepartmentPage({ params }: { params: Promise<{ id: s
     useEffect(() => {
         if (department) {
             setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
-                code: department.code || '',
-                name: department.name || '',
-                description: department.description || '',
+                DepartmentCode: department.DepartmentCode || '',
+                DepartmentName: department.DepartmentName || '',
+                Description: department.Description || '',
             });
         }
     }, [department]);
@@ -125,8 +125,8 @@ export default function EditDepartmentPage({ params }: { params: Promise<{ id: s
                             </label>
                             <input
                                 type="text"
-                                value={formData.code}
-                                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                                value={formData.DepartmentCode}
+                                onChange={(e) => setFormData({ ...formData, DepartmentCode: e.target.value })}
                                 required
                                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors ${errors.code ? 'border-red-300 focus:ring-red-200' : 'border-slate-300'
                                     }`}
@@ -144,8 +144,8 @@ export default function EditDepartmentPage({ params }: { params: Promise<{ id: s
                             </label>
                             <input
                                 type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                value={formData.DepartmentName}
+                                onChange={(e) => setFormData({ ...formData, DepartmentName: e.target.value })}
                                 required
                                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors ${errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-300'
                                     }`}
@@ -162,8 +162,8 @@ export default function EditDepartmentPage({ params }: { params: Promise<{ id: s
                                 Description
                             </label>
                             <textarea
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                value={formData.Description}
+                                onChange={(e) => setFormData({ ...formData, Description: e.target.value })}
                                 rows={4}
                                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors ${errors.description ? 'border-red-300 focus:ring-red-200' : 'border-slate-300'
                                     }`}

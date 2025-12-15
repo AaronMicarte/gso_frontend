@@ -74,7 +74,7 @@ const navSections: NavSection[] = [
                 children: [
                     { label: 'All PRs', href: '/admin/purchase-requests', icon: FileText },
                     { label: 'Create PR', href: '/admin/purchase-requests/new', icon: PackagePlus },
-                    { label: 'Pending Approval', href: '/admin/purchase-requests/pending', icon: ClipboardList },
+                    { label: 'Pending Approval', href: '/admin/purchase-requests?status=1', icon: ClipboardList },
                 ],
             },
             {
@@ -276,7 +276,15 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
                 {isOpen && (
                     <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-700 pl-2">
                         {item.children?.map((child) => {
-                            const isActive = pathname === child.href || pathname.startsWith(child.href + '/');
+                            // Check if any other child is an exact match for the current pathname
+                            // This prevents "All PRs" from being active when "Create PR" is active
+                            const isOtherChildActive = item.children?.some(c => c !== child && c.href === pathname);
+
+                            const isExactMatch = pathname === child.href;
+                            const isPrefixMatch = child.href ? pathname.startsWith(child.href + '/') : false;
+
+                            const isActive = isExactMatch || (isPrefixMatch && !isOtherChildActive);
+
                             const ChildIcon = child.icon;
                             return (
                                 <a
