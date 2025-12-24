@@ -62,7 +62,8 @@ function getActivityIcon(type: string, action: string): LucideIcon {
         if (action.includes('logged out')) return LogOut;
         if (action.includes('Failed')) return XCircle;
     }
-    if (type === 'purchase_request') return FileCheck;
+    if (type === 'delivery_receipt') return FileCheck;
+    if (type === 'issuance') return PackagePlus;
     return Clock;
 }
 
@@ -73,7 +74,8 @@ function getActivityColor(type: string, action: string): string {
         if (action.includes('logged out')) return 'text-blue-500';
         if (action.includes('Failed')) return 'text-red-500';
     }
-    if (type === 'purchase_request') return 'text-amber-500';
+    if (type === 'delivery_receipt') return 'text-amber-500';
+    if (type === 'issuance') return 'text-indigo-500';
     return 'text-slate-500';
 }
 
@@ -212,9 +214,9 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
             bgColor: 'bg-red-50',
         },
         {
-            label: 'Pending Job Orders',
-            value: stats?.pendingJobOrders ?? 0,
-            icon: ClipboardList,
+            label: 'Active Suppliers',
+            value: stats?.totalSuppliers ?? 0,
+            icon: Building2,
             color: 'text-blue-500',
             bgColor: 'bg-blue-50',
         },
@@ -331,8 +333,8 @@ export default function AdminDashboardPage() {
                     loading={statsLoading}
                 />
                 <StatCard
-                    title="Pending Requests"
-                    value={stats?.pendingRequests ?? 0}
+                    title="Delivery Receipts"
+                    value={stats?.totalDeliveryReceipts ?? 0}
                     icon={ClipboardList}
                     iconColor="text-amber-600"
                     bgColor="bg-amber-100"
@@ -359,9 +361,9 @@ export default function AdminDashboardPage() {
                     loading={statsLoading}
                 />
                 <StatCard
-                    title="Pending Job Orders"
-                    value={stats?.pendingJobOrders ?? 0}
-                    icon={Wrench}
+                    title="Suppliers"
+                    value={stats?.totalSuppliers ?? 0}
+                    icon={Users}
                     iconColor="text-orange-600"
                     bgColor="bg-orange-100"
                     loading={statsLoading}

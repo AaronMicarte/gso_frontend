@@ -9,9 +9,6 @@ import {
     Eye,
     Edit,
     Trash2,
-    CheckCircle,
-    XCircle,
-    Clock,
     Package
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -19,32 +16,11 @@ import { format } from 'date-fns';
 export default function DeliveryReceiptsPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('');
 
     const { data, isLoading } = useDeliveryReceipts({
         page,
         per_page: 10,
     });
-
-    const getStatusColor = (statusId: number) => {
-        switch (statusId) {
-            case 1: return 'bg-yellow-100 text-yellow-800'; // Pending
-            case 2: return 'bg-green-100 text-green-800'; // Approved
-            case 3: return 'bg-red-100 text-red-800'; // Rejected
-            case 4: return 'bg-gray-100 text-gray-800'; // Cancelled
-            case 5: return 'bg-blue-100 text-blue-800'; // Completed
-            default: return 'bg-slate-100 text-slate-800';
-        }
-    };
-
-    const getStatusIcon = (statusId: number) => {
-        switch (statusId) {
-            case 1: return <Clock className="w-3 h-3" />;
-            case 2: return <CheckCircle className="w-3 h-3" />;
-            case 3: return <XCircle className="w-3 h-3" />;
-            default: return null;
-        }
-    };
 
     return (
         <div className="p-6 space-y-6">
@@ -68,24 +44,11 @@ export default function DeliveryReceiptsPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Search DR Number..."
+                        placeholder="Search DR Number, Supplier, or PO Number..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                     />
-                </div>
-                <div className="sm:w-48">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                    >
-                        <option value="">All Statuses</option>
-                        <option value="1">Pending</option>
-                        <option value="2">Approved</option>
-                        <option value="3">Rejected</option>
-                        <option value="5">Completed</option>
-                    </select>
                 </div>
             </div>
 
@@ -98,8 +61,7 @@ export default function DeliveryReceiptsPage() {
                                 <th className="px-6 py-4">DR Number</th>
                                 <th className="px-6 py-4">PO Reference</th>
                                 <th className="px-6 py-4">Supplier</th>
-                                <th className="px-6 py-4">DR Date</th>
-                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4">Date Received</th>
                                 <th className="px-6 py-4">Total Amount</th>
                                 <th className="px-6 py-4">Actions</th>
                             </tr>
@@ -116,7 +78,7 @@ export default function DeliveryReceiptsPage() {
                                 </tr>
                             ) : data?.data?.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
                                         <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                         No delivery receipts found
                                     </td>
@@ -128,22 +90,16 @@ export default function DeliveryReceiptsPage() {
                                             {dr.DRNumber}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
-                                            {dr.purchaseOrder?.PONumber || 'N/A'}
+                                            {dr.PONumber || 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
-                                            {dr.purchaseOrder?.supplier?.SupplierName || 'N/A'}
+                                            {dr.SupplierName || 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
-                                            {format(new Date(dr.DRDate), 'MMM dd, yyyy')}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(dr.DRStatusID)}`}>
-                                                {getStatusIcon(dr.DRStatusID)}
-                                                {dr.status?.StatusName || 'Unknown'}
-                                            </span>
+                                            {format(new Date(dr.DateReceived), 'MMM dd, yyyy')}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
-                                            ₱{dr.details?.reduce((sum, item) => sum + item.TotalCost, 0)?.toLocaleString() || '0.00'}
+                                            ₱{dr.details?.reduce((sum, item) => sum + item.TotalCost, 0)?.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">

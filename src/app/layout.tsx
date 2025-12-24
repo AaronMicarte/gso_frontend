@@ -1,12 +1,8 @@
-import type { Metadata } from "next";
+'use client';
+
 import { Toaster } from 'sonner';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
 import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "IAMS-GSO | Inventory & Asset Management System",
-  description: "General Services Office Inventory and Asset Management System for City of El Salvador",
-};
 
 export default function RootLayout({
   children,

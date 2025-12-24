@@ -60,27 +60,10 @@ const navSections: NavSection[] = [
         ],
     },
 
-    // PROCUREMENT WORKFLOW
+    // PROCUREMENT WORKFLOW (Simplified - starts at DR)
     {
         section: 'PROCUREMENT',
         items: [
-            {
-                label: 'Purchase Requests',
-                icon: FileText,
-                children: [
-                    { label: 'All PRs', href: '/admin/purchase-requests', icon: FileText },
-                    { label: 'Create PR', href: '/admin/purchase-requests/new', icon: PackagePlus },
-                    { label: 'Pending Approval', href: '/admin/purchase-requests?status=1', icon: ClipboardList },
-                ],
-            },
-            {
-                label: 'Purchase Orders',
-                icon: ClipboardList,
-                children: [
-                    { label: 'All POs', href: '/admin/purchase-orders', icon: ClipboardList },
-                    { label: 'Create PO', href: '/admin/purchase-orders/new', icon: PackagePlus },
-                ],
-            },
             {
                 label: 'Delivery & Inspection',
                 icon: PackagePlus,
@@ -167,14 +150,6 @@ const navSections: NavSection[] = [
                 children: [
                     { label: 'Count Sessions', href: '/admin/physical-count', icon: ClipboardList },
                     { label: 'Start New Count', href: '/admin/physical-count/new', icon: PackagePlus },
-                ],
-            },
-            {
-                label: 'Job Orders',
-                icon: Wrench,
-                children: [
-                    { label: 'All Job Orders', href: '/admin/job-orders', icon: Wrench },
-                    { label: 'Create Job Order', href: '/admin/job-orders/new', icon: PackagePlus },
                 ],
             },
         ],

@@ -2,10 +2,10 @@
 export interface DashboardStats {
     totalAssets: number;
     totalInventory: number;
-    pendingRequests: number;
+    totalDeliveryReceipts: number;
     totalUsers: number;
     totalDepartments: number;
-    pendingJobOrders: number;
+    totalSuppliers: number;
     forDisposal: number;
     forRepair: number;
 }
@@ -16,7 +16,7 @@ export interface DashboardStatsResponse {
 }
 
 // Activity types for recent activity feed
-export type ActivityType = 'login' | 'purchase_request' | 'property_transfer' | 'job_order';
+export type ActivityType = 'login' | 'delivery_receipt' | 'property_transfer' | 'issuance';
 
 export interface Activity {
     id: string;

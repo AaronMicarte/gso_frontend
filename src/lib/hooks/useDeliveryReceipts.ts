@@ -4,8 +4,7 @@ import {
     getDeliveryReceipt,
     createDeliveryReceipt,
     updateDeliveryReceipt,
-    approveDeliveryReceipt,
-    rejectDeliveryReceipt,
+    deleteDeliveryReceipt,
     DeliveryReceiptFilters,
 } from '@/lib/api/procurement/deliveryReceipts';
 import { CreateDeliveryReceiptPayload, UpdateDeliveryReceiptPayload } from '@/types/procurement';
@@ -68,32 +67,16 @@ export function useUpdateDeliveryReceipt() {
     });
 }
 
-export function useApproveDeliveryReceipt() {
+export function useDeleteDeliveryReceipt() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (id: number) => approveDeliveryReceipt(id),
-        onSuccess: (_, id) => {
+        mutationFn: (id: number) => deleteDeliveryReceipt(id),
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
-            queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });
-            toast.success('Delivery Receipt approved successfully');
+            toast.success('Delivery Receipt deleted successfully');
         },
         onError: (error: Error) => {
-            toast.error((error as ApiError).response?.data?.message || 'Failed to approve Delivery Receipt');
-        },
-    });
-}
-
-export function useRejectDeliveryReceipt() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (id: number) => rejectDeliveryReceipt(id),
-        onSuccess: (_, id) => {
-            queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
-            queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });
-            toast.success('Delivery Receipt rejected successfully');
-        },
-        onError: (error: Error) => {
-            toast.error((error as ApiError).response?.data?.message || 'Failed to reject Delivery Receipt');
+            toast.error((error as ApiError).response?.data?.message || 'Failed to delete Delivery Receipt');
         },
     });
 }

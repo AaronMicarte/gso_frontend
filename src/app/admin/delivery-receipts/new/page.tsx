@@ -1,42 +1,48 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from 'zod';
 import { useCreateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
-import { usePurchaseOrders } from '@/lib/hooks/usePurchaseOrders';
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { getPropertyTypes } from '@/lib/api/procurement/deliveryReceipts';
 
 const drItemSchema = z.object({
-    ItemDescription: z.string().min(1, 'Description is required'),
-    Quantity: z.number().min(1, 'Quantity must be at least 1'),
-    UnitCost: z.number().min(0, 'Unit Cost must be non-negative'),
-    Remarks: z.string().optional(),
+    item_description: z.string().min(1, 'Item description is required'),
+    property_type_id: z.number().min(1, 'Property type is required'),
+    quantity_delivered: z.number().min(1, 'Quantity must be at least 1'),
+    unit_cost: z.number().min(0, 'Unit cost must be non-negative'),
 });
 
 const drSchema = z.object({
-    DRNumber: z.string().min(1, 'DR Number is required'),
-    PurchaseOrderID: z.number().min(1, 'Purchase Order is required'),
-    DRDate: z.string().min(1, 'DR Date is required'),
-    DeliveryDate: z.string().optional(),
-    InvoiceNumber: z.string().optional(),
-    Remarks: z.string().optional(),
-    items: z.array(drItemSchema).min(1, 'At least one item is required'),
+    supplier_name: z.string().min(1, 'Supplier name is required'),
+    po_number: z.string().min(1, 'PO number is required'),
+    invoice_number: z.string().optional(),
+    date_received: z.string().min(1, 'Date received is required'),
+    remarks: z.string().optional(),
+    details: z.array(drItemSchema).min(1, 'At least one item is required'),
 });
 
 type DRFormValues = z.infer<typeof drSchema>;
 
+interface Supplier {
+    SupplierID: number;
+    SupplierName: string;
+}
+
+interface PropertyType {
+    PropertyTypeID: number;
+    PropertyName: string;
+}
+
 export default function CreateDeliveryReceiptPage() {
     const router = useRouter();
     const createMutation = useCreateDeliveryReceipt();
-
-    // Fetch Approved POs (status = 2 for approved)
-    const { data: posData, isLoading: isLoadingPOs } = usePurchaseOrders({
-        status: 2,
-        per_page: 100
-    });
+    const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
+    const [isLoadingData, setIsLoadingData] = useState(true);
 
     const {
         register,
@@ -47,46 +53,77 @@ export default function CreateDeliveryReceiptPage() {
     } = useForm<DRFormValues>({
         resolver: zodResolver(drSchema),
         defaultValues: {
-            DRNumber: '',
-            DRDate: new Date().toISOString().split('T')[0],
-            items: [],
+            supplier_name: '',
+            po_number: '',
+            invoice_number: '',
+            date_received: new Date().toISOString().split('T')[0],
+            remarks: '',
+            details: [
+                {
+                    item_description: '',
+                    property_type_id: 0,
+                    quantity_delivered: 1,
+                    unit_cost: 0,
+                }
+            ],
         },
     });
 
-    const { fields, append, remove, replace } = useFieldArray({
+    const { fields, append, remove } = useFieldArray({
         control,
-        name: 'items',
+        name: 'details',
     });
 
-    const selectedPOId = watch('PurchaseOrderID');
-
-    // Find selected PO to populate items
-    const selectedPO = posData?.data?.find(po => po.PurchaseOrderID === selectedPOId);
-
     useEffect(() => {
-        if (selectedPO && selectedPO.details) {
-            const items = selectedPO.details.map(d => ({
-                ItemDescription: d.ItemDescription,
-                Quantity: d.Quantity,
-                UnitCost: d.UnitCost,
-                Remarks: d.Remarks || '',
-            }));
-            replace(items);
-        }
-    }, [selectedPO, replace]);
+        const fetchData = async () => {
+            try {
+                setIsLoadingData(true);
+                const propertyTypesData = await getPropertyTypes();
+                setPropertyTypes(propertyTypesData);
+            } catch (error) {
+                toast.error('Failed to load form data');
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
 
-    const items = watch('items');
-    const totalAmount = items?.reduce((sum, item) => {
-        return sum + (item.Quantity * item.UnitCost || 0);
+        fetchData();
+    }, []);
+
+    const details = watch('details');
+    const totalAmount = details?.reduce((sum, item) => {
+        return sum + (item.quantity_delivered * item.unit_cost || 0);
     }, 0) || 0;
 
-    const onSubmit = (data: DRFormValues) => {
-        createMutation.mutate(data, {
-            onSuccess: () => {
-                router.push('/admin/delivery-receipts');
-            },
+    const onSubmit = async (data: DRFormValues) => {
+        try {
+            await createMutation.mutateAsync(data);
+            toast.success('Delivery receipt created successfully');
+            router.push('/admin/delivery-receipts');
+        } catch (error) {
+            toast.error('Failed to create delivery receipt');
+        }
+    };
+
+    const addItem = () => {
+        append({
+            item_description: '',
+            property_type_id: 0,
+            quantity_delivered: 1,
+            unit_cost: 0,
         });
     };
+
+    if (isLoadingData) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center space-y-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)] mx-auto" />
+                    <p className="text-slate-600">Loading form data...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -94,12 +131,13 @@ export default function CreateDeliveryReceiptPage() {
                 <button
                     onClick={() => router.back()}
                     className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                    type="button"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Create Delivery Receipt</h1>
-                    <p className="text-slate-500 text-sm">Record delivery receipt from supplier</p>
+                    <p className="text-slate-500 text-sm">Record delivery receipt from supplier manually</p>
                 </div>
             </div>
 
@@ -108,251 +146,235 @@ export default function CreateDeliveryReceiptPage() {
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <h2 className="text-lg font-semibold text-slate-900 mb-4">Basic Information</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Supplier Name */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                DR Number *
+                                Supplier Name *
                             </label>
                             <input
-                                {...register('DRNumber')}
+                                {...register('supplier_name')}
                                 type="text"
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                placeholder="Enter DR number"
+                                placeholder="Enter supplier name manually"
                             />
-                            {errors.DRNumber && (
+                            {errors.supplier_name && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
-                                    {errors.DRNumber.message}
+                                    {errors.supplier_name.message}
                                 </p>
                             )}
                         </div>
 
+                        {/* PO Number */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Purchase Order *
-                            </label>
-                            <select
-                                {...register('PurchaseOrderID', { valueAsNumber: true })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                            >
-                                <option value="">Select Purchase Order</option>
-                                {isLoadingPOs ? (
-                                    <option disabled>Loading...</option>
-                                ) : (
-                                    posData?.data?.map((po) => (
-                                        <option key={po.PurchaseOrderID} value={po.PurchaseOrderID}>
-                                            {po.PONumber} - {po.supplier?.SupplierName}
-                                        </option>
-                                    ))
-                                )}
-                            </select>
-                            {errors.PurchaseOrderID && (
-                                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" />
-                                    {errors.PurchaseOrderID.message}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                DR Date *
+                                PO Number *
                             </label>
                             <input
-                                {...register('DRDate')}
-                                type="date"
+                                {...register('po_number')}
+                                type="text"
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                placeholder="Enter PO number"
                             />
-                            {errors.DRDate && (
+                            {errors.po_number && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
-                                    {errors.DRDate.message}
+                                    {errors.po_number.message}
                                 </p>
                             )}
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Delivery Date
-                            </label>
-                            <input
-                                {...register('DeliveryDate')}
-                                type="date"
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                            />
-                        </div>
-
+                        {/* Invoice Number */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
                                 Invoice Number
                             </label>
                             <input
-                                {...register('InvoiceNumber')}
+                                {...register('invoice_number')}
                                 type="text"
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                placeholder="Enter invoice number"
+                                placeholder="Enter invoice number (optional)"
                             />
+                        </div>
+
+                        {/* Date Received */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Date Received *
+                            </label>
+                            <input
+                                {...register('date_received')}
+                                type="date"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                            />
+                            {errors.date_received && (
+                                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    {errors.date_received.message}
+                                </p>
+                            )}
                         </div>
                     </div>
 
+                    {/* Remarks */}
                     <div className="mt-6">
                         <label className="block text-sm font-medium text-slate-700 mb-2">
                             Remarks
                         </label>
                         <textarea
-                            {...register('Remarks')}
+                            {...register('remarks')}
                             rows={3}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                            placeholder="Enter remarks"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
+                            placeholder="Additional notes or remarks"
                         />
                     </div>
                 </div>
 
-                {/* Items */}
+                {/* Items Section */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-slate-900">Items</h2>
+                        <h2 className="text-lg font-semibold text-slate-900">Items Delivered</h2>
                         <button
                             type="button"
-                            onClick={() => append({
-                                ItemDescription: '',
-                                Quantity: 1,
-                                UnitCost: 0,
-                                Remarks: '',
-                            })}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors text-sm font-medium"
+                            onClick={addItem}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors"
                         >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-4 h-4" />
                             Add Item
                         </button>
                     </div>
 
-                    <div className="space-y-4">
-                        {fields.map((field, index) => (
-                            <div key={field.id} className="border border-slate-200 rounded-lg p-4">
-                                <div className="flex items-start justify-between mb-4">
-                                    <h3 className="text-sm font-medium text-slate-900">Item {index + 1}</h3>
-                                    {fields.length > 1 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => remove(index)}
-                                            className="text-red-600 hover:text-red-700 transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                                            Description *
-                                        </label>
-                                        <input
-                                            {...register(`items.${index}.ItemDescription`)}
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                            placeholder="Enter item description"
-                                        />
-                                        {errors.items?.[index]?.ItemDescription && (
-                                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                                <AlertCircle className="w-3 h-3" />
-                                                {errors.items[index]?.ItemDescription?.message}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                                            Quantity *
-                                        </label>
-                                        <input
-                                            {...register(`items.${index}.Quantity`, { valueAsNumber: true })}
-                                            type="number"
-                                            min="1"
-                                            step="1"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                        />
-                                        {errors.items?.[index]?.Quantity && (
-                                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                                <AlertCircle className="w-3 h-3" />
-                                                {errors.items[index]?.Quantity?.message}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                                            Unit Cost *
-                                        </label>
-                                        <input
-                                            {...register(`items.${index}.UnitCost`, { valueAsNumber: true })}
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                        />
-                                        {errors.items?.[index]?.UnitCost && (
-                                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                                <AlertCircle className="w-3 h-3" />
-                                                {errors.items[index]?.UnitCost?.message}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                                            Remarks
-                                        </label>
-                                        <input
-                                            {...register(`items.${index}.Remarks`)}
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                            placeholder="Enter remarks"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="border-b border-slate-200">
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">#</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Property Type</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Quantity</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Total Cost</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {fields.map((field, index) => (
+                                    <tr key={field.id} className="border-b border-slate-100">
+                                        <td className="py-3 px-3 text-sm text-slate-600">{index + 1}</td>
+                                        <td className="py-3 px-3">
+                                            <input
+                                                {...register(`details.${index}.item_description`)}
+                                                type="text"
+                                                className="w-full px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                placeholder="Enter item description"
+                                            />
+                                            {errors.details?.[index]?.item_description && (
+                                                <p className="mt-1 text-xs text-red-600">
+                                                    {errors.details[index]?.item_description?.message}
+                                                </p>
+                                            )}
+                                        </td>
+                                        <td className="py-3 px-3">
+                                            <select
+                                                {...register(`details.${index}.property_type_id`, { valueAsNumber: true })}
+                                                className="w-full px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                            >
+                                                <option value={0}>Select Type</option>
+                                                {propertyTypes.map((type) => (
+                                                    <option key={type.PropertyTypeID} value={type.PropertyTypeID}>
+                                                        {type.PropertyName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.details?.[index]?.property_type_id && (
+                                                <p className="mt-1 text-xs text-red-600">
+                                                    {errors.details[index]?.property_type_id?.message}
+                                                </p>
+                                            )}
+                                        </td>
+                                        <td className="py-3 px-3">
+                                            <input
+                                                {...register(`details.${index}.quantity_delivered`, { valueAsNumber: true })}
+                                                type="number"
+                                                min="1"
+                                                step="1"
+                                                className="w-20 px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                            />
+                                            {errors.details?.[index]?.quantity_delivered && (
+                                                <p className="mt-1 text-xs text-red-600">
+                                                    {errors.details[index]?.quantity_delivered?.message}
+                                                </p>
+                                            )}
+                                        </td>
+                                        <td className="py-3 px-3">
+                                            <input
+                                                {...register(`details.${index}.unit_cost`, { valueAsNumber: true })}
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                className="w-24 px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                            />
+                                            {errors.details?.[index]?.unit_cost && (
+                                                <p className="mt-1 text-xs text-red-600">
+                                                    {errors.details[index]?.unit_cost?.message}
+                                                </p>
+                                            )}
+                                        </td>
+                                        <td className="py-3 px-3 text-sm font-medium text-slate-700">
+                                            ₱{((details[index]?.quantity_delivered || 0) * (details[index]?.unit_cost || 0)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="py-3 px-3">
+                                            {fields.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => remove(index)}
+                                                    className="text-red-600 hover:text-red-700 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
 
-                    {errors.items && typeof errors.items.message === 'string' && (
+                    {errors.details && (
                         <p className="mt-4 text-sm text-red-600 flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" />
-                            {errors.items.message}
+                            {errors.details.message}
                         </p>
                     )}
                 </div>
 
                 {/* Summary */}
-                <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-lg font-semibold text-slate-900">Total Amount</h3>
-                            <p className="text-sm text-slate-600">Total value of delivery receipt</p>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-2xl font-bold text-slate-900">
-                                ₱{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
-                        </div>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h2 className="text-lg font-semibold text-slate-900 mb-4">Summary</h2>
+                    <div className="flex items-center justify-between text-lg">
+                        <span className="text-slate-600">Total Amount:</span>
+                        <span className="font-bold text-slate-900">
+                            ₱{totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
                     </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-end gap-4">
+                <div className="flex items-center justify-end gap-3">
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="px-6 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                        className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                        disabled={isSubmitting}
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
-                        disabled={isSubmitting || createMutation.isPending}
-                        className="inline-flex items-center gap-2 px-6 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isSubmitting}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isSubmitting || createMutation.isPending ? (
+                        {isSubmitting ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
                                 Creating...

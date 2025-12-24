@@ -6,6 +6,7 @@ import { CategoryInput } from '@/types/masterData';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategory, useUpdateCategory } from '@/lib/hooks/masterData';
+import { ApiError } from '@/types/api';
 
 export default function EditCategoryPage() {
     const router = useRouter();

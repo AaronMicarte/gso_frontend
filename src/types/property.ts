@@ -130,101 +130,20 @@ export interface PropertyStatus {
 }
 
 // ============================================
-// PROCUREMENT
+// PROCUREMENT (SIMPLIFIED - Starting from Delivery Receipt)
+// Note: Purchase Requests and Purchase Orders removed per project requirements
 // ============================================
-
-export interface PurchaseRequest {
-    PurchaseRequestID: number;
-    PRNumber: string;
-    RequestDate: string;
-    DepartmentID: number;
-    RequestedBy: number;
-    Purpose: string;
-    PRStatusID: number;
-    ApprovedBy?: number;
-    ApprovedDate?: string;
-    Remarks?: string;
-    CreatedDate: string;
-    UpdatedDate?: string;
-    // Relations
-    Department?: Department;
-    RequestedByUser?: User;
-    ApprovedByUser?: User;
-    PRStatus?: PurchaseRequestStatus;
-    Details?: PurchaseRequestDetail[];
-}
-
-export interface PurchaseRequestDetail {
-    PRDetailID: number;
-    PurchaseRequestID: number;
-    PropertyTypeID: number;
-    Description: string;
-    Quantity: number;
-    UnitOfMeasureID: number;
-    EstimatedCost?: number;
-    Remarks?: string;
-    // Relations
-    PropertyType?: PropertyType;
-    UnitOfMeasure?: UnitOfMeasure;
-}
-
-export interface PurchaseRequestStatus {
-    PRStatusID: number;
-    StatusName: 'Pending' | 'Approved' | 'Rejected' | 'Completed';
-}
-
-export interface PurchaseOrder {
-    POID: number;
-    PONumber: string;
-    PurchaseRequestID?: number;
-    PODate: string;
-    SupplierID: number;
-    DeliveryDate?: string;
-    POStatusID: number;
-    TotalAmount: number;
-    PreparedBy: number;
-    ApprovedBy?: number;
-    Remarks?: string;
-    CreatedDate: string;
-    UpdatedDate?: string;
-    // Relations
-    PurchaseRequest?: PurchaseRequest;
-    Supplier?: Supplier;
-    POStatus?: PurchaseOrderStatus;
-    Details?: PurchaseOrderDetail[];
-}
-
-export interface PurchaseOrderDetail {
-    PODetailID: number;
-    POID: number;
-    PropertyTypeID: number;
-    Description: string;
-    Quantity: number;
-    UnitOfMeasureID: number;
-    UnitCost: number;
-    TotalCost: number;
-    // Relations
-    PropertyType?: PropertyType;
-    UnitOfMeasure?: UnitOfMeasure;
-}
-
-export interface PurchaseOrderStatus {
-    POStatusID: number;
-    StatusName: 'Pending' | 'Partially Delivered' | 'Fully Delivered' | 'Completed' | 'Cancelled';
-}
 
 export interface DeliveryReceipt {
     DRID: number;
     DRNumber: string;
-    POID: number;
+    PONumber?: string; // Manual PO reference (optional)
     DeliveryDate: string;
-    SupplierID: number;
+    SupplierName?: string; // Manual supplier name (optional)
     ReceivedBy: number;
     Remarks?: string;
     CreatedDate: string;
     // Relations
-    PurchaseOrder?: PurchaseOrder;
-    Supplier?: Supplier;
     ReceivedByUser?: User;
     Details?: DeliveryReceiptDetail[];
 }
@@ -232,8 +151,8 @@ export interface DeliveryReceipt {
 export interface DeliveryReceiptDetail {
     DRDetailID: number;
     DRID: number;
-    PODetailID: number;
     PropertyTypeID: number;
+    ItemDescription: string;
     QuantityDelivered: number;
     UnitOfMeasureID: number;
     UnitCost: number;
@@ -449,23 +368,6 @@ export interface PropertyTypeInput {
     ClassificationID: number;
     PropertyClassificationID: number;
     Description?: string;
-}
-
-export interface PurchaseRequestInput {
-    PRNumber: string;
-    RequestDate: string;
-    DepartmentID: number;
-    Purpose: string;
-    Details: PurchaseRequestDetailInput[];
-}
-
-export interface PurchaseRequestDetailInput {
-    PropertyTypeID: number;
-    Description: string;
-    Quantity: number;
-    UnitOfMeasureID: number;
-    EstimatedCost?: number;
-    Remarks?: string;
 }
 
 // ============================================
