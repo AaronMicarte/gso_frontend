@@ -69,7 +69,7 @@ const navSections: NavSection[] = [
                 icon: PackagePlus,
                 children: [
                     { label: 'Delivery Receipts', href: '/admin/delivery-receipts', icon: PackagePlus },
-                    { label: 'IAR', href: '/admin/inspection-reports', icon: FileBarChart },
+                    { label: 'Inspection Reports', href: '/admin/inspection-acceptance-reports', icon: FileBarChart },
                 ],
             },
         ],

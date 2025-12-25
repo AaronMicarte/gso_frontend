@@ -2,25 +2,51 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useDeliveryReceipts } from '@/lib/hooks/useDeliveryReceipts';
+import { useDeliveryReceipts, useDeleteDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import {
     Plus,
     Search,
     Eye,
     Edit,
     Trash2,
-    Package
+    Package,
+    ClipboardCheck,
+    AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
+import { Dialog } from '@/components/ui/Dialog';
+import { toast } from 'sonner';
 
 export default function DeliveryReceiptsPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [drToDelete, setDrToDelete] = useState<{ DRID: number; DRNumber: string } | null>(null);
 
     const { data, isLoading } = useDeliveryReceipts({
         page,
         per_page: 10,
     });
+
+    const deleteMutation = useDeleteDeliveryReceipt();
+
+    const handleDelete = (dr: { DRID: number; DRNumber: string }) => {
+        setDrToDelete(dr);
+        setDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (drToDelete) {
+            deleteMutation.mutate(drToDelete.DRID, {
+                onSuccess: () => {
+                    setDeleteDialogOpen(false);
+                    setDrToDelete(null);
+                    toast.success(`Delivery Receipt ${drToDelete.DRNumber} has been deleted successfully`);
+                },
+            });
+        }
+    };
 
     return (
         <div className="p-6 space-y-6">
@@ -59,10 +85,10 @@ export default function DeliveryReceiptsPage() {
                         <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                             <tr>
                                 <th className="px-6 py-4">DR Number</th>
-                                <th className="px-6 py-4">PO Reference</th>
                                 <th className="px-6 py-4">Supplier</th>
                                 <th className="px-6 py-4">Date Received</th>
                                 <th className="px-6 py-4">Total Amount</th>
+                                <th className="px-6 py-4">IAR Status</th>
                                 <th className="px-6 py-4">Actions</th>
                             </tr>
                         </thead>
@@ -84,49 +110,75 @@ export default function DeliveryReceiptsPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                data?.data?.map((dr) => (
-                                    <tr key={dr.DRID} className="hover:bg-slate-50">
-                                        <td className="px-6 py-4 font-medium text-slate-900">
-                                            {dr.DRNumber}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {dr.PONumber || 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {dr.SupplierName || 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {format(new Date(dr.DateReceived), 'MMM dd, yyyy')}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            ₱{dr.details?.reduce((sum, item) => sum + item.TotalCost, 0)?.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <Link
-                                                    href={`/admin/delivery-receipts/${dr.DRID}`}
-                                                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                                                    title="View Details"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </Link>
-                                                <Link
-                                                    href={`/admin/delivery-receipts/${dr.DRID}/edit`}
-                                                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <Edit className="w-4 h-4" />
-                                                </Link>
-                                                <button
-                                                    className="p-1 text-slate-400 hover:text-red-600 transition-colors"
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                data?.data?.map((dr) => {
+                                    const totalAmount = dr.details ? dr.details.reduce((sum, item) => {
+                                        const cost = item.TotalCost ? parseFloat(String(item.TotalCost)) : 0;
+                                        return sum + cost;
+                                    }, 0) : 0;
+                                    return (
+                                        <tr key={dr.DRID} className="hover:bg-slate-50">
+                                            <td className="px-6 py-4 font-medium text-slate-900">
+                                                {dr.DRNumber}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {dr.SupplierName || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {format(toZonedTime(new Date(dr.DateReceived), 'Asia/Manila'), 'MMM dd, yyyy')}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                ₱{totalAmount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {dr.hasIAR ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                                                        <ClipboardCheck className="w-3 h-3" />
+                                                        Inspected
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+                                                        <AlertCircle className="w-3 h-3" />
+                                                        Pending IAR
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    {!dr.hasIAR && (
+                                                        <Link
+                                                            href={`/admin/delivery-receipts/create-iar?dr_id=${dr.DRID}`}
+                                                            className="p-1 text-green-600 hover:text-green-700 transition-colors"
+                                                            title="Create IAR"
+                                                        >
+                                                            <ClipboardCheck className="w-4 h-4" />
+                                                        </Link>
+                                                    )}
+                                                    <Link
+                                                        href={`/admin/delivery-receipts/${dr.DRID}`}
+                                                        className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                                                        title="View Details"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Link>
+                                                    <Link
+                                                        href={`/admin/delivery-receipts/${dr.DRID}/edit`}
+                                                        className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </Link>
+                                                    <button
+                                                        onClick={() => handleDelete({ DRID: dr.DRID, DRNumber: dr.DRNumber })}
+                                                        className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -162,6 +214,16 @@ export default function DeliveryReceiptsPage() {
                     </div>
                 )}
             </div>
+
+            <Dialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title="Delete Delivery Receipt"
+                description={`Are you sure you want to delete Delivery Receipt ${drToDelete?.DRNumber}? This action cannot be undone.`}
+                onConfirm={confirmDelete}
+                confirmText="Delete"
+                loading={deleteMutation.isPending}
+            />
         </div>
     );
 }

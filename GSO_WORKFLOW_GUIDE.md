@@ -254,7 +254,7 @@
 
 **Examples:**
 - **Semi-Expendable:** Office supplies, small tools, minor equipment
-- **PPE:** Computers, furniture, vehicles, buildings
+- **PPE:** Computers, furniture, machinery and other non-expendable equipment (vehicles and buildings excluded)
 
 **Database:**
 - `propertyclassification` table has `DocumentType` field: 'ICS' or 'PAR'

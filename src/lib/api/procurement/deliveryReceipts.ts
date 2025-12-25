@@ -1,7 +1,6 @@
 import apiClient from '@/lib/api/client';
 import {
     DeliveryReceipt,
-    DeliveryReceiptDetail,
     CreateDeliveryReceiptPayload,
     UpdateDeliveryReceiptPayload,
     DeliveryReceiptFilters,

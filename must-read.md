@@ -19,6 +19,8 @@
 4. **INVENTORY:** Begins immediately upon DR recording.
 5. **FOCUS:** DR Management, Inventory, PAR/ICS Issuance, QR Tracking, Reporting, Disposal.
 
+NOTE: Vehicles and infrastructure property types (motor vehicles, buildings/structures) are excluded from this implementation to match local GSO scope and simplify workflows.
+
 ## RECENT CRITICAL FIXES
 - **DASHBOARD:** Fixed 500 errors by removing PR/JO table references.
 - **DATABASE:** Added `deleted_at` to `deliveryreceipt` tables to support SoftDeletes.
@@ -28,6 +30,11 @@
 - **Frontend:** Next.js, Tailwind CSS, Lucide Icons, Sonner, Radix UI.
 - **Backend:** Laravel 12, Sanctum (Session-based Auth), MySQL.
 - **Auth:** MFA (Google Authenticator) + Trusted Devices.
+
+## CONFIG
+- **Backdate window:** Delivery Receipt backdate window is configurable via env var `GSO_DR_BACKDATE_YEARS` (defaults to `5`). Admins can override per-request with `override_past_limit` when authorized.
+
+- **Delivery Receipt Number:** The DR number must be entered manually by staff when creating a Delivery Receipt. The system will not auto-generate DR numbers; ensure your DR numbers are unique and follow your local numbering policy.
 
 ---
 **BRUTAL HONESTY:** If the code is messy, fix it. If the workflow is wrong, change it. No excuses.

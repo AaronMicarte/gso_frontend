@@ -88,7 +88,7 @@ export interface PropertyInventoryDetail {
 
 export interface PropertyType {
     PropertyTypeID: number;
-    PropertyTypeName: string;
+    PropertyName: string;
     CategoryID: number;
     ClassificationID: number;
     PropertyClassificationID: number;
@@ -363,7 +363,7 @@ export interface PropertyInventoryInput {
 }
 
 export interface PropertyTypeInput {
-    PropertyTypeName: string;
+    PropertyName: string;
     CategoryID: number;
     ClassificationID: number;
     PropertyClassificationID: number;

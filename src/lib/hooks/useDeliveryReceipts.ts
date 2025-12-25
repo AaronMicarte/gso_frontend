@@ -43,7 +43,6 @@ export function useCreateDeliveryReceipt() {
         mutationFn: (data: CreateDeliveryReceiptPayload) => createDeliveryReceipt(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
-            toast.success('Delivery Receipt created successfully');
         },
         onError: (error: Error) => {
             toast.error((error as ApiError).response?.data?.message || 'Failed to create Delivery Receipt');
@@ -59,7 +58,6 @@ export function useUpdateDeliveryReceipt() {
         onSuccess: (_, { id }) => {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });
-            toast.success('Delivery Receipt updated successfully');
         },
         onError: (error: Error) => {
             toast.error((error as ApiError).response?.data?.message || 'Failed to update Delivery Receipt');
@@ -73,7 +71,6 @@ export function useDeleteDeliveryReceipt() {
         mutationFn: (id: number) => deleteDeliveryReceipt(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
-            toast.success('Delivery Receipt deleted successfully');
         },
         onError: (error: Error) => {
             toast.error((error as ApiError).response?.data?.message || 'Failed to delete Delivery Receipt');

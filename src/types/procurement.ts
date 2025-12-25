@@ -7,12 +7,17 @@ export interface DeliveryReceiptDetail {
     DRID?: number;
     ItemDescription: string;
     PropertyTypeID: number;
+    UnitOfMeasureID?: number;
     QuantityDelivered: number;
     UnitCost: number;
     TotalCost: number;
     propertyType?: {
         PropertyTypeID: number;
-        PropertyTypeName: string;
+        PropertyName: string;
+    };
+    unitOfMeasure?: {
+        UnitOfMeasureID: number;
+        UnitName: string;
     };
 }
 
@@ -24,8 +29,8 @@ export interface DeliveryReceiptStatus {
 export interface DeliveryReceipt {
     DRID: number;
     DRNumber: string;
-    PONumber: string; // Manual PO number reference (required for manual entry)
-    SupplierName: string; // Manual supplier name (required for manual entry)
+    PONumber?: string; // Manual PO number reference (OPTIONAL - just a reference)
+    SupplierName: string; // Manual supplier name (required)
     InvoiceNumber?: string; // Invoice number from supplier
     DateReceived: string;
     ReceivedBy: number;
@@ -38,30 +43,42 @@ export interface DeliveryReceipt {
         UserID: number;
         FullName: string;
     };
+    // IAR status
+    hasIAR?: boolean;
+    iar?: {
+        IARID: number;
+        IARNumber: string;
+        DateInspected: string;
+    };
 }
 
 export interface CreateDeliveryReceiptPayload {
+    dr_number: string;
     supplier_name: string; // Required manual supplier name
-    po_number: string; // Required manual PO reference
+    po_number?: string; // OPTIONAL manual PO reference (just for record keeping)
     invoice_number?: string; // Invoice number from supplier
     date_received: string;
     remarks?: string;
     details: {
         item_description: string;
         property_type_id: number;
+        unit_of_measure_id: number;
         quantity_delivered: number;
         unit_cost: number;
     }[];
 }
 
 export interface UpdateDeliveryReceiptPayload {
+    dr_number: string;
     supplier_name: string;
-    po_number: string;
+    po_number?: string; // OPTIONAL
     date_received: string;
     remarks?: string;
     details: {
+        dr_detail_id?: number; // Optional for updates, undefined for new items
         item_description: string;
         property_type_id: number;
+        unit_of_measure_id: number;
         quantity_delivered: number;
         unit_cost: number;
     }[];

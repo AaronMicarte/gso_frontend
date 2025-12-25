@@ -117,7 +117,7 @@ export interface UnitOfMeasure {
     id: number;
     name: string;
     description?: string | null;
-    created_at: string | null;
+    created_at?: string | null;
     updated_at?: string | null;
     deleted_at?: string | null;
     is_deleted?: boolean;
@@ -126,7 +126,7 @@ export interface UnitOfMeasure {
 export interface UnitOfMeasureInput {
     name: string;
     description?: string;
-}
+} 
 
 // ============================================
 // CONDITIONS
