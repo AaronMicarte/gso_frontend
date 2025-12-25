@@ -74,6 +74,7 @@ export interface MFAVerifySuccessResponse {
         Email: string;
         FullName: string;
         Role: string;
+        UserRoleID: number;
         Department: string;
     };
     warning?: string;

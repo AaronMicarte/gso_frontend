@@ -5,10 +5,6 @@ import { usePathname } from 'next/navigation';
 import { User } from '@/types/auth';
 import {
     LayoutDashboard,
-    Users,
-    Boxes,
-    Package,
-    BarChart3,
     LogOut,
     LucideIcon,
     ChevronDown,
@@ -16,15 +12,10 @@ import {
     FileText,
     ClipboardList,
     PackagePlus,
-    UserPlus,
     Building2,
-    RefreshCw,
     Trash2,
-    QrCode,
-    Scan,
     ShieldCheck,
     FileBarChart,
-    Wrench,
     FolderTree,
     Tag,
     FileType,
@@ -33,6 +24,8 @@ import {
     Truck,
     Briefcase,
     CheckCircle,
+    Users,
+    Package,
 } from 'lucide-react';
 
 // Navigation structure with sections and collapsible groups
@@ -48,168 +41,92 @@ interface NavSection {
     items: NavItem[];
 }
 
-const navSections: NavSection[] = [
-    // MAIN
-    {
-        items: [
-            {
-                label: 'Dashboard',
-                href: '/admin/dashboard',
-                icon: LayoutDashboard
-            },
-        ],
-    },
+// Function to get navigation sections based on user role
+// Uses role-specific route prefixes: /admin/ for Admin, /staff/ for GSO Staff, /custodian/ for Custodian
+function getNavSections(user: User): NavSection[] {
+    const isAdmin = user.UserRoleID === 1;
+    const isGSOStaff = user.UserRoleID === 2;
+    const isCustodian = user.UserRoleID === 3;
 
-    // PROCUREMENT WORKFLOW (Simplified - starts at DR)
-    {
-        section: 'PROCUREMENT',
-        items: [
-            {
-                label: 'Delivery & Inspection',
-                icon: PackagePlus,
-                children: [
-                    { label: 'Delivery Receipts', href: '/admin/delivery-receipts', icon: PackagePlus },
-                    { label: 'Inspection Reports', href: '/admin/inspection-acceptance-reports', icon: FileBarChart },
-                ],
-            },
-        ],
-    },
+    // Determine base route based on role
+    const baseRoute = isAdmin ? '/admin' : isGSOStaff ? '/staff' : '/custodian';
 
-    // INVENTORY & PROPERTY
-    {
-        section: 'INVENTORY',
-        items: [
-            {
-                label: 'Property Inventory',
-                icon: Boxes,
-                children: [
-                    { label: 'All Properties', href: '/admin/properties', icon: Package },
-                    { label: 'Add Property', href: '/admin/properties/new', icon: PackagePlus },
-                ],
-            },
-            {
-                label: 'Master Data',
-                icon: FolderTree,
-                children: [
-                    { label: 'Categories', href: '/admin/masterdata/categories', icon: FolderTree },
-                    { label: 'Classifications', href: '/admin/masterdata/classifications', icon: Tag },
-                    { label: 'Conditions', href: '/admin/masterdata/conditions', icon: CheckCircle },
-                    { label: 'Departments', href: '/admin/masterdata/departments', icon: Building2 },
-                    { label: 'Disposal Methods', href: '/admin/masterdata/disposal-methods', icon: Trash2 },
-                    { label: 'End Users', href: '/admin/masterdata/end-users', icon: Users },
-                    { label: 'Positions', href: '/admin/masterdata/positions', icon: Briefcase },
-                    { label: 'Property Classifications', href: '/admin/masterdata/property-classifications', icon: FileType },
-                    { label: 'Property Statuses', href: '/admin/masterdata/property-statuses', icon: Package },
-                    { label: 'Property Types', href: '/admin/masterdata/property-types', icon: Box },
-                    { label: 'Suppliers', href: '/admin/masterdata/suppliers', icon: Truck },
-                    { label: 'Units of Measure', href: '/admin/masterdata/units-of-measure', icon: Ruler },
-                    { label: 'User Roles', href: '/admin/masterdata/user-roles', icon: ShieldCheck },
-                ],
-            },
-        ],
-    },
+    const sections: NavSection[] = [
+        // MAIN - Everyone sees dashboard
+        {
+            items: [
+                {
+                    label: 'Dashboard',
+                    href: `${baseRoute}/dashboard`,
+                    icon: LayoutDashboard
+                },
+            ],
+        },
+    ];
 
-    // DISTRIBUTION
-    {
-        section: 'DISTRIBUTION',
-        items: [
-            {
-                label: 'Issuance',
-                icon: PackagePlus,
-                children: [
-                    { label: 'Property Issuance', href: '/admin/issuance', icon: PackagePlus },
-                    { label: 'Property Assignment', href: '/admin/assignments', icon: UserPlus },
-                ],
-            },
-            {
-                label: 'Accountability',
-                icon: FileText,
-                children: [
-                    { label: 'PAR (PPE)', href: '/admin/par', icon: FileText },
-                    { label: 'ICS (Semi-Expendable)', href: '/admin/ics', icon: FileText },
-                ],
-            },
-        ],
-    },
+    // DELIVERY & INSPECTION - Admin and GSO Staff only
+    if (isAdmin || isGSOStaff) {
+        sections.push({
+            section: 'PROCUREMENT',
+            items: [
+                {
+                    label: 'Delivery & Inspection',
+                    icon: PackagePlus,
+                    children: [
+                        { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: PackagePlus },
+                        { label: 'Inspection Reports', href: `${baseRoute}/inspection-acceptance-reports`, icon: FileBarChart },
+                    ],
+                },
+            ],
+        });
+    }
 
-    // MONITORING & MAINTENANCE
-    {
-        section: 'MONITORING',
-        items: [
-            {
-                label: 'QR Management',
-                icon: QrCode,
-                children: [
-                    { label: 'Generate QR Codes', href: '/admin/qr-generate', icon: QrCode },
-                    { label: 'Scan Property', href: '/admin/qr-scan', icon: Scan },
-                ],
-            },
-            {
-                label: 'Physical Count',
-                icon: ClipboardList,
-                children: [
-                    { label: 'Count Sessions', href: '/admin/physical-count', icon: ClipboardList },
-                    { label: 'Start New Count', href: '/admin/physical-count/new', icon: PackagePlus },
-                ],
-            },
-        ],
-    },
+    // MASTER DATA - Admin only (full system configuration)
+    if (isAdmin) {
+        sections.push({
+            section: 'MASTER DATA',
+            items: [
+                {
+                    label: 'Configuration',
+                    icon: FolderTree,
+                    children: [
+                        { label: 'Categories', href: '/admin/masterdata/categories', icon: FolderTree },
+                        { label: 'Classifications', href: '/admin/masterdata/classifications', icon: Tag },
+                        { label: 'Conditions', href: '/admin/masterdata/conditions', icon: CheckCircle },
+                        { label: 'Departments', href: '/admin/masterdata/departments', icon: Building2 },
+                        { label: 'Disposal Methods', href: '/admin/masterdata/disposal-methods', icon: Trash2 },
+                        { label: 'End Users', href: '/admin/masterdata/end-users', icon: Users },
+                        { label: 'Positions', href: '/admin/masterdata/positions', icon: Briefcase },
+                        { label: 'Property Classifications', href: '/admin/masterdata/property-classifications', icon: FileType },
+                        { label: 'Property Statuses', href: '/admin/masterdata/property-statuses', icon: Package },
+                        { label: 'Property Types', href: '/admin/masterdata/property-types', icon: Box },
+                        { label: 'Suppliers', href: '/admin/masterdata/suppliers', icon: Truck },
+                        { label: 'Units of Measure', href: '/admin/masterdata/units-of-measure', icon: Ruler },
+                        { label: 'User Roles', href: '/admin/masterdata/user-roles', icon: ShieldCheck },
+                    ],
+                },
+            ],
+        });
+    }
 
-    // TRANSFER & DISPOSAL
-    {
-        section: 'DISPOSAL',
-        items: [
-            {
-                label: 'Property Transfer',
-                icon: RefreshCw,
-                children: [
-                    { label: 'All Transfers', href: '/admin/transfers', icon: RefreshCw },
-                    { label: 'New Transfer', href: '/admin/transfers/new', icon: PackagePlus },
-                ],
-            },
-            {
-                label: 'Property Disposal',
-                icon: Trash2,
-                children: [
-                    { label: 'Disposal Records', href: '/admin/disposal', icon: Trash2 },
-                    { label: 'IIRUP', href: '/admin/iirup', icon: FileBarChart },
-                ],
-            },
-        ],
-    },
+    // ADMINISTRATION - Admin only
+    if (isAdmin) {
+        sections.push({
+            section: 'ADMINISTRATION',
+            items: [
+                {
+                    label: 'Security',
+                    icon: ShieldCheck,
+                    children: [
+                        { label: 'Login Audit', href: '/admin/security', icon: ShieldCheck },
+                    ],
+                },
+            ],
+        });
+    }
 
-    // ADMINISTRATION
-    {
-        section: 'ADMINISTRATION',
-        items: [
-            {
-                label: 'User Management',
-                icon: Users,
-                children: [
-                    { label: 'Users', href: '/admin/users', icon: Users },
-                    { label: 'Departments', href: '/admin/masterdata/departments', icon: Building2 },
-                    { label: 'Suppliers', href: '/admin/suppliers', icon: Building2 },
-                ],
-            },
-            {
-                label: 'Reports',
-                icon: BarChart3,
-                children: [
-                    { label: 'Analytics', href: '/admin/reports/analytics', icon: BarChart3 },
-                    { label: 'Standard Reports', href: '/admin/reports', icon: FileText },
-                ],
-            },
-            {
-                label: 'Security',
-                icon: ShieldCheck,
-                children: [
-                    { label: 'Login Audit', href: '/admin/security', icon: ShieldCheck },
-                    { label: 'Activity Logs', href: '/admin/activity-logs', icon: FileText },
-                ],
-            },
-        ],
-    },
-];
+    return sections;
+}
 
 // Collapsible menu item component
 function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
@@ -324,7 +241,7 @@ export default function Sidebar({ user, isOpen, onLogout }: SidebarProps) {
 
             {/* Navigation - Scrollable content area */}
             <nav className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
-                {navSections.map((section, sectionIndex) => (
+                {getNavSections(user).map((section, sectionIndex) => (
                     <div key={sectionIndex} className="mb-4">
                         {section.section && (
                             <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">

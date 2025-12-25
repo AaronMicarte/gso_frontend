@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { login } from '@/lib/auth';
+import { login, getDashboardRoute } from '@/lib/auth';
 import { LoginError } from '@/types/auth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -40,16 +40,19 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
+  const [mfaSetupToastShown, setMfaSetupToastShown] = useState(false);
+
   // Show success toast if returning from MFA setup
   useEffect(() => {
-    if (searchParams.get('mfa_setup') === 'complete') {
+    if (searchParams.get('mfa_setup') === 'complete' && !mfaSetupToastShown) {
       toast.success('MFA Setup Complete!', {
         description: 'Please login again to verify your new security setup.',
       });
+      setMfaSetupToastShown(true);
       // Clean URL
       router.replace('/');
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, mfaSetupToastShown]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -74,27 +77,6 @@ export function LoginForm() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [lockout?.locked, lockout?.seconds]);
-
-  // Get dashboard route based on user role
-  const getDashboardRoute = (role: string): string => {
-    const normalizedRole = role.toLowerCase();
-
-    switch (normalizedRole) {
-      case 'admin':
-        return '/admin/dashboard';
-      case 'gso staff':
-        return '/staff/dashboard';
-      case 'property custodian':
-        return '/custodian/dashboard';
-      case 'department head':
-        return '/department/dashboard';
-      case 'end user':
-        return '/user/dashboard';
-      default:
-        // Fallback for unknown roles - redirect to admin
-        return '/admin/dashboard';
-    }
-  };
 
   const onSubmit = async (data: LoginFormData) => {
     if (lockout?.locked) return;
@@ -136,7 +118,7 @@ export function LoginForm() {
       });
 
       // Redirect based on user role
-      const dashboardRoute = getDashboardRoute(response.user.Role);
+      const dashboardRoute = getDashboardRoute(response.user.Role, response.user.UserRoleID);
       router.push(dashboardRoute);
     } catch (err: unknown) {
       const error = err as LoginError;

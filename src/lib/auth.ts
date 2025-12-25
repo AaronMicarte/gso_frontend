@@ -29,6 +29,22 @@ export async function logout(): Promise<void> {
 }
 
 /**
+ * Get dashboard route based on user role
+ */
+export function getDashboardRoute(role?: string, userRoleID?: number): string {
+  if (userRoleID === 1) return '/admin/dashboard'; // Admin
+  if (userRoleID === 2) return '/staff/dashboard'; // GSO Staff
+  if (userRoleID === 3) return '/custodian/dashboard'; // Property Custodian
+
+  // Fallback to role name if UserRoleID not available
+  if (role === 'Admin') return '/admin/dashboard';
+  if (role === 'GSO Staff') return '/staff/dashboard';
+  if (role === 'Property Custodian') return '/custodian/dashboard';
+
+  return '/admin/dashboard'; // Default fallback
+}
+
+/**
  * Check if user is authenticated by trying to get user data
  * Returns true if session is valid, false otherwise
  */

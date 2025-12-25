@@ -9,6 +9,7 @@ export interface User {
   Email: string;
   FullName: string;
   Role: string;
+  UserRoleID: number;
   Department: string;
   DepartmentID: number;
   department?: {

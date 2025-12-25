@@ -10,6 +10,7 @@ import { Shield, Loader2, AlertTriangle, Smartphone, KeyRound } from 'lucide-rea
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { verifyMFACode } from '@/lib/api/mfa';
+import { getDashboardRoute } from '@/lib/auth';
 import { toast } from 'sonner';
 
 const codeSchema = z.object({
@@ -46,15 +47,6 @@ export default function VerifyMFAPage() {
         setPending(JSON.parse(stored));
     }, [router]);
 
-    const getDashboardRoute = (role: string): string => {
-        const r = role.toLowerCase();
-        if (r === 'admin') return '/admin/dashboard';
-        if (r === 'gso staff') return '/staff/dashboard';
-        if (r === 'property custodian') return '/custodian/dashboard';
-        if (r === 'department head') return '/department/dashboard';
-        return '/user/dashboard';
-    };
-
     const handleSubmit = async (data: CodeFormData) => {
         if (!pending) return;
 
@@ -72,7 +64,7 @@ export default function VerifyMFAPage() {
             toast.success('Login successful!', {
                 description: `Welcome back, ${response.user.FullName || response.user.Username}!`,
             });
-            router.replace(getDashboardRoute(response.user.Role));
+            router.replace(getDashboardRoute(response.user.Role, response.user.UserRoleID));
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Invalid code. Please try again.');
             form.setValue('code', '');
