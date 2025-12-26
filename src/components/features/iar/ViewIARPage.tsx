@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { updateIAR } from '@/lib/api/iar';
 
 import { IARPrintView } from './IARPrintView';
+import { Dialog } from '@/components/ui/Dialog';
 
 interface ViewIARPageProps {
     baseRoute: string;
@@ -25,6 +26,50 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
     const [iar, setIar] = useState<IAR | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isAccepting, setIsAccepting] = useState(false);
+    const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+
+    const handleConfirmAccept = async () => {
+        if (!iar) return;
+        try {
+            setIsAccepting(true);
+            const todayManila = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
+            const dateInspectedFormatted = formatInTimeZone(
+                toZonedTime(new Date(iar.DateInspected), 'Asia/Manila'),
+                'Asia/Manila',
+                'yyyy-MM-dd'
+            );
+
+            await updateIAR(iar.IARID, {
+                inspected_by: iar.InspectedBy,
+                accepted_by: user?.UserID || 0,
+                date_inspected: dateInspectedFormatted,
+                date_accepted: todayManila,
+                remarks: iar.Remarks || '',
+                details: iar.details?.map(d => ({
+                    dr_detail_id: d.DRDetailID,
+                    property_type_id: d.PropertyTypeID,
+                    condition_id: d.ConditionID,
+                    quantity_accepted: d.QuantityAccepted,
+                    quantity_rejected: d.QuantityRejected,
+                    remarks: d.Remarks || '',
+                })) || [],
+            });
+
+            toast.success('IAR accepted successfully');
+            setIsAcceptDialogOpen(false);
+            const updated = await getIAR(iar.IARID);
+            setIar(updated);
+        } catch (err: unknown) {
+            let message = 'Failed to accept IAR';
+            if (typeof err === 'object' && err !== null && 'message' in err) {
+                const msg = (err as { message?: unknown }).message;
+                if (typeof msg === 'string') message = msg;
+            }
+            toast.error(message);
+        } finally {
+            setIsAccepting(false);
+        }
+    };
 
     useEffect(() => {
         const fetchIAR = async () => {
@@ -81,53 +126,27 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        {(!iar.AcceptedBy || user?.UserRoleID === 1) && (
-                            <button
-                                onClick={async () => {
-                                    if (!iar) return;
-                                    if (!confirm('Mark this IAR as accepted by you?')) return;
-                                    try {
-                                        setIsAccepting(true);
-                                        const todayManila = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
-                                        const dateInspectedFormatted = formatInTimeZone(
-                                            toZonedTime(new Date(iar.DateInspected), 'Asia/Manila'),
-                                            'Asia/Manila',
-                                            'yyyy-MM-dd'
-                                        );
-                                        await updateIAR(iar.IARID, {
-                                            inspected_by: iar.InspectedBy,
-                                            accepted_by: user?.UserID || 0,
-                                            date_inspected: dateInspectedFormatted,
-                                            date_accepted: todayManila,
-                                            remarks: iar.Remarks || '',
-                                            details: iar.details?.map(d => ({
-                                                dr_detail_id: d.DRDetailID,
-                                                property_type_id: d.PropertyTypeID,
-                                                condition_id: d.ConditionID,
-                                                quantity_accepted: d.QuantityAccepted,
-                                                quantity_rejected: d.QuantityRejected,
-                                                remarks: d.Remarks || '',
-                                            })) || [],
-                                        });
-                                        toast.success('IAR accepted successfully');
-                                        const updated = await getIAR(iar.IARID);
-                                        setIar(updated);
-                                    } catch (err: unknown) {
-                                        let message = 'Failed to accept IAR';
-                                        if (typeof err === 'object' && err !== null && 'message' in err) {
-                                            const msg = (err as { message?: unknown }).message;
-                                            if (typeof msg === 'string') message = msg;
-                                        }
-                                        toast.error(message);
-                                    } finally {
-                                        setIsAccepting(false);
-                                    }
-                                }}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
-                                disabled={isAccepting}
-                            >
-                                {isAccepting ? 'Accepting...' : 'Accept'}
-                            </button>
+                        {!iar.AcceptedBy && (user?.UserRoleID === 1 || user?.UserRoleID === 2) && (
+                            <>
+                                <button
+                                    onClick={() => setIsAcceptDialogOpen(true)}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
+                                    disabled={isAccepting}
+                                >
+                                    {isAccepting ? 'Accepting...' : 'Accept'}
+                                </button>
+
+                                <Dialog
+                                    title="Confirm Acceptance"
+                                    description="Mark this IAR as accepted by you? This action will set the IAR as accepted and record the date."
+                                    open={isAcceptDialogOpen}
+                                    onOpenChange={setIsAcceptDialogOpen}
+                                    onConfirm={handleConfirmAccept}
+                                    confirmText="Accept"
+                                    cancelText="Cancel"
+                                    loading={isAccepting}
+                                />
+                            </>
                         )}
                         <button
                             onClick={() => window.print()}
@@ -158,7 +177,11 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Inspected By</label>
-                            <p className="mt-1 text-slate-900">{iar.inspectedByUser?.FullName}</p>
+                            <p className="mt-1 text-slate-900">{iar.inspectedByUser?.FullName || 'Pending'}</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">Accepted By</label>
+                            <p className="mt-1 text-slate-900">{iar.acceptedByUser?.FullName || 'Pending'}</p>
                         </div>
                     </div>
                 </div>

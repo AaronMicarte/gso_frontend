@@ -11,7 +11,8 @@ import {
     Trash2,
     Package,
     ClipboardCheck,
-    AlertCircle
+    AlertCircle,
+    CheckCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -131,6 +132,16 @@ export default function DeliveryReceiptsPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 {dr.hasIAR ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                                                        <ClipboardCheck className="w-3 h-3" />
+                                                        Inspected
+                                                    </span>
+                                                ) : dr.iar_status === 'Accepted' ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        Accepted
+                                                    </span>
+                                                ) : dr.iar_status === 'Inspected' ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
                                                         <ClipboardCheck className="w-3 h-3" />
                                                         Inspected

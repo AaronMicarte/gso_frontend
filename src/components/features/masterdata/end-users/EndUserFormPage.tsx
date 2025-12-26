@@ -46,7 +46,7 @@ export function EndUserFormPage({ baseRoute, endUserId }: EndUserFormPageProps) 
                 is_active: endUser.is_active,
             });
         }
-    }, [endUser, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [endUser, isEditing]);  
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

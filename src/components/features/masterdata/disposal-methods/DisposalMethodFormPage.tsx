@@ -35,7 +35,7 @@ export function DisposalMethodFormPage({ baseRoute, disposalMethodId }: Disposal
                 description: disposalMethod.description || '',
             });
         }
-    }, [disposalMethod, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [disposalMethod, isEditing]);  
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

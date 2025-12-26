@@ -56,6 +56,7 @@ export default function IARPage() {
                                 <th className="px-6 py-4">Supplier</th>
                                 <th className="px-6 py-4">Date Inspected</th>
                                 <th className="px-6 py-4">Inspected By</th>
+                                <th className="px-6 py-4">Accepted By</th>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4">Actions</th>
                             </tr>
@@ -84,7 +85,7 @@ export default function IARPage() {
                                             {iar.IARNumber}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
-                                            {iar.deliveryReceipt?.DRNumber || 'N/A'}
+                                            {iar.deliveryReceipt?.DRNumber || (iar.DRID ? `DR ID: ${iar.DRID}` : 'Not linked')}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
                                             {iar.deliveryReceipt?.SupplierName || 'N/A'}
@@ -94,6 +95,9 @@ export default function IARPage() {
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
                                             {iar.inspectedByUser?.FullName || 'N/A'}
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">
+                                            {iar.acceptedByUser?.FullName || 'Pending'}
                                         </td>
                                         <td className="px-6 py-4">
                                             {iar.DateAccepted ? (

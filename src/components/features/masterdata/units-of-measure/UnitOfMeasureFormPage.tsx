@@ -35,7 +35,7 @@ export function UnitOfMeasureFormPage({ baseRoute, unitId }: UnitOfMeasureFormPa
                 description: unit.description || '',
             });
         }
-    }, [unit, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [unit, isEditing]);  
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

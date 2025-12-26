@@ -12,7 +12,8 @@ import {
     Trash2,
     Package,
     FileText,
-    RefreshCw
+    RefreshCw,
+    CheckCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -146,7 +147,12 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                             {dr.receivedByUser?.FullName || 'N/A'}
                                         </td>
                                         <td className="px-6 py-4">
-                                            {dr.hasIAR ? (
+                                            {dr.iar_status === 'Accepted' ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    Accepted
+                                                </span>
+                                            ) : dr.iar_status === 'Inspected' ? (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                     <FileText className="w-3 h-3" />
                                                     Inspected

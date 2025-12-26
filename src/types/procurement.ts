@@ -50,6 +50,8 @@ export interface DeliveryReceipt {
         IARNumber: string;
         DateInspected: string;
     };
+    // Computed status string from backend: 'Pending IAR' | 'Inspected' | 'Accepted'
+    iar_status?: string;
 }
 
 export interface CreateDeliveryReceiptPayload {

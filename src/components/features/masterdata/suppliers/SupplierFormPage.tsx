@@ -50,7 +50,7 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
                 is_active: supplier.is_active,
             });
         }
-    }, [isEditMode, supplier]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isEditMode, supplier]);  
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

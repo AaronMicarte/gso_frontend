@@ -37,7 +37,9 @@ export const useUpdateIAR = () => {
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['iar', variables.id] });
             queryClient.invalidateQueries({ queryKey: ['iars'] });
+            queryClient.invalidateQueries({ queryKey: ['delivery-receipts'] });
         },
+
     });
 };
 
