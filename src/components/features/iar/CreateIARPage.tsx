@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { useCreateIAR } from '@/lib/hooks/useIAR';
 import { useDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { getConditions, getUsers } from '@/lib/api/iar';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { USER_ROLES } from '@/constants';
 import { ArrowLeft, Save, AlertCircle, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -59,6 +61,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
 
     const createMutation = useCreateIAR();
     const { data: drData, isLoading: isDRLoading } = useDeliveryReceipt(drId ? parseInt(drId) : 0);
+    const { user } = useAuth();
     const [conditions, setConditions] = useState<Condition[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
@@ -74,10 +77,10 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
         resolver: zodResolver(iarSchema),
         defaultValues: {
             dr_id: drId ? parseInt(drId) : 0,
-            inspected_by: 0,
+            inspected_by: user?.UserID ?? 0,
             accepted_by: 0,
             date_inspected: formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd'),
-            date_accepted: formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd'),
+            date_accepted: '',
             remarks: '',
             details: [],
         },
@@ -235,13 +238,22 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                             <select
                                 {...register('inspected_by', { valueAsNumber: true })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                disabled={user?.UserRoleID !== 1}
                             >
-                                <option value={0}>Select Inspector</option>
-                                {users.map((user) => (
-                                    <option key={user.UserID} value={user.UserID}>
-                                        {user.FullName}
-                                    </option>
-                                ))}
+                                {user?.UserRoleID === 1 ? (
+                                    <>
+                                        <option value={0}>Select Inspector</option>
+                                        {users.map((user) => (
+                                            <option key={user.UserID} value={user.UserID}>
+                                                {user.FullName}
+                                            </option>
+                                        ))}
+                                    </>
+                                ) : (
+                                    <>
+                                        <option value={user?.UserID}>{user?.FullName} (You)</option>
+                                    </>
+                                )}
                             </select>
                             {errors.inspected_by && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -260,13 +272,14 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                                 {...register('accepted_by', { valueAsNumber: true })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                             >
-                                <option value={0}>Select Acceptor</option>
+                                <option value={0}>Select Acceptor (optional)</option>
                                 {users.map((user) => (
                                     <option key={user.UserID} value={user.UserID}>
                                         {user.FullName}
                                     </option>
                                 ))}
                             </select>
+                            <p className="mt-1 text-xs text-slate-500">You can leave this blank and accept the IAR later using the Accept action.</p>
                             {errors.accepted_by && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />

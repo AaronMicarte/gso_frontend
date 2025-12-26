@@ -9,7 +9,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
   // Get CSRF cookie first (required by Sanctum for SPA auth)
   await getCsrfCookie();
 
-  const response = await apiClient.post<AuthResponse>('/login', credentials);
+  const response = await apiClient.post<AuthResponse>('../login', credentials);
   return response.data;
 }
 

@@ -9,6 +9,8 @@ import { toZonedTime } from 'date-fns-tz';
 import { getIAR } from '@/lib/api/iar';
 import { IAR } from '@/types/iar';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { updateIAR } from '@/lib/api/iar';
 
 interface ViewIARPageProps {
     baseRoute: string;
@@ -17,8 +19,10 @@ interface ViewIARPageProps {
 export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
     const params = useParams();
     const router = useRouter();
+    const { user } = useAuth();
     const [iar, setIar] = useState<IAR | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isAccepting, setIsAccepting] = useState(false);
 
     useEffect(() => {
         const fetchIAR = async () => {
@@ -64,13 +68,53 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                         <p className="text-slate-500 text-sm">{iar.IARNumber}</p>
                     </div>
                 </div>
-                <button
-                    onClick={() => window.print()}
-                    className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                    <Printer className="w-4 h-4" />
-                    Print
-                </button>
+                <div className="flex items-center gap-3">
+                    {(!iar.AcceptedBy || user?.UserRoleID === 1) && (
+                        <button
+                            onClick={async () => {
+                                if (!iar) return;
+                                if (!confirm('Mark this IAR as accepted by you?')) return;
+                                try {
+                                    setIsAccepting(true);
+                                    await updateIAR(iar.IARID, {
+                                        inspected_by: iar.InspectedBy,
+                                        accepted_by: user?.UserID || 0,
+                                        date_inspected: iar.DateInspected,
+                                        date_accepted: new Date().toISOString(),
+                                        remarks: iar.Remarks || '',
+                                        details: iar.details?.map(d => ({
+                                            dr_detail_id: d.DRDetailID,
+                                            property_type_id: d.PropertyTypeID,
+                                            condition_id: d.ConditionID,
+                                            quantity_accepted: d.QuantityAccepted,
+                                            quantity_rejected: d.QuantityRejected,
+                                            remarks: d.Remarks || '',
+                                        })) || [],
+                                    });
+                                    toast.success('IAR accepted successfully');
+                                    const updated = await getIAR(iar.IARID);
+                                    setIar(updated);
+                                } catch (err) {
+                                    console.error(err);
+                                    toast.error('Failed to accept IAR');
+                                } finally {
+                                    setIsAccepting(false);
+                                }
+                            }}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
+                            disabled={isAccepting}
+                        >
+                            {isAccepting ? 'Accepting...' : 'Accept'}
+                        </button>
+                    )}
+                    <button
+                        onClick={() => window.print()}
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                        <Printer className="w-4 h-4" />
+                        Print
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
