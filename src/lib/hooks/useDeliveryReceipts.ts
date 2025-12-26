@@ -6,7 +6,7 @@ import {
     updateDeliveryReceipt,
     deleteDeliveryReceipt,
     DeliveryReceiptFilters,
-} from '@/lib/api/procurement/deliveryReceipts';
+} from '@/lib/api/deliveryReceipts';
 import { CreateDeliveryReceiptPayload, UpdateDeliveryReceiptPayload } from '@/types/procurement';
 import { ApiError } from '@/types/api';
 import { toast } from 'sonner';

@@ -7,20 +7,20 @@
 // ============================================
 
 export interface Department {
-    DepartmentID: number;
-    DepartmentName: string;
-    Description?: string | null;
-    DepartmentCode?: string | null;
-    IsActive?: number;
-    CreatedDate: string;
-    UpdatedDate?: string | null;
-    deleted_at?: string | null;
+    id: number;
+    code: string;
+    name: string;
+    description: string;
+    created_at: string;
+    updated_at?: string;
+    deleted_at?: string;
+    is_deleted?: boolean;
 }
 
 export interface DepartmentInput {
+    DepartmentCode: string;
     DepartmentName: string;
-    Description?: string;
-    DepartmentCode?: string;
+    Description: string;
 }
 
 // ============================================
@@ -126,7 +126,7 @@ export interface UnitOfMeasure {
 export interface UnitOfMeasureInput {
     name: string;
     description?: string;
-} 
+}
 
 // ============================================
 // CONDITIONS

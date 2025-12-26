@@ -26,6 +26,15 @@ import {
     CheckCircle,
     Users,
     Package,
+    Wrench,
+    QrCode,
+    ArrowRightLeft,
+    FileWarning,
+    UserCheck,
+    Activity,
+    FileClock,
+    Settings,
+    Shield
 } from 'lucide-react';
 
 // Navigation structure with sections and collapsible groups
@@ -64,65 +73,279 @@ function getNavSections(user: User): NavSection[] {
         },
     ];
 
-    // DELIVERY & INSPECTION - Admin and GSO Staff only
-    if (isAdmin || isGSOStaff) {
-        sections.push({
-            section: 'PROCUREMENT',
-            items: [
-                {
-                    label: 'Delivery & Inspection',
-                    icon: PackagePlus,
-                    children: [
-                        { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: PackagePlus },
-                        { label: 'Inspection Reports', href: `${baseRoute}/inspection-acceptance-reports`, icon: FileBarChart },
-                    ],
-                },
-            ],
-        });
+    // 🔴 ADMIN (Full System Access)
+    if (isAdmin) {
+        sections.push(
+            {
+                section: 'PROPERTY MANAGEMENT',
+                items: [
+                    {
+                        label: 'Inventory',
+                        icon: Box,
+                        children: [
+                            { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
+                            { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: FileType },
+                            { label: 'Property Status', href: `${baseRoute}/masterdata/property-statuses`, icon: Tag },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'PROCUREMENT',
+                items: [
+                    {
+                        label: 'Delivery & Inspection',
+                        icon: Truck,
+                        children: [
+                            { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
+                            { label: 'Inspection Reports', href: `${baseRoute}/inspection-acceptance-reports`, icon: ClipboardList },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'ISSUANCE & ASSIGNMENT',
+                items: [
+                    {
+                        label: 'Issuance',
+                        icon: FileText,
+                        children: [
+                            { label: 'Property Issuance', href: `${baseRoute}/issuance`, icon: FileText },
+                            { label: 'Property Assignment', href: `${baseRoute}/assignment`, icon: UserCheck },
+                            { label: 'PAR', href: `${baseRoute}/par`, icon: FileText },
+                            { label: 'ICS', href: `${baseRoute}/ics`, icon: FileText },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'TRANSFER & DISPOSAL',
+                items: [
+                    {
+                        label: 'Transfer & Disposal',
+                        icon: ArrowRightLeft,
+                        children: [
+                            { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
+                            { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
+                            { label: 'IIRUP', href: `${baseRoute}/iirup`, icon: FileWarning },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'MAINTENANCE',
+                items: [
+                    { label: 'Job Orders', href: `${baseRoute}/job-orders`, icon: Wrench }
+                ]
+            },
+            {
+                section: 'PHYSICAL INVENTORY',
+                items: [
+                    {
+                        label: 'Physical Count',
+                        icon: ClipboardList,
+                        children: [
+                            { label: 'Count Sessions', href: `${baseRoute}/physical-count/sessions`, icon: ClipboardList },
+                            { label: 'Count Records', href: `${baseRoute}/physical-count/records`, icon: FileBarChart },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'QR MANAGEMENT',
+                items: [
+                    {
+                        label: 'QR Codes',
+                        icon: QrCode,
+                        children: [
+                            { label: 'Generate QR', href: `${baseRoute}/qr/generate`, icon: QrCode },
+                            { label: 'Scan QR', href: `${baseRoute}/qr/scan`, icon: QrCode },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'USER MANAGEMENT',
+                items: [
+                    {
+                        label: 'Users & Roles',
+                        icon: Users,
+                        children: [
+                            { label: 'Users', href: `${baseRoute}/users`, icon: Users },
+                            { label: 'Roles', href: `${baseRoute}/masterdata/user-roles`, icon: Shield },
+                            { label: 'Departments', href: `${baseRoute}/masterdata/departments`, icon: Building2 },
+                            { label: 'Positions', href: `${baseRoute}/masterdata/positions`, icon: Briefcase },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'MASTER DATA',
+                items: [
+                    {
+                        label: 'Configuration',
+                        icon: FolderTree,
+                        children: [
+                            { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
+                            { label: 'End Users', href: `${baseRoute}/masterdata/end-users`, icon: Users },
+                            { label: 'Categories', href: `${baseRoute}/masterdata/categories`, icon: FolderTree },
+                            { label: 'Classifications', href: `${baseRoute}/masterdata/classifications`, icon: Tag },
+                            { label: 'Conditions', href: `${baseRoute}/masterdata/conditions`, icon: Activity },
+                            { label: 'Units of Measure', href: `${baseRoute}/masterdata/units-of-measure`, icon: Ruler },
+                            { label: 'Disposal Methods', href: `${baseRoute}/masterdata/disposal-methods`, icon: Trash2 },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'REPORTS',
+                items: [
+                    {
+                        label: 'Reports',
+                        icon: FileBarChart,
+                        children: [
+                            { label: 'Dashboard Analytics', href: `${baseRoute}/reports/analytics`, icon: FileBarChart },
+                            { label: 'Standard Reports', href: `${baseRoute}/reports/standard`, icon: FileText },
+                            { label: 'Custom Reports', href: `${baseRoute}/reports/custom`, icon: FileText },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'SECURITY',
+                items: [
+                    {
+                        label: 'Security & Audit',
+                        icon: ShieldCheck,
+                        children: [
+                            { label: 'Login Audit', href: `${baseRoute}/security/login-audit`, icon: ShieldCheck },
+                            { label: 'Activity Logs', href: `${baseRoute}/security/activity-logs`, icon: FileClock },
+                            { label: 'System Settings', href: `${baseRoute}/settings`, icon: Settings },
+                        ]
+                    }
+                ]
+            }
+        );
     }
 
-    // MASTER DATA - Admin only (full system configuration)
-    if (isAdmin) {
-        sections.push({
-            section: 'MASTER DATA',
-            items: [
-                {
-                    label: 'Configuration',
-                    icon: FolderTree,
-                    children: [
-                        { label: 'Categories', href: '/admin/masterdata/categories', icon: FolderTree },
-                        { label: 'Classifications', href: '/admin/masterdata/classifications', icon: Tag },
-                        { label: 'Conditions', href: '/admin/masterdata/conditions', icon: CheckCircle },
-                        { label: 'Departments', href: '/admin/masterdata/departments', icon: Building2 },
-                        { label: 'Disposal Methods', href: '/admin/masterdata/disposal-methods', icon: Trash2 },
-                        { label: 'End Users', href: '/admin/masterdata/end-users', icon: Users },
-                        { label: 'Positions', href: '/admin/masterdata/positions', icon: Briefcase },
-                        { label: 'Property Classifications', href: '/admin/masterdata/property-classifications', icon: FileType },
-                        { label: 'Property Statuses', href: '/admin/masterdata/property-statuses', icon: Package },
-                        { label: 'Property Types', href: '/admin/masterdata/property-types', icon: Box },
-                        { label: 'Suppliers', href: '/admin/masterdata/suppliers', icon: Truck },
-                        { label: 'Units of Measure', href: '/admin/masterdata/units-of-measure', icon: Ruler },
-                        { label: 'User Roles', href: '/admin/masterdata/user-roles', icon: ShieldCheck },
-                    ],
-                },
-            ],
-        });
+    // 🟡 GSO STAFF (Operational Level)
+    if (isGSOStaff) {
+        sections.push(
+            {
+                section: 'PROPERTY MANAGEMENT',
+                items: [
+                    { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
+                    { label: 'Property Details', href: `${baseRoute}/property-details`, icon: FileText },
+                ]
+            },
+            {
+                section: 'PROCUREMENT',
+                items: [
+                    {
+                        label: 'Delivery & Inspection',
+                        icon: Truck,
+                        children: [
+                            { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
+                            { label: 'Inspection Reports', href: `${baseRoute}/inspection-acceptance-reports`, icon: ClipboardList },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'ISSUANCE & DISTRIBUTION',
+                items: [
+                    {
+                        label: 'Issuance',
+                        icon: FileText,
+                        children: [
+                            { label: 'Property Issuance', href: `${baseRoute}/issuance`, icon: FileText },
+                            { label: 'Property Assignment', href: `${baseRoute}/assignment`, icon: UserCheck },
+                            { label: 'Generate Documents', href: `${baseRoute}/documents`, icon: FileText },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'OPERATIONS',
+                items: [
+                    { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
+                    { label: 'Job Orders', href: `${baseRoute}/job-orders`, icon: Wrench },
+                    { label: 'Physical Count', href: `${baseRoute}/physical-count`, icon: ClipboardList },
+                ]
+            },
+            {
+                section: 'QR OPERATIONS',
+                items: [
+                    {
+                        label: 'QR Management',
+                        icon: QrCode,
+                        children: [
+                            { label: 'Generate QR', href: `${baseRoute}/qr/generate`, icon: QrCode },
+                            { label: 'Scan QR', href: `${baseRoute}/qr/scan`, icon: QrCode },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'REPORTS',
+                items: [
+                    { label: 'View Reports', href: `${baseRoute}/reports`, icon: FileBarChart },
+                    { label: 'Quick Reports', href: `${baseRoute}/reports/quick`, icon: FileText },
+                ]
+            },
+            {
+                section: 'MASTER DATA',
+                items: [
+                    {
+                        label: 'Master Data',
+                        icon: FolderTree,
+                        children: [
+                            { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
+                            { label: 'End Users', href: `${baseRoute}/masterdata/end-users`, icon: Users },
+                        ]
+                    }
+                ]
+            }
+        );
     }
 
-    // ADMINISTRATION - Admin only
-    if (isAdmin) {
-        sections.push({
-            section: 'ADMINISTRATION',
-            items: [
-                {
-                    label: 'Security',
-                    icon: ShieldCheck,
-                    children: [
-                        { label: 'Login Audit', href: '/admin/security', icon: ShieldCheck },
-                    ],
-                },
-            ],
-        });
+    // 🟢 CUSTODIAN (Limited Property Oversight)
+    if (isCustodian) {
+        sections.push(
+            {
+                section: 'PROPERTY MONITORING',
+                items: [
+                    { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
+                ]
+            },
+            {
+                section: 'MY ACCOUNTABILITIES',
+                items: [
+                    { label: 'My Assigned Properties', href: `${baseRoute}/my-properties`, icon: UserCheck },
+                    { label: 'Department Properties', href: `${baseRoute}/department-properties`, icon: Building2 },
+                ]
+            },
+            {
+                section: 'VERIFICATION',
+                items: [
+                    { label: 'Physical Verification', href: `${baseRoute}/verification`, icon: ClipboardList },
+                    { label: 'Scan QR', href: `${baseRoute}/qr/scan`, icon: QrCode },
+                ]
+            },
+            {
+                section: 'REQUESTS',
+                items: [
+                    { label: 'Service Requests', href: `${baseRoute}/requests`, icon: FileText },
+                    { label: 'Job Order Tracking', href: `${baseRoute}/job-orders/track`, icon: Wrench },
+                ]
+            },
+            {
+                section: 'REPORTS',
+                items: [
+                    { label: 'My Reports', href: `${baseRoute}/reports`, icon: FileBarChart },
+                ]
+            }
+        );
     }
 
     return sections;

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getIARs, getIAR, createIAR, updateIAR, deleteIAR, IARFilters } from '@/lib/api/procurement/iar';
+import { getIARs, getIAR, createIAR, updateIAR, deleteIAR, IARFilters } from '@/lib/api/iar';
 import { UpdateIARPayload } from '@/types/iar';
 
 export const useIARs = (filters?: IARFilters) => {

@@ -33,20 +33,9 @@
   - Disposed
 
 ### Procurement Management
-- 📝 Purchase Requests (PR)
-  - Create PR
-  - View all PRs
-  - Approve/Reject PR
-  - PR tracking
-- 📄 Purchase Orders (PO)
-  - Create PO
-  - View all POs
-  - PO status management
-  - Link to PR
 - 📦 Delivery Receipts (DR)
   - Record deliveries
   - View all DRs
-  - Link to PO
 - ✅ Inspection & Acceptance Reports (IAR)
   - Create IAR
   - View all IARs
