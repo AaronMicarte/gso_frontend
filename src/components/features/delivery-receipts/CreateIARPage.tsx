@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { useCreateIAR } from '@/lib/hooks/useIAR';
 import { useDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { getConditions, getUsers } from '@/lib/api/iar';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { USER_ROLE_IDS } from '@/constants';
 import { ArrowLeft, Save, AlertCircle, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -24,7 +26,7 @@ const iarDetailSchema = z.object({
 const iarSchema = z.object({
     dr_id: z.number(),
     inspected_by: z.number().min(1, 'Inspector is required'),
-    accepted_by: z.number().min(1, 'Acceptor is required'),
+    accepted_by: z.number().optional(),
     date_inspected: z.string().min(1, 'Inspection date is required'),
     date_accepted: z.string().optional(),
     remarks: z.string().optional(),
@@ -55,6 +57,7 @@ export function CreateIARPage() {
 
     const createMutation = useCreateIAR();
     const { data: drData, isLoading: isDRLoading } = useDeliveryReceipt(drId ? parseInt(drId) : 0);
+    const { user } = useAuth();
     const [conditions, setConditions] = useState<Condition[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
@@ -70,7 +73,7 @@ export function CreateIARPage() {
         resolver: zodResolver(iarSchema),
         defaultValues: {
             dr_id: drId ? parseInt(drId) : 0,
-            inspected_by: 0,
+            inspected_by: user?.UserID ?? 0,
             accepted_by: 0,
             date_inspected: formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd'),
             date_accepted: formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd'),
@@ -126,6 +129,29 @@ export function CreateIARPage() {
         }
     }, [drData, append, fields.length]);
 
+    // Filter users based on role
+    const getFilteredUsers = (forField: 'inspector' | 'acceptor') => {
+        if (!user) return users;
+
+        if (user.UserRoleID === USER_ROLE_IDS.ADMIN) {
+            return users;
+        } else if (user.UserRoleID === USER_ROLE_IDS.GSO_STAFF) {
+            if (forField === 'inspector') {
+                return users.filter(u => u.UserID === user.UserID); // Only themselves
+            } else { // acceptor
+                return users.filter(u => u.UserID !== user.UserID); // All except themselves (typically custodians)
+            }
+        }
+        return users;
+    };
+
+    // When auth user becomes available, set inspector to current user (default for all roles)
+    useEffect(() => {
+        if (!user) return;
+        // Default inspected_by to current user so the dropdown shows immediately for both staff and admin
+        setValue('inspected_by', user.UserID);
+    }, [user, setValue]);
+
     const details = watch('details');
 
     const onSubmit = async (data: IARFormValues) => {
@@ -141,6 +167,15 @@ export function CreateIARPage() {
             if (invalidItems.length > 0) {
                 toast.error('Accepted + Rejected quantities must equal delivered quantities');
                 return;
+            }
+
+            // Convert "Leave blank" acceptor (value 0) to null so backend validation accepts it
+            if (data.accepted_by === 0) {
+                // @ts-expect-error allow setting to null for nullable field
+                data.accepted_by = null;
+                // Clear date accepted if no acceptor
+                // @ts-expect-error allow setting to null for nullable field
+                data.date_accepted = null;
             }
 
             await createMutation.mutateAsync(data);
@@ -231,13 +266,24 @@ export function CreateIARPage() {
                             <select
                                 {...register('inspected_by', { valueAsNumber: true })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                disabled={user?.UserRoleID === USER_ROLE_IDS.GSO_STAFF}
                             >
-                                <option value={0}>Select Inspector</option>
-                                {users.map((user) => (
-                                    <option key={user.UserID} value={user.UserID}>
-                                        {user.FullName}
-                                    </option>
-                                ))}
+                                {user?.UserRoleID === USER_ROLE_IDS.GSO_STAFF ? (
+                                    <option value={user?.UserID}>{user?.FullName} (You)</option>
+                                ) : (
+                                    <>
+                                        {/* Always show current user first so the select has a visible default immediately */}
+                                        {user && (
+                                            <option value={user.UserID}>{user.FullName} (You)</option>
+                                        )}
+                                        <option value={0}>Select Inspector</option>
+                                        {getFilteredUsers('inspector').map((u) => (
+                                            <option key={u.UserID} value={u.UserID}>
+                                                {u.FullName}
+                                            </option>
+                                        ))}
+                                    </>
+                                )}
                             </select>
                             {errors.inspected_by && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -250,19 +296,23 @@ export function CreateIARPage() {
                         {/* Accepted By */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Accepted By *
+                                Select Acceptor
+                                <span className="text-slate-500 text-xs ml-1">(optional)</span>
                             </label>
                             <select
                                 {...register('accepted_by', { valueAsNumber: true })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                             >
-                                <option value={0}>Select Acceptor</option>
-                                {users.map((user) => (
+                                <option value={0}>Leave blank to accept later</option>
+                                {getFilteredUsers('acceptor').map((user) => (
                                     <option key={user.UserID} value={user.UserID}>
                                         {user.FullName}
                                     </option>
                                 ))}
                             </select>
+                            <p className="text-xs text-slate-500 mt-1">
+                                You can leave this blank and accept the IAR later using the Accept action.
+                            </p>
                             {errors.accepted_by && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
@@ -458,4 +508,3 @@ export function CreateIARPage() {
         </div>
     );
 }
-

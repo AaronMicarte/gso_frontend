@@ -9,7 +9,7 @@ import { useCreateIAR } from '@/lib/hooks/useIAR';
 import { useDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { getConditions, getUsers } from '@/lib/api/iar';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { USER_ROLES } from '@/constants';
+import { USER_ROLE_IDS } from '@/constants';
 import { ArrowLeft, Save, AlertCircle, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -26,7 +26,7 @@ const iarDetailSchema = z.object({
 const iarSchema = z.object({
     dr_id: z.number(),
     inspected_by: z.number().min(1, 'Inspector is required'),
-    accepted_by: z.number().min(1, 'Acceptor is required'),
+    accepted_by: z.number().optional(),
     date_inspected: z.string().min(1, 'Inspection date is required'),
     date_accepted: z.string().optional(),
     remarks: z.string().optional(),
@@ -91,6 +91,17 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
         name: 'details',
     });
 
+    const acceptedBy = watch('accepted_by');
+
+    // Set inspected_by when users load
+    useEffect(() => {
+        if (users.length > 0 && user?.UserID) {
+            setValue('inspected_by', user.UserID);
+        }
+    }, [users, user, setValue]);
+
+    // Remove auto-fill useEffect - handle date_accepted in onSubmit
+
     useEffect(() => {
         if (!drId) {
             toast.error('No Delivery Receipt ID provided');
@@ -116,6 +127,8 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
 
         fetchData();
     }, [drId, router, baseRoute]);
+
+    // Backend now handles user filtering - Admin/GSO Staff only see themselves
 
     useEffect(() => {
         if (drData?.details && fields.length === 0) {
@@ -150,11 +163,36 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                 return;
             }
 
+            // Handle date_accepted based on accepted_by
+            if (data.accepted_by && data.accepted_by > 0) {
+                // If acceptor is selected, ensure date_accepted is today
+                data.date_accepted = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
+            } else {
+                // If no acceptor, set to null
+                // @ts-expect-error allow setting to null for nullable field
+                data.accepted_by = null;
+                // @ts-expect-error allow setting to null for nullable field
+                data.date_accepted = null;
+            }
+
             await createMutation.mutateAsync(data);
             toast.success('Inspection & Acceptance Report created successfully');
             router.push(`${baseRoute}/delivery-receipts`);
-        } catch (error) {
-            toast.error('Failed to create IAR');
+        } catch (error: unknown) {
+            let message = 'Failed to create IAR';
+            if (error && typeof error === 'object' && 'response' in error) {
+                const axiosError = error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+                if (axiosError.response?.data?.message) {
+                    message = axiosError.response.data.message;
+                } else if (axiosError.response?.data?.errors) {
+                    // Get first error message from validation errors
+                    const firstError = Object.values(axiosError.response.data.errors)[0];
+                    if (Array.isArray(firstError) && firstError.length > 0) {
+                        message = firstError[0];
+                    }
+                }
+            }
+            toast.error(message);
         }
     };
 
@@ -237,24 +275,20 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                             </label>
                             <select
                                 {...register('inspected_by', { valueAsNumber: true })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                disabled={user?.UserRoleID !== 1}
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 bg-slate-50"
+                                disabled
                             >
-                                {user?.UserRoleID === 1 ? (
-                                    <>
-                                        <option value={0}>Select Inspector</option>
-                                        {users.map((user) => (
-                                            <option key={user.UserID} value={user.UserID}>
-                                                {user.FullName}
-                                            </option>
-                                        ))}
-                                    </>
+                                {users.length === 0 ? (
+                                    <option value={0}>Loading...</option>
                                 ) : (
-                                    <>
-                                        <option value={user?.UserID}>{user?.FullName} (You)</option>
-                                    </>
+                                    users.map((u) => (
+                                        <option key={u.UserID} value={u.UserID}>
+                                            {u.UserID === user?.UserID ? `${u.FullName} (You)` : u.FullName}
+                                        </option>
+                                    ))
                                 )}
                             </select>
+                            <p className="mt-1 text-xs text-slate-500">Admin and GSO Staff can only inspect as themselves</p>
                             {errors.inspected_by && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
@@ -266,20 +300,20 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                         {/* Accepted By */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Accepted By *
+                                Accepted By
                             </label>
                             <select
                                 {...register('accepted_by', { valueAsNumber: true })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                             >
-                                <option value={0}>Select Acceptor (optional)</option>
-                                {users.map((user) => (
-                                    <option key={user.UserID} value={user.UserID}>
-                                        {user.FullName}
+                                <option value={0}>Leave blank (accept later)</option>
+                                {users.map((u) => (
+                                    <option key={u.UserID} value={u.UserID}>
+                                        {u.UserID === user?.UserID ? `${u.FullName} (You)` : u.FullName}
                                     </option>
                                 ))}
                             </select>
-                            <p className="mt-1 text-xs text-slate-500">You can leave this blank and accept the IAR later using the Accept action.</p>
+                            <p className="mt-1 text-xs text-slate-500">Optional - You can accept the IAR later using the Accept button on the details page</p>
                             {errors.accepted_by && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
@@ -296,8 +330,10 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                             <input
                                 {...register('date_inspected')}
                                 type="date"
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 bg-slate-50"
+                                readOnly
                             />
+                            <p className="mt-1 text-xs text-slate-500">Locked to today (Philippine time)</p>
                             {errors.date_inspected && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
@@ -314,8 +350,10 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                             <input
                                 {...register('date_accepted')}
                                 type="date"
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 bg-slate-50"
+                                readOnly
                             />
+                            <p className="mt-1 text-xs text-slate-500">Auto-filled when acceptor is selected (today, Philippine time)</p>
                         </div>
                     </div>
 

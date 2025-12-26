@@ -21,3 +21,12 @@ export const USER_ROLES = {
     DEPARTMENT_HEAD: 'Department Head',
     END_USER: 'End User',
 } as const;
+
+// Role IDs from database
+export const USER_ROLE_IDS = {
+    ADMIN: 1,
+    GSO_STAFF: 2,
+    PROPERTY_CUSTODIAN: 3,
+    DEPARTMENT_HEAD: 4,
+    END_USER: 5,
+} as const;

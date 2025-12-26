@@ -209,19 +209,9 @@
   - View status
 
 ### Procurement Operations
-- 📝 Purchase Requests (PR)
-  - Create PR
-  - View my PRs
-  - Edit pending PRs
-  - PR status tracking
-- 📄 Purchase Orders (PO)
-  - Create PO (if authorized)
-  - View POs
-  - Update PO status
 - 📦 Delivery Receipts (DR)
   - Record deliveries
   - View DRs
-  - Link to properties
 - ✅ Inspection & Acceptance (IAR)
   - Create IAR
   - View IARs

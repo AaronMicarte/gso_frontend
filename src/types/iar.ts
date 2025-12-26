@@ -31,7 +31,7 @@ export interface IAR {
     IARNumber: string;
     DRID: number;
     InspectedBy: number;
-    AcceptedBy: number;
+    AcceptedBy?: number;
     DateInspected: string;
     DateAccepted?: string;
     Remarks?: string;
@@ -51,13 +51,15 @@ export interface IAR {
         DRNumber: string;
         SupplierName: string;
         DateReceived: string;
+        PONumber?: string;
+        InvoiceNumber?: string;
     };
 }
 
 export interface CreateIARPayload {
     dr_id: number;
     inspected_by: number;
-    accepted_by: number;
+    accepted_by?: number;
     date_inspected: string;
     date_accepted?: string;
     remarks?: string;

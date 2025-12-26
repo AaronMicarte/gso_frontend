@@ -5,12 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
 import { format } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { getIAR } from '@/lib/api/iar';
 import { IAR } from '@/types/iar';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { updateIAR } from '@/lib/api/iar';
+
+import { IARPrintView } from './IARPrintView';
 
 interface ViewIARPageProps {
     baseRoute: string;
@@ -31,9 +33,18 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                 if (!id) return;
                 const data = await getIAR(parseInt(id));
                 setIar(data);
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error(error);
-                toast.error('Failed to load IAR');
+                let message = 'Failed to load IAR';
+                if (typeof error === 'object' && error !== null && 'message' in error) {
+                    const msg = (error as { message?: unknown }).message;
+                    if (typeof msg === 'string') message = msg;
+                }
+                if (message.includes('Access denied') || message.includes('denied')) {
+                    toast.error('Access denied: You can only view IARs where you are the inspector or acceptor');
+                } else {
+                    toast.error(message);
+                }
                 router.push(`${baseRoute}/inspection-acceptance-reports`);
             } finally {
                 setIsLoading(false);
@@ -54,132 +65,147 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
     if (!iar) return null;
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link
-                        href={`${baseRoute}/inspection-acceptance-reports`}
-                        className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                    >
-                        <ArrowLeft className="w-6 h-6 text-slate-600" />
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">IAR Details</h1>
-                        <p className="text-slate-500 text-sm">{iar.IARNumber}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    {(!iar.AcceptedBy || user?.UserRoleID === 1) && (
-                        <button
-                            onClick={async () => {
-                                if (!iar) return;
-                                if (!confirm('Mark this IAR as accepted by you?')) return;
-                                try {
-                                    setIsAccepting(true);
-                                    await updateIAR(iar.IARID, {
-                                        inspected_by: iar.InspectedBy,
-                                        accepted_by: user?.UserID || 0,
-                                        date_inspected: iar.DateInspected,
-                                        date_accepted: new Date().toISOString(),
-                                        remarks: iar.Remarks || '',
-                                        details: iar.details?.map(d => ({
-                                            dr_detail_id: d.DRDetailID,
-                                            property_type_id: d.PropertyTypeID,
-                                            condition_id: d.ConditionID,
-                                            quantity_accepted: d.QuantityAccepted,
-                                            quantity_rejected: d.QuantityRejected,
-                                            remarks: d.Remarks || '',
-                                        })) || [],
-                                    });
-                                    toast.success('IAR accepted successfully');
-                                    const updated = await getIAR(iar.IARID);
-                                    setIar(updated);
-                                } catch (err) {
-                                    console.error(err);
-                                    toast.error('Failed to accept IAR');
-                                } finally {
-                                    setIsAccepting(false);
-                                }
-                            }}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
-                            disabled={isAccepting}
+        <>
+            <div className="p-6 space-y-6 print:hidden">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Link
+                            href={`${baseRoute}/inspection-acceptance-reports`}
+                            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
                         >
-                            {isAccepting ? 'Accepting...' : 'Accept'}
+                            <ArrowLeft className="w-6 h-6 text-slate-600" />
+                        </Link>
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-900">IAR Details</h1>
+                            <p className="text-slate-500 text-sm">{iar.IARNumber}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {(!iar.AcceptedBy || user?.UserRoleID === 1) && (
+                            <button
+                                onClick={async () => {
+                                    if (!iar) return;
+                                    if (!confirm('Mark this IAR as accepted by you?')) return;
+                                    try {
+                                        setIsAccepting(true);
+                                        const todayManila = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
+                                        const dateInspectedFormatted = formatInTimeZone(
+                                            toZonedTime(new Date(iar.DateInspected), 'Asia/Manila'),
+                                            'Asia/Manila',
+                                            'yyyy-MM-dd'
+                                        );
+                                        await updateIAR(iar.IARID, {
+                                            inspected_by: iar.InspectedBy,
+                                            accepted_by: user?.UserID || 0,
+                                            date_inspected: dateInspectedFormatted,
+                                            date_accepted: todayManila,
+                                            remarks: iar.Remarks || '',
+                                            details: iar.details?.map(d => ({
+                                                dr_detail_id: d.DRDetailID,
+                                                property_type_id: d.PropertyTypeID,
+                                                condition_id: d.ConditionID,
+                                                quantity_accepted: d.QuantityAccepted,
+                                                quantity_rejected: d.QuantityRejected,
+                                                remarks: d.Remarks || '',
+                                            })) || [],
+                                        });
+                                        toast.success('IAR accepted successfully');
+                                        const updated = await getIAR(iar.IARID);
+                                        setIar(updated);
+                                    } catch (err: unknown) {
+                                        let message = 'Failed to accept IAR';
+                                        if (typeof err === 'object' && err !== null && 'message' in err) {
+                                            const msg = (err as { message?: unknown }).message;
+                                            if (typeof msg === 'string') message = msg;
+                                        }
+                                        toast.error(message);
+                                    } finally {
+                                        setIsAccepting(false);
+                                    }
+                                }}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
+                                disabled={isAccepting}
+                            >
+                                {isAccepting ? 'Accepting...' : 'Accept'}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => window.print()}
+                            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                        >
+                            <Printer className="w-4 h-4" />
+                            Print
                         </button>
-                    )}
-                    <button
-                        onClick={() => window.print()}
-                        className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                    >
-                        <Printer className="w-4 h-4" />
-                        Print
-                    </button>
+                    </div>
                 </div>
-            </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                <h2 className="text-lg font-semibold text-slate-900 mb-4">General Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">IAR Number</label>
-                        <p className="mt-1 text-slate-900">{iar.IARNumber}</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">DR Number</label>
-                        <p className="mt-1 text-slate-900">{iar.deliveryReceipt?.DRNumber}</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Date Inspected</label>
-                        <p className="mt-1 text-slate-900">
-                            {format(toZonedTime(new Date(iar.DateInspected), 'Asia/Manila'), 'PPP')}
-                        </p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Inspected By</label>
-                        <p className="mt-1 text-slate-900">{iar.inspectedByUser?.FullName}</p>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h2 className="text-lg font-semibold text-slate-900 mb-4">General Information</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">IAR Number</label>
+                            <p className="mt-1 text-slate-900">{iar.IARNumber}</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">DR Number</label>
+                            <p className="mt-1 text-slate-900">{iar.deliveryReceipt?.DRNumber}</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">Date Inspected</label>
+                            <p className="mt-1 text-slate-900">
+                                {format(toZonedTime(new Date(iar.DateInspected), 'Asia/Manila'), 'PPP')}
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">Inspected By</label>
+                            <p className="mt-1 text-slate-900">{iar.inspectedByUser?.FullName}</p>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">Inspection Details</h2>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-                            <tr>
-                                <th className="px-6 py-4">Item</th>
-                                <th className="px-6 py-4">Condition</th>
-                                <th className="px-6 py-4 text-right">Accepted</th>
-                                <th className="px-6 py-4 text-right">Rejected</th>
-                                <th className="px-6 py-4">Remarks</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                            {iar.details?.map((detail) => (
-                                <tr key={detail.IARDetailID}>
-                                    <td className="px-6 py-4 text-slate-900">
-                                        {detail.drDetail?.ItemDescription}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600">
-                                        {detail.condition?.ConditionName}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-slate-900">
-                                        {detail.QuantityAccepted}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-red-600">
-                                        {detail.QuantityRejected}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600">
-                                        {detail.Remarks || '-'}
-                                    </td>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-slate-200">
+                        <h2 className="text-lg font-semibold text-slate-900">Inspection Details</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                                <tr>
+                                    <th className="px-6 py-4">Item</th>
+                                    <th className="px-6 py-4">Condition</th>
+                                    <th className="px-6 py-4 text-right">Accepted</th>
+                                    <th className="px-6 py-4 text-right">Rejected</th>
+                                    <th className="px-6 py-4">Remarks</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                                {iar.details?.map((detail) => (
+                                    <tr key={detail.IARDetailID}>
+                                        <td className="px-6 py-4 text-slate-900">
+                                            {detail.drDetail?.ItemDescription}
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">
+                                            {detail.condition?.ConditionName}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-slate-900">
+                                            {detail.QuantityAccepted}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-red-600">
+                                            {detail.QuantityRejected}
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">
+                                            {detail.Remarks || '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            {/* Print View */}
+            <IARPrintView iar={iar} />
+        </>
     );
 }

@@ -209,6 +209,29 @@ Features:
 - 6-digit TOTP code input
 - Backup code fallback option
 - "Trust this device" checkbox
+
+
+## Trusted devices and cookies (brutally honest)
+- When you check **Trust this device** during MFA verification, the backend creates a trusted device record and sets a secure, httpOnly cookie named `device_token` that the browser sends automatically on future logins.
+- Important browser behavior:
+  - For cross-origin requests (frontend and API on different origins), the cookie must have **SameSite=None** and **Secure** set. Secure cookies require HTTPS and will NOT be set or sent over plain HTTP.
+  - In local development (HTTP), the server sends a cookie with **SameSite=Lax** and **Secure=false** so it works for same-site testing. For cross-site/local setups, test using HTTPS (e.g., use a tunnel like ngrok) to get full trusted-device behavior.
+
+How to verify:
+1. After checking "Trust this device" and completing MFA, open your browser DevTools → Application → Cookies and look for `device_token`.
+2. The cookie should be httpOnly (not readable from JS) and have an expiration ~30 days.
+3. If `device_token` is not present, check the network response from `/mfa/verify` — the server should return `device_token` in the JSON body (only once) and attempt to set the cookie. If you're on HTTP and the frontend and backend are on different origins, the browser may block the cookie unless it's Secure+SameSite=None and served over HTTPS.
+
+Quick troubleshooting (dev):
+- Same-origin local dev (frontend and backend on the same host/port): the cookie is sent with SameSite=Lax and Secure=false so it should work on HTTP. Check DevTools → Application → Cookies.
+- Cross-origin local dev (frontend and backend on different origins/ports): modern browsers block cross-site cookies unless `SameSite=None; Secure` is set and the request is HTTPS. For local testing use one of the options below.
+
+Local test options:
+- Use ngrok to expose your local backend over HTTPS and set the frontend to point to the ngrok URL. This allows the server to set Secure cookies with SameSite=None so the cookie will be accepted by the browser.
+- Configure a local HTTPS dev server (mkcert or local-ssl-proxy) for the API and enable https on your frontend as well.
+- Use a single origin (e.g., run both frontend and backend under the same host/port or use a proxy) so SameSite=Lax works and Secure is not required.
+
+If you want, I can add a short README section with sample ngrok commands and a small script to run both apps with HTTPS locally.
 - Error handling with user-friendly messages
 
 ### TrustedDevices Component

@@ -33,9 +33,9 @@ export function DepartmentFormPage({ baseRoute, departmentId }: DepartmentFormPa
             // Ensure we always set strings (never undefined) so inputs stay controlled
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setFormData({
-                DepartmentCode: department.code || '',
-                DepartmentName: department.name || '',
-                Description: department.description || '',
+                DepartmentCode: department.DepartmentCode || '',
+                DepartmentName: department.DepartmentName || '',
+                Description: department.Description || '',
             });
         }
     }, [department, isEditing]);

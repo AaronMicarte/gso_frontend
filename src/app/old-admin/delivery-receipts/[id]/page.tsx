@@ -86,13 +86,15 @@ export default function DeliveryReceiptViewPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
-                <Link
-                    href={`/admin/delivery-receipts/${dr.DRID}/edit`}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
-                >
-                    <Edit className="w-4 h-4" />
-                    Edit DR
-                </Link>
+                {!dr.hasIAR && (
+                    <Link
+                        href={`/admin/delivery-receipts/${dr.DRID}/edit`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
+                    >
+                        <Edit className="w-4 h-4" />
+                        Edit DR
+                    </Link>
+                )}
                 {!dr.hasIAR && (
                     <Link
                         href={`/admin/delivery-receipts/create-iar?dr_id=${dr.DRID}`}

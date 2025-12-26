@@ -7,14 +7,14 @@
 // ============================================
 
 export interface Department {
-    id: number;
-    code: string;
-    name: string;
-    description: string;
-    created_at: string;
-    updated_at?: string;
+    DepartmentID: number;
+    DepartmentCode: string;
+    DepartmentName: string;
+    Description: string;
+    IsActive: boolean;
+    CreatedDate: string;
+    UpdatedDate?: string;
     deleted_at?: string;
-    is_deleted?: boolean;
 }
 
 export interface DepartmentInput {

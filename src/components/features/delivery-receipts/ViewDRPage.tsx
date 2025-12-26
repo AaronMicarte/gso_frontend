@@ -96,7 +96,7 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
-                {canEdit && (
+                {canEdit && !dr?.hasIAR && (
                     <Link
                         href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
