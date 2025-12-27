@@ -89,7 +89,12 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                 'yyyy-MM-dd'
             );
 
-            // First update IAR to set accepted_by/date_accepted and details
+            // Upload the accepted signature first so the server sees an accepted signature
+            // when we update the IAR to set AcceptedBy (the update endpoint requires an
+            // accepted signature to already exist when AcceptedBy is set).
+            await uploadIARSignature(iar.IARID, 'accepted', signature, source || undefined);
+
+            // Then update IAR to set accepted_by/date_accepted and details
             await updateIAR(iar.IARID, {
                 inspected_by: iar.InspectedBy,
                 accepted_by: user?.UserID || 0,
@@ -105,9 +110,6 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                     remarks: d.Remarks || '',
                 })) || [],
             });
-
-            // Then upload accepted signature (requires AcceptedBy to be set)
-            await uploadIARSignature(iar.IARID, 'accepted', signature, source || undefined);
 
             toast.success('IAR accepted successfully');
             setIsAcceptDialogOpen(false);
