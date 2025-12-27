@@ -40,6 +40,25 @@ export const updateIAR = async (id: number, data: UpdateIARPayload): Promise<IAR
     return response.data.data;
 };
 
+/**
+ * Upload an IAR signature (inspected | accepted).
+ * Accepts either a File (upload) or a base64 data URL (canvas).
+ */
+export const uploadIARSignature = async (id: number, role: 'inspected' | 'accepted', signature: string | File, source?: string) => {
+    const form = new FormData();
+    form.append('role', role);
+    if (signature instanceof File) {
+        form.append('signature', signature);
+    } else {
+        form.append('signature', signature);
+    }
+    if (source) form.append('source', source);
+    const response = await apiClient.post(`/admin/procurement/inspection-acceptance-reports/${id}/signatures`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+};
+
 export const deleteIAR = async (id: number): Promise<void> => {
     await apiClient.delete(`/admin/procurement/inspection-acceptance-reports/${id}`);
 };

@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { CreateIARPage } from '@/components/features/iar/CreateIARPage';
+import { CreateIARPage } from '@/components/features/delivery-receipts/CreateIARPage';
 import { Loader2 } from 'lucide-react';
 
 export default function AdminCreateIARPage() {

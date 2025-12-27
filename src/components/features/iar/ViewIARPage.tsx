@@ -3,17 +3,57 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Printer } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowLeft, Loader2, Printer, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
-import { getIAR } from '@/lib/api/iar';
+import { getIAR, updateIAR, uploadIARSignature } from '@/lib/api/iar';
+import { resolveStorageUrl, resolveSignatureUrl } from '@/lib/utils/signature';
 import { IAR } from '@/types/iar';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { updateIAR } from '@/lib/api/iar';
 
 import { IARPrintView } from './IARPrintView';
 import { Dialog } from '@/components/ui/Dialog';
+import { SignatureModal } from '@/components/ui/SignatureModal';
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import React from 'react';
+
+function InspectedSignatureViewer({ url, fallbackUrl }: { url: string; fallbackUrl?: string }) {
+    const [src, setSrc] = React.useState(url);
+    const [attempt, setAttempt] = React.useState(0); // 0 = first try, 1 = fallback try, 2 = failed
+
+    return (
+        <>
+            <DialogPrimitive.Description className="sr-only">Signature preview</DialogPrimitive.Description>
+            <div className="flex justify-center">
+                {attempt < 2 ? (
+                    <img
+                        src={src}
+                        alt="Inspected signature"
+                        width={400}
+                        height={120}
+                        className="object-contain border rounded"
+                        onError={() => {
+                            if (attempt === 0 && fallbackUrl) {
+                                // try fallback streaming URL
+                                setSrc(fallbackUrl);
+                                setAttempt(1);
+                            } else {
+                                setAttempt(2);
+                            }
+                        }}
+                    />
+                ) : (
+                    <div className="w-full max-w-md border rounded p-4 text-center">
+                        <p className="text-slate-700">Signature could not be loaded.</p>
+                        <a href={src} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-[var(--primary)] underline">Open / download signature</a>
+                    </div>
+                )}
+            </div>
+        </>
+    );
+}
 
 interface ViewIARPageProps {
     baseRoute: string;
@@ -27,9 +67,19 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isAccepting, setIsAccepting] = useState(false);
     const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+    const [isAcceptSignatureModalOpen, setIsAcceptSignatureModalOpen] = useState(false); const [isAcceptedSignatureModalOpen, setIsAcceptedSignatureModalOpen] = useState(false); const [acceptSignature, setAcceptSignature] = useState<string | null>(null);
+    const [acceptSignatureSource, setAcceptSignatureSource] = useState<'canvas' | 'upload' | null>(null);
+    const [isInspectedSignatureModalOpen, setIsInspectedSignatureModalOpen] = useState(false);
+    // Use shared helpers to resolve signatures & storage URLs
+    const inspectedSignatureUrl = iar ? resolveSignatureUrl(iar, 'inspected') : null;
+    const acceptedSignatureUrl = iar ? resolveSignatureUrl(iar, 'accepted') : null;
 
-    const handleConfirmAccept = async () => {
+    const finalizeAccept = async (signature?: string | null, source?: 'canvas' | 'upload' | null) => {
         if (!iar) return;
+        if (!signature) {
+            toast.error('Acceptance signature is required. Please add a signature to proceed.');
+            return;
+        }
         try {
             setIsAccepting(true);
             const todayManila = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
@@ -39,6 +89,7 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                 'yyyy-MM-dd'
             );
 
+            // First update IAR to set accepted_by/date_accepted and details
             await updateIAR(iar.IARID, {
                 inspected_by: iar.InspectedBy,
                 accepted_by: user?.UserID || 0,
@@ -55,10 +106,15 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                 })) || [],
             });
 
+            // Then upload accepted signature (requires AcceptedBy to be set)
+            await uploadIARSignature(iar.IARID, 'accepted', signature, source || undefined);
+
             toast.success('IAR accepted successfully');
             setIsAcceptDialogOpen(false);
             const updated = await getIAR(iar.IARID);
             setIar(updated);
+            // Open the accepted signature viewer so the user can confirm the saved signature
+            setIsAcceptedSignatureModalOpen(true);
         } catch (err: unknown) {
             let message = 'Failed to accept IAR';
             if (typeof err === 'object' && err !== null && 'message' in err) {
@@ -69,6 +125,17 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
         } finally {
             setIsAccepting(false);
         }
+    };
+
+    const handleConfirmAccept = async () => {
+        if (!iar) return;
+        // If user wants to add a signature, show modal first
+        if (!acceptSignature) {
+            setIsAcceptDialogOpen(false);
+            setIsAcceptSignatureModalOpen(true);
+            return;
+        }
+        await finalizeAccept(acceptSignature, acceptSignatureSource);
     };
 
     useEffect(() => {
@@ -138,7 +205,7 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
 
                                 <Dialog
                                     title="Confirm Acceptance"
-                                    description="Mark this IAR as accepted by you? This action will set the IAR as accepted and record the date."
+                                    description="Mark this IAR as accepted by you? This action will set the IAR as accepted and record the date. You MUST provide an acceptance signature to complete acceptance."
                                     open={isAcceptDialogOpen}
                                     onOpenChange={setIsAcceptDialogOpen}
                                     onConfirm={handleConfirmAccept}
@@ -146,15 +213,142 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                                     cancelText="Cancel"
                                     loading={isAccepting}
                                 />
+
+                                <SignatureModal
+                                    open={isAcceptSignatureModalOpen}
+                                    onOpenChange={(open) => {
+                                        setIsAcceptSignatureModalOpen(open);
+                                        if (!open && !acceptSignature) {
+                                            // User closed without adding signature -> cancel acceptance
+                                            toast.error('Acceptance cancelled: signature required.');
+                                            // reset any temporary signature state
+                                            setAcceptSignature(null);
+                                            setAcceptSignatureSource(null);
+                                        }
+                                    }}
+                                    onSave={(dataUrl, source) => {
+                                        setAcceptSignature(dataUrl);
+                                        setAcceptSignatureSource(source);
+                                        setIsAcceptSignatureModalOpen(false);
+                                        // proceed to accept with signature
+                                        finalizeAccept(dataUrl, source);
+                                    }}
+                                />
+
+
                             </>
                         )}
                         <button
-                            onClick={() => window.print()}
+                            onClick={async () => {
+                                // Prepare signatures for print by fetching and embedding non-data URLs as data URLs
+                                try {
+                                    const preparePrint = async () => {
+                                        if (!iar) return;
+
+                                        const inspectedSig = inspectedSignatureUrl && !inspectedSignatureUrl.startsWith('data:')
+                                            ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signatures/${iar.IARID}/inspected`
+                                            : inspectedSignatureUrl || null;
+
+                                        const acceptedSig = acceptedSignatureUrl && !acceptedSignatureUrl.startsWith('data:')
+                                            ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signatures/${iar.IARID}/accepted`
+                                            : acceptedSignatureUrl || null;
+
+                                        const fetchToDataUrl = async (url?: string | null) => {
+                                            if (!url) return null;
+                                            if (url.startsWith('data:')) return url;
+                                            try {
+                                                const resp = await fetch(url, { mode: 'cors' });
+                                                if (!resp.ok) return null;
+                                                const blob = await resp.blob();
+                                                return await new Promise<string | null>((res) => {
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => res(typeof reader.result === 'string' ? reader.result : null);
+                                                    reader.onerror = () => res(null);
+                                                    reader.readAsDataURL(blob);
+                                                });
+                                            } catch (e) {
+                                                return null;
+                                            }
+                                        };
+
+                                        const [insData, accData] = await Promise.all([
+                                            fetchToDataUrl(inspectedSig),
+                                            fetchToDataUrl(acceptedSig),
+                                        ]);
+
+                                        // Update print signatures in IARPrintView via custom event so we don't need to refactor prop drilling
+                                        const detail = { inspected: insData, accepted: accData };
+                                        window.dispatchEvent(new CustomEvent('gso:print-signatures', { detail }));
+
+                                        // Wait for a short moment to allow images to update, then print
+                                        setTimeout(() => window.print(), 300);
+                                    };
+
+                                    await preparePrint();
+                                } catch (err) {
+                                    // fallback to normal print
+                                    window.print();
+                                }
+                            }}
                             className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                         >
                             <Printer className="w-4 h-4" />
                             Print
                         </button>
+
+                        {/* Inspected Signature View Modal (always mounted) */}
+                        <DialogPrimitive.Root open={isInspectedSignatureModalOpen} onOpenChange={setIsInspectedSignatureModalOpen}>
+                            <DialogPrimitive.Portal>
+                                <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 z-40" />
+                                <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+                                    <DialogPrimitive.Title className="text-lg font-bold text-slate-900">Inspected Signature</DialogPrimitive.Title>
+                                    {inspectedSignatureUrl ? (
+                                        <InspectedSignatureViewer
+                                            url={resolveStorageUrl(inspectedSignatureUrl)}
+                                            fallbackUrl={`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signatures/${iar.IARID}/inspected`}
+                                        />
+                                    ) : (
+                                        <div className="w-full max-w-md border rounded p-4 text-center">
+                                            <p className="text-slate-700">No inspected signature available.</p>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-end pt-4">
+                                        <DialogPrimitive.Close asChild>
+                                            <button className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-colors font-medium text-sm">
+                                                Close
+                                            </button>
+                                        </DialogPrimitive.Close>
+                                    </div>
+                                </DialogPrimitive.Content>
+                            </DialogPrimitive.Portal>
+                        </DialogPrimitive.Root>
+
+                        {/* Accepted Signature View Modal (always mounted) */}
+                        <DialogPrimitive.Root open={isAcceptedSignatureModalOpen} onOpenChange={setIsAcceptedSignatureModalOpen}>
+                            <DialogPrimitive.Portal>
+                                <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 z-40" />
+                                <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+                                    <DialogPrimitive.Title className="text-lg font-bold text-slate-900">Accepted Signature</DialogPrimitive.Title>
+                                    {acceptedSignatureUrl ? (
+                                        <InspectedSignatureViewer
+                                            url={resolveStorageUrl(acceptedSignatureUrl)}
+                                            fallbackUrl={`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signatures/${iar.IARID}/accepted`}
+                                        />
+                                    ) : (
+                                        <div className="w-full max-w-md border rounded p-4 text-center">
+                                            <p className="text-slate-700">No accepted signature available.</p>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-end pt-4">
+                                        <DialogPrimitive.Close asChild>
+                                            <button className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-colors font-medium text-sm">
+                                                Close
+                                            </button>
+                                        </DialogPrimitive.Close>
+                                    </div>
+                                </DialogPrimitive.Content>
+                            </DialogPrimitive.Portal>
+                        </DialogPrimitive.Root>
                     </div>
                 </div>
 
@@ -177,11 +371,37 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Inspected By</label>
-                            <p className="mt-1 text-slate-900">{iar.inspectedByUser?.FullName || 'Pending'}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-slate-900">{iar.inspectedByUser?.FullName || 'Pending'}</p>
+                                {inspectedSignatureUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsInspectedSignatureModalOpen(true)}
+                                        className="p-1 hover:bg-slate-100 rounded transition-colors relative z-30 focus:outline-none"
+                                        title="View signature"
+                                        aria-label="View inspected signature"
+                                    >
+                                        <Eye className="w-4 h-4 text-slate-500" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Accepted By</label>
-                            <p className="mt-1 text-slate-900">{iar.acceptedByUser?.FullName || 'Pending'}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-slate-900">{iar.acceptedByUser?.FullName || 'Pending'}</p>
+                                {acceptedSignatureUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAcceptedSignatureModalOpen(true)}
+                                        className="p-1 hover:bg-slate-100 rounded transition-colors relative z-30 focus:outline-none"
+                                        title="View signature"
+                                        aria-label="View accepted signature"
+                                    >
+                                        <Eye className="w-4 h-4 text-slate-500" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

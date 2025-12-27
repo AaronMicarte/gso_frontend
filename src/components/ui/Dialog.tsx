@@ -11,6 +11,8 @@ export interface DialogProps extends React.ComponentPropsWithoutRef<typeof Dialo
     cancelText?: string;
     loading?: boolean;
     children?: React.ReactNode;
+    // Optional class to override content container size/styling for wide dialogs
+    contentClassName?: string;
 }
 
 export function Dialog({
@@ -29,7 +31,7 @@ export function Dialog({
         <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props}>
             <DialogPrimitive.Portal>
                 <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 z-40" />
-                <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+                <DialogPrimitive.Content className={`fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 ${props.contentClassName || ''}`}>
                     <DialogPrimitive.Title className="text-lg font-bold text-slate-900">{title}</DialogPrimitive.Title>
                     {description && <DialogPrimitive.Description className="text-slate-600 text-sm">{description}</DialogPrimitive.Description>}
                     {children}

@@ -23,6 +23,10 @@ export interface IARDetail {
         ItemDescription: string;
         QuantityDelivered: number;
         UnitCost: number;
+        unitOfMeasure?: {
+            UnitOfMeasureID: number;
+            UnitName: string;
+        } | null;
     };
 }
 
@@ -54,14 +58,20 @@ export interface IAR {
         PONumber?: string;
         InvoiceNumber?: string;
     };
+    // Optional signature relationships
+    inspectedSignature?: { url: string } | null;
+    acceptedSignature?: { url: string } | null;
+    // Backwards-compatible inline base64 signatures
+    inspected_signature?: string;
+    accepted_signature?: string | null;
 }
 
 export interface CreateIARPayload {
     dr_id: number;
     inspected_by: number;
-    accepted_by?: number;
+    accepted_by?: number | null;
     date_inspected: string;
-    date_accepted?: string;
+    date_accepted?: string | null;
     remarks?: string;
     details: {
         dr_detail_id: number;
@@ -71,6 +81,11 @@ export interface CreateIARPayload {
         quantity_rejected: number;
         remarks?: string;
     }[];
+    // Signatures
+    inspected_signature?: string; // base64 data URL
+    inspected_signature_source?: 'canvas' | 'upload';
+    accepted_signature?: string | null;
+    accepted_signature_source?: 'canvas' | 'upload' | null;
 }
 
 export interface UpdateIARPayload {
@@ -87,6 +102,9 @@ export interface UpdateIARPayload {
         quantity_rejected: number;
         remarks?: string;
     }[];
+    // Optional signatures when updating (accept flow uses these)
+    accepted_signature?: string | null;
+    accepted_signature_source?: 'canvas' | 'upload' | null;
 }
 
 export interface IARFilters {

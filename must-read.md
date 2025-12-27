@@ -36,6 +36,14 @@ NOTE: Vehicles and infrastructure property types (motor vehicles, buildings/stru
 
 - **Delivery Receipt Number:** The DR number must be entered manually by staff when creating a Delivery Receipt. The system will not auto-generate DR numbers; ensure your DR numbers are unique and follow your local numbering policy.
 
+## STORAGE (SIGNATURES)
+- For development, the app uses the **local `public` disk** by default (`FILESYSTEM_DRIVER=public`). This keeps setup simple for capstone work.
+- For production, configure `FILESYSTEM_DRIVER=s3` and provide AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET`). The app stores the disk name on each signature record so it is auditable.
+- Use `php artisan storage:verify` to verify the configured storage is writable/readable. Consider enabling `FILESYSTEM_STRICT_S3=true` in production to fail fast if `FILESYSTEM_DRIVER` is not `s3`.
+- Signatures are stored as canonical PNGs; the system will serve temporary signed URLs for private buckets when available.
+- UX rule: **Inspected By** requires a signature when creating an IAR (canvas draw is primary). **Accepted By** signature is **required** during acceptance; the accept action will prompt for an acceptance signature and will not complete without it.
+
+
 ---
 **BRUTAL HONESTY:** If the code is messy, fix it. If the workflow is wrong, change it. No excuses.
 **DEVELOPER:** 3rd Year BSIT Student (Solo Capstone)
