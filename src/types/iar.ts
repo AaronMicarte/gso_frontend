@@ -9,6 +9,9 @@ export interface IARDetail {
     QuantityAccepted: number;
     QuantityRejected: number;
     Remarks?: string;
+    VerifiedBrand?: string;
+    VerifiedModel?: string;
+    VerifiedSerial?: string;
     // Relationships
     propertyType?: {
         PropertyTypeID: number;
@@ -21,6 +24,9 @@ export interface IARDetail {
     drDetail?: {
         DRDetailID: number;
         ItemDescription: string;
+        Brand?: string;
+        ModelNumber?: string;
+        SerialNumber?: string;
         QuantityDelivered: number;
         UnitCost: number;
         unitOfMeasure?: {
@@ -79,6 +85,9 @@ export interface CreateIARPayload {
         condition_id: number;
         quantity_accepted: number;
         quantity_rejected: number;
+        verified_brand?: string | null;
+        verified_model?: string | null;
+        verified_serial?: string | null;
         remarks?: string;
     }[];
     // Signatures
@@ -90,7 +99,7 @@ export interface CreateIARPayload {
 
 export interface UpdateIARPayload {
     inspected_by: number;
-    accepted_by: number;
+    accepted_by?: number | null;
     date_inspected: string;
     date_accepted?: string;
     remarks?: string;
@@ -100,6 +109,9 @@ export interface UpdateIARPayload {
         condition_id: number;
         quantity_accepted: number;
         quantity_rejected: number;
+        verified_brand?: string | null;
+        verified_model?: string | null;
+        verified_serial?: string | null;
         remarks?: string;
     }[];
     // Optional signatures when updating (accept flow uses these)

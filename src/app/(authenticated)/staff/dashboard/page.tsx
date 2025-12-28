@@ -13,7 +13,6 @@ import {
     Wrench,
     Trash2,
     Clock,
-    UserPlus,
     PackagePlus,
     FileText,
     BarChart3,

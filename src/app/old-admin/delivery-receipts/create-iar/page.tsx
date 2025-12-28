@@ -29,7 +29,7 @@ const iarSchema = z.object({
     date_accepted: z.string().optional(),
     remarks: z.string().optional(),
     details: z.array(iarDetailSchema).min(1, 'At least one item is required'),
-}).refine((data) => {
+}).refine(() => {
     // Validate that each item's accepted + rejected = delivered quantity
     return true; // We'll validate this on the backend
 }, {
@@ -64,7 +64,6 @@ export default function CreateIARPage() {
         control,
         handleSubmit,
         watch,
-        setValue,
         formState: { errors, isSubmitting },
     } = useForm<IARFormValues>({
         resolver: zodResolver(iarSchema),
@@ -79,7 +78,7 @@ export default function CreateIARPage() {
         },
     });
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields, append } = useFieldArray({
         control,
         name: 'details',
     });
@@ -100,7 +99,7 @@ export default function CreateIARPage() {
                 ]);
                 setConditions(conditionsData);
                 setUsers(usersData);
-            } catch (error) {
+            } catch (_error) {
                 toast.error('Failed to load form data');
             } finally {
                 setIsLoadingData(false);
@@ -146,7 +145,7 @@ export default function CreateIARPage() {
             await createMutation.mutateAsync(data);
             toast.success('Inspection & Acceptance Report created successfully');
             router.push('/admin/delivery-receipts');
-        } catch (error) {
+        } catch (_error) {
             toast.error('Failed to create IAR');
         }
     };

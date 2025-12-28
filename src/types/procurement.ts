@@ -6,6 +6,9 @@ export interface DeliveryReceiptDetail {
     DRDetailID?: number;
     DRID?: number;
     ItemDescription: string;
+    Brand?: string;
+    ModelNumber?: string;
+    SerialNumber?: string;
     PropertyTypeID: number;
     UnitOfMeasureID?: number;
     QuantityDelivered: number;
@@ -63,6 +66,9 @@ export interface CreateDeliveryReceiptPayload {
     remarks?: string;
     details: {
         item_description: string;
+        brand?: string;
+        model_number?: string;
+        serial_number?: string;
         property_type_id: number;
         unit_of_measure_id: number;
         quantity_delivered: number;
@@ -79,6 +85,9 @@ export interface UpdateDeliveryReceiptPayload {
     details: {
         dr_detail_id?: number; // Optional for updates, undefined for new items
         item_description: string;
+        brand?: string;
+        model_number?: string;
+        serial_number?: string;
         property_type_id: number;
         unit_of_measure_id: number;
         quantity_delivered: number;

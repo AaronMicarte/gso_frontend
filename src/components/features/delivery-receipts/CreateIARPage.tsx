@@ -22,7 +22,25 @@ const iarDetailSchema = z.object({
     condition_id: z.number().min(1, 'Condition is required'),
     quantity_accepted: z.number().min(0, 'Quantity accepted must be >= 0'),
     quantity_rejected: z.number().min(0, 'Quantity rejected must be >= 0'),
+    verified_brand: z.string().optional(),
+    verified_model: z.string().optional(),
+    verified_serial: z.string().optional(),
     remarks: z.string().optional(),
+}).refine((data) => {
+    // Property types that require brand/model/serial verification
+    const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
+
+    if (propertyTypesRequiringVerification.includes(data.property_type_id)) {
+        return (
+            (data.verified_brand?.trim() || '') !== '' &&
+            (data.verified_model?.trim() || '') !== '' &&
+            (data.verified_serial?.trim() || '') !== ''
+        );
+    }
+    return true;
+}, {
+    message: 'Brand, Model, and Serial are required for IT Equipment, Machinery, and Medical Equipment',
+    path: ['verified_brand'], // This will show the error on the brand field
 });
 
 const iarSchema = z.object({
@@ -88,7 +106,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
         },
     });
 
-    const { fields, append } = useFieldArray({
+    const { fields } = useFieldArray({
         control,
         name: 'details',
     });
@@ -128,25 +146,28 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
     }, [drId, router, baseRoute]);
 
     useEffect(() => {
-        if (drData?.details && fields.length === 0) {
-            // Initialize IAR details from DR details
-            drData.details.forEach((detail) => {
-                append({
-                    dr_detail_id: detail.DRDetailID!,
-                    property_type_id: detail.PropertyTypeID,
-                    condition_id: 1, // Default to "Good"
-                    quantity_accepted: detail.QuantityDelivered, // Default: accept all
-                    quantity_rejected: 0,
-                    remarks: '',
-                });
-            });
+        if (drData?.details && fields.length === 0 && drData.details.length > 0) {
+            // Initialize IAR details from DR details only once
+            const detailsToAdd = drData.details.map((detail) => ({
+                dr_detail_id: detail.DRDetailID!,
+                property_type_id: detail.PropertyTypeID,
+                condition_id: 1, // Default to "Good"
+                quantity_accepted: detail.QuantityDelivered, // Default: accept all
+                quantity_rejected: 0,
+                verified_brand: undefined,
+                verified_model: undefined,
+                verified_serial: undefined,
+                remarks: '',
+            }));
+            // Use replace instead of append to ensure exact match
+            setValue('details', detailsToAdd);
         }
 
         // If inspector is current user, require signature automatically
         if (user && user.UserID === (watch('inspected_by') as number)) {
             // leave signature empty until user clicks "Add Signature" — we prompt on submit
         }
-    }, [drData, append, fields.length, user, watch]);
+    }, [drData, setValue, fields.length, user, watch]);
 
     // Filter users based on role
     const getFilteredUsers = (forField: 'inspector' | 'acceptor') => {
@@ -244,7 +265,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
             if (acceptedSignature) {
                 try {
                     await uploadIARSignature(created.IARID, 'accepted', acceptedSignature, acceptedSignatureSource || undefined);
-                } catch (err) {
+                } catch (_err) {
                     // Non-fatal: notify user but still proceed
                     toast.error('Failed to upload acceptance signature. Please try again from the IAR view.');
                 }
@@ -499,9 +520,18 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                                             <div className="flex-1">
                                                 <h3 className="font-medium text-slate-900">
                                                     {drDetail?.ItemDescription}
+                                                    {(drDetail?.Brand || drDetail?.ModelNumber || drDetail?.SerialNumber) && (
+                                                        <span className="text-sm text-slate-600 ml-2">
+                                                            ({[
+                                                                drDetail.Brand,
+                                                                drDetail.ModelNumber,
+                                                                drDetail.SerialNumber
+                                                            ].filter(Boolean).join(' / ')})
+                                                        </span>
+                                                    )}
                                                 </h3>
                                                 <p className="text-sm text-slate-500">
-                                                    Delivered: {drDetail?.QuantityDelivered} units • Unit Cost: ₱{drDetail?.UnitCost.toLocaleString('en-PH')}
+                                                    Delivered: {drDetail?.QuantityDelivered} {drDetail?.unitOfMeasure?.UnitName || 'pc'} • Unit Cost: ₱{drDetail?.UnitCost.toLocaleString('en-PH')}
                                                 </p>
                                             </div>
                                             {isValid ? (
@@ -511,7 +541,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                                             )}
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <input type="hidden" {...register(`details.${index}.dr_detail_id` as const)} />
                                             <input type="hidden" {...register(`details.${index}.property_type_id` as const)} />
 
@@ -573,6 +603,55 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                                                 />
                                             </div>
                                         </div>
+
+                                        {/* Verified Brand/Model/Serial - Required for certain property types */}
+                                        {(() => {
+                                            const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
+                                            const requiresVerification = propertyTypesRequiringVerification.includes(drDetail?.PropertyTypeID || 0);
+
+                                            return requiresVerification ? (
+                                                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                                    <div className="text-xs font-medium text-amber-800 mb-2">
+                                                        Verification Required - Enter actual brand, model, and serial numbers from the received items:
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                Brand *
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${index}.verified_brand` as const)}
+                                                                type="text"
+                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                placeholder="e.g., Dell, HP, Lenovo"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                Model *
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${index}.verified_model` as const)}
+                                                                type="text"
+                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                placeholder="e.g., Latitude 5420, ThinkPad X1"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                Serial *
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${index}.verified_serial` as const)}
+                                                                type="text"
+                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                placeholder="e.g., ABC123456, SN-789012"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : null;
+                                        })()}
 
                                         {!isValid && (
                                             <p className="mt-2 text-xs text-red-600 flex items-center gap-1">

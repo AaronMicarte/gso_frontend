@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit } from 'lucide-react';
+import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
+import { ItemDetailsModal } from './ItemDetailsModal';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from 'zod';
@@ -16,8 +18,12 @@ import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 const drItemSchema = z.object({
     dr_detail_id: z.number().optional(), // Optional for updates
     item_description: z.string().min(1, 'Item description is required'),
+    brand: z.string().optional(),
+    model_number: z.string().optional(),
+    serial_number: z.string().optional(),
     property_type_id: z.number().min(1, 'Property type is required'),
     unit_of_measure_id: z.number().min(1, 'Unit of measure is required'),
+    remarks: z.string().optional(),
     quantity_delivered: z.number().min(1, 'Quantity must be at least 1'),
     unit_cost: z.number().min(0, 'Unit cost must be non-negative'),
 });
@@ -65,6 +71,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         handleSubmit,
         watch,
         setValue,
+        setError,
         formState: { errors },
     } = useForm<DRFormValues>({
         resolver: zodResolver(drSchema),
@@ -80,10 +87,36 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         },
     });
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields, append, remove, update } = useFieldArray({
         control,
         name: 'details',
     });
+
+    // Modal state for editing a single item; add-only flag for creating new items
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+    const [isAddingItem, setIsAddingItem] = useState(false);
+
+    const updateRow = (index: number) => {
+        setIsAddingItem(false);
+        setEditingIndex(index);
+        setIsItemModalOpen(true);
+    };
+
+    const handleSaveItem = async (values: z.infer<typeof drItemSchema>) => {
+        try {
+            if (isAddingItem) {
+                append(values);
+                setIsAddingItem(false);
+            } else {
+                if (editingIndex === null) return;
+                update(editingIndex, values);
+            }
+        } finally {
+            setIsItemModalOpen(false);
+            setEditingIndex(null);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -107,6 +140,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 setValue('details', drData.details?.map(detail => ({
                     dr_detail_id: detail.DRDetailID, // Include the detail ID for updates
                     item_description: detail.ItemDescription,
+                    brand: detail.Brand ?? '',
+                    model_number: detail.ModelNumber ?? '',
+                    serial_number: detail.SerialNumber ?? '',
                     property_type_id: detail.PropertyTypeID,
                     unit_of_measure_id: detail.UnitOfMeasureID || 1,
                     quantity_delivered: detail.QuantityDelivered,
@@ -125,6 +161,16 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             fetchData();
         }
     }, [params.id, router, setValue, baseRoute]);
+
+    // Units of measure for items
+    const { data: unitsData } = useAllUnitsOfMeasure();
+    // API returns UnitOfMeasureResource (id,name) — normalize to {id, name} to be safe
+    type UnitOfMeasureResponse = { id?: number; name?: string; UnitOfMeasureID?: number; UnitName?: string };
+    const units = Array.isArray(unitsData)
+        ? (unitsData as UnitOfMeasureResponse[])
+            .filter(u => u && (u.id ?? u.UnitOfMeasureID))
+            .map(u => ({ id: u.id ?? u.UnitOfMeasureID!, name: u.name ?? u.UnitName! }))
+        : [];
 
     const details = watch('details');
     const totalAmount = details?.reduce((sum, item) => {
@@ -149,27 +195,40 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             });
             toast.success('Delivery receipt updated successfully');
             router.push(`${baseRoute}/delivery-receipts/${params.id}`);
-        } catch {
-            // Error is handled by the mutation
+        } catch (err: any) {
+            const resp = err?.response?.data;
+            if (resp?.errors) {
+                Object.entries(resp.errors).forEach(([field, messages]) => {
+                    const message = Array.isArray(messages) ? (messages as any)[0] : String(messages);
+                    try {
+                        setError(field as any, { type: 'server', message });
+                    } catch (e) {
+                        // ignore
+                    }
+                });
+                toast.error('Validation failed — please fix the highlighted fields');
+                return;
+            }
+
+            toast.error('Failed to update delivery receipt');
         }
     };
 
     const addItem = () => {
-        append({
-            item_description: '',
-            property_type_id: 0,
-            unit_of_measure_id: 1,
-            quantity_delivered: 1,
-            unit_cost: 0,
-        });
+        setIsAddingItem(true);
+        setEditingIndex(null);
+        setIsItemModalOpen(true);
     };
 
     const duplicateItem = (index: number) => {
         const item = details[index];
         append({
             item_description: item?.item_description || '',
+            brand: item?.brand || '',
+            model_number: item?.model_number || '',
+            serial_number: item?.serial_number || '',
             property_type_id: item?.property_type_id || 0,
-            unit_of_measure_id: item?.unit_of_measure_id || 1,
+            unit_of_measure_id: item?.unit_of_measure_id || (units.length ? units[0].id : 1),
             quantity_delivered: item?.quantity_delivered || 1,
             unit_cost: item?.unit_cost || 0,
         });
@@ -402,6 +461,12 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                                 placeholder="Enter invoice number (optional)"
                             />
+                            {errors.invoice_number && (
+                                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    {errors.invoice_number.message}
+                                </p>
+                            )}
                         </div>
 
                         {/* Date Received */}
@@ -463,9 +528,8 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 <tr className="border-b border-slate-200">
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">#</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
-                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Property Type</th>
-                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Quantity</th>
-                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">UoM</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Details</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-24">Qty</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Total Cost</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Actions</th>
@@ -476,68 +540,32 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                     <tr key={field.id} className="border-b border-slate-100">
                                         <td className="py-3 px-3 text-sm text-slate-600">{index + 1}</td>
                                         <td className="py-3 px-3">
-                                            <input
-                                                {...register(`details.${index}.item_description`)}
-                                                type="text"
-                                                className="w-full px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                placeholder="Enter item description"
-                                            />
+                                            <div className="text-sm text-slate-700">{details[index]?.item_description || '—'}</div>
                                             {errors.details?.[index]?.item_description && (
                                                 <p className="mt-1 text-xs text-red-600">
                                                     {errors.details[index]?.item_description?.message}
                                                 </p>
                                             )}
                                         </td>
-                                        <td className="py-3 px-3">
-                                            <SearchableType index={index} />
-                                            {errors.details?.[index]?.property_type_id && (
-                                                <p className="mt-1 text-xs text-red-600">
-                                                    {errors.details[index]?.property_type_id?.message}
-                                                </p>
-                                            )}
+                                        <td className="py-3 px-3 min-w-[220px]">
+                                            <div className="text-sm text-slate-700 font-medium">
+                                                {details[index]?.brand || '—'}{details[index]?.model_number ? ` / ${details[index].model_number}` : ''}{details[index]?.serial_number ? ` / ${details[index].serial_number}` : ''}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-1">
+                                                {propertyTypes.find(p => p.PropertyTypeID === details[index]?.property_type_id)?.PropertyName || 'No type'}
+                                            </div>
                                         </td>
-                                        <td className="py-3 px-3">
-                                            <input
-                                                {...register(`details.${index}.quantity_delivered`, { valueAsNumber: true })}
-                                                type="number"
-                                                min="1"
-                                                step="1"
-                                                className="w-20 px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                            />
+                                        <td className="py-3 px-3 w-28 text-center">
+                                            <div className="text-sm">{details[index]?.quantity_delivered ?? 0}</div>
+                                            <div className="text-xs text-slate-500 mt-1">{units.find(u => u.id === details[index]?.unit_of_measure_id)?.name || ''}</div>
                                             {errors.details?.[index]?.quantity_delivered && (
                                                 <p className="mt-1 text-xs text-red-600">
                                                     {errors.details[index]?.quantity_delivered?.message}
                                                 </p>
                                             )}
                                         </td>
-
-                                        <td className="py-3 px-3">
-                                            <select
-                                                {...register(`details.${index}.unit_of_measure_id`, { valueAsNumber: true })}
-                                                className="w-28 px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                            >
-                                                <option value={1}>pc</option>
-                                                <option value={2}>unit</option>
-                                                <option value={3}>set</option>
-                                                <option value={4}>lot</option>
-                                                <option value={5}>ream</option>
-                                                <option value={6}>box</option>
-                                                <option value={7}>pack</option>
-                                            </select>
-                                            {errors.details?.[index]?.unit_of_measure_id && (
-                                                <p className="mt-1 text-xs text-red-600">
-                                                    {errors.details[index]?.unit_of_measure_id?.message}
-                                                </p>
-                                            )}
-                                        </td>
-                                        <td className="py-3 px-3">
-                                            <input
-                                                {...register(`details.${index}.unit_cost`, { valueAsNumber: true })}
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                className="w-24 px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                            />
+                                        <td className="py-3 px-3 text-right">
+                                            <div className="text-sm">₱{(details[index]?.unit_cost ?? 0).toFixed(2)}</div>
                                             {errors.details?.[index]?.unit_cost && (
                                                 <p className="mt-1 text-xs text-red-600">
                                                     {errors.details[index]?.unit_cost?.message}
@@ -548,6 +576,20 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                             ₱{((details[index]?.quantity_delivered || 0) * (details[index]?.unit_cost || 0)).toFixed(2)}
                                         </td>
                                         <td className="py-3 px-3 flex items-center gap-2">
+                                            {(errors.details?.[index]?.property_type_id || errors.details?.[index]?.unit_of_measure_id || errors.details?.[index]?.quantity_delivered || errors.details?.[index]?.item_description) && (
+                                                <span className="text-red-600 mr-2" title="Missing required fields">
+                                                    <AlertCircle className="w-4 h-4" />
+                                                </span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => updateRow(index)}
+                                                title="Edit item"
+                                                className="text-slate-500 hover:text-slate-700 transition-colors"
+                                            >
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+
                                             <button
                                                 type="button"
                                                 onClick={() => duplicateItem(index)}
@@ -574,13 +616,27 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                         </table>
                     </div>
 
-                    {errors.details && (
+                    {fields.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-slate-500 italic">add items</div>
+                    ) : errors.details && (
                         <p className="mt-4 text-sm text-red-600 flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" />
                             {errors.details.message}
                         </p>
                     )}
                 </div>
+
+                <ItemDetailsModal
+                    open={isItemModalOpen}
+                    onOpenChange={(open) => {
+                        setIsItemModalOpen(open);
+                        if (!open) setIsAddingItem(false);
+                    }}
+                    initialValues={isAddingItem ? {} : (editingIndex !== null ? watch(`details.${editingIndex}`) : {})}
+                    propertyTypes={propertyTypes}
+                    units={units}
+                    onSave={handleSaveItem}
+                />
 
                 {/* Summary */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">

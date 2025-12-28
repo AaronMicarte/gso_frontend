@@ -3,15 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { ArrowLeft, Loader2, Printer, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { getIAR, updateIAR, uploadIARSignature } from '@/lib/api/iar';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { resolveStorageUrl, resolveSignatureUrl } from '@/lib/utils/signature';
 import { IAR } from '@/types/iar';
 import { toast } from 'sonner';
-import { useAuth } from '@/lib/hooks/useAuth';
 
 import { IARPrintView } from './IARPrintView';
 import { Dialog } from '@/components/ui/Dialog';
@@ -70,6 +69,14 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
     const [isAcceptSignatureModalOpen, setIsAcceptSignatureModalOpen] = useState(false); const [isAcceptedSignatureModalOpen, setIsAcceptedSignatureModalOpen] = useState(false); const [acceptSignature, setAcceptSignature] = useState<string | null>(null);
     const [acceptSignatureSource, setAcceptSignatureSource] = useState<'canvas' | 'upload' | null>(null);
     const [isInspectedSignatureModalOpen, setIsInspectedSignatureModalOpen] = useState(false);
+
+    // Local state to hold inline verification edits per detail
+    const [verifiedEdits, setVerifiedEdits] = useState<Record<number, { verified_brand?: string; verified_model?: string; verified_serial?: string }>>({});
+    const [isSavingVerifications, setIsSavingVerifications] = useState(false);
+
+    // Property types that require brand/model/serial verification
+    const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
+
     // Use shared helpers to resolve signatures & storage URLs
     const inspectedSignatureUrl = iar ? resolveSignatureUrl(iar, 'inspected') : null;
     const acceptedSignatureUrl = iar ? resolveSignatureUrl(iar, 'accepted') : null;
@@ -80,6 +87,29 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
             toast.error('Acceptance signature is required. Please add a signature to proceed.');
             return;
         }
+
+        // Validate required verified fields for certain property types
+        const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
+        const missingVerifications: string[] = [];
+
+        iar.details?.forEach((detail, index) => {
+            if (propertyTypesRequiringVerification.includes(detail.PropertyTypeID)) {
+                const verified = verifiedEdits[detail.IARDetailID || 0] || {};
+                const currentBrand = verified.verified_brand ?? detail.VerifiedBrand ?? '';
+                const currentModel = verified.verified_model ?? detail.VerifiedModel ?? '';
+                const currentSerial = verified.verified_serial ?? detail.VerifiedSerial ?? '';
+
+                if (!currentBrand.trim() || !currentModel.trim() || !currentSerial.trim()) {
+                    missingVerifications.push(`${detail.drDetail?.ItemDescription || `Item ${index + 1}`}`);
+                }
+            }
+        });
+
+        if (missingVerifications.length > 0) {
+            toast.error(`Brand, Model, and Serial are required for: ${missingVerifications.join(', ')}. Please fill in the verified values before accepting.`);
+            return;
+        }
+
         try {
             setIsAccepting(true);
             const todayManila = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
@@ -107,6 +137,9 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                     condition_id: d.ConditionID,
                     quantity_accepted: d.QuantityAccepted,
                     quantity_rejected: d.QuantityRejected,
+                    verified_brand: verifiedEdits[d.IARDetailID || 0]?.verified_brand ?? d.VerifiedBrand ?? null,
+                    verified_model: verifiedEdits[d.IARDetailID || 0]?.verified_model ?? d.VerifiedModel ?? null,
+                    verified_serial: verifiedEdits[d.IARDetailID || 0]?.verified_serial ?? d.VerifiedSerial ?? null,
                     remarks: d.Remarks || '',
                 })) || [],
             });
@@ -167,6 +200,24 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
 
         fetchIAR();
     }, [params.id, baseRoute, router]);
+
+    // Initialize verified edits when the IAR loads
+    useEffect(() => {
+        if (!iar) return;
+        const map: Record<number, { verified_brand?: string; verified_model?: string; verified_serial?: string }> = {};
+        (iar.details || []).forEach(d => {
+            if (d.IARDetailID) {
+                map[d.IARDetailID] = {
+                    verified_brand: d.VerifiedBrand || '',
+                    verified_model: d.VerifiedModel || '',
+                    verified_serial: d.VerifiedSerial || ''
+                };
+            }
+        });
+        setVerifiedEdits(map);
+    }, [iar]);
+
+    const canEditVerifications = !!iar && !!user && (user.UserRoleID === 1 || user.UserRoleID === 2) && !iar.DateAccepted;
 
     if (isLoading) {
         return (
@@ -372,6 +423,10 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                             </p>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-slate-700">Date Accepted</label>
+                            <p className="mt-1 text-slate-900">{iar.DateAccepted ? format(toZonedTime(new Date(iar.DateAccepted), 'Asia/Manila'), 'PPP') : 'Pending'}</p>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-slate-700">Inspected By</label>
                             <div className="flex items-center gap-2 mt-1">
                                 <p className="text-slate-900">{iar.inspectedByUser?.FullName || 'Pending'}</p>
@@ -409,14 +464,94 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                 </div>
 
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-slate-200">
+                    <div className="p-6 border-b border-slate-200 flex items-center justify-between">
                         <h2 className="text-lg font-semibold text-slate-900">Inspection Details</h2>
+                        {canEditVerifications && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (!iar) return;
+
+                                        // Validate required verified fields for certain property types
+                                        const missingVerifications: string[] = [];
+                                        iar.details?.forEach((detail, index) => {
+                                            if (propertyTypesRequiringVerification.includes(detail.PropertyTypeID)) {
+                                                const verified = verifiedEdits[detail.IARDetailID || 0] || {};
+                                                const currentBrand = verified.verified_brand ?? detail.VerifiedBrand ?? '';
+                                                const currentModel = verified.verified_model ?? detail.VerifiedModel ?? '';
+                                                const currentSerial = verified.verified_serial ?? detail.VerifiedSerial ?? '';
+
+                                                if (!currentBrand.trim() || !currentModel.trim() || !currentSerial.trim()) {
+                                                    missingVerifications.push(`${detail.drDetail?.ItemDescription || `Item ${index + 1}`}`);
+                                                }
+                                            }
+                                        });
+
+                                        if (missingVerifications.length > 0) {
+                                            toast.error(`Brand, Model, and Serial are required for: ${missingVerifications.join(', ')}. Please fill in all required fields.`);
+                                            return;
+                                        }
+
+                                        setIsSavingVerifications(true);
+                                        try {
+                                            const dateInspectedStr = formatInTimeZone(toZonedTime(new Date(iar.DateInspected), 'Asia/Manila'), 'Asia/Manila', 'yyyy-MM-dd');
+                                            const dateAcceptedStr = iar.DateAccepted ? formatInTimeZone(toZonedTime(new Date(iar.DateAccepted), 'Asia/Manila'), 'Asia/Manila', 'yyyy-MM-dd') : undefined;
+
+                                            const payload = {
+                                                inspected_by: iar.InspectedBy,
+                                                accepted_by: iar.AcceptedBy ?? null,
+                                                date_inspected: dateInspectedStr,
+                                                date_accepted: dateAcceptedStr,
+                                                remarks: iar.Remarks ?? undefined,
+                                                details: (iar.details || []).map(d => ({
+                                                    dr_detail_id: d.DRDetailID,
+                                                    property_type_id: d.PropertyTypeID,
+                                                    condition_id: d.ConditionID,
+                                                    quantity_accepted: d.QuantityAccepted,
+                                                    quantity_rejected: d.QuantityRejected,
+                                                    verified_brand: verifiedEdits[d.IARDetailID || 0]?.verified_brand ?? d.VerifiedBrand ?? null,
+                                                    verified_model: verifiedEdits[d.IARDetailID || 0]?.verified_model ?? d.VerifiedModel ?? null,
+                                                    verified_serial: verifiedEdits[d.IARDetailID || 0]?.verified_serial ?? d.VerifiedSerial ?? null,
+                                                    remarks: d.Remarks ?? undefined,
+                                                }))
+                                            };
+
+                                            const updated = await updateIAR(iar.IARID, payload);
+                                            setIar(updated);
+                                            toast.success('Verified values saved');
+                                        } catch (err: unknown) {
+                                            console.error(err);
+                                            // Show server-provided message if present (validation errors etc.)
+                                            let message = 'Failed to save verified values';
+                                            if (typeof err === 'object' && err !== null && 'response' in err) {
+                                                // Try to read axios-style response
+                                                // @ts-ignore
+                                                const resp = (err as any).response;
+                                                if (resp && resp.data) {
+                                                    if (resp.data.message) message = String(resp.data.message);
+                                                    else if (resp.data.errors) message = Object.values(resp.data.errors).flat().join(' ');
+                                                }
+                                            }
+                                            toast.error(message);
+                                        } finally {
+                                            setIsSavingVerifications(false);
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 bg-[var(--primary)] text-white rounded-md text-sm hover:bg-[var(--primary)]/90 disabled:opacity-50"
+                                    disabled={isSavingVerifications}
+                                >
+                                    {isSavingVerifications ? 'Saving...' : 'Save Verifications'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                 <tr>
                                     <th className="px-6 py-4">Item</th>
+                                    <th className="px-6 py-4">Brand / Model / Serial</th>
                                     <th className="px-6 py-4">Condition</th>
                                     <th className="px-6 py-4 text-right">Accepted</th>
                                     <th className="px-6 py-4 text-right">Rejected</th>
@@ -428,6 +563,62 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                                     <tr key={detail.IARDetailID}>
                                         <td className="px-6 py-4 text-slate-900">
                                             {detail.drDetail?.ItemDescription}
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">
+                                            <div className="text-sm">
+                                                {detail.drDetail && (
+                                                    <div className="mb-2 p-2 bg-slate-50 rounded text-xs">
+                                                        <div className="font-medium text-slate-700 mb-1">From DR:</div>
+                                                        <div className="flex flex-wrap gap-4 text-sm">
+                                                            {detail.drDetail.Brand && <div>Brand: <span className="font-medium">{detail.drDetail.Brand}</span></div>}
+                                                            {detail.drDetail.ModelNumber && <div>Model: <span className="font-medium">{detail.drDetail.ModelNumber}</span></div>}
+                                                            {detail.drDetail.SerialNumber && <div>Serial: <span className="font-medium">{detail.drDetail.SerialNumber}</span></div>}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {propertyTypesRequiringVerification.includes(detail.PropertyTypeID) && canEditVerifications ? (
+                                                    <div className="space-y-2">
+                                                        <div className="font-medium text-slate-700 text-xs">Verified Values <span className="text-red-500">*</span>:</div>
+                                                        <div className="flex gap-2">
+                                                            <input
+                                                                value={verifiedEdits[detail.IARDetailID || 0]?.verified_brand || ''}
+                                                                onChange={(e) => setVerifiedEdits(prev => ({ ...prev, [detail.IARDetailID || 0]: { ...prev[detail.IARDetailID || 0], verified_brand: e.target.value } }))}
+                                                                placeholder="Brand"
+                                                                className={`px-2 py-1 border rounded text-sm w-1/3 ${propertyTypesRequiringVerification.includes(detail.PropertyTypeID) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
+                                                                required
+                                                            />
+                                                            <input
+                                                                value={verifiedEdits[detail.IARDetailID || 0]?.verified_model || ''}
+                                                                onChange={(e) => setVerifiedEdits(prev => ({ ...prev, [detail.IARDetailID || 0]: { ...prev[detail.IARDetailID || 0], verified_model: e.target.value } }))}
+                                                                placeholder="Model"
+                                                                className={`px-2 py-1 border rounded text-sm w-1/3 ${propertyTypesRequiringVerification.includes(detail.PropertyTypeID) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
+                                                                required
+                                                            />
+                                                            <input
+                                                                value={verifiedEdits[detail.IARDetailID || 0]?.verified_serial || ''}
+                                                                onChange={(e) => setVerifiedEdits(prev => ({ ...prev, [detail.IARDetailID || 0]: { ...prev[detail.IARDetailID || 0], verified_serial: e.target.value } }))}
+                                                                placeholder="Serial"
+                                                                className={`px-2 py-1 border rounded text-sm w-1/3 ${propertyTypesRequiringVerification.includes(detail.PropertyTypeID) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
+                                                                required
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1">
+                                                        <div className="font-medium text-slate-700 text-xs">Verified:</div>
+                                                        <div className="text-sm text-slate-600">
+                                                            {(detail.VerifiedBrand || detail.VerifiedModel || detail.VerifiedSerial) ? (
+                                                                <>
+                                                                    {detail.VerifiedBrand && <div>Brand: {detail.VerifiedBrand}</div>}
+                                                                    {detail.VerifiedModel && <div>Model: {detail.VerifiedModel}</div>}
+                                                                    {detail.VerifiedSerial && <div>Serial: {detail.VerifiedSerial}</div>}
+                                                                </>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
                                             {detail.condition?.ConditionName}

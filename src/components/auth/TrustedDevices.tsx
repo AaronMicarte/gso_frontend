@@ -22,7 +22,7 @@ export default function TrustedDevices() {
             setError(null);
             const response = await getTrustedDevices();
             setDevices(response.devices);
-        } catch (err) {
+        } catch (_err) {
             setError('Failed to load trusted devices. Please try again.');
         } finally {
             setLoading(false);
@@ -38,7 +38,7 @@ export default function TrustedDevices() {
             setRevoking(deviceId);
             await revokeTrustedDevice(deviceId);
             setDevices(devices.filter(d => d.device_id !== deviceId));
-        } catch (err) {
+        } catch (_err) {
             setError('Failed to revoke device. Please try again.');
         } finally {
             setRevoking(null);

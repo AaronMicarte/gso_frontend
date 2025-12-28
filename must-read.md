@@ -35,6 +35,8 @@ NOTE: Vehicles and infrastructure property types (motor vehicles, buildings/stru
 - **Backdate window:** Delivery Receipt backdate window is configurable via env var `GSO_DR_BACKDATE_YEARS` (defaults to `5`). Admins can override per-request with `override_past_limit` when authorized.
 
 - **Delivery Receipt Number:** The DR number must be entered manually by staff when creating a Delivery Receipt. The system will not auto-generate DR numbers; ensure your DR numbers are unique and follow your local numbering policy.
+- **Invoice number uniqueness:** Invoice numbers are enforced unique per supplier (to prevent duplicate billing records).
+- **PO number uniqueness:** PO numbers are now enforced unique per supplier as well (prevents creating multiple DRs that reuse the same PO+Supplier combination). If your workflow requires multiple DRs per PO, tell me and I can revert this and instead add an alternate validation policy (e.g., enforce uniqueness only for non-null POs or provide admin override).
 
 ## STORAGE (SIGNATURES)
 - For development, the app uses the **local `public` disk** by default (`FILESYSTEM_DRIVER=public`). This keeps setup simple for capstone work.
