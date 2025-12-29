@@ -48,6 +48,9 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
 
     // Watch the property type to conditionally show brand/model/serial fields
     const selectedPropertyTypeId = watch('property_type_id');
+    const quantity = watch('quantity_delivered');
+    const unitCost = watch('unit_cost');
+    const totalCost = (quantity || 0) * (unitCost || 0);
 
     // Property types that should show brand/model/serial fields (same as IAR verification requirements)
     const equipmentPropertyTypeIds = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
@@ -57,15 +60,11 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
     React.useEffect(() => {
         if (open) {
             reset({
-                item_description: '',
-                brand: '',
-                model_number: '',
-                serial_number: '',
-                property_type_id: 0,
-                unit_of_measure_id: 1,
-                quantity_delivered: 1,
-                unit_cost: 0,
                 ...initialValues,
+                item_description: initialValues.item_description && initialValues.item_description !== '0' ? initialValues.item_description : '',
+                brand: initialValues.brand && initialValues.brand !== '0' ? initialValues.brand : '',
+                model_number: initialValues.model_number && initialValues.model_number !== '0' ? initialValues.model_number : '',
+                serial_number: initialValues.serial_number && initialValues.serial_number !== '0' ? initialValues.serial_number : '',
             });
         }
     }, [open, reset]);
@@ -95,7 +94,7 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
         >
             <div className="grid grid-cols-1 gap-3">
                 <label className="text-sm">
-                    <div className="mb-1 font-medium">Item Description</div>
+                    <div className="mb-1 font-medium">Item</div>
                     <input {...register('item_description')} className="w-full px-3 py-2 border rounded text-sm" />
                     {errors.item_description && <div className="text-xs text-red-600 mt-1">{errors.item_description.message}</div>}
                 </label>
@@ -144,9 +143,13 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
                 </div>
 
                 <label className="text-sm">
-                    <div className="mb-1 font-medium">Unit Cost</div>
+                    <div className="mb-1 font-medium">Unit Cost (₱)</div>
                     <input {...register('unit_cost', { valueAsNumber: true })} type="number" step="0.01" min={0} className="w-full px-3 py-2 border rounded text-sm" />
                 </label>
+
+                <div className="text-sm">
+                    <div className="mb-1 font-medium">Total Cost: ₱{totalCost.toFixed(2)}</div>
+                </div>
             </div>
         </Dialog>
     );
