@@ -1,15 +1,16 @@
 import apiClient from '@/lib/api/client';
 import type { AxiosResponse } from 'axios';
 
-export type InventoryListResponse = { data: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; TotalItems: number; TotalValue: number }[]; meta?: { total: number; per_page: number; current_page: number; last_page: number } };
-export type InventoryDetail = { InventoryDetailID: number; ItemDescription?: string; Brand?: string; ModelNumber?: string; SerialNumber?: string; propertyType?: { PropertyName: string }; Quantity: number; UnitCost: number; TotalCost: number; ConditionID?: number; PropertyStatusID?: number; qrCode?: { QRCodeData: string } };
-export type InventoryResponse = { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; details?: InventoryDetail[] };
-export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: string; details: { IARDetailID: number; QuantityAccepted: number }[] };
+export type InventoryListResponse = { data: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; TotalItems: number; TotalValue: number; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } } }[]; meta?: { total: number; per_page: number; current_page: number; last_page: number } };
+export type InventoryDetail = { InventoryDetailID: number; ItemDescription?: string; Description?: string; dr_item_description?: string; Brand?: string; ModelNumber?: string; SerialNumber?: string; propertyType?: { PropertyName: string }; drDetail?: { DRDetailID: number; ItemDescription?: string }; Quantity: number; UnitCost: number; TotalCost: number; ConditionID?: number; PropertyStatusID?: number; qrCode?: { QRCodeData: string } };
+export type InventoryResponse = { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; details?: InventoryDetail[]; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string; SupplierName?: string; DateReceived?: string } } };
+export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: string; details: { IARDetailID: number; QuantityAccepted: number; ItemDescription?: string; VerifiedBrand?: string; VerifiedModel?: string; VerifiedSerial?: string; UnitCost?: number; propertyType?: { PropertyTypeID: number; PropertyName: string } }[]; signatures?: { id: number; role: string; url?: string; created_at: string; user?: { UserID: number; FullName: string } }[] };
 
-export const getInventories = async (params?: { page?: number; per_page?: number }): Promise<InventoryListResponse> => {
+export const getInventories = async (params?: { page?: number; per_page?: number; search?: string }): Promise<InventoryListResponse> => {
     const qs = new URLSearchParams();
     if (params?.page) qs.append('page', String(params.page));
     if (params?.per_page) qs.append('per_page', String(params.per_page));
+    if (params?.search) qs.append('search', params.search);
 
     const response: AxiosResponse<InventoryListResponse> = await apiClient.get(`/admin/inventory?${qs.toString()}`);
     return response.data;

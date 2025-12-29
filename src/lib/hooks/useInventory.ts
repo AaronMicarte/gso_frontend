@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInventories, getInventory, postIssuance, postGenerateQr, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar } from '@/lib/api/inventory';
 
-export const useInventories = (options?: { page?: number; per_page?: number }) => {
+export const useInventories = (options?: { page?: number; per_page?: number; search?: string }) => {
     return useQuery<InventoryListResponse>({
         queryKey: ['inventories', options],
         queryFn: () => getInventories(options),
