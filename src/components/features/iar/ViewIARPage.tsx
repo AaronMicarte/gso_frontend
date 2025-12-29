@@ -526,8 +526,7 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                                             let message = 'Failed to save verified values';
                                             if (typeof err === 'object' && err !== null && 'response' in err) {
                                                 // Try to read axios-style response
-                                                // @ts-ignore
-                                                const resp = (err as any).response;
+                                                const resp = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response;
                                                 if (resp && resp.data) {
                                                     if (resp.data.message) message = String(resp.data.message);
                                                     else if (resp.data.errors) message = Object.values(resp.data.errors).flat().join(' ');

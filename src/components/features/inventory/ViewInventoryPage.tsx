@@ -67,6 +67,10 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                             <div className="text-sm text-slate-600">Inventory Number</div>
                             <div className="text-lg font-medium">{data?.InventoryNumber}</div>
                             <div className="text-sm text-slate-500">{data?.Remarks}</div>
+                            <div className="text-sm text-slate-500 mt-2">
+                                Total Items: {data?.details?.reduce((sum, d) => sum + d.Quantity, 0)} •
+                                Total Value: ₱{data?.details?.reduce((sum, d) => sum + d.TotalCost, 0).toFixed(2)}
+                            </div>
                         </div>
 
                         <div className="mt-6">
@@ -75,7 +79,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                 {data?.details?.length === 0 ? (
                                     <div className="text-slate-500 py-4">No items</div>
                                 ) : (
-                                    data?.details?.map((d: { InventoryDetailID: number; ItemDescription?: string; Brand?: string; ModelNumber?: string; SerialNumber?: string; propertyType?: { PropertyName: string }; Quantity: number; UnitCost: number; qrCode?: { QRCodeData: string } }) => (
+                                    data?.details?.map((d: { InventoryDetailID: number; ItemDescription?: string; Brand?: string; ModelNumber?: string; SerialNumber?: string; propertyType?: { PropertyName: string }; Quantity: number; UnitCost: number; TotalCost: number; ConditionID?: number; PropertyStatusID?: number; qrCode?: { QRCodeData: string } }) => (
                                         <div key={d.InventoryDetailID} className="py-3 flex items-center justify-between">
                                             <div>
                                                 <div className="font-medium">{d.ItemDescription || d.propertyType?.PropertyName || 'Item'}</div>
@@ -84,7 +88,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     {d.ModelNumber && <span className="mr-2">Model: {d.ModelNumber}</span>}
                                                     {d.SerialNumber && <span className="mr-2">Serial: {d.SerialNumber}</span>}
                                                 </div>
-                                                <div className="text-sm text-slate-500">Qty: {d.Quantity} • Unit Cost: {d.UnitCost}</div>
+                                                <div className="text-sm text-slate-500">Qty: {d.Quantity} • Unit Cost: ₱{d.UnitCost.toFixed(2)} • Total: ₱{d.TotalCost.toFixed(2)}</div>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {d.qrCode ? (

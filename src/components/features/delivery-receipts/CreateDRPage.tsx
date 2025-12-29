@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { deliveryReceiptKeys } from '@/lib/hooks/useDeliveryReceipts';
 import { useRouter } from 'next/navigation';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Path } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from 'zod';
 import { useCreateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
@@ -166,15 +166,15 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             await queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
 
             router.push(`${baseRoute}/delivery-receipts`);
-        } catch (err: any) {
-            const resp = err?.response?.data;
+        } catch (err: unknown) {
+            const resp = (err as { response?: { data?: { errors?: Record<string, string | string[]> } } })?.response?.data;
             if (resp?.errors) {
                 // Map Laravel validation errors to react-hook-form setError
                 Object.entries(resp.errors).forEach(([field, messages]) => {
-                    const message = Array.isArray(messages) ? (messages as any)[0] : String(messages);
+                    const message = Array.isArray(messages) ? messages[0] : String(messages);
                     try {
                         // field names from Laravel already come in dot notation (e.g. details.0.item_description)
-                        setError(field as any, { type: 'server', message });
+                        setError(field as Path<DRFormValues>, { type: 'server', message });
                     } catch (e) {
                         // ignore setError failures for weird keys
                     }

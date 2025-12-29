@@ -65,6 +65,8 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                             <tr>
                                 <th className="px-6 py-4">Inventory Number</th>
                                 <th className="px-6 py-4">Date Acquired</th>
+                                <th className="px-6 py-4">Total Items</th>
+                                <th className="px-6 py-4">Total Value</th>
                                 <th className="px-6 py-4">Remarks</th>
                                 <th className="px-6 py-4">Actions</th>
                             </tr>
@@ -72,7 +74,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                         <tbody className="divide-y divide-slate-200">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
                                         <div className="flex items-center justify-center gap-2">
                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
                                             Loading inventory...
@@ -81,16 +83,18 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 </tr>
                             ) : data?.data?.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
                                         <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                         No inventory found
                                     </td>
                                 </tr>
                             ) : (
-                                data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string }) => (
+                                data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; TotalItems: number; TotalValue: number }) => (
                                     <tr key={inv.InventoryID} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 font-medium text-slate-900">{inv.InventoryNumber}</td>
                                         <td className="px-6 py-4 text-slate-600">{format(toZonedTime(new Date(inv.DateAcquired), 'Asia/Manila'), 'MMM dd, yyyy')}</td>
+                                        <td className="px-6 py-4 text-slate-600">{inv.TotalItems}</td>
+                                        <td className="px-6 py-4 text-slate-600">₱{inv.TotalValue.toFixed(2)}</td>
                                         <td className="px-6 py-4 text-slate-600">{inv.Remarks}</td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">

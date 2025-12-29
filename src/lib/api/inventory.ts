@@ -1,8 +1,8 @@
 import apiClient from '@/lib/api/client';
 import type { AxiosResponse } from 'axios';
 
-export type InventoryListResponse = { data: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string }[]; meta?: { total: number; per_page: number; current_page: number; last_page: number } };
-export type InventoryDetail = { InventoryDetailID: number; ItemDescription?: string; propertyType?: { PropertyName: string }; Quantity: number; UnitCost: number; qrCode?: { QRCodeData: string } };
+export type InventoryListResponse = { data: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; TotalItems: number; TotalValue: number }[]; meta?: { total: number; per_page: number; current_page: number; last_page: number } };
+export type InventoryDetail = { InventoryDetailID: number; ItemDescription?: string; Brand?: string; ModelNumber?: string; SerialNumber?: string; propertyType?: { PropertyName: string }; Quantity: number; UnitCost: number; TotalCost: number; ConditionID?: number; PropertyStatusID?: number; qrCode?: { QRCodeData: string } };
 export type InventoryResponse = { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; details?: InventoryDetail[] };
 export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: string; details: { IARDetailID: number; QuantityAccepted: number }[] };
 

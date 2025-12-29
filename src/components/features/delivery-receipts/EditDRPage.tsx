@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { ItemDetailsModal } from './ItemDetailsModal';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Path } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -195,13 +195,13 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             });
             toast.success('Delivery receipt updated successfully');
             router.push(`${baseRoute}/delivery-receipts/${params.id}`);
-        } catch (err: any) {
-            const resp = err?.response?.data;
+        } catch (err: unknown) {
+            const resp = (err as { response?: { data?: { errors?: Record<string, string | string[]> } } })?.response?.data;
             if (resp?.errors) {
                 Object.entries(resp.errors).forEach(([field, messages]) => {
-                    const message = Array.isArray(messages) ? (messages as any)[0] : String(messages);
+                    const message = Array.isArray(messages) ? messages[0] : String(messages);
                     try {
-                        setError(field as any, { type: 'server', message });
+                        setError(field as Path<DRFormValues>, { type: 'server', message });
                     } catch (e) {
                         // ignore
                     }
