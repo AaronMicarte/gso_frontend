@@ -1,13 +1,15 @@
 'use client';
 
-import { useInventory, useGenerateQr } from '@/lib/hooks/useInventory';
+import { useInventory, useGenerateQr, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { Building2, User, Calendar, DollarSign, Package, CheckCircle, AlertTriangle, UserCheck, Archive, FileText, QrCode, Search, RefreshCw } from 'lucide-react';
+import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, FileText, QrCode, Search, RefreshCw, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
+import * as Dialog from '@radix-ui/react-dialog';
 
 export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const params = useParams() as { id?: string };
@@ -15,7 +17,11 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
     const { data, isLoading, refetch } = useInventory(id);
     const generateQr = useGenerateQr();
+    const updateInventoryDetail = useUpdateInventoryDetail();
     const [searchTerm, setSearchTerm] = useState('');
+    const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<{ id: number; description: string } | null>(null);
 
     const handleRefresh = () => {
         refetch();
@@ -27,8 +33,8 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         if (!searchTerm) return data?.details || [];
         return (data?.details || []).filter(detail =>
             detail.dr_item_description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            detail.ItemDescription?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            detail.propertyType?.PropertyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            detail.Description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            detail.PropertyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             detail.Brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             detail.ModelNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             detail.SerialNumber?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -39,6 +45,44 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     if (!id || Number.isNaN(id)) {
         return <div className="p-6 text-sm text-red-600">Invalid inventory id</div>;
     }
+
+    const toggleDescriptionExpansion = (inventoryDetailId: number) => {
+        setExpandedDescriptions(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(inventoryDetailId)) {
+                newSet.delete(inventoryDetailId);
+            } else {
+                newSet.add(inventoryDetailId);
+            }
+            return newSet;
+        });
+    };
+
+    const openEditModal = (inventoryDetailId: number, currentDescription: string) => {
+        setEditingItem({ id: inventoryDetailId, description: currentDescription || '' });
+        setEditModalOpen(true);
+    };
+
+    const handleSaveDescription = async () => {
+        if (!editingItem) return;
+
+        try {
+            await updateInventoryDetail.mutateAsync({
+                id: editingItem.id,
+                data: { Description: editingItem.description }
+            });
+            toast.success('Description updated successfully');
+            setEditModalOpen(false);
+            setEditingItem(null);
+        } catch (error) {
+            toast.error('Failed to update description');
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditModalOpen(false);
+        setEditingItem(null);
+    };
 
     const handleGenerateQr = async (detailId: number) => {
         try {
@@ -165,7 +209,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                 </div>
                                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <DollarSign className="w-5 h-5 text-green-600" />
+                                        <Banknote className="w-5 h-5 text-green-600" />
                                         <div className="text-sm font-medium text-slate-700">Total Value</div>
                                     </div>
                                     <div className="text-2xl font-bold text-slate-900">
@@ -221,10 +265,10 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                     <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                         <tr>
                                             <th className="px-6 py-4">Item Name</th>
+                                            <th className="px-6 py-4">Property Type</th>
                                             <th className="px-6 py-4">Description</th>
-                                            <th className="px-6 py-4">Specifications</th>
-                                            <th className="px-6 py-4">Quantity</th>
-                                            <th className="px-6 py-4">Unit Cost</th>
+                                            <th className="px-6 py-4">Classification</th>
+                                            <th className="px-6 py-4">Quantity & Unit Cost</th>
                                             <th className="px-6 py-4">Status</th>
                                             <th className="px-6 py-4">Custodian</th>
                                             <th className="px-6 py-4 text-right">Actions</th>
@@ -241,11 +285,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                         ) : (
                                             filteredDetails.map((d: {
                                                 InventoryDetailID: number;
-                                                ItemDescription?: string;
+                                                Description?: string;
                                                 Brand?: string;
                                                 ModelNumber?: string;
                                                 SerialNumber?: string;
-                                                propertyType?: { PropertyName: string };
+                                                PropertyName?: string;
+                                                ClassificationName?: string;
+                                                DocumentType?: 'ICS' | 'PAR';
                                                 Quantity: number;
                                                 QuantityAvailable?: number;
                                                 UnitCost: number;
@@ -262,33 +308,65 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                                                 {(d as any).dr_item_description || 'Property Item'}
                                                             </div>
-                                                            <div className="text-xs text-slate-500 mt-1">
-                                                                Item ID: {d.InventoryDetailID}
+                                                            <div className="text-xs text-slate-500 space-y-1 mt-1">
+                                                                {d.Brand && <div>Brand: {d.Brand}</div>}
+                                                                {d.ModelNumber && <div>Model: {d.ModelNumber}</div>}
+                                                                {d.SerialNumber && <div>Serial: {d.SerialNumber}</div>}
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-slate-600">
-                                                        {d.propertyType?.PropertyName || '-'}
+                                                    <td className="px-6 py-4">
+                                                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                            {d.PropertyName || 'Unknown'}
+                                                        </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-slate-600">
-                                                        <div className="space-y-1">
-                                                            {d.Brand && <div className="text-xs">Brand: {d.Brand}</div>}
-                                                            {d.ModelNumber && <div className="text-xs">Model: {d.ModelNumber}</div>}
-                                                            {d.SerialNumber && <div className="text-xs">Serial: {d.SerialNumber}</div>}
-                                                        </div>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div
+                                                                    className={`max-w-xs cursor-pointer ${expandedDescriptions.has(d.InventoryDetailID) ? '' : 'truncate'}`}
+                                                                    onClick={() => toggleDescriptionExpansion(d.InventoryDetailID)}
+                                                                    style={expandedDescriptions.has(d.InventoryDetailID) ? { whiteSpace: 'pre-line' } : {}}
+                                                                >
+                                                                    {d.Description || <span className="text-slate-400 italic">No description</span>}
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="top"
+                                                                className="max-w-sm p-3 bg-slate-800 text-white text-sm rounded-lg shadow-lg z-50"
+                                                            >
+                                                                <div style={{ whiteSpace: 'pre-line' }}>
+                                                                    {d.Description || 'No description'}
+                                                                </div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {d.ClassificationName ? (
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${d.ClassificationName === 'Semi-Expendable'
+                                                                ? 'bg-blue-100 text-blue-800'
+                                                                : 'bg-green-100 text-green-800'
+                                                                }`}>
+                                                                {d.ClassificationName}
+                                                                {d.DocumentType && (
+                                                                    <span className="ml-1 text-xs opacity-75">
+                                                                        ({d.DocumentType})
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-400">-</span>
+                                                        )}
                                                     </td>
                                                     <td className="px-6 py-4 text-slate-600">
                                                         <div>
-                                                            <div className="font-medium">{d.Quantity}</div>
+                                                            <div className="font-medium">{d.Quantity} @ ₱{Number(d.UnitCost || 0).toFixed(2)}</div>
                                                             {d.QuantityAvailable && d.QuantityAvailable !== d.Quantity && (
                                                                 <div className="text-xs text-slate-500">
                                                                     Available: {d.QuantityAvailable}
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-slate-600">
-                                                        ₱{Number(d.UnitCost || 0).toFixed(2)}
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         {getStatusBadge(d.PropertyStatusID)}
@@ -301,6 +379,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
                                                         <div className="flex items-center justify-end gap-2">
+                                                            <button
+                                                                onClick={() => openEditModal(d.InventoryDetailID, d.Description || '')}
+                                                                className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                title="Edit Description"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
                                                             {d.qrCode ? (
                                                                 <a
                                                                     href={d.qrCode.QRCodeData}
@@ -341,6 +426,43 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                     </>
                 )}
             </div>
+
+            {/* Edit Description Modal */}
+            <Dialog.Root open={editModalOpen} onOpenChange={setEditModalOpen}>
+                <Dialog.Portal>
+                    <Dialog.Overlay className="fixed inset-0 bg-black/30 z-40" />
+                    <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+                        <Dialog.Title className="text-lg font-bold text-slate-900">Edit Item Description</Dialog.Title>
+                        <div className="space-y-4">
+                            <textarea
+                                value={editingItem?.description || ''}
+                                onChange={(e) => setEditingItem(prev => prev ? { ...prev, description: e.target.value } : null)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical min-h-[100px]"
+                                placeholder="Enter item description..."
+                                rows={4}
+                                maxLength={255}
+                            />
+                            <div className="flex justify-end gap-2">
+                                <Dialog.Close asChild>
+                                    <button
+                                        onClick={handleCancelEdit}
+                                        className="px-4 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </Dialog.Close>
+                                <button
+                                    onClick={handleSaveDescription}
+                                    disabled={updateInventoryDetail.isPending}
+                                    className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
+                                >
+                                    {updateInventoryDetail.isPending ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                        </div>
+                    </Dialog.Content>
+                </Dialog.Portal>
+            </Dialog.Root>
         </div>
     );
 }
