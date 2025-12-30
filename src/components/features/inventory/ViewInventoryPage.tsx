@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { Building2, User, Calendar, DollarSign, Package, CheckCircle, AlertTriangle, UserCheck, Archive, FileText, QrCode, Search } from 'lucide-react';
+import { Building2, User, Calendar, DollarSign, Package, CheckCircle, AlertTriangle, UserCheck, Archive, FileText, QrCode, Search, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 
@@ -13,9 +13,14 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const params = useParams() as { id?: string };
     const id = Number(params?.id);
 
-    const { data, isLoading } = useInventory(id);
+    const { data, isLoading, refetch } = useInventory(id);
     const generateQr = useGenerateQr();
     const [searchTerm, setSearchTerm] = useState('');
+
+    const handleRefresh = () => {
+        refetch();
+        toast.success('Property record refreshed');
+    };
 
     const filteredDetails = useMemo(() => {
         if (!data?.details) return [];
@@ -94,6 +99,14 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                     <p className="text-slate-500 text-sm">Official property record under GSO custody</p>
                 </div>
                 <div className="flex gap-2">
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isLoading}
+                        className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">Refresh</span>
+                    </button>
                     <Link
                         href={`${baseRoute}/issuance`}
                         className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
@@ -141,7 +154,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
                             {/* Property Summary Stats */}
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                                <div className="bg-slate-50 rounded-lg p-4">
+                                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Package className="w-5 h-5 text-blue-600" />
                                         <div className="text-sm font-medium text-slate-700">Total Items</div>
@@ -150,7 +163,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                         {data?.details?.reduce((sum, d) => sum + (d.Quantity || 0), 0) || 0}
                                     </div>
                                 </div>
-                                <div className="bg-slate-50 rounded-lg p-4">
+                                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
                                         <DollarSign className="w-5 h-5 text-green-600" />
                                         <div className="text-sm font-medium text-slate-700">Total Value</div>
@@ -159,7 +172,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                         ₱{Number(data?.details?.reduce((sum, d) => sum + (d.TotalCost || 0), 0) || 0).toFixed(2)}
                                     </div>
                                 </div>
-                                <div className="bg-slate-50 rounded-lg p-4">
+                                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
                                         <CheckCircle className="w-5 h-5 text-green-600" />
                                         <div className="text-sm font-medium text-slate-700">Available</div>
@@ -168,7 +181,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                         {data?.details?.filter(d => d.PropertyStatusID === 1).length || 0}
                                     </div>
                                 </div>
-                                <div className="bg-slate-50 rounded-lg p-4">
+                                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
                                         <UserCheck className="w-5 h-5 text-blue-600" />
                                         <div className="text-sm font-medium text-slate-700">Assigned</div>
@@ -178,44 +191,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Acquisition Source */}
-                            {data?.iar && (
-                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <Building2 className="w-5 h-5 text-blue-600" />
-                                        <div className="text-sm font-semibold text-blue-900">Acquisition Source</div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <div className="text-blue-700 font-medium">IAR Number</div>
-                                            <div className="text-blue-600">{data.iar.IARNumber}</div>
-                                        </div>
-                                        {data.iar.deliveryReceipt && (
-                                            <>
-                                                <div>
-                                                    <div className="text-blue-700 font-medium">DR Number</div>
-                                                    <div className="text-blue-600">{data.iar.deliveryReceipt.DRNumber}</div>
-                                                </div>
-                                                {data.iar.deliveryReceipt.SupplierName && (
-                                                    <div>
-                                                        <div className="text-blue-700 font-medium">Supplier</div>
-                                                        <div className="text-blue-600">{data.iar.deliveryReceipt.SupplierName}</div>
-                                                    </div>
-                                                )}
-                                                {data.iar.deliveryReceipt.DateReceived && (
-                                                    <div>
-                                                        <div className="text-blue-700 font-medium">Date Received</div>
-                                                        <div className="text-blue-600">
-                                                            {format(toZonedTime(new Date(data.iar.deliveryReceipt.DateReceived), 'Asia/Manila'), 'MMM dd, yyyy')}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* Property Items Table */}
@@ -245,20 +220,20 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                 <table className="w-full text-sm text-left">
                                     <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                         <tr>
-                                            <th className="px-4 py-3">Item Name</th>
-                                            <th className="px-4 py-3">Description</th>
-                                            <th className="px-4 py-3">Specifications</th>
-                                            <th className="px-4 py-3">Quantity</th>
-                                            <th className="px-4 py-3">Unit Cost</th>
-                                            <th className="px-4 py-3">Status</th>
-                                            <th className="px-4 py-3">Custodian</th>
-                                            <th className="px-4 py-3">Actions</th>
+                                            <th className="px-6 py-4">Item Name</th>
+                                            <th className="px-6 py-4">Description</th>
+                                            <th className="px-6 py-4">Specifications</th>
+                                            <th className="px-6 py-4">Quantity</th>
+                                            <th className="px-6 py-4">Unit Cost</th>
+                                            <th className="px-6 py-4">Status</th>
+                                            <th className="px-6 py-4">Custodian</th>
+                                            <th className="px-6 py-4 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
                                         {filteredDetails.length === 0 ? (
                                             <tr>
-                                                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                                                <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
                                                     <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                                     {searchTerm ? 'No items match your search' : 'No property items found in this record'}
                                                 </td>
@@ -281,7 +256,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                 qrCode?: { QRCodeData: string }
                                             }) => (
                                                 <tr key={d.InventoryDetailID} className="hover:bg-slate-50">
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-6 py-4">
                                                         <div>
                                                             <div className="font-medium text-slate-900">
                                                                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -292,17 +267,17 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-600">
+                                                    <td className="px-6 py-4 text-slate-600">
                                                         {d.propertyType?.PropertyName || '-'}
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-600">
+                                                    <td className="px-6 py-4 text-slate-600">
                                                         <div className="space-y-1">
                                                             {d.Brand && <div className="text-xs">Brand: {d.Brand}</div>}
                                                             {d.ModelNumber && <div className="text-xs">Model: {d.ModelNumber}</div>}
                                                             {d.SerialNumber && <div className="text-xs">Serial: {d.SerialNumber}</div>}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-600">
+                                                    <td className="px-6 py-4 text-slate-600">
                                                         <div>
                                                             <div className="font-medium">{d.Quantity}</div>
                                                             {d.QuantityAvailable && d.QuantityAvailable !== d.Quantity && (
@@ -312,26 +287,26 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-600">
+                                                    <td className="px-6 py-4 text-slate-600">
                                                         ₱{Number(d.UnitCost || 0).toFixed(2)}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-6 py-4">
                                                         {getStatusBadge(d.PropertyStatusID)}
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-600">
+                                                    <td className="px-6 py-4 text-slate-600">
                                                         <div className="flex items-center gap-1">
                                                             <User className="w-3 h-3" />
                                                             {d.custodianName || 'GSO Property Custodian'}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-2">
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex items-center justify-end gap-2">
                                                             {d.qrCode ? (
                                                                 <a
                                                                     href={d.qrCode.QRCodeData}
                                                                     target="_blank"
                                                                     rel="noreferrer"
-                                                                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                                                                    className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
                                                                     title="View QR Code"
                                                                 >
                                                                     <QrCode className="w-4 h-4" />
@@ -339,7 +314,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             ) : (
                                                                 <button
                                                                     onClick={() => handleGenerateQr(d.InventoryDetailID)}
-                                                                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                                                                    className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
                                                                     title="Generate QR Code"
                                                                 >
                                                                     <QrCode className="w-4 h-4" />
@@ -348,7 +323,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             {d.PropertyStatusID === 1 && (
                                                                 <Link
                                                                     href={`${baseRoute}/issuance/new?property_id=${d.InventoryDetailID}`}
-                                                                    className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
+                                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                                     title="Create PAR/ICS"
                                                                 >
                                                                     <FileText className="w-4 h-4" />

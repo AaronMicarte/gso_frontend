@@ -195,7 +195,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                             <p className="text-sm text-slate-600">Complete inventory of all property under GSO accountability</p>
                         </div>
                         <div className="text-sm text-slate-500">
-                            Total Records: {data?.meta?.total ?? 0}
+                            Total Records: {data?.total ?? 0}
                         </div>
                     </div>
                 </div>
@@ -292,11 +292,11 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                 </div>
 
                 {/* Pagination */}
-                {data?.meta && data.meta.last_page > 1 && (
+                {data && data.last_page > 1 && (
                     <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
                         <div className="flex items-center justify-between">
                             <div className="text-sm text-slate-500">
-                                Showing {((data.meta.current_page - 1) * data.meta.per_page) + 1} to {Math.min(data.meta.current_page * data.meta.per_page, data.meta.total)} of {data.meta.total} property records
+                                Showing {((data.current_page - 1) * data.per_page) + 1} to {Math.min(data.current_page * data.per_page, data.total)} of {data.total} property records
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -306,10 +306,10 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 >
                                     Previous
                                 </button>
-                                <span className="text-sm text-slate-600">Page {data.meta?.current_page ?? 1} of {data.meta?.last_page ?? 1}</span>
+                                <span className="text-sm text-slate-600">Page {data?.current_page ?? 1} of {data?.last_page ?? 1}</span>
                                 <button
-                                    onClick={() => setPage(Math.min(data.meta?.last_page ?? 1, page + 1))}
-                                    disabled={page === (data.meta?.last_page ?? 1)}
+                                    onClick={() => setPage(Math.min(data?.last_page ?? 1, page + 1))}
+                                    disabled={page === (data?.last_page ?? 1)}
                                     className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Next
