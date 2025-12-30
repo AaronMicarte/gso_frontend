@@ -205,9 +205,9 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                         <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                             <tr>
                                 <th className="px-6 py-4">Inventory Number</th>
-                                <th className="px-6 py-4">Description</th>
+                                <th className="px-6 py-4">Details</th>
                                 <th className="px-6 py-4">Acquisition Date</th>
-                                <th className="px-6 py-4">Unit Cost</th>
+                                <th className="px-6 py-4">Total Value</th>
                                 <th className="px-6 py-4">Property Status</th>
                                 <th className="px-6 py-4">Custodian</th>
                                 <th className="px-6 py-4">Location</th>
@@ -232,24 +232,28 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                     </td>
                                 </tr>
                             ) : (
-                                data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; TotalItems: number; TotalValue: number; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } } }) => (
+                                data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; Description?: string; TotalItems: number; TotalValue: number; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } } }) => (
                                     <tr key={inv.InventoryID} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 font-medium text-slate-900">
                                             {inv.InventoryNumber}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
                                             <div>
-                                                <div className="font-medium">Property Record</div>
-                                                <div className="text-xs text-slate-500 mt-1">
+                                                <div className="text-xs text-slate-500">
                                                     {inv.TotalItems} item{inv.TotalItems > 1 ? 's' : ''} • ₱{inv.TotalValue.toFixed(2)}
                                                 </div>
+                                                {inv.iar && (
+                                                    <div className="text-xs text-slate-400 mt-1">
+                                                        IAR: {inv.iar.IARNumber} {inv.iar.deliveryReceipt && `• DR: ${inv.iar.deliveryReceipt.DRNumber}`}
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
                                             {format(toZonedTime(new Date(inv.DateAcquired), 'Asia/Manila'), 'MMM dd, yyyy')}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
-                                            ₱{(inv.TotalValue / inv.TotalItems).toFixed(2)}
+                                            ₱{inv.TotalValue.toFixed(2)}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
