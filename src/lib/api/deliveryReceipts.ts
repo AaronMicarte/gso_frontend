@@ -1,8 +1,6 @@
 import apiClient from '@/lib/api/client';
 import {
     DeliveryReceipt,
-    CreateDeliveryReceiptPayload,
-    UpdateDeliveryReceiptPayload,
     DeliveryReceiptFilters,
 } from '@/types/procurement';
 
@@ -29,17 +27,38 @@ export const getDeliveryReceipts = async (filters?: DeliveryReceiptFilters): Pro
 
 export const getDeliveryReceipt = async (id: number): Promise<DeliveryReceipt> => {
     const response = await apiClient.get(`/admin/procurement/delivery-receipts/${id}`);
-    return response.data.data;
+    const deliveryReceipt = response.data.data;
+    // Add dr_picture_url from the response if available
+    if (response.data.dr_picture_url) {
+        deliveryReceipt.dr_picture_url = response.data.dr_picture_url;
+    }
+    return deliveryReceipt;
 };
 
-export const createDeliveryReceipt = async (data: CreateDeliveryReceiptPayload): Promise<DeliveryReceipt> => {
-    const response = await apiClient.post('/admin/procurement/delivery-receipts', data);
-    return response.data.data;
+export const createDeliveryReceipt = async (data: FormData): Promise<DeliveryReceipt> => {
+    const response = await apiClient.post('/admin/procurement/delivery-receipts', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    const deliveryReceipt = response.data.data;
+    // Add dr_picture_url from the response if available
+    if (response.data.dr_picture_url) {
+        deliveryReceipt.dr_picture_url = response.data.dr_picture_url;
+    }
+    return deliveryReceipt;
 };
 
-export const updateDeliveryReceipt = async (id: number, data: UpdateDeliveryReceiptPayload): Promise<DeliveryReceipt> => {
-    const response = await apiClient.put(`/admin/procurement/delivery-receipts/${id}`, data);
-    return response.data.data;
+export const updateDeliveryReceipt = async (id: number, data: FormData): Promise<DeliveryReceipt> => {
+    // Laravel requires POST with _method=PUT for multipart/form-data updates
+    data.append('_method', 'PUT');
+    const response = await apiClient.post(`/admin/procurement/delivery-receipts/${id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    const deliveryReceipt = response.data.data;
+    // Add dr_picture_url from the response if available
+    if (response.data.dr_picture_url) {
+        deliveryReceipt.dr_picture_url = response.data.dr_picture_url;
+    }
+    return deliveryReceipt;
 };
 
 export const deleteDeliveryReceipt = async (id: number): Promise<void> => {

@@ -50,3 +50,5 @@ NOTE: Vehicles and infrastructure property types (motor vehicles, buildings/stru
 **BRUTAL HONESTY:** If the code is messy, fix it. If the workflow is wrong, change it. No excuses.
 **DEVELOPER:** 3rd Year BSIT Student (Solo Capstone)
 **TARGET:** El Salvador City GSO System
+
+PLEASE DONT TOUCH THE OLD ADMIN FOLDER

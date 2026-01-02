@@ -36,6 +36,7 @@ const drSchema = z.object({
     date_received: z.string().min(1, 'Date received is required'),
     override_past_limit: z.boolean().optional(),
     remarks: z.string().optional(),
+    dr_picture: z.custom<FileList>().optional(),
     details: z.array(drItemSchema).min(1, 'At least one item is required'),
 });
 
@@ -57,6 +58,8 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isLoadingDR, setIsLoadingDR] = useState(true);
+    const [currentPictureUrl, setCurrentPictureUrl] = useState<string | null>(null);
+    const [picturePreview, setPicturePreview] = useState<string | null>(null);
 
     // Manila today's date (YYYY-MM-DD) for client-side max date and validation
     const manilaToday = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
@@ -137,6 +140,11 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 const zonedDate = toZonedTime(new Date(drData.DateReceived), 'Asia/Manila');
                 setValue('date_received', formatInTimeZone(zonedDate, 'Asia/Manila', 'yyyy-MM-dd'));
                 setValue('remarks', drData.Remarks || '');
+                // Set current picture URL from API response
+                if (drData.dr_picture_url) {
+                    setCurrentPictureUrl(drData.dr_picture_url);
+                    setPicturePreview(drData.dr_picture_url);
+                }
                 setValue('details', drData.details?.map(detail => ({
                     dr_detail_id: detail.DRDetailID, // Include the detail ID for updates
                     item_description: detail.ItemDescription,
@@ -188,29 +196,67 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             return;
         }
 
+        // Prepare FormData for file upload
+        const formData = new FormData();
+        Object.entries(data).forEach(([key, value]) => {
+            if (key === 'details') {
+                // Serialize details array properly for Laravel
+                const details = value as typeof data.details;
+                details.forEach((item, index) => {
+                    Object.entries(item).forEach(([itemKey, itemValue]) => {
+                        if (itemValue !== undefined && itemValue !== null) {
+                            formData.append(`details[${index}][${itemKey}]`, String(itemValue));
+                        }
+                    });
+                });
+            } else if (key === 'dr_picture') {
+                // Extract the first file from FileList, only if a new file is selected
+                const fileList = value as FileList;
+                if (fileList && fileList.length > 0) {
+                    formData.append(key, fileList[0]);
+                }
+                // If no file provided, we don't append it, so backend keeps existing picture
+            } else if (value !== undefined && value !== null) {
+                // Convert booleans to '1' or '0' for Laravel
+                if (typeof value === 'boolean') {
+                    formData.append(key, value ? '1' : '0');
+                } else {
+                    formData.append(key, String(value));
+                }
+            }
+        });
+
         try {
             await updateMutation.mutateAsync({
                 id: parseInt(params.id as string),
-                data
+                data: formData
             });
             toast.success('Delivery receipt updated successfully');
             router.push(`${baseRoute}/delivery-receipts/${params.id}`);
         } catch (err: unknown) {
-            const resp = (err as { response?: { data?: { errors?: Record<string, string | string[]> } } })?.response?.data;
+            console.error('Full error object:', err);
+            const resp = (err as { response?: { data?: { errors?: Record<string, string | string[]>; message?: string } } })?.response?.data;
+            console.error('Response data:', resp);
+
             if (resp?.errors) {
+                console.error('Validation errors:', resp.errors);
                 Object.entries(resp.errors).forEach(([field, messages]) => {
                     const message = Array.isArray(messages) ? messages[0] : String(messages);
+                    console.log(`Setting error for field: ${field} => ${message}`);
                     try {
                         setError(field as Path<DRFormValues>, { type: 'server', message });
                     } catch (e) {
-                        // ignore
+                        console.error(`Failed to set error for field ${field}:`, e);
                     }
                 });
-                toast.error('Validation failed — please fix the highlighted fields');
+                const errorList = Object.entries(resp.errors)
+                    .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs[0] : msgs}`)
+                    .join(', ');
+                toast.error(`Validation failed: ${errorList}`);
                 return;
             }
 
-            toast.error('Failed to update delivery receipt');
+            toast.error(resp?.message || 'Failed to update delivery receipt');
         }
     };
 
@@ -218,6 +264,20 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         setIsAddingItem(true);
         setEditingIndex(null);
         setIsItemModalOpen(true);
+    };
+
+    const handlePictureChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            const file = files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (e.target?.result) {
+                    setPicturePreview(e.target.result as string);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const duplicateItem = (index: number) => {
@@ -505,6 +565,38 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
                             placeholder="Additional notes or remarks"
                         />
+                    </div>
+
+                    {/* DR Picture */}
+                    <div className="mt-6">
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                            DR Picture (Optional - leave blank to keep existing)
+                        </label>
+                        {picturePreview && (
+                            <div className="mb-4 p-4 border border-slate-200 rounded-lg bg-slate-50">
+                                <p className="text-sm font-medium text-slate-700 mb-2">Current Picture:</p>
+                                <img
+                                    src={picturePreview}
+                                    alt="DR Picture Preview"
+                                    className="max-w-full h-auto rounded border border-slate-200"
+                                    style={{ maxHeight: '300px' }}
+                                />
+                            </div>
+                        )}
+                        <input
+                            {...register('dr_picture')}
+                            type="file"
+                            accept="image/jpeg,image/png,image/jpg,image/gif"
+                            onChange={handlePictureChange}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                        <p className="text-xs text-slate-500 mt-2">Supported formats: JPEG, PNG, GIF (Max 2MB)</p>
+                        {errors.dr_picture && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                {errors.dr_picture.message}
+                            </p>
+                        )}
                     </div>
                 </div>
 

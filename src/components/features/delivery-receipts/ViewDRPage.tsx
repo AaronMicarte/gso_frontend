@@ -153,6 +153,17 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
                         <label className="block text-sm font-medium text-slate-700">Remarks</label>
                         <p className="mt-1 text-slate-900">{dr.Remarks || 'No remarks'}</p>
                     </div>
+                    {dr.dr_picture_url && (
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-slate-700 mb-2">DR Picture</label>
+                            <img
+                                src={dr.dr_picture_url}
+                                alt="DR Picture"
+                                className="max-w-full h-auto rounded-lg border border-slate-200"
+                                style={{ maxHeight: '400px' }}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 

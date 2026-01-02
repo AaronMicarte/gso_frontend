@@ -39,6 +39,7 @@ export interface DeliveryReceipt {
     ReceivedBy: number;
     Remarks?: string;
     CreatedDate: string;
+    dr_picture_url?: string; // URL to the DR picture
 
     // Relationships
     details?: DeliveryReceiptDetail[];
@@ -64,6 +65,7 @@ export interface CreateDeliveryReceiptPayload {
     invoice_number?: string; // Invoice number from supplier
     date_received: string;
     remarks?: string;
+    dr_picture: File;
     details: {
         item_description: string;
         brand?: string;
@@ -82,6 +84,7 @@ export interface UpdateDeliveryReceiptPayload {
     po_number?: string; // OPTIONAL
     date_received: string;
     remarks?: string;
+    dr_picture: File;
     details: {
         dr_detail_id?: number; // Optional for updates, undefined for new items
         item_description: string;

@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Dialog } from '@/components/ui/Dialog';
+import { Input } from '@/components/ui/Input';
 import { toast } from 'sonner';
+import { Package, Hash, DollarSign, Calculator } from 'lucide-react';
 
 const itemSchema = z.object({
     item_description: z.string().min(1, 'Item description is required'),
@@ -57,8 +59,12 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
 
     const shouldShowBrandModelSerial = selectedPropertyTypeId && equipmentPropertyTypeIds.includes(selectedPropertyTypeId);
 
+    // Use ref to track previous open state
+    const prevOpenRef = useRef(open);
+
     React.useEffect(() => {
-        if (open) {
+        // Only reset when modal opens (transitions from false to true)
+        if (open && !prevOpenRef.current) {
             reset({
                 ...initialValues,
                 item_description: initialValues.item_description && initialValues.item_description !== '0' ? initialValues.item_description : '',
@@ -67,12 +73,14 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
                 serial_number: initialValues.serial_number && initialValues.serial_number !== '0' ? initialValues.serial_number : '',
             });
         }
-    }, [open, reset]);
+        prevOpenRef.current = open;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, initialValues]);
 
     const submit = handleSubmit(async (data) => {
         try {
             await onSave(data);
-            toast.success('Item saved');
+            toast.success('Item saved successfully');
             onOpenChange(false);
         } catch (e) {
             toast.error('Failed to save item');
@@ -82,73 +90,130 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
 
     return (
         <Dialog
-            title="Edit Item"
-            description="Update item details"
+            title="Item Details"
+            description="Configure the delivered item specifications"
             open={open}
             onOpenChange={onOpenChange}
             onConfirm={submit}
-            confirmText="Save"
+            confirmText="Save Item"
             cancelText="Cancel"
             loading={loading}
-            contentClassName="max-w-lg"
+            contentClassName="max-w-2xl max-h-[90vh] overflow-y-auto"
         >
-            <div className="grid grid-cols-1 gap-3">
-                <label className="text-sm">
-                    <div className="mb-1 font-medium">Item</div>
-                    <input {...register('item_description')} className="w-full px-3 py-2 border rounded text-sm" />
-                    {errors.item_description && <div className="text-xs text-red-600 mt-1">{errors.item_description.message}</div>}
-                </label>
-
-                {shouldShowBrandModelSerial && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <label className="text-sm">
-                            <div className="mb-1 font-medium">Brand</div>
-                            <input {...register('brand')} className="w-full px-3 py-2 border rounded text-sm" />
-                        </label>
-                        <label className="text-sm">
-                            <div className="mb-1 font-medium">Model</div>
-                            <input {...register('model_number')} className="w-full px-3 py-2 border rounded text-sm" />
-                        </label>
-                        <label className="text-sm">
-                            <div className="mb-1 font-medium">Serial</div>
-                            <input {...register('serial_number')} className="w-full px-3 py-2 border rounded text-sm" />
-                        </label>
+            <div className="space-y-6">
+                {/* Item Description */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-[var(--primary)]" />
+                        <label className="text-sm font-semibold text-slate-900">Item Description</label>
                     </div>
-                )}
+                    <Input
+                        {...register('item_description')}
+                        placeholder="Enter item description"
+                        error={errors.item_description?.message}
+                    />
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <label className="text-sm">
-                        <div className="mb-1 font-medium">Quantity</div>
-                        <input {...register('quantity_delivered', { valueAsNumber: true })} type="number" min={1} className="w-full px-3 py-2 border rounded text-sm" />
-                        {errors.quantity_delivered && <div className="text-xs text-red-600 mt-1">{errors.quantity_delivered.message}</div>}
-                    </label>
-                    <label className="text-sm">
-                        <div className="mb-1 font-medium">Property Type</div>
-                        <select {...register('property_type_id', { valueAsNumber: true })} className="w-full px-3 py-2 border rounded text-sm">
+                {/* Property Type & Unit of Measure */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-900">Property Type</label>
+                        <select
+                            {...register('property_type_id', { valueAsNumber: true })}
+                            className="w-full px-4 py-2.5 bg-white border-2 border-[var(--border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200"
+                        >
                             <option value={0}>Select property type...</option>
                             {propertyTypes.map(pt => (
                                 <option key={pt.PropertyTypeID} value={pt.PropertyTypeID}>{pt.PropertyName}</option>
                             ))}
                         </select>
-                        {errors.property_type_id && <div className="text-xs text-red-600 mt-1">{errors.property_type_id.message}</div>}
-                    </label>
-                    <label className="text-sm">
-                        <div className="mb-1 font-medium">UoM</div>
-                        <select {...register('unit_of_measure_id', { valueAsNumber: true })} className="w-full px-3 py-2 border rounded text-sm">
+                        {errors.property_type_id && (
+                            <p className="text-sm text-[var(--error)]">{errors.property_type_id.message}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-900">Unit of Measure</label>
+                        <select
+                            {...register('unit_of_measure_id', { valueAsNumber: true })}
+                            className="w-full px-4 py-2.5 bg-white border-2 border-[var(--border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200"
+                        >
                             {units.map(u => (
                                 <option key={u.id} value={u.id}>{u.name}</option>
                             ))}
                         </select>
-                    </label>
+                    </div>
                 </div>
 
-                <label className="text-sm">
-                    <div className="mb-1 font-medium">Unit Cost (₱)</div>
-                    <input {...register('unit_cost', { valueAsNumber: true })} type="number" step="0.01" min={0} className="w-full px-3 py-2 border rounded text-sm" />
-                </label>
+                {/* Equipment Details - conditionally shown */}
+                {shouldShowBrandModelSerial && (
+                    <div className="space-y-4">
+                        <div className="border-t border-slate-200 pt-4">
+                            <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                <Hash className="w-4 h-4 text-[var(--primary)]" />
+                                Equipment Specifications
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <Input
+                                    {...register('brand')}
+                                    label="Brand"
+                                    placeholder="e.g., Dell, HP"
+                                />
+                                <Input
+                                    {...register('model_number')}
+                                    label="Model Number"
+                                    placeholder="e.g., OptiPlex 7090"
+                                />
+                                <Input
+                                    {...register('serial_number')}
+                                    label="Serial Number"
+                                    placeholder="e.g., SN123456789"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                <div className="text-sm">
-                    <div className="mb-1 font-medium">Total Cost: ₱{totalCost.toFixed(2)}</div>
+                {/* Quantity & Cost */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-900">Quantity Delivered</label>
+                        <Input
+                            {...register('quantity_delivered', { valueAsNumber: true })}
+                            type="number"
+                            min={1}
+                            placeholder="Enter quantity"
+                            error={errors.quantity_delivered?.message}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <DollarSign className="w-4 h-4 text-[var(--primary)]" />
+                            <label className="text-sm font-semibold text-slate-900">Unit Cost (₱)</label>
+                        </div>
+                        <Input
+                            {...register('unit_cost', { valueAsNumber: true })}
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            placeholder="0.00"
+                            error={errors.unit_cost?.message}
+                        />
+                    </div>
+                </div>
+
+                {/* Total Cost Display */}
+                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Calculator className="w-4 h-4 text-[var(--primary)]" />
+                            <span className="text-sm font-semibold text-slate-900">Total Cost</span>
+                        </div>
+                        <span className="text-lg font-bold text-[var(--primary)]">
+                            ₱{totalCost.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}
+                        </span>
+                    </div>
                 </div>
             </div>
         </Dialog>

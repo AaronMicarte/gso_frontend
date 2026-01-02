@@ -35,6 +35,7 @@ const drSchema = z.object({
     date_received: z.string().min(1, 'Date received is required'),
     override_past_limit: z.boolean().optional(),
     remarks: z.string().optional(),
+    dr_picture: z.custom<FileList>().refine((files) => files && files.length > 0, 'DR picture is required'),
     details: z.array(drItemSchema).min(1, 'At least one item is required'),
 });
 
@@ -158,8 +159,37 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             return;
         }
 
+        // Prepare FormData for file upload
+        const formData = new FormData();
+        Object.entries(data).forEach(([key, value]) => {
+            if (key === 'details') {
+                // Serialize details array properly for Laravel
+                const details = value as typeof data.details;
+                details.forEach((item, index) => {
+                    Object.entries(item).forEach(([itemKey, itemValue]) => {
+                        if (itemValue !== undefined && itemValue !== null) {
+                            formData.append(`details[${index}][${itemKey}]`, String(itemValue));
+                        }
+                    });
+                });
+            } else if (key === 'dr_picture') {
+                // Extract the first file from FileList
+                const fileList = value as FileList;
+                if (fileList && fileList.length > 0) {
+                    formData.append(key, fileList[0]);
+                }
+            } else if (value !== undefined && value !== null) {
+                // Convert booleans to '1' or '0' for Laravel
+                if (typeof value === 'boolean') {
+                    formData.append(key, value ? '1' : '0');
+                } else {
+                    formData.append(key, String(value));
+                }
+            }
+        });
+
         try {
-            await createMutation.mutateAsync(data);
+            await createMutation.mutateAsync(formData);
             toast.success('Delivery receipt created successfully');
 
             // Ensure the delivery receipts list is refreshed before navigating
@@ -167,23 +197,31 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
 
             router.push(`${baseRoute}/delivery-receipts`);
         } catch (err: unknown) {
-            const resp = (err as { response?: { data?: { errors?: Record<string, string | string[]> } } })?.response?.data;
+            console.error('Full error object:', err);
+            const resp = (err as { response?: { data?: { errors?: Record<string, string | string[]>; message?: string } } })?.response?.data;
+            console.error('Response data:', resp);
+
             if (resp?.errors) {
+                console.error('Validation errors:', resp.errors);
                 // Map Laravel validation errors to react-hook-form setError
                 Object.entries(resp.errors).forEach(([field, messages]) => {
                     const message = Array.isArray(messages) ? messages[0] : String(messages);
+                    console.log(`Setting error for field: ${field} => ${message}`);
                     try {
                         // field names from Laravel already come in dot notation (e.g. details.0.item_description)
                         setError(field as Path<DRFormValues>, { type: 'server', message });
                     } catch (e) {
-                        // ignore setError failures for weird keys
+                        console.error(`Failed to set error for field ${field}:`, e);
                     }
                 });
-                toast.error('Validation failed — please fix the highlighted fields');
+                const errorList = Object.entries(resp.errors)
+                    .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs[0] : msgs}`)
+                    .join(', ');
+                toast.error(`Validation failed: ${errorList}`);
                 return;
             }
 
-            toast.error('Failed to create delivery receipt');
+            toast.error(resp?.message || 'Failed to create delivery receipt');
         }
     };
 
@@ -351,6 +389,25 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
                             placeholder="Additional notes or remarks"
                         />
+                    </div>
+
+                    {/* DR Picture */}
+                    <div className="mt-6">
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                            DR Picture *
+                        </label>
+                        <input
+                            {...register('dr_picture')}
+                            type="file"
+                            accept="image/jpeg,image/png,image/jpg,image/gif"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                        {errors.dr_picture && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                {errors.dr_picture.message}
+                            </p>
+                        )}
                     </div>
                 </div>
 

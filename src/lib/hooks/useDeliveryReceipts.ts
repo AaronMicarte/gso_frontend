@@ -7,7 +7,6 @@ import {
     deleteDeliveryReceipt,
     DeliveryReceiptFilters,
 } from '@/lib/api/deliveryReceipts';
-import { CreateDeliveryReceiptPayload, UpdateDeliveryReceiptPayload } from '@/types/procurement';
 import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
@@ -40,7 +39,7 @@ export function useDeliveryReceipt(id: number | null) {
 export function useCreateDeliveryReceipt() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: CreateDeliveryReceiptPayload) => createDeliveryReceipt(data),
+        mutationFn: (data: FormData) => createDeliveryReceipt(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
         },
@@ -53,7 +52,7 @@ export function useCreateDeliveryReceipt() {
 export function useUpdateDeliveryReceipt() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: number; data: UpdateDeliveryReceiptPayload }) =>
+        mutationFn: ({ id, data }: { id: number; data: FormData }) =>
             updateDeliveryReceipt(id, data),
         onSuccess: (_, { id }) => {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
