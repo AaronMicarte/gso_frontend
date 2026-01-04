@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useInventories, usePendingIngestion, useIngestFromIar } from '@/lib/hooks/useInventory';
-import { Package, Eye, ArrowDownToLine, Building2, User, MapPin, AlertTriangle, CheckCircle, Clock, Archive, FileText, UserCheck } from 'lucide-react';
+import { Package, Eye, ArrowDownToLine, Building2, User, MapPin, AlertTriangle, CheckCircle, Clock, Archive, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
@@ -55,13 +55,6 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                         onChange={(e) => setSearch(e.target.value)}
                         className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                     />
-                    <Link
-                        href={`${baseRoute}/issuance`}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
-                    >
-                        <FileText className="w-4 h-4" />
-                        Create PAR/ICS
-                    </Link>
                     <Link
                         href={`${baseRoute}/inventory/reports`}
                         className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
@@ -278,13 +271,6 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                                     title="View Property Details"
                                                 >
                                                     <Eye className="w-4 h-4" />
-                                                </Link>
-                                                <Link
-                                                    href={`${baseRoute}/issuance/new?inventory_id=${inv.InventoryID}`}
-                                                    className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
-                                                    title="Create PAR/ICS"
-                                                >
-                                                    <FileText className="w-4 h-4" />
                                                 </Link>
                                             </div>
                                         </td>

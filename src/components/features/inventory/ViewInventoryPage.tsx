@@ -1,11 +1,11 @@
 'use client';
 
-import { useInventory, useGenerateQr, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
+import { useInventory, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, FileText, QrCode, Search, RefreshCw, Edit } from 'lucide-react';
+import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
@@ -16,7 +16,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const id = Number(params?.id);
 
     const { data, isLoading, refetch } = useInventory(id);
-    const generateQr = useGenerateQr();
     const updateInventoryDetail = useUpdateInventoryDetail();
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
@@ -84,16 +83,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         setEditingItem(null);
     };
 
-    const handleGenerateQr = async (detailId: number) => {
-        try {
-            await generateQr.mutateAsync({ id: detailId });
-            toast.success('QR code generated successfully');
-        } catch (e) {
-            const msg = e instanceof Error ? e.message : 'Failed to generate QR code';
-            toast.error(msg);
-        }
-    };
-
     const getStatusBadge = (statusId?: number) => {
         switch (statusId) {
             case 1:
@@ -151,13 +140,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                         <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                         <span className="hidden sm:inline">Refresh</span>
                     </button>
-                    <Link
-                        href={`${baseRoute}/issuance`}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
-                    >
-                        <FileText className="w-4 h-4" />
-                        Create PAR/ICS
-                    </Link>
                     <Link
                         href={`${baseRoute}/inventory`}
                         className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
@@ -299,7 +281,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                 ConditionID?: number;
                                                 PropertyStatusID?: number;
                                                 custodianName?: string;
-                                                qrCode?: { QRCodeData: string }
                                             }) => (
                                                 <tr key={d.InventoryDetailID} className="hover:bg-slate-50">
                                                     <td className="px-6 py-4">
@@ -386,34 +367,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             >
                                                                 <Edit className="w-4 h-4" />
                                                             </button>
-                                                            {d.qrCode ? (
-                                                                <a
-                                                                    href={d.qrCode.QRCodeData}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
-                                                                    title="View QR Code"
-                                                                >
-                                                                    <QrCode className="w-4 h-4" />
-                                                                </a>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => handleGenerateQr(d.InventoryDetailID)}
-                                                                    className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
-                                                                    title="Generate QR Code"
-                                                                >
-                                                                    <QrCode className="w-4 h-4" />
-                                                                </button>
-                                                            )}
-                                                            {d.PropertyStatusID === 1 && (
-                                                                <Link
-                                                                    href={`${baseRoute}/issuance/new?property_id=${d.InventoryDetailID}`}
-                                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                                    title="Create PAR/ICS"
-                                                                >
-                                                                    <FileText className="w-4 h-4" />
-                                                                </Link>
-                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
