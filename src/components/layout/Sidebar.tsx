@@ -34,7 +34,9 @@ import {
     Activity,
     FileClock,
     Settings,
-    Shield
+    Shield,
+    Plus,
+    FileCheck
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -108,13 +110,12 @@ function getNavSections(user: User): NavSection[] {
                 section: 'ISSUANCE & ASSIGNMENT',
                 items: [
                     {
-                        label: 'Issuance',
+                        label: 'Property Issuance',
                         icon: FileText,
                         children: [
-                            { label: 'Property Issuance', href: `${baseRoute}/issuance`, icon: FileText },
-                            { label: 'Property Assignment', href: `${baseRoute}/assignment`, icon: UserCheck },
-                            { label: 'PAR', href: `${baseRoute}/par`, icon: FileText },
-                            { label: 'ICS', href: `${baseRoute}/ics`, icon: FileText },
+                            { label: 'Issuance Requests', href: `${baseRoute}/issuance`, icon: FileText },
+                            { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
+                            { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
                         ]
                     }
                 ]
@@ -256,12 +257,13 @@ function getNavSections(user: User): NavSection[] {
                 section: 'ISSUANCE & DISTRIBUTION',
                 items: [
                     {
-                        label: 'Issuance',
+                        label: 'Property Issuance',
                         icon: FileText,
                         children: [
-                            { label: 'Property Issuance', href: `${baseRoute}/issuance`, icon: FileText },
-                            { label: 'Property Assignment', href: `${baseRoute}/assignment`, icon: UserCheck },
-                            { label: 'Generate Documents', href: `${baseRoute}/documents`, icon: FileText },
+                            { label: 'Issuance Requests', href: `${baseRoute}/issuance`, icon: FileText },
+                            { label: 'Create Request', href: `${baseRoute}/issuance/new`, icon: Plus },
+                            { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
+                            { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
                         ]
                     }
                 ]
