@@ -54,14 +54,12 @@ interface NavSection {
 }
 
 // Function to get navigation sections based on user role
-// Uses role-specific route prefixes: /admin/ for Admin, /staff/ for GSO Staff, /custodian/ for Custodian
-function getNavSections(user: User): NavSection[] {
+// Uses role-specific route prefixes: /admin/ for Admin, /staff/ for GSO Staff, /department_head/ for Department Head
+function getNavSections(user: User, baseRoute: string): NavSection[] {
     const isAdmin = user.UserRoleID === 1;
     const isGSOStaff = user.UserRoleID === 2;
-    const isCustodian = user.UserRoleID === 3;
-
-    // Determine base route based on role
-    const baseRoute = isAdmin ? '/admin' : isGSOStaff ? '/staff' : '/custodian';
+    const isPropertyCustodian = user.UserRoleID === 3;
+    const isDepartmentHead = user.UserRoleID === 4;
 
     const sections: NavSection[] = [
         // MAIN - Everyone sees dashboard
@@ -312,8 +310,8 @@ function getNavSections(user: User): NavSection[] {
         );
     }
 
-    // 🟢 CUSTODIAN (Limited Property Oversight)
-    if (isCustodian) {
+    // 🟢 DEPARTMENT HEAD (Limited Property Oversight)
+    if (isDepartmentHead) {
         sections.push(
             {
                 section: 'PROPERTY MONITORING',
@@ -340,6 +338,21 @@ function getNavSections(user: User): NavSection[] {
                 items: [
                     { label: 'Service Requests', href: `${baseRoute}/requests`, icon: FileText },
                     { label: 'Job Order Tracking', href: `${baseRoute}/job-orders/track`, icon: Wrench },
+                ]
+            },
+            {
+                section: 'ISSUANCE',
+                items: [
+                    {
+                        label: 'Property Issuance',
+                        icon: FileText,
+                        children: [
+                            { label: 'Issuance Requests', href: `${baseRoute}/issuance`, icon: FileText },
+                            { label: 'Create Request', href: `${baseRoute}/issuance/new`, icon: Plus },
+                            { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
+                            { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
+                        ]
+                    }
                 ]
             },
             {
@@ -451,9 +464,10 @@ interface SidebarProps {
     user: User;
     isOpen: boolean;
     onLogout: () => void;
+    baseRoute: string;
 }
 
-export default function Sidebar({ user, isOpen, onLogout }: SidebarProps) {
+export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarProps) {
     const pathname = usePathname();
 
     return (
@@ -466,7 +480,7 @@ export default function Sidebar({ user, isOpen, onLogout }: SidebarProps) {
 
             {/* Navigation - Scrollable content area */}
             <nav className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
-                {getNavSections(user).map((section, sectionIndex) => (
+                {getNavSections(user, baseRoute).map((section, sectionIndex) => (
                     <div key={sectionIndex} className="mb-4">
                         {section.section && (
                             <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">

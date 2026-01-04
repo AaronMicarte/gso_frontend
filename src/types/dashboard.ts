@@ -32,3 +32,28 @@ export interface Activity {
 export interface RecentActivityResponse {
     activities: Activity[];
 }
+
+// Department Head-specific dashboard types
+export interface DepartmentHeadStats {
+    totalAssets: number;        // Total properties under this department head's care
+    assignedAssets: number;     // Currently assigned to end users
+    pendingRequests: number;    // Pending issuance requests
+    overdueReturns: number;     // Items past due date
+}
+
+export interface DepartmentHeadStatsResponse {
+    stats: DepartmentHeadStats;
+    generatedAt: string;
+}
+
+export interface DepartmentHeadActivity {
+    id: string;
+    type: 'assignment' | 'request' | 'return' | 'verification';
+    message: string;
+    time: string;
+    status: 'completed' | 'pending' | 'overdue';
+}
+
+export interface DepartmentHeadActivityResponse {
+    activities: DepartmentHeadActivity[];
+}

@@ -34,12 +34,12 @@ export async function logout(): Promise<void> {
 export function getDashboardRoute(role?: string, userRoleID?: number): string {
   if (userRoleID === 1) return '/admin/dashboard'; // Admin
   if (userRoleID === 2) return '/staff/dashboard'; // GSO Staff
-  if (userRoleID === 3) return '/custodian/dashboard'; // Property Custodian
+  if (userRoleID === 4) return '/department_head/dashboard'; // Department Head
 
   // Fallback to role name if UserRoleID not available
   if (role === 'Admin') return '/admin/dashboard';
   if (role === 'GSO Staff') return '/staff/dashboard';
-  if (role === 'Property Custodian') return '/custodian/dashboard';
+  if (role === 'Department Head') return '/department_head/dashboard';
 
   return '/admin/dashboard'; // Default fallback
 }

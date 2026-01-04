@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 const roleRoutes: Record<string, string> = {
     'gso admin': '/admin/dashboard',
     'gso staff': '/staff/dashboard',
-    'custodian': '/custodian/dashboard',
+    'department head': '/department_head/dashboard',
 };
 
 export default function RoleGuard({

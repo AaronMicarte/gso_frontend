@@ -3,9 +3,9 @@
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { showConfirmDialog } from '@/lib/utils/confirm';
 import { Menu, X } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
+import { LogoutConfirmModal } from '@/components/ui/LogoutConfirmModal';
 
 
 
@@ -43,6 +43,7 @@ export default function StaffLayout({
     const { user, loading, logout } = useAuth();
     const router = useRouter();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
     useEffect(() => {
         // Not authenticated - redirect to login
@@ -55,8 +56,7 @@ export default function StaffLayout({
         if (!loading && user && user.Role.toLowerCase() !== 'gso staff') {
             const roleRoutes: Record<string, string> = {
                 'admin': '/admin/dashboard',
-                'property custodian': '/custodian/dashboard',
-                'department head': '/department/dashboard',
+                'department head': '/department_head/dashboard',
                 'end user': '/user/dashboard',
             };
             const correctRoute = roleRoutes[user.Role.toLowerCase()] || '/';
@@ -65,13 +65,12 @@ export default function StaffLayout({
     }, [loading, user, router]);
 
     const handleLogout = () => {
-        showConfirmDialog({
-            title: 'Logout Confirmation',
-            description: 'Are you sure you want to logout?',
-            confirmText: 'Logout',
-            cancelText: 'Cancel',
-            onConfirm: logout,
-        });
+        setLogoutModalOpen(true);
+    };
+
+    const confirmLogout = () => {
+        setLogoutModalOpen(false);
+        logout();
     };
 
     // Show skeleton while loading or if wrong role
@@ -109,12 +108,19 @@ export default function StaffLayout({
                 user={user}
                 isOpen={mobileMenuOpen}
                 onLogout={handleLogout}
+                baseRoute="/staff"
             />
 
             {/* Main Content - Offset by sidebar width */}
             <main className="flex-1 lg:ml-64 overflow-auto pt-16 lg:pt-0">
                 {children}
             </main>
+
+            <LogoutConfirmModal
+                isOpen={logoutModalOpen}
+                onClose={() => setLogoutModalOpen(false)}
+                onConfirm={confirmLogout}
+            />
         </div>
     );
 }
