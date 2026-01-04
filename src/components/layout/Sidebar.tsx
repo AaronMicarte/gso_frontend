@@ -36,6 +36,7 @@ import {
     Settings,
     Shield
 } from 'lucide-react';
+import Image from 'next/image';
 
 // Navigation structure with sections and collapsible groups
 interface NavItem {
@@ -77,6 +78,19 @@ function getNavSections(user: User): NavSection[] {
     if (isAdmin) {
         sections.push(
             {
+                section: 'PROCUREMENT',
+                items: [
+                    {
+                        label: 'Delivery & Inspection',
+                        icon: Truck,
+                        children: [
+                            { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
+                            { label: 'Inspection Reports', href: `${baseRoute}/inspection-acceptance-reports`, icon: ClipboardList },
+                        ]
+                    }
+                ]
+            },
+            {
                 section: 'PROPERTY MANAGEMENT',
                 items: [
                     {
@@ -86,19 +100,6 @@ function getNavSections(user: User): NavSection[] {
                             { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
                             { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: FileType },
                             { label: 'Property Status', href: `${baseRoute}/masterdata/property-statuses`, icon: Tag },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'PROCUREMENT',
-                items: [
-                    {
-                        label: 'Delivery & Inspection',
-                        icon: Truck,
-                        children: [
-                            { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
-                            { label: 'Inspection Reports', href: `${baseRoute}/inspection-acceptance-reports`, icon: ClipboardList },
                         ]
                     }
                 ]
@@ -458,8 +459,7 @@ export default function Sidebar({ user, isOpen, onLogout }: SidebarProps) {
             }`}>
             {/* Logo/Brand - Fixed at top - Hidden on mobile */}
             <div className="p-4 border-b border-slate-700 flex-shrink-0 hidden lg:block">
-                <h1 className="text-xl font-bold text-[var(--primary)]">IAMS-GSO</h1>
-                <p className="text-xs text-slate-400 mt-1">El Salvador City</p>
+                <Image src="/assets/images/login/elsal%20white%20logo.png" alt="El Salvador City Logo" width={200} height={48} className="object-contain" />
             </div>
 
             {/* Navigation - Scrollable content area */}
