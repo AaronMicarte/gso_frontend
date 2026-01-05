@@ -30,7 +30,9 @@ export interface AssetRequest {
 export interface AssetRequestDetail {
     RequestDetailID: number;
     RequestID: number;
-    PropertyInventoryDetailID: number;
+    PropertyInventoryDetailID: number | null;
+    ItemDescription: string | null;
+    Unit: string | null;
     QuantityRequested: number;
     Purpose: string;
     created_at: string;
@@ -153,7 +155,9 @@ export interface UnitOfMeasure {
 // Form types
 export interface CreateAssetRequestData {
     items: {
-        PropertyInventoryDetailID: number;
+        PropertyInventoryDetailID: number | null;
+        ItemDescription?: string;
+        Unit?: string;
         QuantityRequested: number;
         Purpose: string;
     }[];

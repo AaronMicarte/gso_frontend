@@ -348,7 +348,6 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         icon: FileText,
                         children: [
                             { label: 'My Requests', href: `${baseRoute}/asset-requests`, icon: FileText },
-                            { label: 'New Request', href: `${baseRoute}/asset-requests/new`, icon: Plus },
                         ]
                     }
                 ]

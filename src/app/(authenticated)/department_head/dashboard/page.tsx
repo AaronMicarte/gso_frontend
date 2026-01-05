@@ -127,7 +127,7 @@ export default function DepartmentHeadDashboard() {
                 <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Link
-                        href="/custodian/issuance/new"
+                        href="/department_head/asset-requests/new"
                         className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                     >
                         <div className="p-2 bg-blue-100 rounded-lg">
@@ -140,7 +140,7 @@ export default function DepartmentHeadDashboard() {
                     </Link>
 
                     <Link
-                        href="/custodian/issuance"
+                        href="/department_head/asset-requests"
                         className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                     >
                         <div className="p-2 bg-green-100 rounded-lg">
