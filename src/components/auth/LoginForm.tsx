@@ -87,6 +87,16 @@ export function LoginForm() {
     try {
       const response = await login(data);
 
+      // Force MFA setup for users who haven't enabled it yet
+      if (response.user && response.user.MFAEnabled === false) {
+        sessionStorage.setItem('mfa_setup_pending', JSON.stringify({
+          userId: response.user.UserID,
+          userRole: response.user.Role,
+        }));
+        router.push('/setup-mfa');
+        return;
+      }
+
       // Check if MFA is required (either setup or verification)
       if (response.mfa_required && response.user_id) {
         const isSetupRequired = response.mfa_setup_required === true;

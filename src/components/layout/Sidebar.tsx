@@ -341,16 +341,14 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 ]
             },
             {
-                section: 'ISSUANCE',
+                section: 'ASSET REQUESTS',
                 items: [
                     {
-                        label: 'Property Issuance',
+                        label: 'Asset Requests',
                         icon: FileText,
                         children: [
-                            { label: 'Issuance Requests', href: `${baseRoute}/issuance`, icon: FileText },
-                            { label: 'Create Request', href: `${baseRoute}/issuance/new`, icon: Plus },
-                            { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
-                            { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
+                            { label: 'My Requests', href: `${baseRoute}/asset-requests`, icon: FileText },
+                            { label: 'New Request', href: `${baseRoute}/asset-requests/new`, icon: Plus },
                         ]
                     }
                 ]

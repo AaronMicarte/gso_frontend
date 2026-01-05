@@ -12,6 +12,7 @@ export interface User {
   UserRoleID: number;
   Department: string;
   DepartmentID: number;
+  MFAEnabled?: boolean;
   department?: {
     DepartmentID: number;
     DepartmentName: string;

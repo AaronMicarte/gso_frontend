@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
 import { LogoutConfirmModal } from '@/components/ui/LogoutConfirmModal';
+import { AuthProvider } from '@/lib/providers/AuthProvider';
 
 // Skeleton loader while checking auth
 function DashboardSkeleton() {
@@ -39,6 +40,20 @@ export default function DepartmentHeadLayout({
 }: {
     children: React.ReactNode;
 }) {
+    return (
+        <AuthProvider>
+            <DepartmentHeadLayoutInner>
+                {children}
+            </DepartmentHeadLayoutInner>
+        </AuthProvider>
+    );
+}
+
+function DepartmentHeadLayoutInner({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     const { user, loading, logout } = useAuth();
     const router = useRouter();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -48,6 +63,16 @@ export default function DepartmentHeadLayout({
         // Not authenticated - redirect to login
         if (!loading && !user) {
             router.push('/');
+            return;
+        }
+
+        // MFA not enabled - redirect to setup
+        if (!loading && user && user.MFAEnabled === false) {
+            sessionStorage.setItem('mfa_setup_pending', JSON.stringify({
+                userId: user.UserID,
+                userRole: user.Role,
+            }));
+            router.push('/setup-mfa');
             return;
         }
 
@@ -72,8 +97,8 @@ export default function DepartmentHeadLayout({
         logout();
     };
 
-    // Show skeleton while loading or if wrong role
-    if (loading || !user || user.Role.toLowerCase() !== 'department head') {
+    // Show skeleton while loading or if wrong role or MFA not enabled
+    if (loading || !user || user.MFAEnabled === false || user.Role.toLowerCase() !== 'department head') {
         return <DashboardSkeleton />;
     }
 
