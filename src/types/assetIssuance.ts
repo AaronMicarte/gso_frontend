@@ -1,11 +1,14 @@
 // Asset Issuance Types
 // Based on real GSO property issuance workflow
 
+import { Department } from './masterData';
+
 export interface AssetRequest {
     RequestID: number;
     RequestNumber: string;
     RequestedBy: number;
     DepartmentID: number;
+    Purpose?: string;
     Status: 'pending' | 'approved' | 'rejected' | 'issued' | 'cancelled';
     ReviewedBy: number | null;
     ReviewedAt: string | null;
@@ -35,12 +38,20 @@ export interface AssetRequestDetail {
     Unit: string | null;
     QuantityRequested: number;
     Purpose: string;
+    IntendedEndUser: string | null;
+    AdditionalNotes: string | null;
+    PropertyClassification: 'ICS' | 'PAR' | null;
+    AssignedEndUserID: number | null;
+    AssignedDepartmentID: number | null;
+    AdminNotes: string | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
 
     // Relationships
     inventoryDetail?: InventoryDetail;
+    assignedEndUser?: EndUser;
+    assignedDepartment?: Department;
 }
 
 export interface AssetIssuance {
@@ -90,6 +101,74 @@ export interface AssetAuditLog {
     performer?: User;
 }
 
+// End User
+export interface EndUser {
+    EndUserID: number;
+    PositionID: number;
+    DepartmentID: number;
+    FullName: string;
+    ContactNumber: string | null;
+    Email: string | null;
+    IsActive: boolean;
+    CreatedDate: string;
+    UpdatedDate: string | null;
+    deleted_at: string | null;
+
+    // Relationships
+    position?: Position;
+    department?: Department;
+}
+
+// Review Data for admin review
+export interface AssetRequestReviewData {
+    details: {
+        RequestDetailID: number;
+        PropertyClassification: 'ICS' | 'PAR' | null;
+        AssignedEndUserID: number | null;
+        AssignedDepartmentID: number | null;
+        AdminNotes: string | null;
+    }[];
+    ReviewNotes?: string;
+}
+
+// Position
+export interface Position {
+    PositionID: number;
+    PositionName: string;
+    PositionDescription: string | null;
+    CreatedDate: string;
+    UpdatedDate: string | null;
+    deleted_at: string | null;
+}
+
+// Generic types from other modules (imported)
+export interface User {
+    id: number;
+    name: string;
+    email: string;
+    // ... other user fields
+}
+
+export interface InventoryDetail {
+    InventoryDetailID: number;
+    // ... other inventory fields
+}
+
+// Request form types
+export interface AssetRequestFormData {
+    Purpose: string;
+    items: AssetRequestItem[];
+}
+
+export interface AssetRequestItem {
+    ItemDescription: string;
+    Unit: string;
+    QuantityRequested: number;
+    Purpose: string;
+    IntendedEndUser?: string;
+    AdditionalNotes?: string;
+}
+
 export interface User {
     UserID: number;
     FirstName: string;
@@ -98,13 +177,6 @@ export interface User {
     Email: string;
     DepartmentID?: number;
     department?: Department;
-}
-
-export interface Department {
-    DepartmentID: number;
-    DepartmentName: string;
-    DepartmentCode: string;
-    IsActive: boolean;
 }
 
 export interface InventoryDetail {
@@ -155,12 +227,15 @@ export interface UnitOfMeasure {
 
 // Form types
 export interface CreateAssetRequestData {
+    Purpose: string;
     items: {
-        PropertyInventoryDetailID: number | null;
-        ItemDescription?: string;
-        Unit?: string;
+        PropertyInventoryDetailID?: number | null;
+        ItemDescription: string;
+        Unit: string;
         QuantityRequested: number;
         Purpose: string;
+        IntendedEndUser?: string;
+        AdditionalNotes?: string;
     }[];
 }
 

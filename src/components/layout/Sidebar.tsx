@@ -108,6 +108,13 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 section: 'ISSUANCE & ASSIGNMENT',
                 items: [
                     {
+                        label: 'Asset Requests',
+                        icon: FileText,
+                        children: [
+                            { label: 'All Requests', href: `${baseRoute}/asset-requests`, icon: FileText },
+                        ]
+                    },
+                    {
                         label: 'Property Issuance',
                         icon: FileText,
                         children: [

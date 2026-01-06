@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, User, Calendar, FileText, Package, Trash2, Loader2, Activity } from 'lucide-react';
 import assetIssuanceAPI from '@/lib/api/assetIssuance';
@@ -18,12 +18,13 @@ const statusConfig = {
 
 interface ViewAssetRequestPageProps {
     baseRoute: string;
-    requestId: string;
     canCancel?: boolean;
+    isAdmin?: boolean;
 }
 
-export function ViewAssetRequestPage({ baseRoute, requestId, canCancel = false }: ViewAssetRequestPageProps) {
+export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = false }: ViewAssetRequestPageProps) {
     const router = useRouter();
+    const params = useParams();
     const [request, setRequest] = useState<AssetRequest | null>(null);
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
@@ -31,12 +32,13 @@ export function ViewAssetRequestPage({ baseRoute, requestId, canCancel = false }
 
     useEffect(() => {
         loadRequest();
-    }, [requestId]);
+    }, [params.id]);
 
     const loadRequest = async () => {
         try {
             setLoading(true);
-            const response = await assetIssuanceAPI.requests.getById(parseInt(requestId));
+            const id = params.id as string;
+            const response = await assetIssuanceAPI.requests.getById(parseInt(id));
             setRequest(response);
         } catch (error) {
             toast.error('Failed to load request details');
@@ -112,6 +114,7 @@ export function ViewAssetRequestPage({ baseRoute, requestId, canCancel = false }
     const statusInfo = statusConfig[request.Status];
     const StatusIcon = statusInfo.icon;
     const showCancelButton = canCancel && request.Status === 'pending';
+    const showReviewButton = isAdmin && request.Status === 'pending';
 
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
@@ -286,6 +289,44 @@ export function ViewAssetRequestPage({ baseRoute, requestId, canCancel = false }
                                                                 {detail.Purpose}
                                                             </div>
                                                         </div>
+
+                                                        {/* Admin Review Section */}
+                                                        {(detail.PropertyClassification || detail.AdminNotes) && (
+                                                            <div className="mt-4 pt-4 border-t border-slate-300">
+                                                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                                                    <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                                                                        <CheckCircle className="w-4 h-4" />
+                                                                        Admin Review Details
+                                                                    </h4>
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                        {detail.PropertyClassification && (
+                                                                            <div className="bg-white p-3 rounded border border-blue-200">
+                                                                                <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Property Classification</div>
+                                                                                <div className="font-semibold text-blue-900">
+                                                                                    {detail.PropertyClassification === 'PAR' ? '📋 PAR (Individual Accountability)' : '🏢 ICS (Department Accountability)'}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {detail.IntendedEndUser && (
+                                                                            <div className="bg-white p-3 rounded border border-blue-200">
+                                                                                <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Assigned To</div>
+                                                                                <div className="font-medium text-slate-900">
+                                                                                    {detail.IntendedEndUser}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    {detail.AdminNotes && (
+                                                                        <div className="mt-3">
+                                                                            <div className="text-xs text-slate-500 uppercase tracking-wide mb-2">Admin Notes</div>
+                                                                            <div className="text-sm bg-white p-3 rounded border border-blue-200 text-slate-700">
+                                                                                {detail.AdminNotes}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -336,31 +377,34 @@ export function ViewAssetRequestPage({ baseRoute, requestId, canCancel = false }
                         {/* Review Information */}
                         {(request.ReviewedBy || request.ReviewedAt) && (
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                                <div className="p-6 border-b border-slate-200">
+                                <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-green-50">
                                     <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                                        <CheckCircle className="w-5 h-5" />
-                                        Review Information
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
+                                        Admin Review Information
                                     </h3>
                                 </div>
                                 <div className="p-6 space-y-4">
                                     {request.reviewer && (
-                                        <div className="bg-slate-50 p-4 rounded-lg">
-                                            <div className="text-sm text-slate-500 mb-1">Reviewed By</div>
-                                            <div className="font-medium text-slate-900">
+                                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                            <div className="text-sm text-blue-700 font-medium mb-1">Reviewed By</div>
+                                            <div className="font-semibold text-slate-900">
                                                 {request.reviewer.FirstName} {request.reviewer.LastName}
                                             </div>
                                         </div>
                                     )}
                                     {request.ReviewedAt && (
-                                        <div className="bg-slate-50 p-4 rounded-lg">
-                                            <div className="text-sm text-slate-500 mb-1">Reviewed At</div>
-                                            <div className="font-medium text-slate-900">{formatDateTime(request.ReviewedAt)}</div>
+                                        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                            <div className="text-sm text-green-700 font-medium mb-1">Reviewed At</div>
+                                            <div className="font-semibold text-slate-900">{formatDateTime(request.ReviewedAt)}</div>
                                         </div>
                                     )}
                                     {request.ReviewNotes && (
-                                        <div className="bg-slate-50 p-4 rounded-lg">
-                                            <div className="text-sm text-slate-500 mb-2">Review Notes</div>
-                                            <div className="text-sm text-slate-700 bg-white p-3 rounded border border-slate-200">
+                                        <div className="bg-amber-50 p-4 rounded-lg border border-amber-300">
+                                            <div className="text-sm text-amber-800 font-semibold mb-2 flex items-center gap-2">
+                                                <FileText className="w-4 h-4" />
+                                                General Review Notes
+                                            </div>
+                                            <div className="text-sm text-slate-800 bg-white p-4 rounded border border-amber-200 leading-relaxed">
                                                 {request.ReviewNotes}
                                             </div>
                                         </div>
@@ -408,6 +452,14 @@ export function ViewAssetRequestPage({ baseRoute, requestId, canCancel = false }
                                         Back to Requests
                                     </button>
                                 </Link>
+                                {showReviewButton && (
+                                    <Link href={`${baseRoute}/asset-requests/${params.id}/review`}>
+                                        <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+                                            <CheckCircle className="w-4 h-4" />
+                                            Review Request
+                                        </button>
+                                    </Link>
+                                )}
                                 {showCancelButton && (
                                     <button
                                         onClick={() => setShowCancelDialog(true)}

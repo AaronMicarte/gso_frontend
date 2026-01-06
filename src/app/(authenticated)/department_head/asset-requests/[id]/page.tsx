@@ -15,7 +15,6 @@ export default function DepartmentHeadViewAssetRequestPage() {
     return (
         <ViewAssetRequestPage
             baseRoute="/department_head"
-            requestId={requestId}
             canCancel={canCancel}
         />
     );

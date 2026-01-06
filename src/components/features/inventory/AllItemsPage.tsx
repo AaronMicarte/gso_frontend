@@ -1,7 +1,7 @@
 'use client';
 
 import { useAllInventoryItems, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
-import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit } from 'lucide-react';
+import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -9,7 +9,7 @@ import type { InventoryItem } from '@/lib/api/inventory';
 
 export function AllItemsPage() {
     const [page, setPage] = useState(1);
-    const [search] = useState('');
+    const [search, setSearch] = useState('');
     const [selectedStatus, setSelectedStatus] = useState<number | null>(null);
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -202,6 +202,20 @@ export function AllItemsPage() {
                         </div>
                     </div>
                 )}
+
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search by description, brand, model, serial number, or inventory number..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
+                </div>
 
                 {/* Items Table */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

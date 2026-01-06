@@ -30,9 +30,10 @@ const statusConfig = {
 interface AssetRequestsPageProps {
     baseRoute: string;
     canCreate?: boolean;
+    isAdmin?: boolean;
 }
 
-export function AssetRequestsPage({ baseRoute, canCreate = true }: AssetRequestsPageProps) {
+export function AssetRequestsPage({ baseRoute, canCreate = true, isAdmin = false }: AssetRequestsPageProps) {
     const [requests, setRequests] = useState<AssetRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState<AssetRequestFilters>({
@@ -93,7 +94,9 @@ export function AssetRequestsPage({ baseRoute, canCreate = true }: AssetRequests
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Asset Requests</h1>
-                        <p className="text-slate-500 text-sm">Manage asset requests for your department</p>
+                        <p className="text-slate-500 text-sm">
+                            {isAdmin ? 'Review and manage all asset requests from departments' : 'Manage asset requests for your department'}
+                        </p>
                     </div>
                     <div className="flex gap-2">
                         <button
@@ -217,13 +220,24 @@ export function AssetRequestsPage({ baseRoute, canCreate = true }: AssetRequests
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <Link
-                                                        href={`${baseRoute}/asset-requests/${request.RequestID}`}
-                                                        className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
-                                                        title="View Details"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </Link>
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Link
+                                                            href={`${baseRoute}/asset-requests/${request.RequestID}`}
+                                                            className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
+                                                            title="View Details"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </Link>
+                                                        {isAdmin && request.Status === 'pending' && (
+                                                            <Link
+                                                                href={`${baseRoute}/asset-requests/${request.RequestID}/review`}
+                                                                className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                title="Review Request"
+                                                            >
+                                                                <CheckCircle className="w-4 h-4" />
+                                                            </Link>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );

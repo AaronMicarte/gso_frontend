@@ -8,11 +8,13 @@ import {
     AssetRequestFilters,
     AssetIssuanceFilters,
     CreateAssetRequestData,
-    ReviewAssetRequestData,
+    AssetRequestReviewData,
+    EndUser,
     IssueAssetData,
     AcknowledgeAssetData,
     InventoryDetail,
 } from '@/types/assetIssuance';
+import { Department } from '@/types/masterData';
 
 const assetIssuanceAPI = {
     // Asset Requests
@@ -38,7 +40,7 @@ const assetIssuanceAPI = {
             return data;
         },
 
-        approve: async (id: number, reviewData: ReviewAssetRequestData) => {
+        approve: async (id: number, reviewData: AssetRequestReviewData) => {
             const { data } = await apiClient.post<AssetRequestResponse>(
                 `/asset-requests/${id}/approve`,
                 reviewData
@@ -46,9 +48,17 @@ const assetIssuanceAPI = {
             return data;
         },
 
-        reject: async (id: number, reviewData: Required<ReviewAssetRequestData>) => {
+        reject: async (id: number, reviewData: Required<AssetRequestReviewData>) => {
             const { data } = await apiClient.post<AssetRequestResponse>(
                 `/asset-requests/${id}/reject`,
+                reviewData
+            );
+            return data;
+        },
+
+        saveReview: async (id: number, reviewData: AssetRequestReviewData) => {
+            const { data } = await apiClient.post<AssetRequestResponse>(
+                `/asset-requests/${id}/review`,
                 reviewData
             );
             return data;
@@ -64,6 +74,20 @@ const assetIssuanceAPI = {
         getAvailableInventory: async () => {
             const { data } = await apiClient.get<InventoryDetail[]>(
                 '/asset-requests/available-inventory'
+            );
+            return data;
+        },
+
+        getEndUsers: async () => {
+            const { data } = await apiClient.get<EndUser[]>(
+                '/asset-requests/end-users'
+            );
+            return data;
+        },
+
+        getDepartments: async () => {
+            const { data } = await apiClient.get<Department[]>(
+                '/asset-requests/departments'
             );
             return data;
         },
