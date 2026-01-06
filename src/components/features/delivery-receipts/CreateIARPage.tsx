@@ -280,7 +280,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
 
     if (isDRLoading || isLoadingData) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
+            <div className="flex items-center justify-center min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
                 <div className="text-center space-y-3">
                     <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)] mx-auto" />
                     <p className="text-slate-600">Loading form data...</p>
@@ -291,7 +291,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
 
     if (!drData) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
+            <div className="flex items-center justify-center min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
                 <div className="text-center space-y-3">
                     <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
                     <p className="text-slate-600">Delivery Receipt not found</p>
@@ -323,384 +323,386 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                 }}
             />
 
-            <div className="p-6 max-w-6xl mx-auto space-y-6">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => router.back()}
-                        className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                        type="button"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Create Inspection & Acceptance Report</h1>
-                        <p className="text-slate-500 text-sm">Inspect and accept items from DR {drData.DRNumber}</p>
-                    </div>
-                </div>
-
-                {/* DR Info Card */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                    <h3 className="font-semibold text-blue-900 mb-2">Delivery Receipt Information</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+                <div className="p-6 max-w-6xl mx-auto space-y-6">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => router.back()}
+                            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                            type="button"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
                         <div>
-                            <span className="text-blue-600 font-medium">DR Number:</span>
-                            <p className="text-blue-900">{drData.DRNumber}</p>
-                        </div>
-                        <div>
-                            <span className="text-blue-600 font-medium">Supplier:</span>
-                            <p className="text-blue-900">{drData.SupplierName}</p>
-                        </div>
-                        <div>
-                            <span className="text-blue-600 font-medium">Date Received:</span>
-                            <p className="text-blue-900">{new Date(drData.DateReceived).toLocaleDateString('en-PH')}</p>
-                        </div>
-                        <div>
-                            <span className="text-blue-600 font-medium">Total Items:</span>
-                            <p className="text-blue-900">{drData.details?.length || 0}</p>
+                            <h1 className="text-2xl font-bold text-slate-900">Create Inspection & Acceptance Report</h1>
+                            <p className="text-slate-500 text-sm">Inspect and accept items from DR {drData.DRNumber}</p>
                         </div>
                     </div>
-                </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    {/* Inspection Information */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Inspection & Acceptance Details</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Inspected By */}
+                    {/* DR Info Card */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <h3 className="font-semibold text-blue-900 mb-2">Delivery Receipt Information</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Inspected By *
-                                </label>
-                                {/* Hidden form value for inspected_by so the field remains submitted even though the display is locked */}
-                                <input type="hidden" {...register('inspected_by', { valueAsNumber: true })} value={user?.UserID ?? 0} />
-                                {/* Display-only select locked to current user for clarity */}
-                                <select
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 cursor-not-allowed"
-                                    disabled
-                                    aria-readonly
-                                >
-                                    <option value={user?.UserID}>{user?.FullName} (You)</option>
-                                </select>
-
-                                {errors.inspected_by && (
-                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        {errors.inspected_by.message}
-                                    </p>
-                                )}
-
-                                {/* Signature preview / action for Inspected By (required) */}
-                                <div className="mt-2 flex items-center gap-3">
-                                    {inspectedSignature ? (
-                                        <Image src={inspectedSignature} alt="Inspected signature" width={128} height={48} className="object-contain border rounded" />
-                                    ) : (
-                                        <p className="text-xs text-slate-500">Inspector signature required</p>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => { setSigFor('inspected'); setSigModalOpen(true); }}
-                                        className="px-3 py-1 bg-[var(--primary)] text-white rounded text-sm"
-                                    >
-                                        {inspectedSignature ? 'Replace Signature' : 'Add Signature'}
-                                    </button>
-                                </div>
+                                <span className="text-blue-600 font-medium">DR Number:</span>
+                                <p className="text-blue-900">{drData.DRNumber}</p>
                             </div>
-
-                            {/* Accepted By */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Select Acceptor
-                                    <span className="text-slate-500 text-xs ml-1">(optional)</span>
-                                </label>
-                                <select
-                                    {...register('accepted_by', { valueAsNumber: true })}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                >
-                                    <option value={0}>Leave blank to accept later</option>
-                                    {getFilteredUsers('acceptor').map((user) => (
-                                        <option key={user.UserID} value={user.UserID}>
-                                            {user.FullName}
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="text-xs text-slate-500 mt-1">
-                                    You can leave this blank and accept the IAR later using the Accept action.
-                                </p>
+                                <span className="text-blue-600 font-medium">Supplier:</span>
+                                <p className="text-blue-900">{drData.SupplierName}</p>
+                            </div>
+                            <div>
+                                <span className="text-blue-600 font-medium">Date Received:</span>
+                                <p className="text-blue-900">{new Date(drData.DateReceived).toLocaleDateString('en-PH')}</p>
+                            </div>
+                            <div>
+                                <span className="text-blue-600 font-medium">Total Items:</span>
+                                <p className="text-blue-900">{drData.details?.length || 0}</p>
+                            </div>
+                        </div>
+                    </div>
 
-                                {/* Signature preview / action for Accepted By (optional) */}
-                                <div className="mt-2 flex items-center gap-3">
-                                    {acceptedSignature ? (
-                                        <Image src={acceptedSignature} alt="Accepted signature" width={128} height={48} className="object-contain border rounded" />
-                                    ) : (
-                                        <p className="text-xs text-slate-500">{acceptedBy && acceptedBy !== 0 ? 'No acceptor signature' : 'No acceptor selected. Select an acceptor to add signature.'}</p>
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                        {/* Inspection Information */}
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                            <h2 className="text-lg font-semibold text-slate-900 mb-4">Inspection & Acceptance Details</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Inspected By */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Inspected By *
+                                    </label>
+                                    {/* Hidden form value for inspected_by so the field remains submitted even though the display is locked */}
+                                    <input type="hidden" {...register('inspected_by', { valueAsNumber: true })} value={user?.UserID ?? 0} />
+                                    {/* Display-only select locked to current user for clarity */}
+                                    <select
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 cursor-not-allowed"
+                                        disabled
+                                        aria-readonly
+                                    >
+                                        <option value={user?.UserID}>{user?.FullName} (You)</option>
+                                    </select>
+
+                                    {errors.inspected_by && (
+                                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3" />
+                                            {errors.inspected_by.message}
+                                        </p>
                                     )}
 
-                                    {/* Only allow adding/replacing accepted signature when an acceptor has been selected */}
-                                    {acceptedBy && acceptedBy !== 0 ? (
+                                    {/* Signature preview / action for Inspected By (required) */}
+                                    <div className="mt-2 flex items-center gap-3">
+                                        {inspectedSignature ? (
+                                            <Image src={inspectedSignature} alt="Inspected signature" width={128} height={48} className="object-contain border rounded" />
+                                        ) : (
+                                            <p className="text-xs text-slate-500">Inspector signature required</p>
+                                        )}
                                         <button
                                             type="button"
-                                            onClick={() => { setSigFor('accepted'); setSigModalOpen(true); }}
-                                            className="px-3 py-1 bg-slate-100 rounded text-sm"
+                                            onClick={() => { setSigFor('inspected'); setSigModalOpen(true); }}
+                                            className="px-3 py-1 bg-[var(--primary)] text-white rounded text-sm"
                                         >
-                                            {acceptedSignature ? 'Replace Signature' : 'Add Signature'}
+                                            {inspectedSignature ? 'Replace Signature' : 'Add Signature'}
                                         </button>
-                                    ) : null}
+                                    </div>
                                 </div>
 
-                                {errors.accepted_by && (
-                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        {errors.accepted_by.message}
+                                {/* Accepted By */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Select Acceptor
+                                        <span className="text-slate-500 text-xs ml-1">(optional)</span>
+                                    </label>
+                                    <select
+                                        {...register('accepted_by', { valueAsNumber: true })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                    >
+                                        <option value={0}>Leave blank to accept later</option>
+                                        {getFilteredUsers('acceptor').map((user) => (
+                                            <option key={user.UserID} value={user.UserID}>
+                                                {user.FullName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        You can leave this blank and accept the IAR later using the Accept action.
                                     </p>
-                                )}
+
+                                    {/* Signature preview / action for Accepted By (optional) */}
+                                    <div className="mt-2 flex items-center gap-3">
+                                        {acceptedSignature ? (
+                                            <Image src={acceptedSignature} alt="Accepted signature" width={128} height={48} className="object-contain border rounded" />
+                                        ) : (
+                                            <p className="text-xs text-slate-500">{acceptedBy && acceptedBy !== 0 ? 'No acceptor signature' : 'No acceptor selected. Select an acceptor to add signature.'}</p>
+                                        )}
+
+                                        {/* Only allow adding/replacing accepted signature when an acceptor has been selected */}
+                                        {acceptedBy && acceptedBy !== 0 ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setSigFor('accepted'); setSigModalOpen(true); }}
+                                                className="px-3 py-1 bg-slate-100 rounded text-sm"
+                                            >
+                                                {acceptedSignature ? 'Replace Signature' : 'Add Signature'}
+                                            </button>
+                                        ) : null}
+                                    </div>
+
+                                    {errors.accepted_by && (
+                                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3" />
+                                            {errors.accepted_by.message}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Date Inspected */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Date Inspected *
+                                    </label>
+                                    <input
+                                        {...register('date_inspected')}
+                                        type="date"
+                                        readOnly
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-not-allowed"
+                                        title="Automatically set to today (Asia/Manila)"
+                                    />
+                                    {errors.date_inspected && (
+                                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3" />
+                                            {errors.date_inspected.message}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Date Accepted */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Date Accepted
+                                    </label>
+                                    <input
+                                        {...register('date_accepted')}
+                                        type="date"
+                                        readOnly
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-not-allowed"
+                                        title="Auto-set when an acceptor is selected"
+                                    />
+                                </div>
                             </div>
 
-                            {/* Date Inspected */}
-                            <div>
+                            {/* Remarks */}
+                            <div className="mt-6">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Date Inspected *
+                                    Inspection Remarks
                                 </label>
-                                <input
-                                    {...register('date_inspected')}
-                                    type="date"
-                                    readOnly
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-not-allowed"
-                                    title="Automatically set to today (Asia/Manila)"
-                                />
-                                {errors.date_inspected && (
-                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        {errors.date_inspected.message}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Date Accepted */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Date Accepted
-                                </label>
-                                <input
-                                    {...register('date_accepted')}
-                                    type="date"
-                                    readOnly
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-not-allowed"
-                                    title="Auto-set when an acceptor is selected"
+                                <textarea
+                                    {...register('remarks')}
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
+                                    placeholder="General inspection notes or remarks"
                                 />
                             </div>
                         </div>
 
-                        {/* Remarks */}
-                        <div className="mt-6">
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Inspection Remarks
-                            </label>
-                            <textarea
-                                {...register('remarks')}
-                                rows={3}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
-                                placeholder="General inspection notes or remarks"
-                            />
-                        </div>
-                    </div>
+                        {/* Items Inspection */}
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                            <h2 className="text-lg font-semibold text-slate-900 mb-4">Item Inspection & Acceptance</h2>
+                            <div className="space-y-4">
+                                {fields.map((field, index) => {
+                                    const drDetail = drData.details?.[index];
+                                    const currentDetail = details[index];
+                                    const totalQty = (currentDetail?.quantity_accepted || 0) + (currentDetail?.quantity_rejected || 0);
+                                    const isValid = totalQty === drDetail?.QuantityDelivered;
 
-                    {/* Items Inspection */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Item Inspection & Acceptance</h2>
-                        <div className="space-y-4">
-                            {fields.map((field, index) => {
-                                const drDetail = drData.details?.[index];
-                                const currentDetail = details[index];
-                                const totalQty = (currentDetail?.quantity_accepted || 0) + (currentDetail?.quantity_rejected || 0);
-                                const isValid = totalQty === drDetail?.QuantityDelivered;
-
-                                return (
-                                    <div key={field.id} className="border border-slate-200 rounded-lg p-4">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="flex-1">
-                                                <h3 className="font-medium text-slate-900">
-                                                    {drDetail?.ItemDescription}
-                                                    {(drDetail?.Brand || drDetail?.ModelNumber || drDetail?.SerialNumber) && (
-                                                        <span className="text-sm text-slate-600 ml-2">
-                                                            ({[
-                                                                drDetail.Brand,
-                                                                drDetail.ModelNumber,
-                                                                drDetail.SerialNumber
-                                                            ].filter(Boolean).join(' / ')})
-                                                        </span>
-                                                    )}
-                                                </h3>
-                                                <p className="text-sm text-slate-500">
-                                                    Delivered: {drDetail?.QuantityDelivered} {drDetail?.unitOfMeasure?.UnitName || 'pc'} • Unit Cost: ₱{drDetail?.UnitCost.toLocaleString('en-PH')}
-                                                </p>
+                                    return (
+                                        <div key={field.id} className="border border-slate-200 rounded-lg p-4">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex-1">
+                                                    <h3 className="font-medium text-slate-900">
+                                                        {drDetail?.ItemDescription}
+                                                        {(drDetail?.Brand || drDetail?.ModelNumber || drDetail?.SerialNumber) && (
+                                                            <span className="text-sm text-slate-600 ml-2">
+                                                                ({[
+                                                                    drDetail.Brand,
+                                                                    drDetail.ModelNumber,
+                                                                    drDetail.SerialNumber
+                                                                ].filter(Boolean).join(' / ')})
+                                                            </span>
+                                                        )}
+                                                    </h3>
+                                                    <p className="text-sm text-slate-500">
+                                                        Delivered: {drDetail?.QuantityDelivered} {drDetail?.unitOfMeasure?.UnitName || 'pc'} • Unit Cost: ₱{drDetail?.UnitCost.toLocaleString('en-PH')}
+                                                    </p>
+                                                </div>
+                                                {isValid ? (
+                                                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                                ) : (
+                                                    <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                                                )}
                                             </div>
-                                            {isValid ? (
-                                                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                                            ) : (
-                                                <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                <input type="hidden" {...register(`details.${index}.dr_detail_id` as const)} />
+                                                <input type="hidden" {...register(`details.${index}.property_type_id` as const)} />
+
+                                                {/* Condition */}
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                        Condition *
+                                                    </label>
+                                                    <select
+                                                        {...register(`details.${index}.condition_id` as const, { valueAsNumber: true })}
+                                                        className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                    >
+                                                        {conditions.map((condition) => (
+                                                            <option key={condition.ConditionID} value={condition.ConditionID}>
+                                                                {condition.ConditionName}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                {/* Quantity Accepted */}
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                        Accepted *
+                                                    </label>
+                                                    <input
+                                                        {...register(`details.${index}.quantity_accepted` as const, { valueAsNumber: true })}
+                                                        type="number"
+                                                        min="0"
+                                                        step="1"
+                                                        className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                    />
+                                                </div>
+
+                                                {/* Quantity Rejected */}
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                        Rejected *
+                                                    </label>
+                                                    <input
+                                                        {...register(`details.${index}.quantity_rejected` as const, { valueAsNumber: true })}
+                                                        type="number"
+                                                        min="0"
+                                                        step="1"
+                                                        className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                    />
+                                                </div>
+
+                                                {/* Item Remarks */}
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                        Remarks
+                                                    </label>
+                                                    <input
+                                                        {...register(`details.${index}.remarks` as const)}
+                                                        type="text"
+                                                        className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                        placeholder="Notes..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Verified Brand/Model/Serial - Required for certain property types */}
+                                            {(() => {
+                                                const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
+                                                const requiresVerification = propertyTypesRequiringVerification.includes(drDetail?.PropertyTypeID || 0);
+
+                                                return requiresVerification ? (
+                                                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                                        <div className="text-xs font-medium text-amber-800 mb-2">
+                                                            Verification Required - Enter actual brand, model, and serial numbers from the received items:
+                                                        </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                    Brand *
+                                                                </label>
+                                                                <input
+                                                                    {...register(`details.${index}.verified_brand` as const)}
+                                                                    type="text"
+                                                                    className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                    placeholder="e.g., Dell, HP, Lenovo"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                    Model *
+                                                                </label>
+                                                                <input
+                                                                    {...register(`details.${index}.verified_model` as const)}
+                                                                    type="text"
+                                                                    className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                    placeholder="e.g., Latitude 5420, ThinkPad X1"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                    Serial *
+                                                                </label>
+                                                                <input
+                                                                    {...register(`details.${index}.verified_serial` as const)}
+                                                                    type="text"
+                                                                    className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                    placeholder="e.g., ABC123456, SN-789012"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : null;
+                                            })()}
+
+                                            {!isValid && (
+                                                <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                                                    <AlertCircle className="w-3 h-3" />
+                                                    Accepted ({currentDetail?.quantity_accepted || 0}) + Rejected ({currentDetail?.quantity_rejected || 0}) must equal Delivered ({drDetail?.QuantityDelivered})
+                                                </p>
                                             )}
                                         </div>
+                                    );
+                                })}
+                            </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                            <input type="hidden" {...register(`details.${index}.dr_detail_id` as const)} />
-                                            <input type="hidden" {...register(`details.${index}.property_type_id` as const)} />
-
-                                            {/* Condition */}
-                                            <div>
-                                                <label className="block text-xs font-medium text-slate-700 mb-1">
-                                                    Condition *
-                                                </label>
-                                                <select
-                                                    {...register(`details.${index}.condition_id` as const, { valueAsNumber: true })}
-                                                    className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                >
-                                                    {conditions.map((condition) => (
-                                                        <option key={condition.ConditionID} value={condition.ConditionID}>
-                                                            {condition.ConditionName}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-
-                                            {/* Quantity Accepted */}
-                                            <div>
-                                                <label className="block text-xs font-medium text-slate-700 mb-1">
-                                                    Accepted *
-                                                </label>
-                                                <input
-                                                    {...register(`details.${index}.quantity_accepted` as const, { valueAsNumber: true })}
-                                                    type="number"
-                                                    min="0"
-                                                    step="1"
-                                                    className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                />
-                                            </div>
-
-                                            {/* Quantity Rejected */}
-                                            <div>
-                                                <label className="block text-xs font-medium text-slate-700 mb-1">
-                                                    Rejected *
-                                                </label>
-                                                <input
-                                                    {...register(`details.${index}.quantity_rejected` as const, { valueAsNumber: true })}
-                                                    type="number"
-                                                    min="0"
-                                                    step="1"
-                                                    className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                />
-                                            </div>
-
-                                            {/* Item Remarks */}
-                                            <div>
-                                                <label className="block text-xs font-medium text-slate-700 mb-1">
-                                                    Remarks
-                                                </label>
-                                                <input
-                                                    {...register(`details.${index}.remarks` as const)}
-                                                    type="text"
-                                                    className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                    placeholder="Notes..."
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Verified Brand/Model/Serial - Required for certain property types */}
-                                        {(() => {
-                                            const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
-                                            const requiresVerification = propertyTypesRequiringVerification.includes(drDetail?.PropertyTypeID || 0);
-
-                                            return requiresVerification ? (
-                                                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                                    <div className="text-xs font-medium text-amber-800 mb-2">
-                                                        Verification Required - Enter actual brand, model, and serial numbers from the received items:
-                                                    </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
-                                                                Brand *
-                                                            </label>
-                                                            <input
-                                                                {...register(`details.${index}.verified_brand` as const)}
-                                                                type="text"
-                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
-                                                                placeholder="e.g., Dell, HP, Lenovo"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
-                                                                Model *
-                                                            </label>
-                                                            <input
-                                                                {...register(`details.${index}.verified_model` as const)}
-                                                                type="text"
-                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
-                                                                placeholder="e.g., Latitude 5420, ThinkPad X1"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
-                                                                Serial *
-                                                            </label>
-                                                            <input
-                                                                {...register(`details.${index}.verified_serial` as const)}
-                                                                type="text"
-                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
-                                                                placeholder="e.g., ABC123456, SN-789012"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : null;
-                                        })()}
-
-                                        {!isValid && (
-                                            <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
-                                                <AlertCircle className="w-3 h-3" />
-                                                Accepted ({currentDetail?.quantity_accepted || 0}) + Rejected ({currentDetail?.quantity_rejected || 0}) must equal Delivered ({drDetail?.QuantityDelivered})
-                                            </p>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                            {errors.details && (
+                                <p className="mt-4 text-sm text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    {errors.details.message}
+                                </p>
+                            )}
                         </div>
 
-                        {errors.details && (
-                            <p className="mt-4 text-sm text-red-600 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3" />
-                                {errors.details.message}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-end gap-3">
-                        <button
-                            type="button"
-                            onClick={() => router.back()}
-                            className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-                            disabled={isSubmitting}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Creating IAR...
-                                </>
-                            ) : (
-                                <>
-                                    <Save className="w-4 h-4" />
-                                    Create IAR
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </form>
+                        {/* Actions */}
+                        <div className="flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => router.back()}
+                                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Creating IAR...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-4 h-4" />
+                                        Create IAR
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </>
     );

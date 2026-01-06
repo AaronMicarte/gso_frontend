@@ -102,138 +102,140 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
     };
 
     return (
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={() => router.back()}
-                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                    type="button"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">New Requisition (RIS)</h1>
-                    <p className="text-slate-500 text-sm">Create a new Requisition and Issuance Slip for items not in inventory</p>
+        <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+            <div className="p-6 max-w-5xl mx-auto space-y-6">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => router.back()}
+                        className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                        type="button"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">New Requisition (RIS)</h1>
+                        <p className="text-slate-500 text-sm">Create a new Requisition and Issuance Slip for items not in inventory</p>
+                    </div>
                 </div>
-            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-semibold text-slate-900">Requested Items</h2>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-semibold text-slate-900">Requested Items</h2>
+                            <button
+                                type="button"
+                                onClick={addItem}
+                                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Item
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {items.map((item, index) => (
+                                <div key={item.id} className="grid gap-4 p-4 border border-slate-200 rounded-lg relative bg-slate-50/50">
+                                    <div className="absolute right-4 top-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => removeItem(item.id)}
+                                            className="text-slate-400 hover:text-red-500 transition-colors"
+                                            title="Remove item"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                        <div className="md:col-span-1 flex items-center justify-center md:justify-start font-semibold text-slate-600">
+                                            #{index + 1}
+                                        </div>
+
+                                        <div className="md:col-span-5 space-y-2">
+                                            <label className="text-sm font-medium text-slate-700">
+                                                Item Description <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={item.ItemDescription}
+                                                onChange={(e) => updateItem(item.id, 'ItemDescription', e.target.value)}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                                placeholder="e.g., Laptop, Printer, Office Supplies"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className="md:col-span-2 space-y-2">
+                                            <label className="text-sm font-medium text-slate-700">
+                                                Unit
+                                            </label>
+                                            <select
+                                                value={item.Unit}
+                                                onChange={(e) => updateItem(item.id, 'Unit', e.target.value)}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                                disabled={isLoadingUnits}
+                                            >
+                                                <option value="">Select Unit</option>
+                                                {units.map((unit) => (
+                                                    <option key={unit.id} value={unit.name}>
+                                                        {unit.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="md:col-span-2 space-y-2">
+                                            <label className="text-sm font-medium text-slate-700">
+                                                Quantity <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={item.QuantityRequested}
+                                                onChange={(e) => updateItem(item.id, 'QuantityRequested', parseInt(e.target.value) || 0)}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700">
+                                            Purpose / Remarks <span className="text-red-500">*</span>
+                                        </label>
+                                        <textarea
+                                            value={item.Purpose}
+                                            onChange={(e) => updateItem(item.id, 'Purpose', e.target.value)}
+                                            rows={3}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
+                                            placeholder="State the purpose of this request..."
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3">
                         <button
                             type="button"
-                            onClick={addItem}
-                            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
+                            onClick={() => router.back()}
+                            className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                         >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Item
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading || isLoadingUnits}
+                            className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                        >
+                            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                            Submit Request
                         </button>
                     </div>
-
-                    <div className="space-y-4">
-                        {items.map((item, index) => (
-                            <div key={item.id} className="grid gap-4 p-4 border border-slate-200 rounded-lg relative bg-slate-50/50">
-                                <div className="absolute right-4 top-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => removeItem(item.id)}
-                                        className="text-slate-400 hover:text-red-500 transition-colors"
-                                        title="Remove item"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                                    <div className="md:col-span-1 flex items-center justify-center md:justify-start font-semibold text-slate-600">
-                                        #{index + 1}
-                                    </div>
-
-                                    <div className="md:col-span-5 space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Item Description <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={item.ItemDescription}
-                                            onChange={(e) => updateItem(item.id, 'ItemDescription', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                            placeholder="e.g., Laptop, Printer, Office Supplies"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div className="md:col-span-2 space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Unit
-                                        </label>
-                                        <select
-                                            value={item.Unit}
-                                            onChange={(e) => updateItem(item.id, 'Unit', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                            disabled={isLoadingUnits}
-                                        >
-                                            <option value="">Select Unit</option>
-                                            {units.map((unit) => (
-                                                <option key={unit.id} value={unit.name}>
-                                                    {unit.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="md:col-span-2 space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Quantity <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={item.QuantityRequested}
-                                            onChange={(e) => updateItem(item.id, 'QuantityRequested', parseInt(e.target.value) || 0)}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-700">
-                                        Purpose / Remarks <span className="text-red-500">*</span>
-                                    </label>
-                                    <textarea
-                                        value={item.Purpose}
-                                        onChange={(e) => updateItem(item.id, 'Purpose', e.target.value)}
-                                        rows={3}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
-                                        placeholder="State the purpose of this request..."
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-3">
-                    <button
-                        type="button"
-                        onClick={() => router.back()}
-                        className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={loading || isLoadingUnits}
-                        className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                    >
-                        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Submit Request
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     );
 }

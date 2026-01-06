@@ -38,7 +38,6 @@ import {
     Plus,
     FileCheck
 } from 'lucide-react';
-import Image from 'next/image';
 
 // Navigation structure with sections and collapsible groups
 interface NavItem {
@@ -397,7 +396,7 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
             <div>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
                 >
                     <div className="flex items-center gap-3">
                         <Icon className="w-5 h-5" />
@@ -410,7 +409,7 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
                     )}
                 </button>
                 {isOpen && (
-                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-700 pl-2">
+                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-300 pl-2">
                         {item.children?.map((child) => {
                             // Check if any other child is an exact match for the current pathname
                             // This prevents "All PRs" from being active when "Create PR" is active
@@ -428,7 +427,7 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
                                     href={child.href}
                                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
                                         ? 'bg-[var(--primary)] text-white font-medium'
-                                        : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                                         }`}
                                 >
                                     <ChildIcon className="w-4 h-4" />
@@ -448,7 +447,7 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
             href={item.href}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${isActive
                 ? 'bg-[var(--primary)] text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 }`}
         >
             <Icon className="w-5 h-5" />
@@ -468,15 +467,14 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
     const pathname = usePathname();
 
     return (
-        <aside className={`w-64 bg-slate-800 text-white flex flex-col fixed h-screen z-40 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        <aside className={`w-64 bg-white text-slate-900 flex flex-col fixed h-screen z-40 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'
             }`}>
-            {/* Logo/Brand - Fixed at top - Hidden on mobile */}
-            <div className="p-4 border-b border-slate-700 flex-shrink-0 hidden lg:block">
-                <Image src="/assets/images/login/elsal%20white%20logo.png" alt="El Salvador City Logo" width={200} height={48} className="object-contain" />
+            {/* Header Image - Fixed at top - Hidden on mobile */}
+            <div className="h-32 border-b border-slate-200 flex-shrink-0 hidden lg:block" style={{ backgroundImage: "url('/assets/images/background/sidebar.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
             </div>
 
             {/* Navigation - Scrollable content area */}
-            <nav className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
+            <nav className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin">
                 {getNavSections(user, baseRoute).map((section, sectionIndex) => (
                     <div key={sectionIndex} className="mb-4">
                         {section.section && (
@@ -494,19 +492,19 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
             </nav>
 
             {/* User Info & Logout - Fixed at bottom */}
-            <div className="p-4 border-t border-slate-700 flex-shrink-0">
+            <div className="p-4 border-t border-slate-200 flex-shrink-0">
                 <div className="mb-3">
-                    <p className="text-sm font-medium text-white truncate" title={user.FullName || user.Username}>
+                    <p className="text-sm font-medium text-slate-900 truncate" title={user.FullName || user.Username}>
                         {user.FullName || user.Username}
                     </p>
-                    <p className="text-xs text-slate-400">{user.Role}</p>
-                    <p className="text-xs text-slate-500 truncate" title={user.Department}>
+                    <p className="text-xs text-slate-500">{user.Role}</p>
+                    <p className="text-xs text-slate-600 truncate" title={user.Department}>
                         {user.Department}
                     </p>
                 </div>
                 <button
                     onClick={onLogout}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                 >
                     <LogOut className="w-4 h-4" />
                     Logout

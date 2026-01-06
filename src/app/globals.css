@@ -82,24 +82,21 @@ textarea {
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: #1e293b;
-  /* slate-800 */
+  background: #f1f5f9;
   border-radius: 3px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: #475569;
-  /* slate-700 */
   border-radius: 3px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
-  /* slate-600 */
+  background: #334155;
 }
 
 /* For Firefox */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: #475569 #1e293b;
+  scrollbar-color: #475569 #f1f5f9;
 }

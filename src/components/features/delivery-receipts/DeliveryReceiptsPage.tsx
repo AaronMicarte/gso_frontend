@@ -56,180 +56,182 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
     };
 
     return (
-        <div className="p-6 space-y-6">
-            <ConfirmDialog />
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Delivery Receipts</h1>
-                    <p className="text-slate-500 text-sm">Manage delivery receipts and incoming items</p>
+        <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+                <ConfirmDialog />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">Delivery Receipts</h1>
+                        <p className="text-slate-500 text-sm">Manage delivery receipts and incoming items</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleRefresh}
+                            disabled={isLoading}
+                            className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">Refresh</span>
+                        </button>
+                        <Link
+                            href={`${baseRoute}/delivery-receipts/new`}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
+                        >
+                            <Plus className="w-4 h-4" />
+                            New Delivery Receipt
+                        </Link>
+                    </div>
                 </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={handleRefresh}
-                        disabled={isLoading}
-                        className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        <span className="hidden sm:inline">Refresh</span>
-                    </button>
-                    <Link
-                        href={`${baseRoute}/delivery-receipts/new`}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                        New Delivery Receipt
-                    </Link>
-                </div>
-            </div>
 
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search DR Number, PO Number, or Supplier..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                    />
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search DR Number, PO Number, or Supplier..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
                 </div>
-            </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-                            <tr>
-                                <th className="px-6 py-4">DR Number</th>
-                                <th className="px-6 py-4">PO Reference</th>
-                                <th className="px-6 py-4">Supplier</th>
-                                <th className="px-6 py-4">Date Received</th>
-                                <th className="px-6 py-4">Received By</th>
-                                <th className="px-6 py-4">IAR Status</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                            {isLoading ? (
+                {/* Table */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
-                                            Loading delivery receipts...
-                                        </div>
-                                    </td>
+                                    <th className="px-6 py-4">DR Number</th>
+                                    <th className="px-6 py-4">PO Reference</th>
+                                    <th className="px-6 py-4">Supplier</th>
+                                    <th className="px-6 py-4">Date Received</th>
+                                    <th className="px-6 py-4">Received By</th>
+                                    <th className="px-6 py-4">IAR Status</th>
+                                    <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
-                            ) : data?.data?.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                                        <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                        No delivery receipts found
-                                    </td>
-                                </tr>
-                            ) : (
-                                data?.data?.map((dr) => (
-                                    <tr key={dr.DRID} className="hover:bg-slate-50">
-                                        <td className="px-6 py-4 font-medium text-slate-900">
-                                            {dr.DRNumber}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {dr.PONumber || <span className="text-slate-400 italic">None</span>}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {dr.SupplierName}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {format(toZonedTime(new Date(dr.DateReceived), 'Asia/Manila'), 'MMM dd, yyyy')}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {dr.receivedByUser?.FullName || 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {dr.iar_status === 'Accepted' ? (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                    <CheckCircle className="w-3 h-3" />
-                                                    Accepted
-                                                </span>
-                                            ) : dr.iar_status === 'Inspected' ? (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                    <FileText className="w-3 h-3" />
-                                                    Inspected
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                                    Pending IAR
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Link
-                                                    href={`${baseRoute}/delivery-receipts/${dr.DRID}`}
-                                                    className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
-                                                    title="View Details"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </Link>
-                                                {!dr.hasIAR && (
-                                                    <>
-                                                        <Link
-                                                            href={`${baseRoute}/delivery-receipts/create-iar?dr_id=${dr.DRID}`}
-                                                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                            title="Create IAR"
-                                                        >
-                                                            <FileText className="w-4 h-4" />
-                                                        </Link>
-                                                        <Link
-                                                            href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
-                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                            title="Edit"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </Link>
-                                                        {canDelete && (
-                                                            <button
-                                                                onClick={() => handleDelete(dr.DRID, dr.DRNumber)}
-                                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                title="Delete"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                    </>
-                                                )}
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
+                                                Loading delivery receipts...
                                             </div>
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination - Simplified for now */}
-                {data?.meta && data.meta.last_page > 1 && (
-                    <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50"
-                        >
-                            Previous
-                        </button>
-                        <span className="text-sm text-slate-600">
-                            Page {data.meta.current_page} of {data.meta.last_page}
-                        </span>
-                        <button
-                            onClick={() => setPage(p => Math.min(data.meta.last_page, p + 1))}
-                            disabled={page === data.meta.last_page}
-                            className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50"
-                        >
-                            Next
-                        </button>
+                                ) : data?.data?.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                                            <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                                            No delivery receipts found
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    data?.data?.map((dr) => (
+                                        <tr key={dr.DRID} className="hover:bg-slate-50">
+                                            <td className="px-6 py-4 font-medium text-slate-900">
+                                                {dr.DRNumber}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {dr.PONumber || <span className="text-slate-400 italic">None</span>}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {dr.SupplierName}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {format(toZonedTime(new Date(dr.DateReceived), 'Asia/Manila'), 'MMM dd, yyyy')}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {dr.receivedByUser?.FullName || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {dr.iar_status === 'Accepted' ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        Accepted
+                                                    </span>
+                                                ) : dr.iar_status === 'Inspected' ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        <FileText className="w-3 h-3" />
+                                                        Inspected
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                                        Pending IAR
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <Link
+                                                        href={`${baseRoute}/delivery-receipts/${dr.DRID}`}
+                                                        className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
+                                                        title="View Details"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Link>
+                                                    {!dr.hasIAR && (
+                                                        <>
+                                                            <Link
+                                                                href={`${baseRoute}/delivery-receipts/create-iar?dr_id=${dr.DRID}`}
+                                                                className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                                                title="Create IAR"
+                                                            >
+                                                                <FileText className="w-4 h-4" />
+                                                            </Link>
+                                                            <Link
+                                                                href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
+                                                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                title="Edit"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </Link>
+                                                            {canDelete && (
+                                                                <button
+                                                                    onClick={() => handleDelete(dr.DRID, dr.DRNumber)}
+                                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                    title="Delete"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                )}
+
+                    {/* Pagination - Simplified for now */}
+                    {data?.meta && data.meta.last_page > 1 && (
+                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50"
+                            >
+                                Previous
+                            </button>
+                            <span className="text-sm text-slate-600">
+                                Page {data.meta.current_page} of {data.meta.last_page}
+                            </span>
+                            <button
+                                onClick={() => setPage(p => Math.min(data.meta.last_page, p + 1))}
+                                disabled={page === data.meta.last_page}
+                                className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

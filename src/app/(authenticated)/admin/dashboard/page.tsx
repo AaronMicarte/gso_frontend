@@ -23,6 +23,7 @@ import {
     FileCheck,
     RefreshCw,
     LucideIcon,
+    Hand,
 } from 'lucide-react';
 
 // Stat card component with Lucide icons
@@ -303,11 +304,11 @@ export default function AdminDashboardPage() {
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
             {/* Header */}
             <div className="mb-6 sm:mb-8">
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-                    {getGreeting()}, {user?.FullName || user?.Username}! 👋
+                    {getGreeting()}, {user?.FullName || user?.Username}! <Hand className="inline w-6 h-6 ml-2" />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-500 mt-1">
                     Here&apos;s what&apos;s happening with your inventory today.

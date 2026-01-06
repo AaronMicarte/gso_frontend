@@ -94,6 +94,7 @@ export interface User {
     UserID: number;
     FirstName: string;
     LastName: string;
+    FullName: string;
     Email: string;
     DepartmentID?: number;
     department?: Department;
