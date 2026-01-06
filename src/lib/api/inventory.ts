@@ -5,6 +5,8 @@ export type InventoryListResponse = { data: { InventoryID: number; InventoryNumb
 export type InventoryDetail = { InventoryDetailID: number; Description?: string; dr_item_description?: string; Brand?: string; ModelNumber?: string; SerialNumber?: string; PropertyName?: string; property_type_description?: string; ClassificationName?: string; DocumentType?: 'ICS' | 'PAR'; drDetail?: { DRDetailID: number; ItemDescription?: string }; Quantity: number; UnitCost: number; TotalCost: number; ConditionID?: number; PropertyStatusID?: number; qrCode?: { QRCodeData: string } };
 export type InventoryResponse = { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; details?: InventoryDetail[]; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string; SupplierName?: string; DateReceived?: string } } };
 export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: string; details: { IARDetailID: number; QuantityAccepted: number; ItemDescription?: string; VerifiedBrand?: string; VerifiedModel?: string; VerifiedSerial?: string; UnitCost?: number; propertyType?: { PropertyTypeID: number; PropertyName: string } }[]; signatures?: { id: number; role: string; url?: string; created_at: string; user?: { UserID: number; FullName: string } }[] };
+export type InventoryItem = { InventoryDetailID: number; InventoryID: number; PropertyTypeID?: number; ConditionID: number; Brand?: string; ModelNumber?: string; SerialNumber?: string; PropertyNumber?: string; Description?: string; Quantity: number; QuantityAvailable: number; PropertyStatusID: number; UnitOfMeasureID?: number; UnitCost?: number; TotalCost?: number; SourceIARDetailID?: number; SourceDRDetailID?: number; Remarks?: string; CreatedDate: string; UpdatedDate?: string; PropertyName?: string; ClassificationName?: string; DocumentType?: 'ICS' | 'PAR'; InventoryNumber?: string; StatusName?: string; ConditionName?: string; dr_item_description?: string; dr_brand?: string; dr_model?: string; dr_serial?: string };
+export type InventoryItemsListResponse = { data: InventoryItem[]; total: number; per_page: number; current_page: number; last_page: number };
 
 export const getInventories = async (params?: { page?: number; per_page?: number; search?: string }): Promise<InventoryListResponse> => {
     const qs = new URLSearchParams();
@@ -13,6 +15,17 @@ export const getInventories = async (params?: { page?: number; per_page?: number
     if (params?.search) qs.append('search', params.search);
 
     const response: AxiosResponse<InventoryListResponse> = await apiClient.get(`/admin/inventory?${qs.toString()}`);
+    return response.data;
+};
+
+export const getAllInventoryItems = async (params?: { page?: number; per_page?: number; search?: string; property_status_id?: number }): Promise<InventoryItemsListResponse> => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.append('page', String(params.page));
+    if (params?.per_page) qs.append('per_page', String(params.per_page));
+    if (params?.search) qs.append('search', params.search);
+    if (params?.property_status_id) qs.append('property_status_id', String(params.property_status_id));
+
+    const response: AxiosResponse<InventoryItemsListResponse> = await apiClient.get(`/admin/inventory/all-items?${qs.toString()}`);
     return response.data;
 };
 

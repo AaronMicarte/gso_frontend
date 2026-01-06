@@ -35,7 +35,7 @@ export default function VerifyMFAPage() {
 
     const form = useForm<CodeFormData>({
         resolver: zodResolver(codeSchema),
-        defaultValues: { code: '', trust_device: false },
+        defaultValues: { code: '', trust_device: true },
     });
 
     useEffect(() => {

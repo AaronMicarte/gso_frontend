@@ -97,6 +97,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         icon: Box,
                         children: [
                             { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
+                            { label: 'All Items', href: `${baseRoute}/inventory/all-items`, icon: Package },
                             { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: FileType },
                             { label: 'Property Status', href: `${baseRoute}/masterdata/property-statuses`, icon: Tag },
                         ]
