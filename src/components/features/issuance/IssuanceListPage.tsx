@@ -315,7 +315,9 @@ export function IssuanceListPage({ baseRoute, canIssue = false }: IssuanceListPa
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {filteredIssuances.map((issuance) => {
                                         const StatusIcon = statusConfig[issuance.Status].icon;
-                                        const issuanceDate = toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila');
+                                        const issuanceDate = issuance.IssuanceDate && !isNaN(Date.parse(issuance.IssuanceDate))
+                                            ? toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila')
+                                            : null;
 
                                         return (
                                             <tr key={issuance.IssuanceID} className="hover:bg-gray-50">
@@ -364,10 +366,10 @@ export function IssuanceListPage({ baseRoute, canIssue = false }: IssuanceListPa
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm text-gray-900">
-                                                        {format(issuanceDate, 'MMM d, yyyy')}
+                                                        {issuanceDate ? format(issuanceDate, 'MMM d, yyyy') : 'N/A'}
                                                     </div>
                                                     <div className="text-sm text-gray-500">
-                                                        {format(issuanceDate, 'h:mm a')}
+                                                        {issuanceDate ? format(issuanceDate, 'h:mm a') : ''}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
