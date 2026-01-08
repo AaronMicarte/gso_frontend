@@ -7,12 +7,14 @@ import { ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, User, Calendar, Fi
 import assetIssuanceAPI from '@/lib/api/assetIssuance';
 import { AssetRequest } from '@/types/assetIssuance';
 import { toast } from 'sonner';
+import { resolveStorageUrl } from '@/lib/utils/signature';
 
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
     approved: { label: 'Approved', color: 'bg-green-100 text-green-800', icon: CheckCircle },
     rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },
     issued: { label: 'Issued', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+    received: { label: 'Received', color: 'bg-purple-100 text-purple-800', icon: CheckCircle },
     cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-800', icon: AlertCircle },
 };
 
@@ -28,6 +30,7 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
     const [request, setRequest] = useState<AssetRequest | null>(null);
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
+    const [receiving, setReceiving] = useState(false);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
 
     useEffect(() => {
@@ -40,8 +43,19 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
             const id = params.id as string;
             const response = await assetIssuanceAPI.requests.getById(parseInt(id));
             setRequest(response);
-        } catch (error) {
-            toast.error('Failed to load request details');
+        } catch (error: any) {
+            console.error('Failed to load request:', error);
+
+            let errorMessage = 'Failed to load request details';
+            if (error?.response?.status === 404) {
+                errorMessage = 'Asset request not found';
+            } else if (error?.response?.status === 403) {
+                errorMessage = 'You do not have permission to view this request';
+            } else if (error?.response?.status >= 500) {
+                errorMessage = 'Server error. Please try again later.';
+            }
+
+            toast.error(errorMessage);
             router.push(`${baseRoute}/asset-requests`);
         } finally {
             setLoading(false);
@@ -61,6 +75,21 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
             toast.error('Failed to cancel request');
         } finally {
             setCancelling(false);
+        }
+    };
+
+    const handleReceive = async () => {
+        if (!request) return;
+
+        try {
+            setReceiving(true);
+            await assetIssuanceAPI.requests.receive(request.RequestID);
+            toast.success('Receipt confirmed successfully');
+            loadRequest(); // Refresh data
+        } catch (error) {
+            toast.error('Failed to confirm receipt');
+        } finally {
+            setReceiving(false);
         }
     };
 
@@ -113,8 +142,24 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
 
     const statusInfo = statusConfig[request.Status];
     const StatusIcon = statusInfo.icon;
+
+    const canReceive = () => {
+        if (!request?.details) return false;
+        // Check if user is assigned to any item
+        return request.details.some(detail => {
+            const latestIssuance = detail.assignments
+                ?.filter(a => a.AssignmentType === 'issuance')
+                ?.sort((a, b) => new Date(b.AssignedAt).getTime() - new Date(a.AssignedAt).getTime())[0];
+            return latestIssuance && (
+                latestIssuance.AssignedUserID === request.requester?.UserID ||
+                latestIssuance.AssignedDepartmentID === request.requester?.DepartmentID
+            );
+        });
+    };
+
     const showCancelButton = canCancel && request.Status === 'pending';
     const showReviewButton = isAdmin && request.Status === 'pending';
+    const showReceiveButton = (request.Status === 'issued' || request.Status === 'approved') && canReceive();
 
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
@@ -413,6 +458,43 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                             </div>
                         )}
 
+                        {/* Signatures */}
+                        {request.signatures && request.signatures.length > 0 && (
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                                <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+                                    <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                                        <CheckCircle className="w-5 h-5 text-purple-600" />
+                                        Signatures ({request.signatures.length})
+                                    </h3>
+                                </div>
+                                <div className="p-6">
+                                    <div className="space-y-4">
+                                        {request.signatures.map((signature) => (
+                                            <div key={signature.id} className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <div className="flex-1">
+                                                        <div className="font-semibold text-slate-900 capitalize mb-2">
+                                                            {signature.role.replace('_', ' ')} Signature
+                                                        </div>
+                                                        <div className="text-sm text-slate-600 mb-3">
+                                                            Signed by {signature.signedByUser?.FullName} on {formatDateTime(signature.created_at)}
+                                                        </div>
+                                                        <div className="bg-white p-4 rounded-lg border border-slate-200">
+                                                            <img
+                                                                src={resolveStorageUrl(signature.url)}
+                                                                alt={`${signature.role} signature`}
+                                                                className="max-w-full h-auto max-h-32 object-contain"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Audit Logs */}
                         {request.auditLogs && request.auditLogs.length > 0 && (
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -459,6 +541,16 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                             Review Request
                                         </button>
                                     </Link>
+                                )}
+                                {showReceiveButton && (
+                                    <button
+                                        onClick={handleReceive}
+                                        disabled={receiving}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
+                                    >
+                                        {receiving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+                                        {receiving ? 'Confirming...' : 'Confirm Receipt'}
+                                    </button>
                                 )}
                                 {showCancelButton && (
                                     <button

@@ -10,7 +10,7 @@ export interface AssetRequest {
     RequestedBy: number;
     DepartmentID: number;
     Purpose?: string;
-    Status: 'pending' | 'approved' | 'rejected' | 'issued' | 'cancelled';
+    Status: 'pending' | 'approved' | 'rejected' | 'issued' | 'received' | 'cancelled';
     ReviewedBy: number | null;
     ReviewedAt: string | null;
     ReviewNotes: string | null;
@@ -29,6 +29,7 @@ export interface AssetRequest {
     issuer?: User;
     issuances?: AssetIssuance[];
     auditLogs?: AssetAuditLog[];
+    signatures?: AssetRequestSignature[];
 }
 
 export interface AssetRequestDetail {
@@ -53,6 +54,30 @@ export interface AssetRequestDetail {
     inventoryDetail?: InventoryDetail;
     assignedEndUser?: EndUser;
     assignedDepartment?: Department;
+    assignments?: AssetAssignment[];
+}
+
+export interface AssetAssignment {
+    AssignmentID: number;
+    AssetRequestDetailID: number | null;
+    PropertyInventoryDetailID: number | null;
+    AssignedUserID: number | null;
+    AssignedDepartmentID: number | null;
+    AssignmentType: 'request' | 'issuance';
+    PropertyClassification: 'ICS' | 'PAR' | null;
+    AdminNotes: string | null;
+    AssignedBy: number;
+    AssignedAt: string;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+
+    // Relationships
+    assetRequestDetail?: AssetRequestDetail;
+    propertyInventoryDetail?: InventoryDetail;
+    assignedUser?: User;
+    assignedDepartment?: Department;
+    assignedByUser?: User;
 }
 
 export interface AssetIssuance {
@@ -280,4 +305,27 @@ export interface AssetIssuanceFilters {
     document_type?: 'PAR' | 'ICS';
     per_page?: number;
     page?: number;
+}
+
+export interface AssetRequestSignature {
+    id: number;
+    request_id: number;
+    role: string; // e.g., 'requester', 'approver', 'issuer'
+    signed_by_user_id: number;
+    source: 'canvas' | 'upload';
+    storage_disk: string;
+    storage_path: string;
+    url: string;
+    mime: string;
+    width: number | null;
+    height: number | null;
+    size_bytes: number | null;
+    sha256_hash: string | null;
+    ip_address: string | null;
+    user_agent: string | null;
+    created_at: string;
+    updated_at: string;
+
+    // Relationships
+    signedByUser?: User;
 }

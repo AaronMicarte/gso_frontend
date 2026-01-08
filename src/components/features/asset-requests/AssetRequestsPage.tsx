@@ -24,6 +24,7 @@ const statusConfig = {
     approved: { label: 'Approved', color: 'bg-green-100 text-green-800', icon: CheckCircle },
     rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },
     issued: { label: 'Issued', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+    received: { label: 'Received', color: 'bg-purple-100 text-purple-800', icon: Package },
     cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-800', icon: AlertCircle },
 };
 
@@ -33,7 +34,8 @@ interface AssetRequestsPageProps {
     isAdmin?: boolean;
 }
 
-export function AssetRequestsPage({ baseRoute, canCreate = true, isAdmin = false }: AssetRequestsPageProps) {
+export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = true, isAdmin = false }: AssetRequestsPageProps) {
+    const canCreate = initialCanCreate && !isAdmin;
     const [requests, setRequests] = useState<AssetRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState<AssetRequestFilters>({

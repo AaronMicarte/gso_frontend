@@ -71,6 +71,13 @@ const assetIssuanceAPI = {
             return data;
         },
 
+        receive: async (id: number) => {
+            const { data } = await apiClient.post<AssetRequestResponse>(
+                `/asset-requests/${id}/receive`
+            );
+            return data;
+        },
+
         getAvailableInventory: async () => {
             const { data } = await apiClient.get<InventoryDetail[]>(
                 '/asset-requests/available-inventory'

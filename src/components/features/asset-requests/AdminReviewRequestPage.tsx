@@ -50,19 +50,38 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
             const requestData = await assetIssuanceAPI.requests.getById(parseInt(id));
             setRequest(requestData);
 
-            // Initialize review items with existing data
+            // Initialize review items with existing data from assignments
             if (requestData.details) {
-                setReviewItems(requestData.details.map(detail => ({
-                    ...detail,
-                    PropertyClassification: detail.PropertyClassification as 'ICS' | 'PAR' || null,
-                    AssignedEndUserID: detail.AssignedEndUserID || null,
-                    AssignedDepartmentID: detail.AssignedDepartmentID || null,
-                    AdminNotes: detail.AdminNotes || null
-                })));
+                setReviewItems(requestData.details.map(detail => {
+                    // Find the latest request assignment
+                    const latestRequestAssignment = detail.assignments
+                        ?.filter(a => a.AssignmentType === 'request')
+                        ?.sort((a, b) => new Date(b.AssignedAt).getTime() - new Date(a.AssignedAt).getTime())[0];
+
+                    return {
+                        ...detail,
+                        PropertyClassification: latestRequestAssignment?.PropertyClassification || detail.PropertyClassification as 'ICS' | 'PAR' || null,
+                        AssignedEndUserID: latestRequestAssignment?.AssignedUserID || detail.AssignedEndUserID || null,
+                        AssignedDepartmentID: latestRequestAssignment?.AssignedDepartmentID || detail.AssignedDepartmentID || null,
+                        AdminNotes: latestRequestAssignment?.AdminNotes || detail.AdminNotes || null
+                    };
+                }));
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to load request:', error);
-            toast.error('Failed to load asset request');
+
+            let errorMessage = 'Failed to load asset request';
+            if (error?.response?.status === 404) {
+                errorMessage = 'Asset request not found';
+            } else if (error?.response?.status === 403) {
+                errorMessage = 'You do not have permission to view this request';
+            } else if (error?.response?.status >= 500) {
+                errorMessage = 'Server error. Please try again later.';
+            } else if (error?.message?.includes('syntax error')) {
+                errorMessage = 'Server configuration error. Please contact administrator.';
+            }
+
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
