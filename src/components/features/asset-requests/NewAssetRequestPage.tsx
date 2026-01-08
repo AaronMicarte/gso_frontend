@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AssetRequestItem } from '@/types/assetIssuance';
+import { SignatureModal } from '@/components/ui/SignatureModal';
 
 interface NewAssetRequestPageProps {
     baseRoute: string;
@@ -40,6 +41,11 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
             AdditionalNotes: ''
         }
     ]);
+
+    // Signature states
+    const [showSignatureModal, setShowSignatureModal] = useState(false);
+    const [requesterSignature, setRequesterSignature] = useState<string | null>(null);
+    const [requesterSignatureSource, setRequesterSignatureSource] = useState<'canvas' | 'upload' | null>(null);
 
     const addItem = () => {
         const newId = Date.now();
@@ -99,6 +105,11 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
             return;
         }
 
+        if (!requesterSignature || !requesterSignatureSource) {
+            toast.error('Please provide your signature to submit this request');
+            return;
+        }
+
         for (const item of items) {
             if (!item.ItemDescription.trim()) {
                 toast.error('Please provide item description for all items');
@@ -119,7 +130,9 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
 
             const requestData = {
                 Purpose: purpose,
-                items: items.map(({ id, ...item }) => item) // Remove temporary UI id
+                items: items.map(({ id, ...item }) => item), // Remove temporary UI id
+                requesterSignature,
+                requesterSignatureSource: requesterSignatureSource as 'canvas' | 'upload',
             };
 
             await assetIssuanceAPI.requests.create(requestData);
@@ -282,8 +295,8 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
                                                         type="button"
                                                         onClick={() => updateIntendedUserType(item.id, 'person')}
                                                         className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${(intendedUserTypes[item.id] || 'person') === 'person'
-                                                                ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
-                                                                : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                                                            ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                                                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
                                                             }`}
                                                     >
                                                         <User className="h-4 w-4" />
@@ -293,8 +306,8 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
                                                         type="button"
                                                         onClick={() => updateIntendedUserType(item.id, 'department')}
                                                         className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${intendedUserTypes[item.id] === 'department'
-                                                                ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
-                                                                : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                                                            ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                                                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
                                                             }`}
                                                     >
                                                         <Building2 className="h-4 w-4" />
@@ -364,6 +377,59 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
                         </div>
                     </div>
 
+                    {/* Signature Section */}
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Requester Signature</h2>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Your Signature <span className="text-red-500">*</span>
+                                </label>
+                                {requesterSignature ? (
+                                    <div className="space-y-2">
+                                        <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                                            <img
+                                                src={requesterSignature}
+                                                alt="Your signature"
+                                                className="max-h-20 max-w-full object-contain"
+                                            />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowSignatureModal(true)}
+                                                className="px-3 py-1 text-sm bg-slate-100 hover:bg-slate-200 rounded"
+                                            >
+                                                Change Signature
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setRequesterSignature(null);
+                                                    setRequesterSignatureSource(null);
+                                                }}
+                                                className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowSignatureModal(true)}
+                                        className="w-full h-32 border-2 border-dashed border-slate-300 rounded-lg hover:border-slate-400 transition-colors flex items-center justify-center text-slate-500"
+                                    >
+                                        Click to add your signature
+                                    </button>
+                                )}
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Your signature is required to submit this asset request for approval.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="flex items-center justify-end gap-3">
                         <button
                             type="button"
@@ -382,6 +448,17 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
                         </button>
                     </div>
                 </form>
+
+                {/* Signature Modal */}
+                <SignatureModal
+                    open={showSignatureModal}
+                    onOpenChange={setShowSignatureModal}
+                    onSave={(dataUrl, source) => {
+                        setRequesterSignature(dataUrl);
+                        setRequesterSignatureSource(source);
+                    }}
+                    loading={loading}
+                />
             </div>
         </div>
     );

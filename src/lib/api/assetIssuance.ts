@@ -48,7 +48,7 @@ const assetIssuanceAPI = {
             return data;
         },
 
-        reject: async (id: number, reviewData: Required<AssetRequestReviewData>) => {
+        reject: async (id: number, reviewData: AssetRequestReviewData) => {
             const { data } = await apiClient.post<AssetRequestResponse>(
                 `/asset-requests/${id}/reject`,
                 reviewData

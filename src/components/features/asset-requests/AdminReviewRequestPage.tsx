@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
     ArrowLeft,
@@ -19,6 +19,7 @@ import { toZonedTime } from 'date-fns-tz';
 import assetIssuanceAPI from '@/lib/api/assetIssuance';
 import { AssetRequest, AssetRequestDetail, EndUser } from '@/types/assetIssuance';
 import { Department } from '@/types/masterData';
+import { SignatureModal } from '@/components/ui/SignatureModal';
 
 interface AdminReviewRequestPageProps {
     baseRoute: string;
@@ -37,12 +38,12 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
     const [departments, setDepartments] = useState<Department[]>([]);
     const [generalReviewNotes, setGeneralReviewNotes] = useState('');
 
-    useEffect(() => {
-        loadRequest();
-        loadMasterData();
-    }, [params.id]);
+    // Signature states
+    const [showSignatureModal, setShowSignatureModal] = useState(false);
+    const [approverSignature, setApproverSignature] = useState<string | null>(null);
+    const [approverSignatureSource, setApproverSignatureSource] = useState<'canvas' | 'upload' | null>(null);
 
-    const loadRequest = async () => {
+    const loadRequest = useCallback(async () => {
         try {
             setLoading(true);
             const id = params.id as string;
@@ -65,7 +66,12 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
         } finally {
             setLoading(false);
         }
-    };
+    }, [params.id]);
+
+    useEffect(() => {
+        loadRequest();
+        loadMasterData();
+    }, [loadRequest]);
 
     const loadMasterData = async () => {
         try {
@@ -160,6 +166,11 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
     };
 
     const handleApprove = async () => {
+        if (!approverSignature || !approverSignatureSource) {
+            toast.error('Please provide your signature to approve this request');
+            return;
+        }
+
         try {
             setSaving(true);
             const reviewData = {
@@ -170,7 +181,9 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                     AssignedDepartmentID: item.AssignedDepartmentID,
                     AdminNotes: item.AdminNotes
                 })),
-                ReviewNotes: generalReviewNotes
+                ReviewNotes: generalReviewNotes,
+                approverSignature,
+                approverSignatureSource: approverSignatureSource as 'canvas' | 'upload',
             };
             const id = params.id as string;
             await assetIssuanceAPI.requests.approve(parseInt(id), reviewData);
@@ -289,7 +302,7 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                             <Users className="w-5 h-5 text-slate-600" />
                             <div>
                                 <p className="text-sm font-medium text-slate-700">Requested By</p>
-                                <p className="text-slate-900">{request.requester?.FullName || request.requester?.name || 'Unknown User'}</p>
+                                <p className="text-slate-900">{request.requester?.FullName || 'Unknown User'}</p>
                                 <p className="text-sm text-slate-500">{request.department?.DepartmentName || 'Unknown Department'}</p>
                             </div>
                         </div>
@@ -421,7 +434,7 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                                                 </label>
                                                 <input
                                                     type="text"
-                                                    value={request?.requester?.FullName || request?.requester?.name || 'Requester'}
+                                                    value={request?.requester?.FullName || 'Requester'}
                                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-green-50 text-green-800 font-medium cursor-not-allowed"
                                                     readOnly
                                                     title="ICS items are automatically assigned to the person who requested them"
@@ -459,6 +472,59 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
                         placeholder="Overall comments about this request..."
                     />
+                </div>
+
+                {/* Approver Signature */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 className="font-semibold text-slate-900 mb-4">Approver Signature</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Your Signature <span className="text-red-500">*</span>
+                            </label>
+                            {approverSignature ? (
+                                <div className="space-y-2">
+                                    <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                                        <img
+                                            src={approverSignature}
+                                            alt="Your signature"
+                                            className="max-h-20 max-w-full object-contain"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowSignatureModal(true)}
+                                            className="px-3 py-1 text-sm bg-slate-100 hover:bg-slate-200 rounded"
+                                        >
+                                            Change Signature
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setApproverSignature(null);
+                                                setApproverSignatureSource(null);
+                                            }}
+                                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSignatureModal(true)}
+                                    className="w-full h-32 border-2 border-dashed border-slate-300 rounded-lg hover:border-slate-400 transition-colors flex items-center justify-center text-slate-500"
+                                >
+                                    Click to add your signature
+                                </button>
+                            )}
+                            <p className="text-xs text-slate-500 mt-1">
+                                Your signature is required to approve this asset request.
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -506,6 +572,17 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                         </button>
                     </div>
                 </div>
+
+                {/* Signature Modal */}
+                <SignatureModal
+                    open={showSignatureModal}
+                    onOpenChange={setShowSignatureModal}
+                    onSave={(dataUrl, source) => {
+                        setApproverSignature(dataUrl);
+                        setApproverSignatureSource(source);
+                    }}
+                    loading={saving}
+                />
             </div>
         </div>
     );

@@ -36,7 +36,7 @@ export async function generateMFASecret(): Promise<MFASecretResponse> {
  * This is a PUBLIC endpoint - no authentication required.
  */
 export async function generateMFASecretForLogin(userId: number): Promise<MFASecretResponse> {
-    const response = await apiClient.post<MFASecretResponse>('../mfa/setup/generate', {
+    const response = await apiClient.post<MFASecretResponse>('/mfa/setup/generate', {
         user_id: userId,
     });
     return response.data;
@@ -62,7 +62,7 @@ export async function enableMFADuringLogin(
     secret: string,
     code: string
 ): Promise<MFAEnableResponse> {
-    const response = await apiClient.post<MFAEnableResponse>('../mfa/setup/enable', {
+    const response = await apiClient.post<MFAEnableResponse>('/mfa/setup/enable', {
         user_id: userId,
         secret,
         code,
@@ -82,7 +82,7 @@ export async function disableMFA(data: MFADisableRequest): Promise<{ message: st
  * Verify MFA code during login (public endpoint).
  */
 export async function verifyMFACode(data: MFAVerifyRequest): Promise<MFAVerifySuccessResponse> {
-    const response = await apiClient.post<MFAVerifySuccessResponse>('../mfa/verify', data);
+    const response = await apiClient.post<MFAVerifySuccessResponse>('/mfa/verify', data);
     return response.data;
 }
 

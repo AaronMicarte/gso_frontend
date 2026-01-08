@@ -357,7 +357,7 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                                             {issuance.DocumentType} - {issuance.DocumentNumber}
                                                         </div>
                                                         <div className="text-sm text-slate-500">
-                                                            Issued to: {issuance.issuedToUser?.FirstName} {issuance.issuedToUser?.LastName}
+                                                            Issued to: {issuance.issuedToUser?.FullName}
                                                         </div>
                                                     </div>
                                                     <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
@@ -388,7 +388,7 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                                             <div className="text-sm text-blue-700 font-medium mb-1">Reviewed By</div>
                                             <div className="font-semibold text-slate-900">
-                                                {request.reviewer.FirstName} {request.reviewer.LastName}
+                                                {request.reviewer.FullName}
                                             </div>
                                         </div>
                                     )}
@@ -430,7 +430,7 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                                 <div className="flex-1 min-w-0">
                                                     <div className="text-sm font-medium text-slate-900">{log.Action}</div>
                                                     <div className="text-xs text-slate-500 mt-1">
-                                                        by {log.performer?.FirstName} {log.performer?.LastName} • {formatDateTime(log.CreatedAt)}
+                                                        by {log.performer?.FullName} • {formatDateTime(log.CreatedAt)}
                                                     </div>
                                                 </div>
                                             </div>

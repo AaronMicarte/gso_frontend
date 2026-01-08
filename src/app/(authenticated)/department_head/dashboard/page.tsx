@@ -154,15 +154,15 @@ export default function DepartmentHeadDashboard() {
                         </Link>
 
                         <Link
-                            href="/custodian/inventory"
+                            href="/department_head/issuance"
                             className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                         >
                             <div className="p-2 bg-purple-100 rounded-lg">
                                 <TrendingUp className="w-5 h-5 text-purple-600" />
                             </div>
                             <div>
-                                <div className="font-medium text-slate-900">View Inventory</div>
-                                <div className="text-sm text-slate-500">Browse available assets</div>
+                                <div className="font-medium text-slate-900">Property Issuance</div>
+                                <div className="text-sm text-slate-500">Issue approved properties</div>
                             </div>
                         </Link>
                     </div>

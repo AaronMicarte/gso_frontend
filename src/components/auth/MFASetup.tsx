@@ -30,7 +30,7 @@ export default function MFASetup() {
             await new Promise(resolve => setTimeout(resolve, 2000));
             setStatus({ enabled: true, lastUsed: new Date().toISOString() });
             toast.success('Two-Factor Authentication enabled successfully!');
-        } catch (_error) {
+        } catch (error) {
             toast.error('Failed to enable MFA. Please try again.');
         } finally {
             setEnabling(false);

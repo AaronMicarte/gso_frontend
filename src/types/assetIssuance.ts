@@ -2,6 +2,7 @@
 // Based on real GSO property issuance workflow
 
 import { Department } from './masterData';
+import { User } from './auth';
 
 export interface AssetRequest {
     RequestID: number;
@@ -59,9 +60,10 @@ export interface AssetIssuance {
     RequestID: number;
     DocumentType: 'PAR' | 'ICS';
     DocumentNumber: string;
-    PropertyInventoryDetailID: number;
-    QuantityIssued: number;
-    IssuedTo: number;
+    PropertyInventoryDetailID?: number; // Optional if it's a header
+    QuantityIssued?: number; // Optional if it's a header
+    IssuedTo: number | null;
+    IssuedToName?: string | null;
     IssuedBy: number;
     IssuanceDate: string;
     Status: 'pending_acknowledgment' | 'acknowledged' | 'returned' | 'disposed';
@@ -129,6 +131,8 @@ export interface AssetRequestReviewData {
         AdminNotes: string | null;
     }[];
     ReviewNotes?: string;
+    approverSignature?: string;
+    approverSignatureSource?: 'canvas' | 'upload';
 }
 
 // Position
@@ -139,14 +143,6 @@ export interface Position {
     CreatedDate: string;
     UpdatedDate: string | null;
     deleted_at: string | null;
-}
-
-// Generic types from other modules (imported)
-export interface User {
-    id: number;
-    name: string;
-    email: string;
-    // ... other user fields
 }
 
 export interface InventoryDetail {
@@ -167,16 +163,6 @@ export interface AssetRequestItem {
     Purpose: string;
     IntendedEndUser?: string;
     AdditionalNotes?: string;
-}
-
-export interface User {
-    UserID: number;
-    FirstName: string;
-    LastName: string;
-    FullName: string;
-    Email: string;
-    DepartmentID?: number;
-    department?: Department;
 }
 
 export interface InventoryDetail {
@@ -237,6 +223,8 @@ export interface CreateAssetRequestData {
         IntendedEndUser?: string;
         AdditionalNotes?: string;
     }[];
+    requesterSignature: string;
+    requesterSignatureSource: 'canvas' | 'upload';
 }
 
 export interface ReviewAssetRequestData {
@@ -244,8 +232,11 @@ export interface ReviewAssetRequestData {
 }
 
 export interface IssueAssetData {
-    RequestID: number;
-    IssuanceNotes?: string;
+    request_id: number;
+    date_issued: string;
+    remarks: string | null;
+    issuerSignature: string;
+    issuerSignatureSource: 'canvas' | 'upload';
 }
 
 export interface AcknowledgeAssetData {
