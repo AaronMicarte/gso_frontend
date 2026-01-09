@@ -115,7 +115,6 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
                             <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{index + 1}</td>
                             <td className="border border-black p-1" style={{ verticalAlign: 'top' }}>
                                 <div className="font-semibold">{detail.drDetail?.ItemDescription}</div>
-                                {detail.Remarks && <div className="text-xs italic">({detail.Remarks})</div>}
                             </td>
                             <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{detail.drDetail?.unitOfMeasure?.UnitName || 'pcs'}</td>
                             <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{detail.drDetail?.QuantityDelivered}</td>

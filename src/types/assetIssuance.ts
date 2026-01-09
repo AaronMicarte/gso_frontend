@@ -104,6 +104,7 @@ export interface AssetIssuance {
     // Relationships
     request?: AssetRequest;
     inventoryDetail?: InventoryDetail;
+    details?: IssuanceDetail[];
     issuedToUser?: User;
     issuer?: User;
     acknowledger?: User;
@@ -111,6 +112,19 @@ export interface AssetIssuance {
 
     // Computed
     signature_url?: string;
+}
+
+export interface IssuanceDetail {
+    IssuanceDetailID: number;
+    IssuanceID: number;
+    InventoryDetailID: number;
+    QuantityIssued: number;
+    Remarks?: string;
+    created_at: string;
+    updated_at: string;
+
+    // Relationships
+    inventoryDetail?: InventoryDetail;
 }
 
 export interface AssetAuditLog {
@@ -197,6 +211,8 @@ export interface InventoryDetail {
     ConditionID: number;
     PropertyTypeID: number;
     UnitOfMeasureID: number;
+    PropertyNumber?: string;
+    UnitCost?: number;
 
     // Relationships
     propertyInventory?: PropertyInventory;
@@ -215,7 +231,7 @@ export interface PropertyInventory {
 
 export interface PropertyType {
     PropertyTypeID: number;
-    PropertyTypeName: string;
+    PropertyName: string;
     PropertyClassificationID: number;
     propertyClassification?: PropertyClassification;
 }

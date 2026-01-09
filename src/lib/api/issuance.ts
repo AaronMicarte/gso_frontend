@@ -9,10 +9,56 @@ import {
     AssetRequest
 } from '@/types/assetIssuance';
 
+interface InventoryItem {
+    InventoryDetailID: number;
+    Description: string;
+    Brand?: string;
+    ModelNumber?: string;
+    PropertyNumber?: string;
+    SerialNumber?: string;
+    UnitCost: number;
+    IsAvailable: boolean;
+    PropertyName?: string;
+    UnitName?: string;
+    inventory?: {
+        InventoryNumber: string;
+        DateReceived: string;
+    };
+}
+
+interface CreateIssuanceData {
+    request_id: number;
+    date_issued: string;
+    remarks?: string;
+    inventory_items: Array<{
+        request_detail_id: number;
+        inventory_detail_id: number;
+        quantity_issued: number;
+    }>;
+    issuerSignature: string;
+    issuerSignatureSource: 'canvas' | 'upload';
+}
+
+interface GroupedIssuance {
+    RequestID: number;
+    RequestNumber: string;
+    RequestDate: string;
+    requester: {
+        FullName: string;
+        Department: string;
+    };
+    department: {
+        DepartmentName: string;
+    };
+    issuances: AssetIssuance[];
+    totalItems: number;
+    isExpanded?: boolean;
+}
+
 const issuanceAPI = {
-    // Get all property issuances with filters
+    // Get all property issuances with filters (now returns grouped data)
     getAll: async (filters?: AssetIssuanceFilters) => {
-        const { data } = await apiClient.get<PaginatedResponse<AssetIssuance>>(
+        const { data } = await apiClient.get<PaginatedResponse<GroupedIssuance>>(
             '/property-issuances',
             { params: filters }
         );
@@ -25,7 +71,16 @@ const issuanceAPI = {
         return data;
     },
 
-    // Issue assets from approved request
+    // Create new issuance following GSO workflow
+    create: async (issuanceData: CreateIssuanceData) => {
+        const { data } = await apiClient.post<AssetIssuanceResponse>(
+            '/property-issuances',
+            issuanceData
+        );
+        return data;
+    },
+
+    // Issue assets from approved request (legacy method)
     issueFromRequest: async (requestId: number, issuanceData: IssueAssetData) => {
         const { data } = await apiClient.post<AssetIssuanceResponse>(
             `/asset-requests/${requestId}/issue`,
@@ -52,10 +107,33 @@ const issuanceAPI = {
         return data;
     },
 
+    // Get requests ready for issuance (new GSO endpoint)
+    getRequestsForIssuance: async (filters?: { per_page?: number; page?: number }) => {
+        const { data } = await apiClient.get<PaginatedResponse<AssetRequest>>(
+            '/property-issuances/requests-for-issuance',
+            { params: filters }
+        );
+        return data;
+    },
+
+    // Get available inventory items for issuance selection
+    getAvailableInventory: async (filters?: {
+        per_page?: number;
+        page?: number;
+        search?: string;
+        property_type?: number;
+    }) => {
+        const { data } = await apiClient.get<PaginatedResponse<InventoryItem>>(
+            '/property-issuances/available-inventory',
+            { params: filters }
+        );
+        return data;
+    },
+
     // Generate PAR/ICS document
     generateDocument: async (id: number, type: 'PAR' | 'ICS') => {
         const response = await apiClient.get(`/property-issuances/${id}/document/${type}`, {
-            responseType: 'json'
+            responseType: 'blob'
         });
         return response.data;
     },

@@ -9,6 +9,7 @@ import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AssetRequestItem } from '@/types/assetIssuance';
 import { SignatureModal } from '@/components/ui/SignatureModal';
+import { AxiosError } from 'axios';
 
 interface NewAssetRequestPageProps {
     baseRoute: string;
@@ -140,7 +141,20 @@ export function NewAssetRequestPage({ baseRoute }: NewAssetRequestPageProps) {
             router.push(`${baseRoute}/asset-requests`);
         } catch (error) {
             console.error('Failed to create request:', error);
-            toast.error('Failed to submit request');
+            const axiosError = error as AxiosError<{ message: string; errors?: Record<string, string[]> }>;
+
+            if (axiosError.response?.data?.message) {
+                toast.error(axiosError.response.data.message);
+                if (axiosError.response.data.errors) {
+                    // Show first validation error if available
+                    const firstError = Object.values(axiosError.response.data.errors)[0];
+                    if (firstError && firstError.length > 0) {
+                        toast.error(firstError[0]);
+                    }
+                }
+            } else {
+                toast.error('Failed to submit request');
+            }
         } finally {
             setLoading(false);
         }

@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { AxiosError } from 'axios';
 import assetIssuanceAPI from '@/lib/api/assetIssuance';
 import { AssetRequest, AssetRequestDetail, EndUser } from '@/types/assetIssuance';
 import { Department } from '@/types/masterData';
@@ -67,17 +68,17 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                     };
                 }));
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to load request:', error);
 
             let errorMessage = 'Failed to load asset request';
-            if (error?.response?.status === 404) {
+            if (error instanceof AxiosError && error.response?.status === 404) {
                 errorMessage = 'Asset request not found';
-            } else if (error?.response?.status === 403) {
+            } else if (error instanceof AxiosError && error.response?.status === 403) {
                 errorMessage = 'You do not have permission to view this request';
-            } else if (error?.response?.status >= 500) {
+            } else if (error instanceof AxiosError && error.response?.status && error.response.status >= 500) {
                 errorMessage = 'Server error. Please try again later.';
-            } else if (error?.message?.includes('syntax error')) {
+            } else if (error instanceof Error && error?.message?.includes('syntax error')) {
                 errorMessage = 'Server configuration error. Please contact administrator.';
             }
 

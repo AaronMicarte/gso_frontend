@@ -222,10 +222,21 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         );
     }
 
-    const StatusIcon = statusConfig[issuance.Status].icon;
-    const statusInfo = statusConfig[issuance.Status];
-    const docInfo = documentTypeConfig[issuance.DocumentType];
-    const issuanceDate = toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila');
+    const StatusIcon = statusConfig[issuance.Status]?.icon || Clock;
+    const statusInfo = statusConfig[issuance.Status] || {
+        label: issuance.Status || 'Unknown',
+        color: 'bg-gray-100 text-gray-800',
+        bgColor: 'bg-gray-50',
+        icon: Clock
+    };
+    const docInfo = documentTypeConfig[issuance.DocumentType] || {
+        label: issuance.DocumentType || 'Unknown',
+        color: 'bg-gray-100 text-gray-800',
+        fullName: 'Unknown Document Type'
+    };
+    const issuanceDate = issuance.IssuanceDate
+        ? toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila')
+        : new Date(); // Fallback to current date if null
 
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
@@ -329,53 +340,53 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                     </div>
                 </div>
 
-                {/* Asset Information */}
-                <div className="bg-white shadow rounded-lg">
+                {/* Issued Items */}
+                <div className="bg-white shadow rounded-lg overflow-hidden">
                     <div className="px-4 py-5 sm:p-6">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Asset Information</h3>
-                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Item Description</label>
-                                <p className="mt-1 text-sm text-gray-900">
-                                    {issuance.inventoryDetail?.propertyInventory?.ItemDescription || 'N/A'}
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Quantity Issued</label>
-                                <p className="mt-1 text-sm text-gray-900">
-                                    {issuance.QuantityIssued} {issuance.inventoryDetail?.unitOfMeasure?.UnitName || ''}
-                                </p>
-                            </div>
-                            {issuance.inventoryDetail?.propertyInventory?.Brand && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Brand</label>
-                                    <p className="mt-1 text-sm text-gray-900">
-                                        {issuance.inventoryDetail.propertyInventory.Brand}
-                                    </p>
-                                </div>
-                            )}
-                            {issuance.inventoryDetail?.propertyInventory?.ModelNumber && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Model Number</label>
-                                    <p className="mt-1 text-sm text-gray-900">
-                                        {issuance.inventoryDetail.propertyInventory.ModelNumber}
-                                    </p>
-                                </div>
-                            )}
-                            {issuance.inventoryDetail?.propertyInventory?.SerialNumber && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Serial Number</label>
-                                    <p className="mt-1 text-sm text-gray-900">
-                                        {issuance.inventoryDetail.propertyInventory.SerialNumber}
-                                    </p>
-                                </div>
-                            )}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Property Type</label>
-                                <p className="mt-1 text-sm text-gray-900">
-                                    {issuance.inventoryDetail?.propertyType?.PropertyTypeName || 'N/A'}
-                                </p>
-                            </div>
+                        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Issued Items</h3>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property No.</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Cost</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {issuance.details?.map((detail, index) => (
+                                        <tr key={detail.IssuanceDetailID || index}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{detail.QuantityIssued}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{detail.inventoryDetail?.unitOfMeasure?.UnitName}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                <div className="font-medium">{detail.inventoryDetail?.propertyInventory?.ItemDescription}</div>
+                                                <div className="text-gray-500 text-xs mt-1">
+                                                    {detail.inventoryDetail?.propertyInventory?.Brand && `Brand: ${detail.inventoryDetail.propertyInventory.Brand} `}
+                                                    {detail.inventoryDetail?.propertyInventory?.ModelNumber && `Model: ${detail.inventoryDetail.propertyInventory.ModelNumber} `}
+                                                    {detail.inventoryDetail?.propertyInventory?.SerialNumber && `SN: ${detail.inventoryDetail.propertyInventory.SerialNumber}`}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                                                {detail.inventoryDetail?.PropertyNumber || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {detail.inventoryDetail?.UnitCost ? `₱${Number(detail.inventoryDetail.UnitCost).toLocaleString()}` : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                {detail.inventoryDetail?.UnitCost ? `₱${(Number(detail.inventoryDetail.UnitCost) * detail.QuantityIssued).toLocaleString()}` : '-'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!issuance.details || issuance.details.length === 0) && (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-4 text-sm text-gray-500 text-center">No items found in this issuance.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -477,7 +488,10 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Request Date</label>
                                     <p className="mt-1 text-sm text-gray-900">
-                                        {format(toZonedTime(new Date(issuance.request.RequestDate), 'Asia/Manila'), 'PPP')}
+                                        {issuance.request.RequestDate
+                                            ? format(toZonedTime(new Date(issuance.request.RequestDate), 'Asia/Manila'), 'PPP')
+                                            : 'N/A'
+                                        }
                                     </p>
                                 </div>
                                 {issuance.request.Purpose && (

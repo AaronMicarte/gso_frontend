@@ -7,6 +7,7 @@ import { ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, User, Calendar, Fi
 import assetIssuanceAPI from '@/lib/api/assetIssuance';
 import { AssetRequest } from '@/types/assetIssuance';
 import { toast } from 'sonner';
+import { AxiosError } from 'axios';
 import { resolveStorageUrl } from '@/lib/utils/signature';
 
 const statusConfig = {
@@ -43,15 +44,15 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
             const id = params.id as string;
             const response = await assetIssuanceAPI.requests.getById(parseInt(id));
             setRequest(response);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to load request:', error);
 
             let errorMessage = 'Failed to load request details';
-            if (error?.response?.status === 404) {
+            if (error instanceof AxiosError && error.response?.status === 404) {
                 errorMessage = 'Asset request not found';
-            } else if (error?.response?.status === 403) {
+            } else if (error instanceof AxiosError && error.response?.status === 403) {
                 errorMessage = 'You do not have permission to view this request';
-            } else if (error?.response?.status >= 500) {
+            } else if (error instanceof AxiosError && error.response?.status && error.response.status >= 500) {
                 errorMessage = 'Server error. Please try again later.';
             }
 
@@ -289,7 +290,7 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                                                     <div className="bg-white p-3 rounded-lg border border-slate-200">
                                                                         <div className="text-xs text-slate-500 uppercase tracking-wide">Type</div>
                                                                         <div className="font-medium text-slate-900">
-                                                                            {detail.inventoryDetail?.propertyType?.PropertyTypeName}
+                                                                            {detail.inventoryDetail?.propertyType?.PropertyName}
                                                                         </div>
                                                                     </div>
                                                                     <div className="bg-white p-3 rounded-lg border border-slate-200">
