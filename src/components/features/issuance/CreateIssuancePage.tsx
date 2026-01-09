@@ -53,6 +53,8 @@ interface InventoryItem {
     dr_item_description?: string;
     InventoryNumber?: string;
     DateReceived?: string;
+    PropertyStatusID?: number;
+    StatusName?: string;
     drDetail?: {
         ItemDescription: string;
     };
@@ -274,7 +276,7 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
 
             await issuanceAPI.create(submitData);
             toast.success('Assets issued successfully');
-            router.push(`${baseRoute}/issuances`);
+            router.push(`${baseRoute}`);
         } catch (error) {
             console.error('Failed to create issuance:', error);
             toast.error('Failed to issue assets');
@@ -289,18 +291,25 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
         setShowSignatureModal(false);
     };
 
-    const filteredInventory = availableInventory.filter(item => {
-        if (!inventorySearch) return true;
-        const search = inventorySearch.toLowerCase();
-        return (
-            (item.Description?.toLowerCase() || '').includes(search) ||
-            (item.Brand?.toLowerCase() || '').includes(search) ||
-            (item.ModelNumber?.toLowerCase() || '').includes(search) ||
-            (item.PropertyNumber?.toLowerCase() || '').includes(search) ||
-            (item.SerialNumber?.toLowerCase() || '').includes(search) ||
-            (item.dr_item_description?.toLowerCase() || '').includes(search)
-        );
-    });
+    const filteredInventory = availableInventory
+        .filter((item) => {
+            // Defensive: only show items the backend considers available.
+            // Prefer PropertyStatusID when present; otherwise fall back to StatusName.
+            if (typeof item.PropertyStatusID === 'number') return item.PropertyStatusID === 1;
+            return (item.StatusName || '').toLowerCase() === 'available';
+        })
+        .filter(item => {
+            if (!inventorySearch) return true;
+            const search = inventorySearch.toLowerCase();
+            return (
+                (item.Description?.toLowerCase() || '').includes(search) ||
+                (item.Brand?.toLowerCase() || '').includes(search) ||
+                (item.ModelNumber?.toLowerCase() || '').includes(search) ||
+                (item.PropertyNumber?.toLowerCase() || '').includes(search) ||
+                (item.SerialNumber?.toLowerCase() || '').includes(search) ||
+                (item.dr_item_description?.toLowerCase() || '').includes(search)
+            );
+        });
 
     if (loading) {
         return (
@@ -639,7 +648,9 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                                                 </div>
                                                 <div className="text-right">
                                                     <div className="text-sm font-medium text-slate-900">₱{item.UnitCost.toLocaleString()}</div>
-                                                    <div className="text-xs text-green-600">Available</div>
+                                                    <div className="text-xs text-green-600">
+                                                        {item.StatusName || (item.PropertyStatusID === 1 ? 'Available' : 'Unavailable')}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

@@ -5,11 +5,12 @@ import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit } from 'lucide-react';
+import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
 import * as Dialog from '@radix-ui/react-dialog';
+import { PropertySticker } from './PropertySticker';
 
 export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const params = useParams() as { id?: string };
@@ -121,6 +122,12 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                     </span>
                 );
         }
+    };
+
+    const getCustodianDisplayName = (statusId?: number, custodianName?: string) => {
+        if (custodianName) return custodianName;
+        if (statusId === 2) return 'Unassigned';
+        return 'GSO Property Custodian';
     };
 
     return (
@@ -268,11 +275,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                             ) : (
                                                 filteredDetails.map((d: {
                                                     InventoryDetailID: number;
+                                                    InventoryID: number;
                                                     Description?: string;
                                                     Brand?: string;
                                                     ModelNumber?: string;
                                                     SerialNumber?: string;
                                                     PropertyName?: string;
+                                                    PropertyNumber?: string;
                                                     ClassificationName?: string;
                                                     DocumentType?: 'ICS' | 'PAR';
                                                     Quantity: number;
@@ -282,6 +291,8 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     ConditionID?: number;
                                                     PropertyStatusID?: number;
                                                     custodianName?: string;
+                                                    locationDepartment?: string;
+                                                    dr_item_description?: string;
                                                 }) => (
                                                     <tr key={d.InventoryDetailID} className="hover:bg-slate-50">
                                                         <td className="px-6 py-4">
@@ -343,11 +354,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         <td className="px-6 py-4 text-slate-600">
                                                             <div>
                                                                 <div className="font-medium">{d.Quantity} @ ₱{Number(d.UnitCost || 0).toFixed(2)}</div>
-                                                                {d.QuantityAvailable && d.QuantityAvailable !== d.Quantity && (
-                                                                    <div className="text-xs text-slate-500">
-                                                                        Available: {d.QuantityAvailable}
-                                                                    </div>
-                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
@@ -356,11 +362,28 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         <td className="px-6 py-4 text-slate-600">
                                                             <div className="flex items-center gap-1">
                                                                 <User className="w-3 h-3" />
-                                                                {d.custodianName || 'GSO Property Custodian'}
+                                                                {getCustodianDisplayName(d.PropertyStatusID, d.custodianName)}
                                                             </div>
+                                                            {d.locationDepartment && (
+                                                                <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                                    <Building2 className="w-3 h-3" />
+                                                                    {d.locationDepartment}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">
+                                                                    {d.PropertyNumber && (d.PropertyStatusID === 2) && (
+                                                                    <PropertySticker
+                                                                        propertyNumber={d.PropertyNumber}
+                                                                        itemName={d.dr_item_description || 'Asset'}
+                                                                        category={d.PropertyName || d.ClassificationName || '-'}
+                                                                        url={`${typeof window !== 'undefined' ? window.location.origin : ''}/admin/inventory/${d.InventoryID}`}
+                                                                        custodianName={getCustodianDisplayName(d.PropertyStatusID, d.custodianName)}
+                                                                        date={data?.DateAcquired ? format(new Date(data.DateAcquired), 'MM/dd/yyyy') : '-'}
+                                                                        unitCost={d.UnitCost}
+                                                                    />
+                                                                )}
                                                                 <button
                                                                     onClick={() => openEditModal(d.InventoryDetailID, d.Description || '')}
                                                                     className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"

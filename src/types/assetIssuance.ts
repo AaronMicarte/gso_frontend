@@ -117,8 +117,10 @@ export interface AssetIssuance {
 export interface IssuanceDetail {
     IssuanceDetailID: number;
     IssuanceID: number;
+    RequestDetailID?: number;
     InventoryDetailID: number;
     QuantityIssued: number;
+    ItemDescription?: string | null;
     Remarks?: string;
     created_at: string;
     updated_at: string;
@@ -223,6 +225,7 @@ export interface InventoryDetail {
 
 export interface PropertyInventory {
     InventoryID: number;
+    ItemName?: string | null;
     ItemDescription: string;
     Brand: string | null;
     ModelNumber: string | null;
@@ -281,8 +284,9 @@ export interface IssueAssetData {
 }
 
 export interface AcknowledgeAssetData {
-    signature: string; // Base64 encoded
-    notes?: string;
+    acknowledgment_signature: string; // Base64 encoded (data URL recommended)
+    acknowledgment_notes?: string;
+    acknowledged_by: number;
 }
 
 // Response types

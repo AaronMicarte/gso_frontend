@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useInventories, usePendingIngestion, useIngestFromIar } from '@/lib/hooks/useInventory';
-import { Package, Eye, ArrowDownToLine, Building2, User, MapPin, AlertTriangle, CheckCircle, Clock, Archive, UserCheck } from 'lucide-react';
+import { useInventories, usePendingIngestion, useIngestFromIar, useAllInventoryItems } from '@/lib/hooks/useInventory';
+import { Package, Eye, ArrowDownToLine, User, AlertTriangle, CheckCircle, Clock, Archive } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
@@ -11,13 +11,21 @@ import { toast } from 'sonner';
 export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-    const [selectedCustodian, setSelectedCustodian] = useState<number | null>(null);
-    const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
-    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
     const { data, isLoading } = useInventories({ page, per_page: 10, search });
     const { data: pendingIars, isLoading: isLoadingPending } = usePendingIngestion();
     const { mutate: ingest, isPending: isIngesting } = useIngestFromIar();
+
+    // Summary stats should reflect actual per-item status (same logic as AllItemsPage)
+    // Use per_page=1 to avoid loading large datasets; we only need the totals.
+    const { data: allItemsStats } = useAllInventoryItems({ page: 1, per_page: 1, search: '' });
+    const { data: availableItemsStats } = useAllInventoryItems({ page: 1, per_page: 1, search: '', property_status_id: 1 });
+    const { data: assignedItemsStats } = useAllInventoryItems({ page: 1, per_page: 1, search: '', property_status_id: 2 });
+
+    const totalItems = allItemsStats?.total ?? 0;
+    const availableItems = availableItemsStats?.total ?? 0;
+    const assignedItems = assignedItemsStats?.total ?? 0;
+    const otherItems = Math.max(0, totalItems - availableItems - assignedItems);
 
     const handleIngest = (iarId: number) => {
         ingest(iarId, {
@@ -30,14 +38,20 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
         window.open(`${baseRoute}/inspection-acceptance-reports/${iarId}`, '_blank');
     };
 
-    // Group inventories by property status for hierarchical display
-    const groupedInventories = data?.data?.reduce((acc, inv) => {
-        // Group by primary property status in the inventory
-        const primaryStatus = 'Available'; // Default status since details may not be loaded in list view
-        if (!acc[primaryStatus]) acc[primaryStatus] = [];
-        acc[primaryStatus].push(inv);
-        return acc;
-    }, {} as Record<string, typeof data.data>) || {};
+    type InventoryRowDetail = {
+        PropertyStatusID?: number;
+        Quantity?: number;
+        QuantityAvailable?: number;
+    };
+
+    const getAvailableLeft = (details?: InventoryRowDetail[]) => {
+        if (!details || details.length === 0) return 0;
+        return details.reduce((sum, d) => {
+            if (d.PropertyStatusID !== 1) return sum;
+            const qty = d.QuantityAvailable ?? d.Quantity ?? 0;
+            return sum + qty;
+        }, 0);
+    };
 
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
@@ -74,7 +88,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 <Package className="w-5 h-5 text-blue-600" />
                                 <div className="text-sm font-medium text-slate-700">Total Assets</div>
                             </div>
-                            <div className="text-2xl font-bold text-slate-900">{data.data.reduce((sum, inv) => sum + inv.TotalItems, 0)}</div>
+                            <div className="text-2xl font-bold text-slate-900">{totalItems}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
@@ -82,7 +96,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 <div className="text-sm font-medium text-slate-700">Available</div>
                             </div>
                             <div className="text-2xl font-bold text-green-600">
-                                {data.data.reduce((sum, inv) => sum + inv.TotalItems, 0)}
+                                {availableItems}
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -91,7 +105,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 <div className="text-sm font-medium text-slate-700">Assigned</div>
                             </div>
                             <div className="text-2xl font-bold text-amber-600">
-                                0
+                                {assignedItems}
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -100,7 +114,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 <div className="text-sm font-medium text-slate-700">For Disposal</div>
                             </div>
                             <div className="text-2xl font-bold text-red-600">
-                                0
+                                {otherItems}
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -204,14 +218,13 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                     <th className="px-6 py-4">Total Value</th>
                                     <th className="px-6 py-4">Property Status</th>
                                     <th className="px-6 py-4">Custodian</th>
-                                    <th className="px-6 py-4">Location</th>
                                     <th className="px-6 py-4">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <div className="flex items-center justify-center gap-2">
                                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
                                                 Loading property ledger...
@@ -220,13 +233,13 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                     </tr>
                                 ) : data?.data?.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                             No property records found
                                         </td>
                                     </tr>
                                 ) : (
-                                    data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; Description?: string; TotalItems: number; TotalValue: number; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } } }) => (
+                                    data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; Description?: string; TotalItems: number; TotalValue: number; details?: InventoryRowDetail[]; PrimaryStatus?: 'Available' | 'Assigned'; CurrentCustodianName?: string; CurrentLocation?: string; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } } }) => (
                                         <tr key={inv.InventoryID} className="hover:bg-slate-50">
                                             <td className="px-6 py-4 font-medium text-slate-900">
                                                 {inv.InventoryNumber}
@@ -250,19 +263,20 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                                 ₱{inv.TotalValue.toFixed(2)}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                    <CheckCircle className="w-3 h-3" />
-                                                    Available
-                                                </span>
+                                                {getAvailableLeft(inv.details) > 0 ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        {getAvailableLeft(inv.details)} Available
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        <User className="w-3 h-3" />
+                                                        All Assigned
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
                                                 GSO Property Custodian
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                <div className="flex items-center gap-1">
-                                                    <Building2 className="w-3 h-3" />
-                                                    GSO Warehouse
-                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">

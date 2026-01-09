@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import * as Dialog from '@radix-ui/react-dialog';
 import type { InventoryItem } from '@/lib/api/inventory';
 
+import { PropertySticker } from './PropertySticker';
+
 export function AllItemsPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
@@ -130,6 +132,12 @@ export function AllItemsPage() {
                     </span>
                 );
         }
+    };
+
+    const getCustodianDisplayName = (statusId?: number, custodianName?: string) => {
+        if (custodianName) return custodianName;
+        if (statusId === 2) return 'Unassigned';
+        return 'GSO Property Custodian';
     };
 
     return (
@@ -304,11 +312,22 @@ export function AllItemsPage() {
                                             <td className="px-6 py-4 text-slate-600">
                                                 <div className="flex items-center gap-1">
                                                     <User className="w-3 h-3" />
-                                                    GSO Property Custodian
+                                                    {getCustodianDisplayName(item.PropertyStatusID, item.custodianName)}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
+                                                    {item.PropertyNumber && (item.PropertyStatusID === 2) && (
+                                                        <PropertySticker
+                                                            propertyNumber={item.PropertyNumber}
+                                                            itemName={item.dr_item_description || item.PropertyName || 'Asset'}
+                                                            category={item.PropertyName || item.ClassificationName || '-'}
+                                                            url={`${typeof window !== 'undefined' ? window.location.origin : ''}/admin/inventory/${item.InventoryID}`}
+                                                            custodianName={getCustodianDisplayName(item.PropertyStatusID, item.custodianName)}
+                                                            date={item.CreatedDate ? new Date(item.CreatedDate).toLocaleDateString() : '-'}
+                                                            unitCost={item.UnitCost}
+                                                        />
+                                                    )}
                                                     <button
                                                         onClick={() => openEditModal(item.InventoryDetailID, item.Description || '')}
                                                         className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"

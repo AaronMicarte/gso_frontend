@@ -9,9 +9,12 @@ interface SignatureModalProps {
     onOpenChange: (open: boolean) => void;
     onSave: (dataUrl: string, source: 'canvas' | 'upload') => void;
     loading?: boolean;
+    confirmText?: string;
+    confirmPrompt?: string;
+    preContent?: React.ReactNode;
 }
 
-export function SignatureModal({ open, onOpenChange, onSave, loading = false }: SignatureModalProps) {
+export function SignatureModal({ open, onOpenChange, onSave, loading = false, confirmText = 'Save', confirmPrompt, preContent }: SignatureModalProps) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [mode, setMode] = useState<'canvas' | 'upload'>('canvas');
     const [isDrawing, setIsDrawing] = useState(false);
@@ -100,6 +103,10 @@ export function SignatureModal({ open, onOpenChange, onSave, loading = false }: 
     };
 
     const handleSave = () => {
+        if (confirmPrompt && !window.confirm(confirmPrompt)) {
+            return;
+        }
+
         if (mode === 'canvas') {
             const canvas = canvasRef.current!;
             const dataUrl = canvas.toDataURL('image/png');
@@ -119,12 +126,13 @@ export function SignatureModal({ open, onOpenChange, onSave, loading = false }: 
             open={open}
             onOpenChange={onOpenChange}
             onConfirm={handleSave}
-            confirmText="Save"
+            confirmText={confirmText}
             cancelText="Cancel"
             loading={loading}
             contentClassName="max-w-[95vw] sm:max-w-[1100px] p-8"
         >
             <div className="w-[min(95vw,1100px)] max-h-[90vh] overflow-auto space-y-3">
+                {preContent}
                 <div className="flex gap-2">
                     <button className={`px-3 py-1 rounded ${mode === 'canvas' ? 'bg-[var(--primary)] text-white' : 'bg-slate-100'}`} onClick={() => setMode('canvas')}>Draw</button>
                     <button className={`px-3 py-1 rounded ${mode === 'upload' ? 'bg-[var(--primary)] text-white' : 'bg-slate-100'}`} onClick={() => setMode('upload')}>Upload</button>

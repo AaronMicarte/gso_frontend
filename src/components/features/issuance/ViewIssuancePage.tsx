@@ -13,10 +13,11 @@ import {
     AlertCircle,
     Archive
 } from 'lucide-react';
+import { PropertySticker } from '../inventory/PropertySticker';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import issuanceAPI from '@/lib/api/issuance';
-import { AssetIssuance, AcknowledgeAssetData } from '@/types/assetIssuance';
+import { AssetIssuance, AcknowledgeAssetData, InventoryDetail } from '@/types/assetIssuance';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { SignatureModal } from '@/components/ui/SignatureModal';
@@ -153,14 +154,43 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         }
     };
 
+    type InventoryDetailWithPropertyName = InventoryDetail & { PropertyName?: string };
+
+    const getRecipientUserId = (): number | null => {
+        if (!issuance) return null;
+
+        if (issuance.DocumentType === 'ICS') {
+            return (
+                issuance.request?.RequestedBy ??
+                issuance.request?.requester?.UserID ??
+                issuance.issuedToUser?.UserID ??
+                issuance.IssuedTo ??
+                null
+            );
+        }
+
+        return issuance.IssuedTo ?? null;
+    };
+
     const handleAcknowledgeSignature = async (signatureData: string) => {
         if (!issuance) return;
+        if (!user) {
+            toast.error('You must be logged in to acknowledge');
+            return;
+        }
+
+        const recipientUserId = getRecipientUserId();
+        if (recipientUserId && user.UserID !== recipientUserId) {
+            toast.error('You are not allowed to acknowledge this issuance');
+            return;
+        }
 
         try {
             setIsAcknowledging(true);
             const acknowledgmentData: AcknowledgeAssetData = {
-                signature: signatureData,
-                notes: acknowledgmentNotes || undefined
+                acknowledgment_signature: signatureData,
+                acknowledgment_notes: acknowledgmentNotes || undefined,
+                acknowledged_by: user.UserID,
             };
 
             await issuanceAPI.acknowledge(issuance.IssuanceID, acknowledgmentData);
@@ -180,14 +210,15 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         return issuance &&
             issuance.Status === 'pending_acknowledgment' &&
             user &&
-            user.UserID === issuance.IssuedTo;
+            user.UserID === getRecipientUserId();
     };
 
     const canViewDetails = () => {
+        const recipientUserId = getRecipientUserId();
         return user && (
             user.UserRoleID === 1 || // Admin
             user.UserID === issuance?.IssuedBy || // Issuer
-            user.UserID === issuance?.IssuedTo // Recipient
+            (!!recipientUserId && user.UserID === recipientUserId) // Recipient
         );
     };
 
@@ -348,21 +379,24 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property No.</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Cost</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty × Unit Cost</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {issuance.details?.map((detail, index) => (
                                         <tr key={detail.IssuanceDetailID || index}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{detail.QuantityIssued}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                {detail.inventoryDetail?.propertyInventory?.ItemName || detail.ItemDescription || 'Item'}
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{detail.inventoryDetail?.unitOfMeasure?.UnitName}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">
-                                                <div className="font-medium">{detail.inventoryDetail?.propertyInventory?.ItemDescription}</div>
+                                                <div className="font-medium">{detail.inventoryDetail?.propertyInventory?.ItemDescription || '-'}</div>
                                                 <div className="text-gray-500 text-xs mt-1">
                                                     {detail.inventoryDetail?.propertyInventory?.Brand && `Brand: ${detail.inventoryDetail.propertyInventory.Brand} `}
                                                     {detail.inventoryDetail?.propertyInventory?.ModelNumber && `Model: ${detail.inventoryDetail.propertyInventory.ModelNumber} `}
@@ -373,16 +407,39 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                 {detail.inventoryDetail?.PropertyNumber || 'N/A'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {detail.inventoryDetail?.UnitCost ? `₱${Number(detail.inventoryDetail.UnitCost).toLocaleString()}` : '-'}
+                                                {detail.inventoryDetail?.UnitCost
+                                                    ? `${detail.QuantityIssued} × ₱${Number(detail.inventoryDetail.UnitCost).toLocaleString()}`
+                                                    : `${detail.QuantityIssued} × -`}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                 {detail.inventoryDetail?.UnitCost ? `₱${(Number(detail.inventoryDetail.UnitCost) * detail.QuantityIssued).toLocaleString()}` : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                                    {detail.inventoryDetail?.PropertyNumber && detail.inventoryDetail?.InventoryID && (
+                                                        <PropertySticker
+                                                            propertyNumber={detail.inventoryDetail.PropertyNumber}
+                                                            itemName={detail.inventoryDetail?.propertyInventory?.ItemName || detail.inventoryDetail?.propertyInventory?.ItemDescription || 'Asset'}
+                                                            category={
+                                                                // Prefer the InventoryDetail -> PropertyType name (true category)
+                                                                detail.inventoryDetail?.propertyType?.PropertyName ||
+                                                                // Fallback to its classification name
+                                                                detail.inventoryDetail?.propertyType?.propertyClassification?.ClassificationName ||
+                                                                // Some backend responses include a flattened PropertyName on the inventory detail
+                                                                (detail.inventoryDetail as InventoryDetailWithPropertyName)?.PropertyName ||
+                                                                '-'
+                                                            }
+                                                            url={`${typeof window !== 'undefined' ? window.location.origin : ''}/admin/inventory/${detail.inventoryDetail.InventoryID}`}
+                                                            custodianName={issuance.IssuedToName || issuance.issuedToUser?.FullName || 'Unassigned'}
+                                                            date={issuance.IssuanceDate ? format(new Date(issuance.IssuanceDate), 'MM/dd/yyyy') : '-'}
+                                                            unitCost={detail.inventoryDetail?.UnitCost}
+                                                        />
+                                                    )}
                                             </td>
                                         </tr>
                                     ))}
                                     {(!issuance.details || issuance.details.length === 0) && (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-4 text-sm text-gray-500 text-center">No items found in this issuance.</td>
+                                            <td colSpan={7} className="px-6 py-4 text-sm text-gray-500 text-center">No items found in this issuance.</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -511,10 +568,12 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                     onOpenChange={setShowSignatureModal}
                     onSave={(signatureData) => handleAcknowledgeSignature(signatureData)}
                     loading={isAcknowledging}
+                    confirmText="Confirm Signature"
+                    confirmPrompt="Confirm your signature to acknowledge receipt?"
                 />
 
                 {/* Signature Viewer */}
-                {issuance.signature_url && (
+                {issuance.AcknowledgmentSignature && (
                     <DialogPrimitive.Root open={showSignatureViewer} onOpenChange={setShowSignatureViewer}>
                         <DialogPrimitive.Portal>
                             <DialogPrimitive.Overlay className="fixed inset-0 bg-black/50 z-50" />
@@ -526,7 +585,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                         ✕
                                     </DialogPrimitive.Close>
                                 </div>
-                                <AcknowledgmentSignatureViewer url={issuance.signature_url} />
+                                <AcknowledgmentSignatureViewer url={issuance.AcknowledgmentSignature} />
                             </DialogPrimitive.Content>
                         </DialogPrimitive.Portal>
                     </DialogPrimitive.Root>

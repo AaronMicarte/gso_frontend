@@ -5,10 +5,15 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, User, Calendar, FileText, Package, Trash2, Loader2, Activity } from 'lucide-react';
 import assetIssuanceAPI from '@/lib/api/assetIssuance';
+import issuanceAPI from '@/lib/api/issuance';
 import { AssetRequest } from '@/types/assetIssuance';
 import { toast } from 'sonner';
 import { AxiosError } from 'axios';
 import { resolveStorageUrl } from '@/lib/utils/signature';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { SignatureModal } from '@/components/ui/SignatureModal';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -28,11 +33,14 @@ interface ViewAssetRequestPageProps {
 export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = false }: ViewAssetRequestPageProps) {
     const router = useRouter();
     const params = useParams();
+    const { user } = useAuth();
     const [request, setRequest] = useState<AssetRequest | null>(null);
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
     const [receiving, setReceiving] = useState(false);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
+    const [showReceiptModal, setShowReceiptModal] = useState(false);
+    const [acknowledgmentNotes, setAcknowledgmentNotes] = useState('');
 
     useEffect(() => {
         loadRequest();
@@ -79,15 +87,37 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
         }
     };
 
-    const handleReceive = async () => {
+    const handleConfirmReceipt = async (signatureDataUrl: string) => {
         if (!request) return;
+        if (!user) {
+            toast.error('You must be logged in to confirm receipt');
+            return;
+        }
+
+        const pendingIssuances = (request.issuances || []).filter(i => i.Status === 'pending_acknowledgment');
+        if (pendingIssuances.length === 0) {
+            toast.info('No pending issuances to acknowledge');
+            return;
+        }
 
         try {
             setReceiving(true);
-            await assetIssuanceAPI.requests.receive(request.RequestID);
-            toast.success('Receipt confirmed successfully');
-            loadRequest(); // Refresh data
+            await Promise.all(
+                pendingIssuances.map((issuance) =>
+                    issuanceAPI.acknowledge(issuance.IssuanceID, {
+                        acknowledgment_signature: signatureDataUrl,
+                        acknowledgment_notes: acknowledgmentNotes || undefined,
+                        acknowledged_by: user.UserID,
+                    })
+                )
+            );
+
+            toast.success('Receipt acknowledged successfully');
+            setAcknowledgmentNotes('');
+            setShowReceiptModal(false);
+            loadRequest();
         } catch (error) {
+            console.error('Failed to confirm receipt:', error);
             toast.error('Failed to confirm receipt');
         } finally {
             setReceiving(false);
@@ -144,23 +174,59 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
     const statusInfo = statusConfig[request.Status];
     const StatusIcon = statusInfo.icon;
 
-    const canReceive = () => {
-        if (!request?.details) return false;
-        // Check if user is assigned to any item
-        return request.details.some(detail => {
-            const latestIssuance = detail.assignments
-                ?.filter(a => a.AssignmentType === 'issuance')
-                ?.sort((a, b) => new Date(b.AssignedAt).getTime() - new Date(a.AssignedAt).getTime())[0];
-            return latestIssuance && (
-                latestIssuance.AssignedUserID === request.requester?.UserID ||
-                latestIssuance.AssignedDepartmentID === request.requester?.DepartmentID
-            );
-        });
+    const isDeptHeadView = baseRoute.startsWith('/department_head');
+    const canDeptHeadConfirmReceipt = () => {
+        if (!isDeptHeadView) return false;
+        if (!user) return false;
+        // simplest, real-world check: requester or same department
+        return user.UserID === request.RequestedBy || user.DepartmentID === request.DepartmentID;
     };
 
     const showCancelButton = canCancel && request.Status === 'pending';
     const showReviewButton = isAdmin && request.Status === 'pending';
-    const showReceiveButton = (request.Status === 'issued' || request.Status === 'approved') && canReceive();
+    const showReceiveButton = request.Status === 'issued' && canDeptHeadConfirmReceipt();
+    const hasPendingIssuances = (request.issuances || []).some(i => i.Status === 'pending_acknowledgment');
+    const manilaNowLabel = format(toZonedTime(new Date(), 'Asia/Manila'), 'PPPp');
+    const issuanceRemarksText = (request.issuances || [])
+        .map((i) => {
+            const notes = (i.IssuanceNotes || '').trim();
+            if (!notes) return null;
+            return `${i.DocumentType} ${i.DocumentNumber}: ${notes}`;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+
+    const issuanceItemRemarks = (request.issuances || [])
+        .map((i) => {
+            const itemLines = (i.details || [])
+                .map((d) => {
+                    const remarks = (d.Remarks || '').trim();
+                    if (!remarks) return null;
+                    const label = (d.ItemDescription || `Item ${d.InventoryDetailID ?? ''}`).trim();
+                    return `- ${label}: ${remarks}`;
+                })
+                .filter(Boolean);
+
+            if (itemLines.length === 0) return null;
+
+            return `${i.DocumentType} ${i.DocumentNumber}\n${itemLines.join('\n')}`;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+
+    const requestDetailIssuanceRemarksMap = new Map<number, string[]>();
+    (request.issuances || []).forEach((issuance) => {
+        (issuance.details || []).forEach((d) => {
+            const requestDetailId = d.RequestDetailID;
+            if (!requestDetailId) return;
+            const remarks = (d.Remarks || '').trim();
+            if (!remarks) return;
+            const line = `${issuance.DocumentType} ${issuance.DocumentNumber}: ${remarks}`;
+            const existing = requestDetailIssuanceRemarksMap.get(requestDetailId) || [];
+            existing.push(line);
+            requestDetailIssuanceRemarksMap.set(requestDetailId, existing);
+        });
+    });
 
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
@@ -336,6 +402,25 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                                             </div>
                                                         </div>
 
+                                                        {/* Item Remarks from Issuance (propertyissuancedetail.Remarks) */}
+                                                        <div className="mt-4">
+                                                            <div className="text-sm text-slate-500 mb-2 uppercase tracking-wide">Item Remarks (Issuance)</div>
+                                                            {request.issuances ? (
+                                                                (() => {
+                                                                    const lines = requestDetailIssuanceRemarksMap.get(detail.RequestDetailID) || [];
+                                                                    return lines.length > 0 ? (
+                                                                        <div className="text-sm bg-white p-3 rounded-lg border border-slate-200 whitespace-pre-line">
+                                                                            {lines.join('\n')}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-sm text-slate-500">No item remarks.</div>
+                                                                    );
+                                                                })()
+                                                            ) : (
+                                                                <div className="text-sm text-slate-500">No issuances loaded for this request.</div>
+                                                            )}
+                                                        </div>
+
                                                         {/* Admin Review Section */}
                                                         {(detail.PropertyClassification || detail.AdminNotes) && (
                                                             <div className="mt-4 pt-4 border-t border-slate-300">
@@ -420,6 +505,70 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
 
                     {/* Sidebar */}
                     <div className="space-y-6">
+                        {/* Issuance Information */}
+                        {(request.IssuedBy || request.IssuedAt || request.issuances) && (
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                                <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-blue-50">
+                                    <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                                        <CheckCircle className="w-5 h-5 text-purple-600" />
+                                        Issuance Information
+                                    </h3>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    {request.issuer && (
+                                        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                            <div className="text-sm text-purple-700 font-medium mb-1">Issued By</div>
+                                            <div className="font-semibold text-slate-900">{request.issuer.FullName}</div>
+                                        </div>
+                                    )}
+                                    {request.IssuedAt && (
+                                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                            <div className="text-sm text-blue-700 font-medium mb-1">Issued At</div>
+                                            <div className="font-semibold text-slate-900">{formatDateTime(request.IssuedAt)}</div>
+                                        </div>
+                                    )}
+
+                                    {/* Issue Notes (Property Issuance.Remarks) */}
+                                    <div className="bg-amber-50 p-4 rounded-lg border border-amber-300">
+                                        <div className="text-sm text-amber-800 font-semibold mb-2 flex items-center gap-2">
+                                            <FileText className="w-4 h-4" />
+                                            Issue Notes
+                                        </div>
+                                        {issuanceRemarksText ? (
+                                            <div className="text-sm text-slate-800 bg-white p-4 rounded border border-amber-200 leading-relaxed whitespace-pre-line">
+                                                {issuanceRemarksText}
+                                            </div>
+                                        ) : request.issuances ? (
+                                            <div className="text-sm text-slate-500">
+                                                {request.issuances.length > 0 ? 'No issue notes.' : 'No issuances yet.'}
+                                            </div>
+                                        ) : (
+                                            <div className="text-sm text-slate-500">No issuances loaded for this request.</div>
+                                        )}
+                                    </div>
+
+                                    {/* Item Remarks (Property Issuance Detail.Remarks) */}
+                                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                        <div className="text-sm text-slate-800 font-semibold mb-2 flex items-center gap-2">
+                                            <Package className="w-4 h-4" />
+                                            Item Remarks
+                                        </div>
+                                        {issuanceItemRemarks ? (
+                                            <div className="text-sm text-slate-800 bg-white p-4 rounded border border-slate-200 leading-relaxed whitespace-pre-line">
+                                                {issuanceItemRemarks}
+                                            </div>
+                                        ) : request.issuances ? (
+                                            <div className="text-sm text-slate-500">
+                                                {request.issuances.length > 0 ? 'No item remarks.' : 'No issuances yet.'}
+                                            </div>
+                                        ) : (
+                                            <div className="text-sm text-slate-500">No issuances loaded for this request.</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Review Information */}
                         {(request.ReviewedBy || request.ReviewedAt) && (
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -545,7 +694,7 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                 )}
                                 {showReceiveButton && (
                                     <button
-                                        onClick={handleReceive}
+                                        onClick={() => setShowReceiptModal(true)}
                                         disabled={receiving}
                                         className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
                                     >
@@ -594,6 +743,41 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                         </div>
                     </div>
                 )}
+
+                <SignatureModal
+                    open={showReceiptModal}
+                    onOpenChange={setShowReceiptModal}
+                    loading={receiving}
+                    confirmText="Confirm Receipt"
+                    confirmPrompt="Confirm your signature to acknowledge receipt?"
+                    preContent={
+                        <div className="space-y-3">
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                                <div className="text-slate-600">Acknowledged At (Manila)</div>
+                                <div className="font-medium text-slate-900">{manilaNowLabel}</div>
+                            </div>
+                            <div>
+                                <label htmlFor="acknowledgment-notes" className="block text-sm font-medium text-slate-700 mb-1">
+                                    Acknowledgment Notes (optional)
+                                </label>
+                                <textarea
+                                    id="acknowledgment-notes"
+                                    rows={3}
+                                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                                    placeholder="Enter notes about receiving these assets..."
+                                    value={acknowledgmentNotes}
+                                    onChange={(e) => setAcknowledgmentNotes(e.target.value)}
+                                />
+                                {!hasPendingIssuances && (
+                                    <div className="mt-2 text-xs text-slate-600">
+                                        No pending issuances to acknowledge for this request (it may already be acknowledged).
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    }
+                    onSave={(signatureDataUrl) => handleConfirmReceipt(signatureDataUrl)}
+                />
             </div>
         </div>
     );
