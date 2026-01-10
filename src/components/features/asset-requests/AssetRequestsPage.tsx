@@ -143,6 +143,7 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
                         <option value="issued">Issued</option>
+                        <option value="received">Received</option>
                         <option value="cancelled">Cancelled</option>
                     </select>
                     <input

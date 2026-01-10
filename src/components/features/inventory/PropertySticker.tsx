@@ -20,10 +20,10 @@ interface PropertyStickerProps {
     unitCost?: number | string;
 }
 
-export function PropertySticker({ 
-    propertyNumber, 
-    description, 
-    department, 
+export function PropertySticker({
+    propertyNumber,
+    description,
+    department,
     url,
     custodianName = 'Unassigned',
     itemName,
@@ -67,10 +67,10 @@ export function PropertySticker({
         <title>Property Sticker</title>
         <style>
             @page { margin: 12mm; }
-            html, body { height: 100%; }
+            html, body { height: 100%; font-family: Helvetica, Arial, sans-serif; }
             body { margin: 0; display: flex; align-items: center; justify-content: center; background: #fff; }
             img { max-width: 100%; height: auto; }
-            .loading { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #334155; }
+            .loading { font-family: Helvetica, Arial, sans-serif; color: #334155; }
         </style>
     </head>
     <body>
@@ -153,7 +153,7 @@ export function PropertySticker({
             img.onerror = () => {
                 try {
                     const body = printWindow.document.body;
-                    body.innerHTML = '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#b91c1c;padding:16px;">Failed to render sticker image for printing.</div>';
+                    body.innerHTML = '<div style="font-family:Helvetica,Arial,sans-serif;color:#b91c1c;padding:16px;">Failed to render sticker image for printing.</div>';
                 } catch {
                     // ignore
                 }
@@ -168,7 +168,7 @@ export function PropertySticker({
 
     const StickerContent = useCallback(
         ({ showPrintButton }: { showPrintButton: boolean }) => (
-            <div className="p-10">
+            <div className="p-10" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-10 items-start">
                     <div>
                         <div className="text-3xl font-extrabold tracking-wide text-blue-600 mb-10">
@@ -260,7 +260,7 @@ export function PropertySticker({
                     <QrCode className="w-5 h-5" />
                 </button>
             </Dialog.Trigger>
-            
+
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" />
                 <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl bg-white rounded-xl shadow-2xl z-50 p-0 overflow-hidden outline-none">

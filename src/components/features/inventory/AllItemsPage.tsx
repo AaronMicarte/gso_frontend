@@ -5,6 +5,7 @@ import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search } fr
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import * as Dialog from '@radix-ui/react-dialog';
+import { format } from 'date-fns';
 import type { InventoryItem } from '@/lib/api/inventory';
 
 import { PropertySticker } from './PropertySticker';
@@ -324,7 +325,7 @@ export function AllItemsPage() {
                                                             category={item.PropertyName || item.ClassificationName || '-'}
                                                             url={`${typeof window !== 'undefined' ? window.location.origin : ''}/admin/inventory/${item.InventoryID}`}
                                                             custodianName={getCustodianDisplayName(item.PropertyStatusID, item.custodianName)}
-                                                            date={item.CreatedDate ? new Date(item.CreatedDate).toLocaleDateString() : '-'}
+                                                            date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
                                                             unitCost={item.UnitCost}
                                                         />
                                                     )}
