@@ -609,17 +609,18 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                         )}
 
                         {/* Signatures */}
-                        {request.signatures && request.signatures.length > 0 && (
+                        {((request.signatures && request.signatures.length > 0) || (request.issuances && request.issuances.some(i => i.AcknowledgmentSignature))) && (
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
                                 <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-indigo-50">
                                     <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                                         <CheckCircle className="w-5 h-5 text-purple-600" />
-                                        Signatures ({request.signatures.length})
+                                        Signatures ({(request.signatures?.length || 0) + (request.issuances?.filter(i => i.AcknowledgmentSignature).length || 0)})
                                     </h3>
                                 </div>
                                 <div className="p-6">
                                     <div className="space-y-4">
-                                        {request.signatures.map((signature) => (
+                                        {/* Request Signatures */}
+                                        {request.signatures && request.signatures.map((signature) => (
                                             <div key={signature.id} className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
                                                 <div className="flex items-start justify-between gap-4">
                                                     <div className="flex-1">
@@ -640,10 +641,43 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                                 </div>
                                             </div>
                                         ))}
+
+                                        {/* Acknowledgment Signatures */}
+                                        {request.issuances && request.issuances
+                                            .filter(i => i.AcknowledgmentSignature)
+                                            .map((issuance) => (
+                                                <div key={`ack-${issuance.IssuanceID}`} className="border border-slate-200 rounded-lg p-4 bg-green-50/30">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="flex-1">
+                                                            <div className="font-semibold text-slate-900 mb-2">
+                                                                Acknowledgment Signature - {issuance.DocumentType} {issuance.DocumentNumber}
+                                                            </div>
+                                                            <div className="text-sm text-slate-600 mb-3">
+                                                                Signed by {issuance.acknowledger?.FullName || 'Unknown'} on {issuance.AcknowledgedAt ? formatDateTime(issuance.AcknowledgedAt) : 'Unknown date'}
+                                                            </div>
+                                                            {issuance.AcknowledgmentNotes && (
+                                                                <div className="mb-3 p-3 bg-white rounded border border-green-200">
+                                                                    <div className="text-xs text-green-700 font-medium mb-1">Acknowledgment Notes</div>
+                                                                    <div className="text-sm text-slate-700">{issuance.AcknowledgmentNotes}</div>
+                                                                </div>
+                                                            )}
+                                                            <div className="bg-white p-4 rounded-lg border border-slate-200">
+                                                                <img
+                                                                    src={resolveStorageUrl(issuance.AcknowledgmentSignature)}
+                                                                    alt="Acknowledgment signature"
+                                                                    className="max-w-full h-auto max-h-32 object-contain"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                     </div>
                                 </div>
                             </div>
                         )}
+
+
 
                         {/* Audit Logs */}
                         {request.auditLogs && request.auditLogs.length > 0 && (

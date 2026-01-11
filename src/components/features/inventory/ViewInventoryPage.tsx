@@ -257,7 +257,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                 <th className="px-6 py-4">Item Name</th>
                                                 <th className="px-6 py-4">Property Type</th>
                                                 <th className="px-6 py-4">Description</th>
-                                                <th className="px-6 py-4">Classification</th>
                                                 <th className="px-6 py-4">Quantity & Unit Cost</th>
                                                 <th className="px-6 py-4">Status</th>
                                                 <th className="px-6 py-4">Custodian</th>
@@ -267,7 +266,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                         <tbody className="divide-y divide-slate-200">
                                             {filteredDetails.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                                                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                                         <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                                         {searchTerm ? 'No items match your search' : 'No property items found in this record'}
                                                     </td>
@@ -334,23 +333,6 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         </td>
-                                                        <td className="px-6 py-4">
-                                                            {d.ClassificationName ? (
-                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${d.ClassificationName === 'Semi-Expendable'
-                                                                    ? 'bg-blue-100 text-blue-800'
-                                                                    : 'bg-green-100 text-green-800'
-                                                                    }`}>
-                                                                    {d.ClassificationName}
-                                                                    {d.DocumentType && (
-                                                                        <span className="ml-1 text-xs opacity-75">
-                                                                            ({d.DocumentType})
-                                                                        </span>
-                                                                    )}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-slate-400">-</span>
-                                                            )}
-                                                        </td>
                                                         <td className="px-6 py-4 text-slate-600">
                                                             <div>
                                                                 <div className="font-medium">{d.Quantity} @ ₱{Number(d.UnitCost || 0).toFixed(2)}</div>
@@ -373,7 +355,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">
-                                                                    {d.PropertyNumber && (d.PropertyStatusID === 2) && (
+                                                                {d.PropertyNumber && (d.PropertyStatusID === 2) && (
                                                                     <PropertySticker
                                                                         propertyNumber={d.PropertyNumber}
                                                                         itemName={d.dr_item_description || 'Asset'}

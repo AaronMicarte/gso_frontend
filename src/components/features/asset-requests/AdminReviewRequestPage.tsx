@@ -14,6 +14,7 @@ import {
     Save
 } from 'lucide-react';
 import { toast } from 'sonner';
+import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { AxiosError } from 'axios';
@@ -43,6 +44,10 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [approverSignature, setApproverSignature] = useState<string | null>(null);
     const [approverSignatureSource, setApproverSignatureSource] = useState<'canvas' | 'upload' | null>(null);
+
+    // Rejection modal states
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState('');
 
     const loadRequest = useCallback(async () => {
         try {
@@ -217,13 +222,17 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
         }
     };
 
-    const handleReject = async () => {
-        try {
-            if (!generalReviewNotes.trim()) {
-                toast.error('Please provide rejection reason in review notes');
-                return;
-            }
+    const handleReject = () => {
+        setShowRejectModal(true);
+    };
 
+    const handleConfirmReject = async () => {
+        if (!rejectionReason.trim()) {
+            toast.error('Please provide a rejection reason');
+            return;
+        }
+
+        try {
             setSaving(true);
             const reviewData = {
                 details: reviewItems.map(item => ({
@@ -233,7 +242,7 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                     AssignedDepartmentID: item.AssignedDepartmentID,
                     AdminNotes: item.AdminNotes
                 })),
-                ReviewNotes: generalReviewNotes
+                ReviewNotes: rejectionReason
             };
             const id = params.id as string;
             await assetIssuanceAPI.requests.reject(parseInt(id), reviewData);
@@ -244,6 +253,8 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
             toast.error('Failed to reject request');
         } finally {
             setSaving(false);
+            setShowRejectModal(false);
+            setRejectionReason('');
         }
     };
 
@@ -603,6 +614,55 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                     }}
                     loading={saving}
                 />
+
+                {/* Rejection Modal */}
+                <Dialog.Root open={showRejectModal} onOpenChange={setShowRejectModal}>
+                    <Dialog.Portal>
+                        <Dialog.Overlay className="fixed inset-0 bg-black/30 z-40" />
+                        <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+                            <Dialog.Title className="text-lg font-bold text-slate-900">Reject Asset Request</Dialog.Title>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Rejection Reason <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        value={rejectionReason}
+                                        onChange={(e) => setRejectionReason(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-vertical min-h-[100px]"
+                                        placeholder="Please provide the reason for rejecting this request..."
+                                        rows={4}
+                                        maxLength={500}
+                                        required
+                                    />
+                                    <div className="text-xs text-slate-500 mt-1">
+                                        {rejectionReason.length}/500 characters
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <Dialog.Close asChild>
+                                        <button
+                                            onClick={() => {
+                                                setShowRejectModal(false);
+                                                setRejectionReason('');
+                                            }}
+                                            className="px-4 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </Dialog.Close>
+                                    <button
+                                        onClick={handleConfirmReject}
+                                        disabled={saving || !rejectionReason.trim()}
+                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {saving ? 'Rejecting...' : 'Reject Request'}
+                                    </button>
+                                </div>
+                            </div>
+                        </Dialog.Content>
+                    </Dialog.Portal>
+                </Dialog.Root>
             </div>
         </div>
     );

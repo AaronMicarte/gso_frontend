@@ -246,7 +246,7 @@ export function AllItemsPage() {
                                 <tr>
                                     <th className="px-6 py-4">Item Name</th>
                                     <th className="px-6 py-4">Description</th>
-                                    <th className="px-6 py-4">Classification</th>
+                                    <th className="px-6 py-4">Property Type</th>
                                     <th className="px-6 py-4">Inventory Number</th>
                                     <th className="px-6 py-4">Status</th>
                                     <th className="px-6 py-4">Custodian</th>
@@ -288,21 +288,9 @@ export function AllItemsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                {item.ClassificationName ? (
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.ClassificationName === 'Semi-Expendable'
-                                                        ? 'bg-blue-100 text-blue-800'
-                                                        : 'bg-green-100 text-green-800'
-                                                        }`}>
-                                                        {item.ClassificationName}
-                                                        {item.DocumentType && (
-                                                            <span className="ml-1 text-xs opacity-75">
-                                                                ({item.DocumentType})
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-slate-400">Unknown</span>
-                                                )}
+                                                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                    {item.PropertyName || 'Unknown'}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
                                                 <div className="font-medium">{item.InventoryNumber || 'N/A'}</div>
