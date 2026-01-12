@@ -415,25 +415,32 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                 {detail.inventoryDetail?.UnitCost ? `₱${(Number(detail.inventoryDetail.UnitCost) * detail.QuantityIssued).toLocaleString()}` : '-'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                    {detail.inventoryDetail?.PropertyNumber && detail.inventoryDetail?.InventoryID && (
-                                                        <PropertySticker
-                                                            propertyNumber={detail.inventoryDetail.PropertyNumber}
-                                                            itemName={detail.inventoryDetail?.propertyInventory?.ItemName || detail.inventoryDetail?.propertyInventory?.ItemDescription || 'Asset'}
-                                                            category={
-                                                                // Prefer the InventoryDetail -> PropertyType name (true category)
-                                                                detail.inventoryDetail?.propertyType?.PropertyName ||
-                                                                // Fallback to its classification name
-                                                                detail.inventoryDetail?.propertyType?.propertyClassification?.ClassificationName ||
-                                                                // Some backend responses include a flattened PropertyName on the inventory detail
-                                                                (detail.inventoryDetail as InventoryDetailWithPropertyName)?.PropertyName ||
-                                                                '-'
-                                                            }
-                                                            url={`${typeof window !== 'undefined' ? window.location.origin : ''}/admin/inventory/${detail.inventoryDetail.InventoryID}`}
-                                                            custodianName={issuance.IssuedToName || issuance.issuedToUser?.FullName || 'Unassigned'}
-                                                            date={issuance.IssuanceDate ? format(new Date(issuance.IssuanceDate), 'MM/dd/yyyy') : '-'}
-                                                            unitCost={detail.inventoryDetail?.UnitCost}
-                                                        />
-                                                    )}
+                                                {detail.inventoryDetail?.PropertyNumber && detail.inventoryDetail?.InventoryID && (
+                                                    <PropertySticker
+                                                        propertyNumber={detail.inventoryDetail.PropertyNumber}
+                                                        itemName={detail.inventoryDetail?.propertyInventory?.ItemName || detail.inventoryDetail?.propertyInventory?.ItemDescription || 'Asset'}
+                                                        category={
+                                                            // Prefer the InventoryDetail -> PropertyType name (true category)
+                                                            detail.inventoryDetail?.propertyType?.PropertyName ||
+                                                            // Fallback to its classification name
+                                                            detail.inventoryDetail?.propertyType?.propertyClassification?.ClassificationName ||
+                                                            // Some backend responses include a flattened PropertyName on the inventory detail
+                                                            (detail.inventoryDetail as InventoryDetailWithPropertyName)?.PropertyName ||
+                                                            '-'
+                                                        }
+                                                        url={(() => {
+                                                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                            const qrCodeData = (detail.inventoryDetail as unknown as { qrCode?: { QRCodeData?: string | null } | null }).qrCode?.QRCodeData;
+                                                            const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                            if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+
+                                                            return `${origin}/admin/inventory/${detail.inventoryDetail.InventoryID}?detail=${detail.inventoryDetail.InventoryDetailID}`;
+                                                        })()}
+                                                        custodianName={issuance.IssuedToName || issuance.issuedToUser?.FullName || 'Unassigned'}
+                                                        date={issuance.IssuanceDate ? format(new Date(issuance.IssuanceDate), 'MM/dd/yyyy') : '-'}
+                                                        unitCost={detail.inventoryDetail?.UnitCost ? Number(detail.inventoryDetail.UnitCost) * detail.QuantityIssued : undefined}
+                                                    />
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

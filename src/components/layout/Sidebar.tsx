@@ -165,8 +165,8 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         label: 'QR Codes',
                         icon: QrCode,
                         children: [
-                            { label: 'Generate QR', href: `${baseRoute}/qr/generate`, icon: QrCode },
-                            { label: 'Scan QR', href: `${baseRoute}/qr/scan`, icon: QrCode },
+                            { label: 'Generate QR', href: `/qr/generate`, icon: QrCode },
+                            { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
                         ]
                     }
                 ]
@@ -288,8 +288,8 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         label: 'QR Management',
                         icon: QrCode,
                         children: [
-                            { label: 'Generate QR', href: `${baseRoute}/qr/generate`, icon: QrCode },
-                            { label: 'Scan QR', href: `${baseRoute}/qr/scan`, icon: QrCode },
+                            { label: 'Generate QR', href: `/qr/generate`, icon: QrCode },
+                            { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
                         ]
                     }
                 ]
@@ -337,7 +337,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 section: 'VERIFICATION',
                 items: [
                     { label: 'Physical Verification', href: `${baseRoute}/verification`, icon: ClipboardList },
-                    { label: 'Scan QR', href: `${baseRoute}/qr/scan`, icon: QrCode },
+                    { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
                 ]
             },
             {

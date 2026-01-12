@@ -1,0 +1,98 @@
+export interface QrCodeRecord {
+    QRCodeID: number;
+    PropertyID: number;
+    InventoryDetailID?: number | null;
+    DepartmentID: number;
+    QRCodeData: string | null;
+    DateGenerated: string;
+}
+
+export interface QrScanIssuedBy {
+    UserID: number;
+    FullName: string;
+}
+
+export interface QrScanIssuance {
+    IssuanceID: number;
+    DocumentType: string;
+    DocumentNumber: string;
+    Status: string;
+    DateIssued: string;
+    Remarks?: string | null;
+    AcknowledgedAt?: string | null;
+    AcknowledgmentSignature?: string | null;
+    AcknowledgmentNotes?: string | null;
+    issuedBy?: QrScanIssuedBy | null;
+}
+
+export interface QrScanIssuanceDetail {
+    IssuanceDetailID: number;
+    IssuanceID: number;
+    InventoryDetailID: number;
+    QuantityIssued: number;
+    issuance?: QrScanIssuance | null;
+}
+
+export interface QrScanInventoryDetail {
+    InventoryDetailID: number;
+    PropertyNumber?: string | null;
+    Description?: string | null;
+    Brand?: string | null;
+    ModelNumber?: string | null;
+    SerialNumber?: string | null;
+    UnitCost?: number | null;
+    drDetail?: {
+        DRDetailID: number;
+        ItemDescription?: string | null;
+    } | null;
+    unitOfMeasure?: {
+        UnitName: string;
+    } | null;
+}
+
+export interface QrScanEndUser {
+    EndUserID: number;
+    FullName: string;
+    DepartmentID: number;
+    department?: {
+        DepartmentID: number;
+        DepartmentName: string;
+        DepartmentCode?: string | null;
+    } | null;
+}
+
+export interface QrScanAssignedProperty {
+    PropertyID: number;
+    InventoryDetailID: number;
+    EndUserID: number;
+    DepartmentID: number;
+    PropertyCardNumber?: string | null;
+    Description?: string | null;
+    AssignedDate: string;
+    PropertyStatusID: number;
+    ConditionID: number;
+    Remarks?: string | null;
+    CreatedDate?: string | null;
+    UpdatedDate?: string | null;
+    inventoryDetail?: QrScanInventoryDetail | null;
+    endUser?: QrScanEndUser | null;
+    department?: {
+        DepartmentID: number;
+        DepartmentName: string;
+        DepartmentCode?: string | null;
+    } | null;
+    propertyStatus?: {
+        PropertyStatusID: number;
+        StatusName: string;
+    } | null;
+    condition?: {
+        ConditionID: number;
+        ConditionName: string;
+    } | null;
+    qrCode?: QrCodeRecord | null;
+}
+
+export interface QrScanResponse {
+    property: QrScanAssignedProperty;
+    latest_issuance_detail?: QrScanIssuanceDetail | null;
+}

@@ -309,10 +309,9 @@ export interface Department {
 
 export interface EndUser {
     EndUserID: number;
-    FirstName: string;
-    LastName: string;
     DepartmentID: number;
     PositionID: number;
+    FullName: string;
     ContactNumber?: string;
     Email?: string;
     CreatedDate: string;

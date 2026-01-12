@@ -360,7 +360,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                         propertyNumber={d.PropertyNumber}
                                                                         itemName={d.dr_item_description || 'Asset'}
                                                                         category={d.PropertyName || d.ClassificationName || '-'}
-                                                                        url={`${typeof window !== 'undefined' ? window.location.origin : ''}/admin/inventory/${d.InventoryID}`}
+                                                                        url={(() => {
+                                                                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                                            const qrCodeData = (d as unknown as { qrCode?: { QRCodeData?: string | null } | null }).qrCode?.QRCodeData;
+                                                                            const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                                            if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+                                                                            return `${origin}/admin/inventory/${d.InventoryID}?detail=${d.InventoryDetailID}`;
+                                                                        })()}
                                                                         custodianName={getCustodianDisplayName(d.PropertyStatusID, d.custodianName)}
                                                                         date={data?.DateAcquired ? format(new Date(data.DateAcquired), 'MM/dd/yyyy') : '-'}
                                                                         unitCost={d.UnitCost}

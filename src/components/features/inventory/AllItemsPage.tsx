@@ -311,7 +311,13 @@ export function AllItemsPage() {
                                                             propertyNumber={item.PropertyNumber}
                                                             itemName={item.dr_item_description || item.PropertyName || 'Asset'}
                                                             category={item.PropertyName || item.ClassificationName || '-'}
-                                                            url={`${typeof window !== 'undefined' ? window.location.origin : ''}/admin/inventory/${item.InventoryID}`}
+                                                            url={(() => {
+                                                                const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                                const qrCodeData = (item as unknown as { qrCode?: { QRCodeData?: string | null } | null }).qrCode?.QRCodeData;
+                                                                const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                                if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+                                                                return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
+                                                            })()}
                                                             custodianName={getCustodianDisplayName(item.PropertyStatusID, item.custodianName)}
                                                             date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
                                                             unitCost={item.UnitCost}
