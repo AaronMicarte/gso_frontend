@@ -81,18 +81,37 @@ interface IssuanceListPageProps {
     baseRoute: string;
     canIssue?: boolean;
     isAdmin?: boolean;
+    pageTitle?: string;
+    pageDescription?: string;
+    fixedDocumentType?: 'PAR' | 'ICS';
 }
 
-export function IssuanceListPage({ baseRoute, canIssue = false }: IssuanceListPageProps) {
+export function IssuanceListPage({
+    baseRoute,
+    canIssue = false,
+    pageTitle,
+    pageDescription,
+    fixedDocumentType,
+}: IssuanceListPageProps) {
     const [groupedIssuances, setGroupedIssuances] = useState<GroupedIssuance[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filters, setFilters] = useState<AssetIssuanceFilters>({
+    const [filters, setFilters] = useState<AssetIssuanceFilters>(() => ({
         status: undefined,
-        document_type: undefined,
-    });
+        document_type: fixedDocumentType,
+    }));
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+
+    // If the page locks a document type, keep filters in sync.
+    useEffect(() => {
+        if (!fixedDocumentType) return;
+        setFilters(prev => (
+            prev.document_type === fixedDocumentType
+                ? prev
+                : { ...prev, document_type: fixedDocumentType }
+        ));
+    }, [fixedDocumentType]);
 
     const loadIssuances = useCallback(async (page = 1) => {
         try {
@@ -103,7 +122,12 @@ export function IssuanceListPage({ baseRoute, canIssue = false }: IssuanceListPa
                 per_page: 15,
             });
 
-            setGroupedIssuances(response.data);
+            // Sort by RequestDate descending (latest first)
+            const sortedData = response.data.sort((a, b) =>
+                new Date(b.RequestDate).getTime() - new Date(a.RequestDate).getTime()
+            );
+
+            setGroupedIssuances(sortedData);
             setCurrentPage(response.current_page);
             setTotalPages(response.last_page);
         } catch (error) {
@@ -155,6 +179,8 @@ export function IssuanceListPage({ baseRoute, canIssue = false }: IssuanceListPa
         }
     };
 
+
+
     const filteredGroupedIssuances = groupedIssuances.filter(group => {
         if (!searchTerm) return true;
         const searchLower = searchTerm.toLowerCase();
@@ -174,9 +200,11 @@ export function IssuanceListPage({ baseRoute, canIssue = false }: IssuanceListPa
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Asset Issuances</h1>
+                        <h1 className="text-2xl font-bold text-slate-900">
+                            {pageTitle || 'Asset Issuances'}
+                        </h1>
                         <p className="text-slate-500 text-sm">
-                            Manage property issuance records grouped by requests (PAR/ICS)
+                            {pageDescription || 'Manage property issuance records grouped by requests (PAR/ICS)'}
                         </p>
                     </div>
                     <div className="flex gap-2">
@@ -225,15 +253,21 @@ export function IssuanceListPage({ baseRoute, canIssue = false }: IssuanceListPa
                                 <option value="returned">Returned</option>
                                 <option value="disposed">Disposed</option>
                             </select>
-                            <select
-                                value={filters.document_type || ''}
-                                onChange={(e) => setFilters(prev => ({ ...prev, document_type: (e.target.value || undefined) as AssetIssuanceFilters['document_type'] }))}
-                                className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                            >
-                                <option value="">All Types</option>
-                                <option value="PAR">PAR Only</option>
-                                <option value="ICS">ICS Only</option>
-                            </select>
+                            {!fixedDocumentType ? (
+                                <select
+                                    value={filters.document_type || ''}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, document_type: (e.target.value || undefined) as AssetIssuanceFilters['document_type'] }))}
+                                    className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                >
+                                    <option value="">All Types</option>
+                                    <option value="PAR">PAR Only</option>
+                                    <option value="ICS">ICS Only</option>
+                                </select>
+                            ) : (
+                                <div className="px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm text-slate-700 flex items-center">
+                                    Type: <span className="ml-2 font-semibold">{fixedDocumentType}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

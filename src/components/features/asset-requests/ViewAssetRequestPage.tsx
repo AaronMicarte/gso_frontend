@@ -53,8 +53,6 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
             const response = await assetIssuanceAPI.requests.getById(parseInt(id));
             setRequest(response);
         } catch (error) {
-            console.error('Failed to load request:', error);
-
             let errorMessage = 'Failed to load request details';
             if (error instanceof AxiosError && error.response?.status === 404) {
                 errorMessage = 'Asset request not found';
@@ -117,8 +115,21 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
             setShowReceiptModal(false);
             loadRequest();
         } catch (error) {
-            console.error('Failed to confirm receipt:', error);
-            toast.error('Failed to confirm receipt');
+            let errorMessage = 'Failed to confirm receipt';
+
+            if (error instanceof AxiosError) {
+                const data = error.response?.data as unknown;
+                if (data && typeof data === 'object' && 'message' in data) {
+                    const msg = (data as { message?: unknown }).message;
+                    if (typeof msg === 'string' && msg.trim() !== '') {
+                        errorMessage = msg;
+                    }
+                }
+            } else if (error instanceof Error && error.message.trim() !== '') {
+                errorMessage = error.message;
+            }
+
+            toast.error(errorMessage);
         } finally {
             setReceiving(false);
         }
@@ -785,25 +796,25 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                     confirmText="Confirm Receipt"
                     confirmPrompt="Confirm your signature to acknowledge receipt?"
                     preContent={
-                        <div className="space-y-3">
-                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                                <div className="text-slate-600">Acknowledged At (Manila)</div>
-                                <div className="font-medium text-slate-900">{manilaNowLabel}</div>
+                        <div className="space-y-4 pb-6 border-b border-slate-200">
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+                                <div className="text-slate-600 font-medium mb-1">Acknowledged At (Manila)</div>
+                                <div className="font-semibold text-slate-900">{manilaNowLabel}</div>
                             </div>
                             <div>
-                                <label htmlFor="acknowledgment-notes" className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="acknowledgment-notes" className="block text-sm font-medium text-slate-700 mb-2">
                                     Acknowledgment Notes (optional)
                                 </label>
                                 <textarea
                                     id="acknowledgment-notes"
-                                    rows={3}
-                                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                                    rows={4}
+                                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
                                     placeholder="Enter notes about receiving these assets..."
                                     value={acknowledgmentNotes}
                                     onChange={(e) => setAcknowledgmentNotes(e.target.value)}
                                 />
                                 {!hasPendingIssuances && (
-                                    <div className="mt-2 text-xs text-slate-600">
+                                    <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
                                         No pending issuances to acknowledge for this request (it may already be acknowledged).
                                     </div>
                                 )}

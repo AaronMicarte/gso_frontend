@@ -2,7 +2,7 @@
 
 import { useAllInventoryItems, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
-import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search } from 'lucide-react';
+import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -161,6 +161,10 @@ export function AllItemsPage() {
         if (custodianName) return custodianName;
         if (statusId === 2) return 'Unassigned';
         return 'GSO Property Custodian';
+    };
+
+    const getQrCodeData = (item: InventoryItem): string | null => {
+        return item.qrCodeData ?? null;
     };
 
     return (
@@ -335,17 +339,23 @@ export function AllItemsPage() {
                                                     <User className="w-3 h-3" />
                                                     {getCustodianDisplayName(item.PropertyStatusID, item.custodianName)}
                                                 </div>
+                                                {item.locationDepartment && (
+                                                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                        <Building2 className="w-3 h-3" />
+                                                        {item.locationDepartment}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {item.PropertyNumber && (item.PropertyStatusID === 2) && (
+                                                    {item.PropertyNumber && (item.PropertyStatusID === 2) && Boolean(getQrCodeData(item)) && (
                                                         <PropertySticker
                                                             propertyNumber={item.PropertyNumber}
                                                             itemName={item.dr_item_description || item.PropertyName || 'Asset'}
                                                             category={item.PropertyName || item.ClassificationName || '-'}
                                                             url={(() => {
                                                                 const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                                const qrCodeData = (item as unknown as { qrCode?: { QRCodeData?: string | null } | null }).qrCode?.QRCodeData;
+                                                                const qrCodeData = getQrCodeData(item);
                                                                 const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
                                                                 if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
                                                                 return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;

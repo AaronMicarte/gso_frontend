@@ -9,7 +9,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@radix-ui/react-tooltip';
 import * as Dialog from '@radix-ui/react-dialog';
 import { PropertySticker } from './PropertySticker';
 
@@ -88,7 +88,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
             toast.success('Description updated successfully');
             setEditModalOpen(false);
             setEditingItem(null);
-        } catch (error) {
+        } catch {
             toast.error('Failed to update description');
         }
     };
@@ -142,6 +142,15 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         if (custodianName) return custodianName;
         if (statusId === 2) return 'Unassigned';
         return 'GSO Property Custodian';
+    };
+
+    const getQrCodeData = (detail: {
+        qrCode?: { QRCodeData?: string | null } | null;
+        // Laravel/Eloquent often serializes relations in snake_case by default.
+        qr_code?: { QRCodeData?: string | null } | null;
+        qrCodeData?: string | null;
+    }): string | null => {
+        return detail.qrCode?.QRCodeData ?? detail.qr_code?.QRCodeData ?? detail.qrCodeData ?? null;
     };
 
     return (
@@ -320,13 +329,14 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     custodianName?: string;
                                                     locationDepartment?: string;
                                                     dr_item_description?: string;
+                                                    qrCode?: { QRCodeData?: string | null } | null;
+                                                    qrCodeData?: string | null;
                                                 }) => (
                                                     <tr key={d.InventoryDetailID} className="hover:bg-slate-50">
                                                         <td className="px-6 py-4">
                                                             <div>
                                                                 <div className="font-medium text-slate-900">
-                                                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                                                    {(d as any).dr_item_description || 'Property Item'}
+                                                                    {d.dr_item_description || 'Property Item'}
                                                                 </div>
                                                                 <div className="text-xs text-slate-500 space-y-1 mt-1">
                                                                     {d.Brand && <div>Brand: {d.Brand}</div>}
@@ -383,14 +393,14 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">
-                                                                {d.PropertyNumber && (d.PropertyStatusID === 2) && (
+                                                                {d.PropertyNumber && (d.PropertyStatusID === 2) && Boolean(getQrCodeData(d)) && (
                                                                     <PropertySticker
                                                                         propertyNumber={d.PropertyNumber}
                                                                         itemName={d.dr_item_description || 'Asset'}
                                                                         category={d.PropertyName || d.ClassificationName || '-'}
                                                                         url={(() => {
                                                                             const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                                            const qrCodeData = (d as unknown as { qrCode?: { QRCodeData?: string | null } | null }).qrCode?.QRCodeData;
+                                                                            const qrCodeData = getQrCodeData(d);
                                                                             const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
                                                                             if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
                                                                             return `${origin}/admin/inventory/${d.InventoryID}?detail=${d.InventoryDetailID}`;

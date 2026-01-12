@@ -2,6 +2,7 @@ import React from 'react';
 import { AssetIssuance } from '@/types/assetIssuance';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import Image from 'next/image';
 
 interface PARPrintViewProps {
     issuance: AssetIssuance;
@@ -11,12 +12,7 @@ interface PARPrintViewProps {
 export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(({ issuance, printSignature }, ref) => {
     const formatDate = (dateString?: string) => {
         if (!dateString) return '';
-        return format(toZonedTime(new Date(dateString), 'Asia/Manila'), 'yyyy-MM-dd');
-    };
-
-    const formatTime = (dateString?: string) => {
-        if (!dateString) return '';
-        return format(toZonedTime(new Date(dateString), 'Asia/Manila'), 'HH:mm');
+        return format(toZonedTime(new Date(dateString), 'Asia/Manila'), 'MM/dd/yyyy');
     };
 
     const [runtimePrintSignature, setRuntimePrintSignature] = React.useState<string | null>(printSignature || null);
@@ -35,8 +31,43 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
         };
     }, []);
 
-    // Use runtime signature if available, otherwise use stored signature
-    const finalSignature = runtimePrintSignature || issuance.signature_url;
+    const ensureText = (value: unknown, fallback: string) => {
+        const text = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+        return text.length > 0 ? text : fallback;
+    };
+
+    const details = issuance.details ?? [];
+
+    // Signatures
+    const receivedBySignature = runtimePrintSignature || issuance.AcknowledgmentSignature;
+    const issuerSignatureUrl = issuance.request?.signatures?.find(s => s.role === 'issuer')?.url || null;
+
+    // Names / departments
+    const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
+    const fundCluster = 'GENERAL FUND';
+
+    const receivedByName = ensureText(
+        issuance.issuedToUser?.FullName || issuance.IssuedToName,
+        'PROPERTY RECIPIENT'
+    );
+    const receivedByOffice = ensureText(
+        issuance.issuedToUser?.department?.DepartmentName,
+        ensureText(issuance.request?.department?.DepartmentName, 'DEPARTMENT')
+    );
+
+    const issuedByName = ensureText(issuance.issuer?.FullName, 'PROPERTY OFFICER');
+    const issuedByOffice = ensureText(issuance.issuer?.department?.DepartmentName, 'GENERAL SERVICES OFFICE');
+
+    // Dates
+    const docDate = ensureText(formatDate(issuance.IssuanceDate), formatDate(new Date().toISOString()));
+    const receivedDate = ensureText(
+        issuance.AcknowledgedAt ? formatDate(issuance.AcknowledgedAt) : '',
+        docDate
+    );
+
+    // Guard: PAR print should never have missing received-by signature because printing is blocked pre-acknowledgment.
+    // If it is still missing, show a printable message instead of rendering blank fields.
+    const missingCritical = issuance.DocumentType === 'PAR' && !receivedBySignature;
 
     return (
         <div ref={ref} className="print-container bg-white p-8 max-w-4xl mx-auto text-black">
@@ -58,204 +89,168 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                             page-break-after: always;
                         }
                     }
+                    @page {
+                        size: A4;
+                        margin: 10mm;
+                    }
                 `
             }} />
 
-            {/* Header */}
-            <div className="text-center mb-6 border-b-2 border-black pb-4">
-                <div className="text-xs mb-2">Republic of the Philippines</div>
-                <div className="text-xs mb-2">Province of Misamis Oriental</div>
-                <div className="text-sm font-bold mb-2">CITY OF EL SALVADOR</div>
-                <div className="text-xs mb-4">General Services Office</div>
-
-                <div className="text-lg font-bold">PROPERTY ACKNOWLEDGMENT RECEIPT</div>
-                <div className="text-sm">(PAR)</div>
-            </div>
-
-            {/* Document Information */}
-            <div className="mb-6">
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                        <div className="mb-2">
-                            <span className="text-sm font-semibold">PAR No.: </span>
-                            <span className="border-b border-black px-2 text-sm">{issuance.DocumentNumber}</span>
-                        </div>
-                        <div className="mb-2">
-                            <span className="text-sm font-semibold">Date: </span>
-                            <span className="border-b border-black px-2 text-sm">{formatDate(issuance.IssuanceDate)}</span>
-                        </div>
-                    </div>
-                    <div className="flex-1 text-right">
-                        <div className="mb-2">
-                            <span className="text-sm font-semibold">Time: </span>
-                            <span className="border-b border-black px-2 text-sm">{formatTime(issuance.IssuanceDate)}</span>
-                        </div>
+            {missingCritical ? (
+                <div className="border border-black p-6">
+                    <div className="text-lg font-bold">PAR cannot be printed</div>
+                    <div className="text-sm mt-2">
+                        Missing recipient acknowledgment signature. Please acknowledge receipt first.
                     </div>
                 </div>
-            </div>
+            ) : (
+                <>
+                    {/* Header */}
+                    <div className="text-center mb-2">
+                        <div className="text-sm font-bold">PROPERTY ACKNOWLEDGMENT RECEIPT</div>
+                        <div className="text-xs">(PAR)</div>
+                    </div>
 
-            {/* Recipient Information */}
-            <div className="mb-6 p-4 border border-black">
-                <div className="text-sm font-bold mb-3">PROPERTY RECIPIENT INFORMATION:</div>
-                <div className="grid grid-cols-1 gap-2">
-                    <div className="flex">
-                        <span className="text-sm font-semibold w-32">Name:</span>
-                        <span className="border-b border-black px-2 text-sm flex-1">
-                            {issuance.issuedToUser?.FullName || ''}
-                        </span>
+                    {/* Top Info Row */}
+                    <div className="grid grid-cols-2 gap-4 mb-2 text-xs">
+                        <div className="space-y-1">
+                            <div className="flex items-end gap-2">
+                                <div className="whitespace-nowrap">Entity Name :</div>
+                                <div className="flex-1 border-b border-black pb-0.5">{entityName}</div>
+                            </div>
+                            <div className="flex items-end gap-2">
+                                <div className="whitespace-nowrap">Fund Cluster :</div>
+                                <div className="flex-1 border-b border-black pb-0.5">{fundCluster}</div>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <div className="flex items-end gap-2 justify-end">
+                                <div className="whitespace-nowrap">PAR No. :</div>
+                                <div className="w-48 border-b border-black pb-0.5 text-right">{ensureText(issuance.DocumentNumber, 'PAR')}</div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex">
-                        <span className="text-sm font-semibold w-32">Position:</span>
-                        <span className="border-b border-black px-2 text-sm flex-1">
-                            {/* Position would need to be added to the user relationship */}
-                            ________________________
-                        </span>
-                    </div>
-                    <div className="flex">
-                        <span className="text-sm font-semibold w-32">Department:</span>
-                        <span className="border-b border-black px-2 text-sm flex-1">
-                            {issuance.issuedToUser?.department?.DepartmentName || ''}
-                        </span>
-                    </div>
-                    <div className="flex">
-                        <span className="text-sm font-semibold w-32">Employee ID:</span>
-                        <span className="border-b border-black px-2 text-sm flex-1">
-                            {issuance.issuedToUser?.UserID || ''}
-                        </span>
-                    </div>
-                </div>
-            </div>
 
-            {/* Property Details */}
-            <div className="mb-6">
-                <div className="text-sm font-bold mb-3">PROPERTY DETAILS:</div>
-                <table className="w-full border-collapse border border-black text-xs">
-                    <thead>
-                        <tr className="bg-gray-100">
-                            <th className="border border-black p-2 text-left">Item Description</th>
-                            <th className="border border-black p-2 text-center w-20">Quantity</th>
-                            <th className="border border-black p-2 text-center w-16">Unit</th>
-                            <th className="border border-black p-2 text-left w-32">Brand/Model</th>
-                            <th className="border border-black p-2 text-left w-32">Serial Number</th>
-                            <th className="border border-black p-2 text-left">Remarks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td className="border border-black p-2">
-                                {issuance.inventoryDetail?.propertyInventory?.ItemDescription || ''}
-                            </td>
-                            <td className="border border-black p-2 text-center">
-                                {issuance.QuantityIssued}
-                            </td>
-                            <td className="border border-black p-2 text-center">
-                                {issuance.inventoryDetail?.unitOfMeasure?.UnitName || ''}
-                            </td>
-                            <td className="border border-black p-2">
-                                {issuance.inventoryDetail?.propertyInventory?.Brand || ''}
-                                {issuance.inventoryDetail?.propertyInventory?.ModelNumber &&
-                                    ` - ${issuance.inventoryDetail.propertyInventory.ModelNumber}`
-                                }
-                            </td>
-                            <td className="border border-black p-2">
-                                {issuance.inventoryDetail?.propertyInventory?.SerialNumber || ''}
-                            </td>
-                            <td className="border border-black p-2">
-                                {issuance.IssuanceNotes || ''}
-                            </td>
-                        </tr>
-                        {/* Add empty rows for formatting */}
-                        {Array.from({ length: 5 }, (_, i) => (
-                            <tr key={i}>
-                                <td className="border border-black p-2 h-8">&nbsp;</td>
-                                <td className="border border-black p-2">&nbsp;</td>
-                                <td className="border border-black p-2">&nbsp;</td>
-                                <td className="border border-black p-2">&nbsp;</td>
-                                <td className="border border-black p-2">&nbsp;</td>
-                                <td className="border border-black p-2">&nbsp;</td>
+                    {/* Table */}
+                    <table className="w-full border-collapse border border-black text-[11px]">
+                        <thead>
+                            <tr>
+                                <th className="border border-black px-1 py-1 w-[52px] text-center">Quantity</th>
+                                <th className="border border-black px-1 py-1 w-[52px] text-center">Unit</th>
+                                <th className="border border-black px-1 py-1 text-center">Description</th>
+                                <th className="border border-black px-1 py-1 w-[90px] text-center">Property Number</th>
+                                <th className="border border-black px-1 py-1 w-[90px] text-center">Date Acquired</th>
+                                <th className="border border-black px-1 py-1 w-[90px] text-center">Unit Cost</th>
+                                <th className="border border-black px-1 py-1 w-[95px] text-center">Total Amount</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {(() => {
+                                const rowsNeeded = 20;
+                                const rows = details.slice(0, rowsNeeded).map((detail, idx) => {
+                                    const inv = detail.inventoryDetail;
+                                    const pInv = inv?.propertyInventory as unknown as { ItemDescription?: string; ItemName?: string; Brand?: string | null; ModelNumber?: string | null; SerialNumber?: string | null; DateReceived?: string };
 
-            {/* Purpose */}
-            <div className="mb-6 p-4 border border-black">
-                <div className="text-sm font-bold mb-2">PURPOSE:</div>
-                <div className="text-sm min-h-[60px] border-b border-black pb-2">
-                    {issuance.request?.Purpose || ''}
-                </div>
-            </div>
+                                    const itemName = ensureText(
+                                        pInv?.ItemDescription || pInv?.ItemName || detail.ItemDescription,
+                                        'ITEM'
+                                    );
+                                    const technical = ensureText((inv as any)?.Description, '');
+                                    const description = technical ? `${itemName} - ${technical}` : itemName;
 
-            {/* Important Notice */}
-            <div className="mb-6 p-4 border-2 border-black bg-gray-50">
-                <div className="text-xs font-bold mb-2">IMPORTANT NOTICE TO PROPERTY RECIPIENT:</div>
-                <div className="text-xs leading-relaxed">
-                    <p className="mb-2">
-                        1. You are hereby made responsible and accountable for the above-described property.
-                    </p>
-                    <p className="mb-2">
-                        2. You shall exercise proper care and custody of the property and shall not dispose of,
-                        lend, or allow the use of said property by unauthorized persons.
-                    </p>
-                    <p className="mb-2">
-                        3. You shall report immediately to the Property Officer any loss, damage, or theft of the property.
-                    </p>
-                    <p>
-                        4. You shall return the property in good condition upon demand or upon termination of employment.
-                    </p>
-                </div>
-            </div>
+                                    const qty = Number(detail.QuantityIssued ?? 1);
+                                    const unit = ensureText(inv?.unitOfMeasure?.UnitName || (detail as any)?.Unit, 'unit');
+                                    const propertyNumber = ensureText(inv?.PropertyNumber || inv?.InventoryDetailID, ensureText(idx + 1, '1'));
 
-            {/* Signatures */}
-            <div className="grid grid-cols-2 gap-8 mt-8">
-                {/* Issued By */}
-                <div className="text-center">
-                    <div className="mb-2 text-sm font-bold">ISSUED BY:</div>
-                    <div className="border-b border-black mb-2 h-16 flex items-end justify-center pb-2">
-                        {/* Property Officer signature would go here */}
+                                    const dateAcquired = ensureText(
+                                        (pInv as any)?.DateReceived ? formatDate((pInv as any).DateReceived) : '',
+                                        docDate
+                                    );
+
+                                    const unitCost = Number(inv?.UnitCost ?? 0);
+                                    const total = qty * unitCost;
+
+                                    return (
+                                        <tr key={detail.IssuanceDetailID ?? idx}>
+                                            <td className="border border-black px-1 py-1 text-center">{qty}</td>
+                                            <td className="border border-black px-1 py-1 text-center">{unit}</td>
+                                            <td className="border border-black px-1 py-1 align-top whitespace-pre-line">{description}</td>
+                                            <td className="border border-black px-1 py-1 text-center">{propertyNumber}</td>
+                                            <td className="border border-black px-1 py-1 text-center">{dateAcquired}</td>
+                                            <td className="border border-black px-1 py-1 text-right">{unitCost.toFixed(2)}</td>
+                                            <td className="border border-black px-1 py-1 text-right">{total.toFixed(2)}</td>
+                                        </tr>
+                                    );
+                                });
+
+                                const blanks = Math.max(0, rowsNeeded - rows.length);
+                                for (let i = 0; i < blanks; i++) {
+                                    rows.push(
+                                        <tr key={`blank-${i}`}>
+                                            <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                            <td className="border border-black px-1 py-1">&nbsp;</td>
+                                            <td className="border border-black px-1 py-1">&nbsp;</td>
+                                            <td className="border border-black px-1 py-1">&nbsp;</td>
+                                            <td className="border border-black px-1 py-1">&nbsp;</td>
+                                            <td className="border border-black px-1 py-1">&nbsp;</td>
+                                            <td className="border border-black px-1 py-1">&nbsp;</td>
+                                        </tr>
+                                    );
+                                }
+
+                                return rows;
+                            })()}
+                        </tbody>
+                    </table>
+
+                    {/* Signatures */}
+                    <div className="grid grid-cols-2 gap-10 mt-10 text-xs">
+                        <div>
+                            <div className="mb-8">Received by:</div>
+                            <div className="border-b border-black h-14 flex items-end justify-center">
+                                {receivedBySignature && (
+                                    <Image
+                                        src={receivedBySignature}
+                                        alt="Received by signature"
+                                        width={180}
+                                        height={60}
+                                        unoptimized
+                                        className="max-h-12 object-contain"
+                                    />
+                                )}
+                            </div>
+                            <div className="text-[10px] text-center mt-1">Signature over Printed Name of End User</div>
+                            <div className="border-b border-black mt-4 pb-1 text-center">{receivedByName}</div>
+                            <div className="text-[10px] text-center mt-1">Position/Office</div>
+                            <div className="border-b border-black mt-2 pb-1 text-center">{receivedByOffice}</div>
+                            <div className="text-[10px] text-center mt-1">Date</div>
+                            <div className="border-b border-black mt-2 pb-1 text-center">{receivedDate}</div>
+                        </div>
+
+                        <div>
+                            <div className="mb-8">Issued by:</div>
+                            <div className="border-b border-black h-14 flex items-end justify-center">
+                                {issuerSignatureUrl && (
+                                    <Image
+                                        src={issuerSignatureUrl}
+                                        alt="Issued by signature"
+                                        width={180}
+                                        height={60}
+                                        unoptimized
+                                        className="max-h-12 object-contain"
+                                    />
+                                )}
+                            </div>
+                            <div className="text-[10px] text-center mt-1">Signature over Printed Name of Supply and/or Property Custodian</div>
+                            <div className="border-b border-black mt-4 pb-1 text-center">{issuedByName}</div>
+                            <div className="text-[10px] text-center mt-1">Position/Office</div>
+                            <div className="border-b border-black mt-2 pb-1 text-center">{issuedByOffice}</div>
+                            <div className="text-[10px] text-center mt-1">Date</div>
+                            <div className="border-b border-black mt-2 pb-1 text-center">{docDate}</div>
+                        </div>
                     </div>
-                    <div className="text-xs">
-                        <div className="font-semibold">{issuance.issuer?.FullName}</div>
-                        <div>Property Officer / GSO</div>
-                        <div>Date: {formatDate(issuance.IssuanceDate)}</div>
-                    </div>
-                </div>
-
-                {/* Received By */}
-                <div className="text-center">
-                    <div className="mb-2 text-sm font-bold">RECEIVED BY:</div>
-                    <div className="border-b border-black mb-2 h-16 flex items-end justify-center pb-2">
-                        {finalSignature && (
-                            <img
-                                src={finalSignature}
-                                alt="Recipient signature"
-                                className="max-h-14 max-w-32 object-contain"
-                            />
-                        )}
-                    </div>
-                    <div className="text-xs">
-                        <div className="font-semibold">{issuance.issuedToUser?.FullName}</div>
-                        <div>Property Recipient</div>
-                        <div>Date: {issuance.AcknowledgedAt ? formatDate(issuance.AcknowledgedAt) : '__________'}</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Acknowledgment Notes */}
-            {issuance.AcknowledgmentNotes && (
-                <div className="mt-6 p-4 border border-black">
-                    <div className="text-sm font-bold mb-2">RECIPIENT NOTES:</div>
-                    <div className="text-xs">{issuance.AcknowledgmentNotes}</div>
-                </div>
+                </>
             )}
-
-            {/* Footer */}
-            <div className="mt-8 text-center text-xs text-gray-600">
-                <div>This is a computer-generated document. No signature required for system copy.</div>
-                <div>Generated on: {format(new Date(), 'PPPp')}</div>
-                <div>System Reference: {issuance.DocumentNumber}</div>
-            </div>
         </div>
     );
 });

@@ -129,9 +129,9 @@ export function SignatureModal({ open, onOpenChange, onSave, loading = false, co
             confirmText={confirmText}
             cancelText="Cancel"
             loading={loading}
-            contentClassName="max-w-[95vw] sm:max-w-[1100px] p-8"
+            contentClassName="w-[95vw] sm:max-w-[1100px] max-h-[90vh] overflow-y-auto p-6 sm:p-8"
         >
-            <div className="w-[min(95vw,1100px)] max-h-[90vh] overflow-auto space-y-3">
+            <div className="space-y-3">
                 {preContent}
                 <div className="flex gap-2">
                     <button className={`px-3 py-1 rounded ${mode === 'canvas' ? 'bg-[var(--primary)] text-white' : 'bg-slate-100'}`} onClick={() => setMode('canvas')}>Draw</button>

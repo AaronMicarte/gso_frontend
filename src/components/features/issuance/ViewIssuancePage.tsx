@@ -23,6 +23,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { SignatureModal } from '@/components/ui/SignatureModal';
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import React from 'react';
+import Image from 'next/image';
 
 const statusConfig = {
     pending_acknowledgment: {
@@ -65,7 +66,7 @@ const documentTypeConfig = {
 };
 
 function AcknowledgmentSignatureViewer({ url }: { url: string }) {
-    const [src, setSrc] = React.useState(url);
+    const [src] = React.useState(url);
     const [failed, setFailed] = React.useState(false);
 
     return (
@@ -73,11 +74,12 @@ function AcknowledgmentSignatureViewer({ url }: { url: string }) {
             <DialogPrimitive.Description className="sr-only">Acknowledgment signature preview</DialogPrimitive.Description>
             <div className="flex justify-center">
                 {!failed ? (
-                    <img
+                    <Image
                         src={src}
                         alt="Acknowledgment signature"
                         width={400}
                         height={120}
+                        unoptimized
                         className="object-contain border rounded"
                         onError={() => setFailed(true)}
                     />
@@ -118,8 +120,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
             setLoading(true);
             const data = await issuanceAPI.getById(issuanceId);
             setIssuance(data);
-        } catch (error) {
-            console.error('Failed to load issuance:', error);
+        } catch {
             toast.error('Failed to load asset issuance');
             router.push(baseRoute);
         } finally {
@@ -135,6 +136,10 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
 
     const handleDownloadDocument = async () => {
         if (!issuance) return;
+        if (issuance.Status === 'pending_acknowledgment') {
+            toast.error('Document is available after receipt is acknowledged');
+            return;
+        }
 
         try {
             const blob = await issuanceAPI.generateDocument(issuance.IssuanceID, issuance.DocumentType);
@@ -148,10 +153,19 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
             toast.success(`Downloaded ${issuance.DocumentNumber}`);
-        } catch (error) {
-            console.error('Failed to download document:', error);
+        } catch {
             toast.error('Failed to download document');
         }
+    };
+
+    const handleOpenPrintView = () => {
+        if (!issuance) return;
+        if (issuance.Status === 'pending_acknowledgment') {
+            toast.error('Printable document is available after receipt is acknowledged');
+            return;
+        }
+
+        router.push(`${baseRoute}/${issuance.IssuanceID}/print`);
     };
 
     type InventoryDetailWithPropertyName = InventoryDetail & { PropertyName?: string };
@@ -198,8 +212,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
             setShowSignatureModal(false);
             setAcknowledgmentNotes(''); // Clear notes
             loadIssuance(); // Reload to get updated data
-        } catch (error) {
-            console.error('Failed to acknowledge asset:', error);
+        } catch {
             toast.error('Failed to acknowledge asset');
         } finally {
             setIsAcknowledging(false);
@@ -210,6 +223,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         return issuance &&
             issuance.Status === 'pending_acknowledgment' &&
             user &&
+            user.UserRoleID !== 1 && // Exclude admins
             user.UserID === getRecipientUserId();
     };
 
@@ -221,6 +235,8 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
             (!!recipientUserId && user.UserID === recipientUserId) // Recipient
         );
     };
+
+    const canShowQr = issuance?.Status !== 'pending_acknowledgment';
 
     if (loading) {
         return (
@@ -292,10 +308,26 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                     <div className="flex items-center space-x-3">
                         <button
                             onClick={handleDownloadDocument}
-                            className="inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)]"
+                            disabled={!canShowQr}
+                            className={`inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] ${canShowQr
+                                ? 'text-slate-700 hover:bg-slate-50'
+                                : 'text-slate-400 cursor-not-allowed opacity-70'
+                                }`}
                         >
                             <Download className="w-4 h-4 mr-2" />
                             Download {issuance.DocumentType}
+                        </button>
+
+                        <button
+                            onClick={handleOpenPrintView}
+                            disabled={!canShowQr}
+                            className={`inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] ${canShowQr
+                                ? 'text-slate-700 hover:bg-slate-50'
+                                : 'text-slate-400 cursor-not-allowed opacity-70'
+                                }`}
+                        >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Open printable view
                         </button>
                         {canAcknowledge() && (
                             <div className="space-y-3">
@@ -415,7 +447,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                 {detail.inventoryDetail?.UnitCost ? `₱${(Number(detail.inventoryDetail.UnitCost) * detail.QuantityIssued).toLocaleString()}` : '-'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                {detail.inventoryDetail?.PropertyNumber && detail.inventoryDetail?.InventoryID && (
+                                                {canShowQr && detail.inventoryDetail?.PropertyNumber && detail.inventoryDetail?.InventoryID && (
                                                     <PropertySticker
                                                         propertyNumber={detail.inventoryDetail.PropertyNumber}
                                                         itemName={detail.inventoryDetail?.propertyInventory?.ItemName || detail.inventoryDetail?.propertyInventory?.ItemDescription || 'Asset'}
@@ -437,7 +469,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                             return `${origin}/admin/inventory/${detail.inventoryDetail.InventoryID}?detail=${detail.inventoryDetail.InventoryDetailID}`;
                                                         })()}
                                                         custodianName={issuance.IssuedToName || issuance.issuedToUser?.FullName || 'Unassigned'}
-                                                        date={issuance.IssuanceDate ? format(new Date(issuance.IssuanceDate), 'MM/dd/yyyy') : '-'}
+                                                        date={issuance.IssuanceDate ? format(toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila'), 'MM/dd/yyyy') : '-'}
                                                         unitCost={detail.inventoryDetail?.UnitCost ? Number(detail.inventoryDetail.UnitCost) * detail.QuantityIssued : undefined}
                                                     />
                                                 )}

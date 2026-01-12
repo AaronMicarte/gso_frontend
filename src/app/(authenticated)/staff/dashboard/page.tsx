@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getDashboardStats, getRecentActivity } from '@/lib/api/dashboard';
 import { DashboardStats, Activity } from '@/types/dashboard';
@@ -37,7 +38,7 @@ interface StatCardProps {
 }
 
 function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href }: StatCardProps) {
-    const CardContent = () => (
+    const content = (
         <div className={`bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow ${href ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
             <div className="flex items-center justify-between">
                 <div>
@@ -57,13 +58,13 @@ function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href 
 
     if (href) {
         return (
-            <a href={href}>
-                <CardContent />
-            </a>
+            <Link href={href} className="block">
+                {content}
+            </Link>
         );
     }
 
-    return <CardContent />;
+    return content;
 }
 
 // Activity icon mapper

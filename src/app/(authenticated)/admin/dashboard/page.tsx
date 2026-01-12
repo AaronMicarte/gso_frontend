@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getDashboardStats, getRecentActivity } from '@/lib/api/dashboard';
 import { DashboardStats, Activity } from '@/types/dashboard';
@@ -23,7 +24,6 @@ import {
     FileCheck,
     RefreshCw,
     LucideIcon,
-    Hand,
 } from 'lucide-react';
 
 // Stat card component with Lucide icons
@@ -38,7 +38,7 @@ interface StatCardProps {
 }
 
 function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href }: StatCardProps) {
-    const CardContent = () => (
+    const content = (
         <div className={`bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow ${href ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
             <div className="flex items-center justify-between">
                 <div>
@@ -58,13 +58,13 @@ function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href 
 
     if (href) {
         return (
-            <a href={href}>
-                <CardContent />
-            </a>
+            <Link href={href} className="block">
+                {content}
+            </Link>
         );
     }
 
-    return <CardContent />;
+    return content;
 }
 
 // Activity icon mapper
@@ -233,30 +233,30 @@ function InventoryOverview({ stats, loading }: { stats: DashboardStats | null; l
 
                 {/* Breakdown */}
                 <div className="grid grid-cols-3 gap-4 text-center">
-                    <a href="/admin/inventory/all-items?status=all" className="block">
+                    <Link href="/admin/inventory/all-items?status=all" className="block">
                         <div className="p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
                             <div className="text-2xl font-bold text-blue-600">
                                 {loading ? '...' : total.toLocaleString()}
                             </div>
                             <div className="text-xs text-slate-500">Total Items</div>
                         </div>
-                    </a>
-                    <a href="/admin/inventory/all-items?status=available" className="block">
+                    </Link>
+                    <Link href="/admin/inventory/all-items?status=available" className="block">
                         <div className="p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors cursor-pointer">
                             <div className="text-2xl font-bold text-green-600">
                                 {loading ? '...' : available.toLocaleString()}
                             </div>
                             <div className="text-xs text-slate-500">Available</div>
                         </div>
-                    </a>
-                    <a href="/admin/inventory/all-items?status=assigned" className="block">
+                    </Link>
+                    <Link href="/admin/inventory/all-items?status=assigned" className="block">
                         <div className="p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer">
                             <div className="text-2xl font-bold text-amber-600">
                                 {loading ? '...' : assigned.toLocaleString()}
                             </div>
                             <div className="text-xs text-slate-500">Assigned</div>
                         </div>
-                    </a>
+                    </Link>
                 </div>
             </div>
         </div>

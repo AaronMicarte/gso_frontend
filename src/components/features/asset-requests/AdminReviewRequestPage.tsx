@@ -56,6 +56,8 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
             const requestData = await assetIssuanceAPI.requests.getById(parseInt(id));
             setRequest(requestData);
 
+            const requestDepartmentId = requestData.DepartmentID ?? null;
+
             // Initialize review items with existing data from assignments
             if (requestData.details) {
                 setReviewItems(requestData.details.map(detail => {
@@ -68,14 +70,17 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                         ...detail,
                         PropertyClassification: latestRequestAssignment?.PropertyClassification || detail.PropertyClassification as 'ICS' | 'PAR' || null,
                         AssignedEndUserID: latestRequestAssignment?.AssignedUserID || detail.AssignedEndUserID || null,
-                        AssignedDepartmentID: latestRequestAssignment?.AssignedDepartmentID || detail.AssignedDepartmentID || null,
+                        AssignedDepartmentID: (
+                            latestRequestAssignment?.AssignedDepartmentID ||
+                            detail.AssignedDepartmentID ||
+                            requestDepartmentId ||
+                            null
+                        ),
                         AdminNotes: latestRequestAssignment?.AdminNotes || detail.AdminNotes || null
                     };
                 }));
             }
         } catch (error) {
-            console.error('Failed to load request:', error);
-
             let errorMessage = 'Failed to load asset request';
             if (error instanceof AxiosError && error.response?.status === 404) {
                 errorMessage = 'Asset request not found';
@@ -109,7 +114,6 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
             setEndUsers(endUsersResponse);
             setDepartments(departmentsResponse);
         } catch (error) {
-            console.error('Failed to load master data:', error);
             toast.error('Failed to load required data');
         }
     };
@@ -119,16 +123,21 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
             if (i === index) {
                 const updatedItem = { ...item, [field]: value };
 
+                const departmentEndUserId = request?.DepartmentID
+                    ? (endUsers.find(eu => eu.DepartmentID === request.DepartmentID)?.EndUserID ?? null)
+                    : null;
+
                 // REAL GSO WORKFLOW LOGIC
                 if (field === 'PropertyClassification') {
                     if (value === 'ICS') {
                         // ICS = Office property, auto-assign to requesting department
                         updatedItem.AssignedDepartmentID = request?.DepartmentID || null;
-                        // Auto-assign to the requester (not department head)
-                        updatedItem.AssignedEndUserID = request?.RequestedBy || null;
+                        // IMPORTANT: AssignedEndUserID must reference `enduser.EndUserID` (NOT `user.UserID`).
+                        // Prefer a department-level EndUser record if present; otherwise require manual selection.
+                        updatedItem.AssignedEndUserID = departmentEndUserId;
                     } else if (value === 'PAR') {
-                        // PAR = Personal property, clear department assignment
-                        updatedItem.AssignedDepartmentID = null;
+                        // PAR = Personal property, still belongs to the requesting department for accountability grouping
+                        updatedItem.AssignedDepartmentID = request?.DepartmentID || null;
                         // Clear end user for manual text input
                         updatedItem.AssignedEndUserID = null;
                     }
@@ -144,6 +153,10 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
         try {
             setSaving(true);
 
+            const departmentEndUserId = request?.DepartmentID
+                ? (endUsers.find(eu => eu.DepartmentID === request.DepartmentID)?.EndUserID ?? null)
+                : null;
+
             // Validation
             for (const [index, item] of reviewItems.entries()) {
                 if (!item.PropertyClassification) {
@@ -157,12 +170,12 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
                 }
 
                 if (item.PropertyClassification === 'ICS' && !item.AssignedEndUserID) {
-                    // Auto-assign to requester if not set
-                    item.AssignedEndUserID = request?.RequestedBy || null;
-                    if (!item.AssignedEndUserID) {
-                        toast.error(`Cannot auto-assign ICS item to requester (Item ${index + 1})`);
-                        return;
+                    if (departmentEndUserId) {
+                        toast.error(`Please select the ICS recipient End User (Item ${index + 1})`);
+                    } else {
+                        toast.error(`No End User record found for this department. Create/select an End User before issuing ICS (Item ${index + 1}).`);
                     }
+                    return;
                 }
             }
 
@@ -183,7 +196,6 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
             toast.success('Review data saved successfully');
             router.push('/admin/asset-requests');
         } catch (error) {
-            console.error('Failed to save review:', error);
             toast.error('Failed to save review data');
         } finally {
             setSaving(false);
@@ -215,7 +227,6 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
             toast.success('Asset request approved successfully');
             router.push('/admin/asset-requests');
         } catch (error) {
-            console.error('Failed to approve request:', error);
             toast.error('Failed to approve request');
         } finally {
             setSaving(false);
@@ -249,7 +260,6 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
             toast.success('Asset request rejected');
             router.push('/admin/asset-requests');
         } catch (error) {
-            console.error('Failed to reject request:', error);
             toast.error('Failed to reject request');
         } finally {
             setSaving(false);

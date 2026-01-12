@@ -258,7 +258,10 @@ export function QrScanPage() {
                             const endUserName = selected.custodianName || 'Unassigned';
                             const itemName = selected.dr_item_description || selected.PropertyName || 'Unknown Item';
                             const department = selected.locationDepartment || 'GSO Property Custodian';
-                            const category = (selected as any).propertyType?.PropertyName || selected.PropertyName || '-';
+                            const propertyTypeName = (
+                                selected as unknown as { propertyType?: { PropertyName?: string | null } | null }
+                            ).propertyType?.PropertyName;
+                            const category = propertyTypeName || selected.PropertyName || '-';
                             const propertyNo = selected.PropertyNumber || '—';
                             const unitCost = selected.UnitCost != null ? `₱${Number(selected.UnitCost).toLocaleString()}` : '-';
                             const brand = selected.Brand || '-';
