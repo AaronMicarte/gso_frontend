@@ -33,11 +33,12 @@ interface StatCardProps {
     iconColor: string;
     bgColor: string;
     loading?: boolean;
+    href?: string;
 }
 
-function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading }: StatCardProps) {
-    return (
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href }: StatCardProps) {
+    const CardContent = () => (
+        <div className={`bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow ${href ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
             <div className="flex items-center justify-between">
                 <div>
                     {loading ? (
@@ -53,6 +54,16 @@ function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading }: Sta
             </div>
         </div>
     );
+
+    if (href) {
+        return (
+            <a href={href}>
+                <CardContent />
+            </a>
+        );
+    }
+
+    return <CardContent />;
 }
 
 // Activity icon mapper
@@ -214,8 +225,8 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
             bgColor: 'bg-red-50',
         },
         {
-            label: 'Active Suppliers',
-            value: stats?.totalSuppliers ?? 0,
+            label: 'Active Departments',
+            value: stats?.totalDepartments ?? 0,
             icon: Building2,
             color: 'text-blue-500',
             bgColor: 'bg-blue-50',
@@ -317,32 +328,35 @@ export default function StaffDashboardPage() {
             {/* Main Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
-                    title="Total Assets"
-                    value={stats?.totalAssets ?? 0}
-                    icon={Package}
+                    title="Total Inventory Items"
+                    value={stats?.totalInventory ?? 0}
+                    icon={Boxes}
                     iconColor="text-blue-600"
                     bgColor="bg-blue-100"
                     loading={statsLoading}
+                    href="/staff/inventory/all-items?status=all"
                 />
                 <StatCard
-                    title="Inventory Items"
-                    value={stats?.totalInventory ?? 0}
-                    icon={Boxes}
+                    title="Available Inventory"
+                    value={stats?.availableInventory ?? 0}
+                    icon={Package}
                     iconColor="text-green-600"
                     bgColor="bg-green-100"
                     loading={statsLoading}
+                    href="/staff/inventory/all-items?status=available"
                 />
                 <StatCard
-                    title="Delivery Receipts"
-                    value={stats?.totalDeliveryReceipts ?? 0}
+                    title="Assigned Assets"
+                    value={stats?.totalAssets ?? 0}
                     icon={ClipboardList}
                     iconColor="text-amber-600"
                     bgColor="bg-amber-100"
                     loading={statsLoading}
+                    href="/staff/inventory/all-items?status=assigned"
                 />
                 <StatCard
-                    title="Active Users"
-                    value={stats?.totalUsers ?? 0}
+                    title="Pending Requests"
+                    value={stats?.pendingRequests ?? 0}
                     icon={Users}
                     iconColor="text-purple-600"
                     bgColor="bg-purple-100"
@@ -353,16 +367,16 @@ export default function StaffDashboardPage() {
             {/* Secondary Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
-                    title="Departments"
-                    value={stats?.totalDepartments ?? 0}
-                    icon={Building2}
+                    title="Delivery Receipts"
+                    value={stats?.totalDeliveryReceipts ?? 0}
+                    icon={FileText}
                     iconColor="text-indigo-600"
                     bgColor="bg-indigo-100"
                     loading={statsLoading}
                 />
                 <StatCard
-                    title="Suppliers"
-                    value={stats?.totalSuppliers ?? 0}
+                    title="Active Users"
+                    value={stats?.totalUsers ?? 0}
                     icon={Users}
                     iconColor="text-orange-600"
                     bgColor="bg-orange-100"

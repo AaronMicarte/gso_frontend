@@ -2,10 +2,11 @@
 export interface DashboardStats {
     totalAssets: number;
     totalInventory: number;
+    availableInventory: number;
     totalDeliveryReceipts: number;
     totalUsers: number;
     totalDepartments: number;
-    totalSuppliers: number;
+    pendingRequests: number;
     forDisposal: number;
     forRepair: number;
 }

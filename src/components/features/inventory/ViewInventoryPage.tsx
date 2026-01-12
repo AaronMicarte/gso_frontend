@@ -1,6 +1,7 @@
 'use client';
 
 import { useInventory, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
+import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -18,7 +19,9 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
     const { data, isLoading, refetch } = useInventory(id);
     const updateInventoryDetail = useUpdateInventoryDetail();
+    const { data: propertyTypes } = useAllPropertyTypes();
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<{ id: number; description: string } | null>(null);
@@ -30,16 +33,27 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
     const filteredDetails = useMemo(() => {
         if (!data?.details) return [];
-        if (!searchTerm) return data?.details || [];
-        return (data?.details || []).filter(detail =>
-            detail.dr_item_description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            detail.Description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            detail.PropertyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            detail.Brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            detail.ModelNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            detail.SerialNumber?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [data?.details, searchTerm]);
+        let filtered = data?.details || [];
+
+        // Apply search filter
+        if (searchTerm) {
+            filtered = filtered.filter(detail =>
+                detail.dr_item_description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                detail.Description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                detail.PropertyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                detail.Brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                detail.ModelNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                detail.SerialNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // Apply property type filter
+        if (selectedPropertyType) {
+            filtered = filtered.filter(detail => detail.PropertyTypeID === selectedPropertyType);
+        }
+
+        return filtered;
+    }, [data?.details, searchTerm, selectedPropertyType]);
 
     // Guard invalid id early — prevents runtime/TS issues when params are missing
     if (!id || Number.isNaN(id)) {
@@ -248,6 +262,20 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                             className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         />
                                     </div>
+                                </div>
+
+                                {/* Property Type Filter */}
+                                <div className="mb-4">
+                                    <select
+                                        value={selectedPropertyType || ''}
+                                        onChange={(e) => setSelectedPropertyType(e.target.value ? Number(e.target.value) : null)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="">All Property Types</option>
+                                        {propertyTypes?.map(type => (
+                                            <option key={type.id} value={type.id}>{type.name}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div className="overflow-x-auto">

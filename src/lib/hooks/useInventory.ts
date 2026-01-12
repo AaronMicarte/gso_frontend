@@ -8,7 +8,7 @@ export const useInventories = (options?: { page?: number; per_page?: number; sea
     });
 };
 
-export const useAllInventoryItems = (options?: { page?: number; per_page?: number; search?: string; property_status_id?: number }) => {
+export const useAllInventoryItems = (options?: { page?: number; per_page?: number; search?: string; property_status_id?: number; property_type_id?: number }) => {
     return useQuery<InventoryItemsListResponse>({
         queryKey: ['all-inventory-items', options],
         queryFn: () => getAllInventoryItems(options),

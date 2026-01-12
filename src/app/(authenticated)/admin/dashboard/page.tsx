@@ -34,11 +34,12 @@ interface StatCardProps {
     iconColor: string;
     bgColor: string;
     loading?: boolean;
+    href?: string;
 }
 
-function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading }: StatCardProps) {
-    return (
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href }: StatCardProps) {
+    const CardContent = () => (
+        <div className={`bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow ${href ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
             <div className="flex items-center justify-between">
                 <div>
                     {loading ? (
@@ -54,6 +55,16 @@ function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading }: Sta
             </div>
         </div>
     );
+
+    if (href) {
+        return (
+            <a href={href}>
+                <CardContent />
+            </a>
+        );
+    }
+
+    return <CardContent />;
 }
 
 // Activity icon mapper
@@ -192,6 +203,66 @@ function QuickActions() {
     );
 }
 
+// Inventory overview component
+function InventoryOverview({ stats, loading }: { stats: DashboardStats | null; loading: boolean }) {
+    const total = stats?.totalInventory ?? 0;
+    const assigned = stats?.totalAssets ?? 0;
+    const available = stats?.availableInventory ?? 0;
+    const utilization = total > 0 ? Math.round((assigned / total) * 100) : 0;
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-slate-500" />
+                Inventory Overview
+            </h3>
+            <div className="space-y-4">
+                {/* Utilization Progress Bar */}
+                <div>
+                    <div className="flex justify-between text-sm text-slate-600 mb-2">
+                        <span>Utilization Rate</span>
+                        <span>{utilization}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-3">
+                        <div
+                            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                            style={{ width: `${utilization}%` }}
+                        />
+                    </div>
+                </div>
+
+                {/* Breakdown */}
+                <div className="grid grid-cols-3 gap-4 text-center">
+                    <a href="/admin/inventory/all-items?status=all" className="block">
+                        <div className="p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
+                            <div className="text-2xl font-bold text-blue-600">
+                                {loading ? '...' : total.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-slate-500">Total Items</div>
+                        </div>
+                    </a>
+                    <a href="/admin/inventory/all-items?status=available" className="block">
+                        <div className="p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors cursor-pointer">
+                            <div className="text-2xl font-bold text-green-600">
+                                {loading ? '...' : available.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-slate-500">Available</div>
+                        </div>
+                    </a>
+                    <a href="/admin/inventory/all-items?status=assigned" className="block">
+                        <div className="p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer">
+                            <div className="text-2xl font-bold text-amber-600">
+                                {loading ? '...' : assigned.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-slate-500">Assigned</div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // System status component
 interface SystemStatusProps {
     stats: DashboardStats | null;
@@ -200,6 +271,13 @@ interface SystemStatusProps {
 
 function SystemStatus({ stats, loading }: SystemStatusProps) {
     const statusItems = [
+        {
+            label: 'Active Departments',
+            value: stats?.totalDepartments ?? 0,
+            icon: Building2,
+            color: 'text-blue-500',
+            bgColor: 'bg-blue-50',
+        },
         {
             label: 'For Repair',
             value: stats?.forRepair ?? 0,
@@ -213,13 +291,6 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
             icon: Trash2,
             color: 'text-red-500',
             bgColor: 'bg-red-50',
-        },
-        {
-            label: 'Active Suppliers',
-            value: stats?.totalSuppliers ?? 0,
-            icon: Building2,
-            color: 'text-blue-500',
-            bgColor: 'bg-blue-50',
         },
     ];
 
@@ -308,42 +379,45 @@ export default function AdminDashboardPage() {
             {/* Header */}
             <div className="mb-6 sm:mb-8">
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-                    {getGreeting()}, {user?.FullName || user?.Username}! <Hand className="inline w-6 h-6 ml-2" />
+                    {getGreeting()}, {user?.FullName || user?.Username}!
                 </h1>
                 <p className="text-sm sm:text-base text-slate-500 mt-1">
-                    Here&apos;s what&apos;s happening with your inventory today.
+                    Overview of GSO inventory management system.
                 </p>
             </div>
 
             {/* Main Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
-                    title="Total Assets"
-                    value={stats?.totalAssets ?? 0}
-                    icon={Package}
+                    title="Total Inventory Items"
+                    value={stats?.totalInventory ?? 0}
+                    icon={Boxes}
                     iconColor="text-blue-600"
                     bgColor="bg-blue-100"
                     loading={statsLoading}
+                    href="/admin/inventory/all-items?status=all"
                 />
                 <StatCard
-                    title="Inventory Items"
-                    value={stats?.totalInventory ?? 0}
-                    icon={Boxes}
+                    title="Available Inventory"
+                    value={stats?.availableInventory ?? 0}
+                    icon={Package}
                     iconColor="text-green-600"
                     bgColor="bg-green-100"
                     loading={statsLoading}
+                    href="/admin/inventory/all-items?status=available"
                 />
                 <StatCard
-                    title="Delivery Receipts"
-                    value={stats?.totalDeliveryReceipts ?? 0}
+                    title="Assigned Assets"
+                    value={stats?.totalAssets ?? 0}
                     icon={ClipboardList}
                     iconColor="text-amber-600"
                     bgColor="bg-amber-100"
                     loading={statsLoading}
+                    href="/admin/inventory/all-items?status=assigned"
                 />
                 <StatCard
-                    title="Active Users"
-                    value={stats?.totalUsers ?? 0}
+                    title="Pending Requests"
+                    value={stats?.pendingRequests ?? 0}
                     icon={Users}
                     iconColor="text-purple-600"
                     bgColor="bg-purple-100"
@@ -354,16 +428,16 @@ export default function AdminDashboardPage() {
             {/* Secondary Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
-                    title="Departments"
-                    value={stats?.totalDepartments ?? 0}
-                    icon={Building2}
+                    title="Delivery Receipts"
+                    value={stats?.totalDeliveryReceipts ?? 0}
+                    icon={FileText}
                     iconColor="text-indigo-600"
                     bgColor="bg-indigo-100"
                     loading={statsLoading}
                 />
                 <StatCard
-                    title="Suppliers"
-                    value={stats?.totalSuppliers ?? 0}
+                    title="Active Users"
+                    value={stats?.totalUsers ?? 0}
                     icon={Users}
                     iconColor="text-orange-600"
                     bgColor="bg-orange-100"
@@ -373,8 +447,9 @@ export default function AdminDashboardPage() {
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                {/* Recent Activity - Takes 2 columns on large screens */}
-                <div className="lg:col-span-2">
+                {/* Left column - Recent Activity & Inventory Overview */}
+                <div className="lg:col-span-2 space-y-6">
+                    <InventoryOverview stats={stats} loading={statsLoading} />
                     <RecentActivity
                         activities={activities}
                         loading={activityLoading}

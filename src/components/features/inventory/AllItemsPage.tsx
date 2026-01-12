@@ -1,25 +1,47 @@
 'use client';
 
 import { useAllInventoryItems, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
+import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
 import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
+import { useSearchParams } from 'next/navigation';
 import type { InventoryItem } from '@/lib/api/inventory';
 
 import { PropertySticker } from './PropertySticker';
 
 export function AllItemsPage() {
+    const searchParams = useSearchParams();
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState<number | null>(null);
+    const [selectedStatus, setSelectedStatus] = useState<number | null>(() => {
+        const statusParam = searchParams.get('status');
+        if (statusParam) {
+            const statusMap: { [key: string]: number | null } = {
+                'available': 1,
+                'assigned': 2,
+                'repair': 3,
+                'disposal': 4,
+                'disposed': 5,
+                'all': null
+            };
+            const statusId = statusMap[statusParam.toLowerCase()];
+            return statusId !== undefined ? statusId : null;
+        }
+        return null;
+    });
+    const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<{ id: number; description: string } | null>(null);
 
-    const { data, isLoading, refetch } = useAllInventoryItems({ page, per_page: 10, search, property_status_id: selectedStatus || undefined });
+
+
+    const { data, isLoading, refetch } = useAllInventoryItems({ page, per_page: 10, search, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined });
     const updateInventoryDetail = useUpdateInventoryDetail();
+    const { data: propertyTypes } = useAllPropertyTypes();
 
     const propertyStatuses = [
         { id: 1, name: 'Available' },
@@ -167,6 +189,16 @@ export function AllItemsPage() {
                             <option value="">All Statuses</option>
                             {propertyStatuses.map(status => (
                                 <option key={status.id} value={status.id}>{status.name}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedPropertyType || ''}
+                            onChange={(e) => setSelectedPropertyType(e.target.value ? Number(e.target.value) : null)}
+                            className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                        >
+                            <option value="">All Property Types</option>
+                            {propertyTypes?.map(type => (
+                                <option key={type.id} value={type.id}>{type.name}</option>
                             ))}
                         </select>
                     </div>
