@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, ClipboardCheck, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Edit, ClipboardCheck, AlertCircle, Loader2, CheckCircle, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
@@ -97,6 +97,13 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3">
+                    <Link
+                        href={`${baseRoute}/delivery-receipts/${dr.DRID}/print`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
+                    >
+                        <Printer className="w-4 h-4" />
+                        Print DR
+                    </Link>
                     {canEdit && !dr?.hasIAR && (
                         <Link
                             href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}

@@ -121,6 +121,7 @@ export interface IssuanceDetail {
     InventoryDetailID: number;
     QuantityIssued: number;
     ItemDescription?: string | null;
+    Unit?: string | null;
     Remarks?: string;
     created_at: string;
     updated_at: string;
@@ -213,8 +214,13 @@ export interface InventoryDetail {
     ConditionID: number;
     PropertyTypeID: number;
     UnitOfMeasureID: number;
-    PropertyNumber?: string;
-    UnitCost?: number;
+    PropertyNumber?: string | null;
+    UnitCost?: number | null;
+
+    // Optional descriptive fields used by print/report views
+    Description?: string | null;
+    InventoryNumber?: string | null;
+    EstimatedUsefulLife?: string | null;
 
     // Relationships
     propertyInventory?: PropertyInventory;
@@ -230,6 +236,12 @@ export interface PropertyInventory {
     Brand: string | null;
     ModelNumber: string | null;
     SerialNumber: string | null;
+
+    // Traceability/reporting fields (optional; depends on backend payload)
+    DateReceived?: string | null;
+    DateAcquired?: string | null;
+    InventoryNumber?: string | null;
+    EstimatedUsefulLife?: string | null;
 }
 
 export interface PropertyType {

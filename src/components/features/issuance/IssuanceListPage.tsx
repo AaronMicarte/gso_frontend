@@ -15,7 +15,6 @@ import {
     Archive,
     ChevronDown,
     ChevronRight,
-    Users,
     FileText,
     User
 } from 'lucide-react';
@@ -127,11 +126,28 @@ export function IssuanceListPage({
                 new Date(b.RequestDate).getTime() - new Date(a.RequestDate).getTime()
             );
 
-            setGroupedIssuances(sortedData);
+            // Defensive client-side filter: some backends may ignore document_type on grouped responses.
+            // Keep UI consistent for dedicated PAR/ICS pages.
+            const filteredData = sortedData
+                .map((group) => {
+                    if (!filters.document_type) return group;
+                    const issuances = group.issuances.filter((i) => i.DocumentType === filters.document_type);
+                    const recomputedTotalItems = issuances.reduce((sum, issuance) => {
+                        const detailsCount = issuance.details?.length ?? 0;
+                        return sum + detailsCount;
+                    }, 0);
+                    return {
+                        ...group,
+                        issuances,
+                        totalItems: recomputedTotalItems > 0 ? recomputedTotalItems : group.totalItems,
+                    };
+                })
+                .filter((group) => group.issuances.length > 0);
+
+            setGroupedIssuances(filteredData);
             setCurrentPage(response.current_page);
             setTotalPages(response.last_page);
-        } catch (error) {
-            console.error('Failed to load issuances:', error);
+        } catch {
             toast.error('Failed to load asset issuances');
         } finally {
             setLoading(false);
@@ -173,8 +189,7 @@ export function IssuanceListPage({
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
             toast.success(`Downloaded ${issuance.DocumentNumber}`);
-        } catch (error) {
-            console.error('Failed to download document:', error);
+        } catch {
             toast.error('Failed to download document');
         }
     };

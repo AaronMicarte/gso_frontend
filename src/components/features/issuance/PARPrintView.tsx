@@ -47,12 +47,12 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
     const fundCluster = 'GENERAL FUND';
 
     const receivedByName = ensureText(
-        issuance.issuedToUser?.FullName || issuance.IssuedToName,
-        'PROPERTY RECIPIENT'
+        issuance.request?.requester?.FullName || issuance.IssuedToName,
+        'REQUESTER'
     );
     const receivedByOffice = ensureText(
-        issuance.issuedToUser?.department?.DepartmentName,
-        ensureText(issuance.request?.department?.DepartmentName, 'DEPARTMENT')
+        issuance.request?.department?.DepartmentName,
+        'DEPARTMENT'
     );
 
     const issuedByName = ensureText(issuance.issuer?.FullName, 'PROPERTY OFFICER');
@@ -149,21 +149,21 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                                 const rowsNeeded = 20;
                                 const rows = details.slice(0, rowsNeeded).map((detail, idx) => {
                                     const inv = detail.inventoryDetail;
-                                    const pInv = inv?.propertyInventory as unknown as { ItemDescription?: string; ItemName?: string; Brand?: string | null; ModelNumber?: string | null; SerialNumber?: string | null; DateReceived?: string };
+                                    const pInv = inv?.propertyInventory;
 
                                     const itemName = ensureText(
                                         pInv?.ItemDescription || pInv?.ItemName || detail.ItemDescription,
                                         'ITEM'
                                     );
-                                    const technical = ensureText((inv as any)?.Description, '');
+                                    const technical = ensureText(inv?.Description, '');
                                     const description = technical ? `${itemName} - ${technical}` : itemName;
 
                                     const qty = Number(detail.QuantityIssued ?? 1);
-                                    const unit = ensureText(inv?.unitOfMeasure?.UnitName || (detail as any)?.Unit, 'unit');
+                                    const unit = ensureText(inv?.unitOfMeasure?.UnitName || (detail.Unit ?? ''), 'unit');
                                     const propertyNumber = ensureText(inv?.PropertyNumber || inv?.InventoryDetailID, ensureText(idx + 1, '1'));
 
                                     const dateAcquired = ensureText(
-                                        (pInv as any)?.DateReceived ? formatDate((pInv as any).DateReceived) : '',
+                                        pInv?.DateAcquired ? formatDate(pInv.DateAcquired) : (pInv?.DateReceived ? formatDate(pInv.DateReceived) : ''),
                                         docDate
                                     );
 
@@ -219,7 +219,7 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                                     />
                                 )}
                             </div>
-                            <div className="text-[10px] text-center mt-1">Signature over Printed Name of End User</div>
+                            <div className="text-[10px] text-center mt-1">Signature over Printed Name of Requester (Department Head)</div>
                             <div className="border-b border-black mt-4 pb-1 text-center">{receivedByName}</div>
                             <div className="text-[10px] text-center mt-1">Position/Office</div>
                             <div className="border-b border-black mt-2 pb-1 text-center">{receivedByOffice}</div>

@@ -182,7 +182,6 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                 const data = await getIAR(parseInt(id));
                 setIar(data);
             } catch (error: unknown) {
-                console.error(error);
                 let message = 'Failed to load IAR';
                 if (typeof error === 'object' && error !== null && 'message' in error) {
                     const msg = (error as { message?: unknown }).message;

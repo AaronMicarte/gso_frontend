@@ -77,7 +77,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
     if (isAdmin) {
         sections.push(
             {
-                section: 'PROCUREMENT',
+                section: 'DELIVERY & INSPECTION',
                 items: [
                     {
                         label: 'Delivery & Inspection',
@@ -211,9 +211,9 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         label: 'Reports',
                         icon: FileBarChart,
                         children: [
-                            { label: 'Dashboard Analytics', href: `${baseRoute}/reports/analytics`, icon: FileBarChart },
-                            { label: 'Standard Reports', href: `${baseRoute}/reports/standard`, icon: FileText },
-                            { label: 'Custom Reports', href: `${baseRoute}/reports/custom`, icon: FileText },
+                            { label: 'Analytics', href: `${baseRoute}/reports/analytics`, icon: FileBarChart },
+                            { label: 'Printable Forms', href: `${baseRoute}/reports/standard`, icon: FileText },
+                            { label: 'Exports (CSV)', href: `${baseRoute}/reports/custom`, icon: FileText },
                         ]
                     }
                 ]
@@ -246,7 +246,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 ]
             },
             {
-                section: 'PROCUREMENT',
+                section: 'DELIVERY & INSPECTION',
                 items: [
                     {
                         label: 'Delivery & Inspection',

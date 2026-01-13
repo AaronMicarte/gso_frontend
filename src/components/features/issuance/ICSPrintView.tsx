@@ -49,12 +49,12 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
     const receivedFromOffice = ensureText(issuance.issuer?.department?.DepartmentName, 'GENERAL SERVICES OFFICE');
 
     const receivedByName = ensureText(
-        issuance.issuedToUser?.FullName || issuance.IssuedToName,
-        'INVENTORY CUSTODIAN'
+        issuance.request?.requester?.FullName || issuance.IssuedToName,
+        'REQUESTER'
     );
     const receivedByOffice = ensureText(
-        issuance.issuedToUser?.department?.DepartmentName,
-        ensureText(issuance.request?.department?.DepartmentName, 'DEPARTMENT')
+        issuance.request?.department?.DepartmentName,
+        'DEPARTMENT'
     );
 
     const docDate = ensureText(formatDate(issuance.IssuanceDate), formatDate(new Date().toISOString()));
@@ -145,10 +145,10 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                                 const rowsNeeded = 18;
                                 const rows = details.slice(0, rowsNeeded).map((detail, idx) => {
                                     const inv = detail.inventoryDetail;
-                                    const pInv = inv?.propertyInventory as any;
+                                    const pInv = inv?.propertyInventory;
 
                                     const qty = Number(detail.QuantityIssued ?? 1);
-                                    const unit = ensureText(inv?.unitOfMeasure?.UnitName || (detail as any)?.Unit, 'unit');
+                                    const unit = ensureText(inv?.unitOfMeasure?.UnitName || (detail.Unit ?? ''), 'unit');
 
                                     const itemName = ensureText(
                                         pInv?.ItemDescription || pInv?.ItemName || detail.ItemDescription,
@@ -159,21 +159,21 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                                     const description = [itemName, brandModel, serial ? `SN: ${serial}` : ''].filter(Boolean).join(' / ');
 
                                     const inventoryItemNo = ensureText(
-                                        pInv?.InventoryNumber || (inv as any)?.InventoryNumber || inv?.PropertyNumber || inv?.InventoryDetailID,
+                                        pInv?.InventoryNumber || inv?.InventoryNumber || inv?.PropertyNumber || inv?.InventoryDetailID,
                                         ensureText(idx + 1, '1')
                                     );
 
                                     const dateAcquired = ensureText(
-                                        pInv?.DateAcquired ? formatDate(pInv?.DateAcquired) : (pInv?.DateReceived ? formatDate(pInv?.DateReceived) : ''),
+                                        pInv?.DateAcquired ? formatDate(pInv.DateAcquired) : (pInv?.DateReceived ? formatDate(pInv.DateReceived) : ''),
                                         docDate
                                     );
 
                                     const estimatedUsefulLife = ensureText(
-                                        (inv as any)?.EstimatedUsefulLife || pInv?.EstimatedUsefulLife || (inv?.propertyType as any)?.EstimatedUsefulLife,
+                                        inv?.EstimatedUsefulLife || pInv?.EstimatedUsefulLife,
                                         '1 year'
                                     );
 
-                                    const unitCost = Number(inv?.UnitCost ?? (inv as any)?.UnitCost ?? 0);
+                                    const unitCost = Number(inv?.UnitCost ?? 0);
                                     const totalCost = qty * unitCost;
 
                                     return (
@@ -227,7 +227,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                                     />
                                 )}
                             </div>
-                            <div className="text-[10px] text-center mt-1">Signature Over Printed Name</div>
+                            <div className="text-[10px] text-center mt-1">Signature Over Printed Name of Requester (Department Head)</div>
                             <div className="border-b border-black mt-3 pb-1 text-center">{receivedFromName}</div>
                             <div className="text-[10px] text-center mt-1">Position/Office</div>
                             <div className="border-b border-black mt-2 pb-1 text-center">{receivedFromOffice}</div>

@@ -173,17 +173,15 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     const getRecipientUserId = (): number | null => {
         if (!issuance) return null;
 
-        if (issuance.DocumentType === 'ICS') {
-            return (
-                issuance.request?.RequestedBy ??
-                issuance.request?.requester?.UserID ??
-                issuance.issuedToUser?.UserID ??
-                issuance.IssuedTo ??
-                null
-            );
-        }
-
-        return issuance.IssuedTo ?? null;
+        // Real-life GSO flow (per project spec): issuance acknowledgment is by the requester / department head.
+        // Even if an end-user is encoded for assignment, the receiving accountability signature is from the requester.
+        return (
+            issuance.request?.RequestedBy ??
+            issuance.request?.requester?.UserID ??
+            issuance.IssuedTo ??
+            issuance.issuedToUser?.UserID ??
+            null
+        );
     };
 
     const handleAcknowledgeSignature = async (signatureData: string) => {
