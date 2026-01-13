@@ -50,5 +50,6 @@ NOTE: Vehicles and infrastructure property types (motor vehicles, buildings/stru
 **BRUTAL HONESTY:** If the code is messy, fix it. If the workflow is wrong, change it. No excuses.
 **DEVELOPER:** 3rd Year BSIT Student (Solo Capstone)
 **TARGET:** El Salvador City GSO System
+**TITLE:** Web-Based Asset and Inventory Management System with QR Code Tracking and Automated Reporting for the General Services Office (GSO) of El Salvador City Hall
 
 PLEASE DONT TOUCH THE OLD ADMIN FOLDER
