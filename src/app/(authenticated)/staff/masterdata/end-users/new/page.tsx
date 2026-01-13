@@ -197,8 +197,8 @@ export default function StaffNewEndUserPage() {
                             >
                                 <option value={0}>Select a department</option>
                                 {departments?.map((dept: Department) => (
-                                    <option key={dept.DepartmentID} value={dept.DepartmentID}>
-                                        {dept.DepartmentName}
+                                    <option key={dept.id} value={dept.id}>
+                                        {dept.name}
                                     </option>
                                 ))}
                             </select>

@@ -25,9 +25,15 @@ interface LockoutState {
   contact?: string;
 }
 
+interface ActivationState {
+  required: boolean;
+  message: string;
+}
+
 export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [lockout, setLockout] = useState<LockoutState | null>(null);
+  const [activation, setActivation] = useState<ActivationState | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,19 +89,10 @@ export function LoginForm() {
 
     setLoading(true);
     toast.dismiss(); // Clear previous toasts
+    setActivation(null);
 
     try {
       const response = await login(data);
-
-      // Force MFA setup for users who haven't enabled it yet
-      if (response.user && response.user.MFAEnabled === false) {
-        sessionStorage.setItem('mfa_setup_pending', JSON.stringify({
-          userId: response.user.UserID,
-          userRole: response.user.Role,
-        }));
-        router.push('/setup-mfa');
-        return;
-      }
 
       // Check if MFA is required (either setup or verification)
       if (response.mfa_required && response.user_id) {
@@ -147,6 +144,18 @@ export function LoginForm() {
         toast.error('Invalid Credentials', {
           description: `${error.attempts_remaining} attempt${error.attempts_remaining !== 1 ? 's' : ''} remaining before lockout.`
         });
+      } else if (error.activation_required) {
+        setActivation({
+          required: true,
+          message: error.message || 'Account activation required. Please check your email.'
+        });
+        toast.error('Activation Required', {
+          description: 'Please open the activation email to continue.'
+        });
+      } else if (error.account_disabled) {
+        toast.error('Account Disabled', {
+          description: error.message || 'Please contact your GSO Admin.'
+        });
       } else {
         toast.error('Login Failed', {
           description: error.message || 'Invalid credentials. Please try again.'
@@ -167,6 +176,20 @@ export function LoginForm() {
           </p>
           <p className="text-slate-300 text-xs">
             {lockout.contact}
+          </p>
+        </div>
+      )}
+
+      {activation?.required && (
+        <div className="mb-4 p-4 bg-amber-500/20 border border-amber-500 rounded-lg">
+          <p className="text-amber-200 text-sm font-medium mb-1">
+            Account activation required
+          </p>
+          <p className="text-slate-200 text-xs leading-relaxed">
+            {activation.message}
+          </p>
+          <p className="text-slate-300 text-xs mt-2">
+            Tip: Check Spam/Junk folder. If you still can’t find it, contact your admin to resend.
           </p>
         </div>
       )}

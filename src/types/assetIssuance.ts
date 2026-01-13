@@ -1,8 +1,13 @@
 // Asset Issuance Types
 // Based on real GSO property issuance workflow
 
-import { Department } from './masterData';
 import { User } from './auth';
+
+export interface AssetRequestDepartment {
+    DepartmentID: number;
+    DepartmentName: string;
+    DepartmentCode?: string | null;
+}
 
 export interface AssetRequest {
     RequestID: number;
@@ -23,7 +28,7 @@ export interface AssetRequest {
 
     // Relationships
     requester?: User;
-    department?: Department;
+    department?: AssetRequestDepartment;
     details?: AssetRequestDetail[];
     reviewer?: User;
     issuer?: User;
@@ -53,7 +58,7 @@ export interface AssetRequestDetail {
     // Relationships
     inventoryDetail?: InventoryDetail;
     assignedEndUser?: EndUser;
-    assignedDepartment?: Department;
+    assignedDepartment?: AssetRequestDepartment;
     assignments?: AssetAssignment[];
 }
 
@@ -76,7 +81,7 @@ export interface AssetAssignment {
     assetRequestDetail?: AssetRequestDetail;
     propertyInventoryDetail?: InventoryDetail;
     assignedUser?: User;
-    assignedDepartment?: Department;
+    assignedDepartment?: AssetRequestDepartment;
     assignedByUser?: User;
 }
 
@@ -160,7 +165,7 @@ export interface EndUser {
 
     // Relationships
     position?: Position;
-    department?: Department;
+    department?: AssetRequestDepartment;
 }
 
 // Review Data for admin review

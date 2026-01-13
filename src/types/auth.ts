@@ -58,4 +58,6 @@ export interface LoginError {
   seconds_remaining?: number;
   contact?: string;
   attempts_remaining?: number;
+  activation_required?: boolean;
+  account_disabled?: boolean;
 }

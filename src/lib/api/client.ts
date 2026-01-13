@@ -59,6 +59,22 @@ apiClient.interceptors.response.use(
                 }
             }
 
+            // Handle activation required / disabled account (login gating)
+            if (error.response.status === 403 && data) {
+                if (data.activation_required === true) {
+                    return Promise.reject({
+                        message: (data.message as string) || 'Account activation required',
+                        activation_required: true,
+                    });
+                }
+                if (data.account_disabled === true) {
+                    return Promise.reject({
+                        message: (data.message as string) || 'Account is disabled',
+                        account_disabled: true,
+                    });
+                }
+            }
+
             // Handle other errors with attempts remaining
             if (data?.attempts_remaining !== undefined) {
                 return Promise.reject({

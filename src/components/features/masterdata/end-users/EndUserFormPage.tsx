@@ -46,7 +46,7 @@ export function EndUserFormPage({ baseRoute, endUserId }: EndUserFormPageProps) 
                 is_active: endUser.is_active,
             });
         }
-    }, [endUser, isEditing]);  
+    }, [endUser, isEditing]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -244,8 +244,8 @@ export function EndUserFormPage({ baseRoute, endUserId }: EndUserFormPageProps) 
                             >
                                 <option value={0}>Select a department</option>
                                 {departments?.map((dept: Department) => (
-                                    <option key={dept.DepartmentID} value={dept.DepartmentID}>
-                                        {dept.DepartmentName}
+                                    <option key={dept.id} value={dept.id}>
+                                        {dept.name}
                                     </option>
                                 ))}
                             </select>
