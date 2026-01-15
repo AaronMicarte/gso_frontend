@@ -17,7 +17,7 @@ interface PropertyStickerProps {
     date?: string;
     classification?: string;
     acquisitionDate?: string;
-    unitCost?: number | string;
+    unitCost?: number | string | null;
 }
 
 export function PropertySticker({

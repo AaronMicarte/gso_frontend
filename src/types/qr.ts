@@ -23,6 +23,8 @@ export interface QrScanIssuance {
     AcknowledgmentSignature?: string | null;
     AcknowledgmentNotes?: string | null;
     issuedBy?: QrScanIssuedBy | null;
+    // Laravel may serialize relations in snake_case depending on configuration.
+    issued_by?: QrScanIssuedBy | null;
 }
 
 export interface QrScanIssuanceDetail {
@@ -45,6 +47,8 @@ export interface QrScanInventoryDetail {
         DRDetailID: number;
         ItemDescription?: string | null;
     } | null;
+    PropertyName?: string | null;
+    ClassificationName?: string | null;
     unitOfMeasure?: {
         UnitName: string;
     } | null;
@@ -90,6 +94,10 @@ export interface QrScanAssignedProperty {
         ConditionName: string;
     } | null;
     qrCode?: QrCodeRecord | null;
+    // the requester's full name (asset request requester) if available from backend
+    requester?: string | null;
+    // the document type (PAR or ICS) from the latest issuance
+    documentType?: string | null;
 }
 
 export interface QrScanResponse {

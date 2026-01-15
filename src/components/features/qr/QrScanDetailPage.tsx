@@ -10,8 +10,10 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 function fmt(dateString?: string | null): string {
-    if (!dateString) return 'N/A';
-    const date = toZonedTime(new Date(dateString), 'Asia/Manila');
+    if (!dateString) return 'Not recorded';
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) return 'Not recorded';
+    const date = toZonedTime(parsed, 'Asia/Manila');
     return format(date, 'PPPp');
 }
 
@@ -47,19 +49,23 @@ export function QrScanDetailPage() {
         return <div className="p-6 text-sm text-slate-600">No data found.</div>;
     }
 
-    const itemName = property.inventoryDetail?.drDetail?.ItemDescription ?? property.Description ?? 'Property';
-    const propertyNo = property.inventoryDetail?.PropertyNumber ?? '—';
-    const endUserName = property.endUser?.FullName ?? 'N/A';
-    const deptName = property.department?.DepartmentName ?? property.endUser?.department?.DepartmentName ?? 'N/A';
-    const statusName = property.propertyStatus?.StatusName ?? 'N/A';
-    const conditionName = property.condition?.ConditionName ?? 'N/A';
-    const category = '-'; // Not available in scanProperty response
+    const itemName = property.inventoryDetail?.drDetail?.ItemDescription
+        ?? property.Description
+        ?? 'Item not recorded';
+    const propertyNo = property.inventoryDetail?.PropertyNumber ?? 'Property number not recorded';
+    const propertyCardNo = property.PropertyCardNumber ?? 'Property card not recorded';
+    const endUserName = property.endUser?.FullName ?? 'End user not recorded';
+    const deptName = property.department?.DepartmentName
+        ?? property.endUser?.department?.DepartmentName
+        ?? 'Department not recorded';
+    const statusName = property.propertyStatus?.StatusName ?? 'Status not recorded';
+    const conditionName = property.condition?.ConditionName ?? 'Condition not recorded';
 
     const latest = data.latest_issuance_detail;
     const issuance = latest?.issuance;
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const qrValue = `${origin}/qr/scan/${property.PropertyID}`;
+    const qrValue = property.qrCode?.QRCodeData ?? `${origin}/qr/scan/${property.PropertyID}`;
 
     return (
         <div className="p-6 space-y-6">
@@ -72,7 +78,7 @@ export function QrScanDetailPage() {
                 <div className="lg:col-span-2 space-y-4">
                     <div className="bg-white rounded-xl border border-slate-200 p-10" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
                         <div className="text-3xl font-extrabold tracking-wide text-blue-600 mb-10">
-                            ITEM {propertyNo}
+                            PROPERTY {propertyCardNo}
                         </div>
 
                         <div className="space-y-6 text-blue-600">
@@ -91,16 +97,30 @@ export function QrScanDetailPage() {
                             </div>
 
                             <div className="flex items-end gap-4">
-                                <div className="w-28 text-lg">Category:</div>
+                                <div className="w-28 text-lg">Department:</div>
                                 <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
-                                    {category}
+                                    {deptName}
                                 </div>
                             </div>
 
                             <div className="flex items-end gap-4">
-                                <div className="w-28 text-lg">PR Number:</div>
+                                <div className="w-28 text-lg">Property No:</div>
                                 <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
                                     {propertyNo}
+                                </div>
+                            </div>
+
+                            <div className="flex items-end gap-4">
+                                <div className="w-28 text-lg">Status:</div>
+                                <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
+                                    {statusName}
+                                </div>
+                            </div>
+
+                            <div className="flex items-end gap-4">
+                                <div className="w-28 text-lg">Condition:</div>
+                                <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
+                                    {conditionName}
                                 </div>
                             </div>
 

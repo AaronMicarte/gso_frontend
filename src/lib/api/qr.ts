@@ -2,6 +2,7 @@ import apiClient from './client';
 import type { QrScanResponse, QrCodeRecord, QrScanAssignedProperty } from '@/types/qr';
 
 export interface QrPropertyListParams {
+    page?: number;
     per_page?: number;
     search?: string;
     with_qr_only?: boolean;

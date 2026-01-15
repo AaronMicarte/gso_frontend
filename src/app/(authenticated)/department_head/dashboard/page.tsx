@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, FileText, Users, AlertTriangle, TrendingUp, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Package, FileText, Users, AlertTriangle, Building2, QrCode, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useDepartmentHeadDashboard } from '@/lib/hooks/department_head/useDashboard';
 
@@ -64,7 +64,7 @@ export default function DepartmentHeadDashboard() {
                         <p className="text-slate-500 text-sm">Manage and track property assignments for your department</p>
                     </div>
                     <div className="text-sm text-slate-600">
-                        Welcome back, {user?.FullName || 'Department Head'}
+                        Welcome back, {user?.FullName || user?.Username || 'Account'}
                     </div>
                 </div>
 
@@ -154,16 +154,26 @@ export default function DepartmentHeadDashboard() {
                         </Link>
 
                         <Link
-                            href="/department_head/issuance"
+                            href="/department_head/properties"
                             className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                         >
                             <div className="p-2 bg-purple-100 rounded-lg">
-                                <TrendingUp className="w-5 h-5 text-purple-600" />
+                                <Building2 className="w-5 h-5 text-purple-600" />
                             </div>
                             <div>
-                                <div className="font-medium text-slate-900">Property Issuance</div>
-                                <div className="text-sm text-slate-500">Issue approved properties</div>
+                                <div className="font-medium text-slate-900">Property Oversight</div>
+                                <div className="text-sm text-slate-500">Monitor accountable PAR/ICS assets</div>
                             </div>
+                        </Link>
+                    </div>
+
+                    <div className="mt-4">
+                        <Link
+                            href="/qr/scan"
+                            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-700"
+                        >
+                            <QrCode className="w-4 h-4" />
+                            Scan & Verify (QR)
                         </Link>
                     </div>
                 </div>

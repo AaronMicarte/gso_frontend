@@ -11,7 +11,6 @@ import {
     ChevronRight,
     FileText,
     ClipboardList,
-    PackagePlus,
     Building2,
     Trash2,
     ShieldCheck,
@@ -23,14 +22,12 @@ import {
     Ruler,
     Truck,
     Briefcase,
-    CheckCircle,
     Users,
     Package,
     Wrench,
     QrCode,
     ArrowRightLeft,
     FileWarning,
-    UserCheck,
     Activity,
     FileClock,
     Settings,
@@ -57,7 +54,6 @@ interface NavSection {
 function getNavSections(user: User, baseRoute: string): NavSection[] {
     const isAdmin = user.UserRoleID === 1;
     const isGSOStaff = user.UserRoleID === 2;
-    const isPropertyCustodian = user.UserRoleID === 3;
     const isDepartmentHead = user.UserRoleID === 4;
 
     const sections: NavSection[] = [
@@ -321,30 +317,29 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
     if (isDepartmentHead) {
         sections.push(
             {
-                section: 'PROPERTY MONITORING',
+                section: 'PROPERTY OVERSIGHT',
                 items: [
-                    { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
+                    { label: 'Property Oversight', href: `${baseRoute}/properties`, icon: Building2 },
                 ]
             },
             {
-                section: 'MY ACCOUNTABILITIES',
+                section: 'ACCOUNTABILITY DOCUMENTS',
                 items: [
-                    { label: 'My Assigned Properties', href: `${baseRoute}/my-properties`, icon: UserCheck },
-                    { label: 'Department Properties', href: `${baseRoute}/department-properties`, icon: Building2 },
+                    {
+                        label: 'Issued Documents',
+                        icon: FileText,
+                        children: [
+                            { label: 'All Issuances', href: `${baseRoute}/issuance`, icon: FileText },
+                            { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
+                            { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
+                        ]
+                    }
                 ]
             },
             {
                 section: 'VERIFICATION',
                 items: [
-                    { label: 'Physical Verification', href: `${baseRoute}/verification`, icon: ClipboardList },
-                    { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
-                ]
-            },
-            {
-                section: 'REQUESTS',
-                items: [
-                    { label: 'Service Requests', href: `${baseRoute}/requests`, icon: FileText },
-                    { label: 'Job Order Tracking', href: `${baseRoute}/job-orders/track`, icon: Wrench },
+                    { label: 'Scan & Verify (QR)', href: `/qr/scan`, icon: QrCode },
                 ]
             },
             {
@@ -355,6 +350,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         icon: FileText,
                         children: [
                             { label: 'My Requests', href: `${baseRoute}/asset-requests`, icon: FileText },
+                            { label: 'Create Request', href: `${baseRoute}/asset-requests/new`, icon: Plus },
                         ]
                     }
                 ]
@@ -362,7 +358,8 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
             {
                 section: 'REPORTS',
                 items: [
-                    { label: 'My Reports', href: `${baseRoute}/reports`, icon: FileBarChart },
+                    // Keep reports minimal until role-specific reporting is implemented.
+                    { label: 'Issuance Documents', href: `${baseRoute}/issuance`, icon: FileBarChart },
                 ]
             }
         );
