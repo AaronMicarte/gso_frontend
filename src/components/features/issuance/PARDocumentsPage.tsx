@@ -1,6 +1,6 @@
 'use client';
 
-import { IssuanceListPage } from './IssuanceListPage';
+import { IssuanceDocumentsListPage } from './IssuanceDocumentsListPage';
 
 interface PARDocumentsPageProps {
     baseRoute: string;
@@ -8,9 +8,8 @@ interface PARDocumentsPageProps {
 
 export function PARDocumentsPage({ baseRoute }: PARDocumentsPageProps) {
     return (
-        <IssuanceListPage
+        <IssuanceDocumentsListPage
             baseRoute={baseRoute}
-            canIssue={false}
             pageTitle="PAR Documents"
             pageDescription="Browse and manage Property Acknowledgment Receipt (PAR) documents"
             fixedDocumentType="PAR"

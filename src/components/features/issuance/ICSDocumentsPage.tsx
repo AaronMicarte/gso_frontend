@@ -1,6 +1,6 @@
 'use client';
 
-import { IssuanceListPage } from './IssuanceListPage';
+import { IssuanceDocumentsListPage } from './IssuanceDocumentsListPage';
 
 interface ICSDocumentsPageProps {
     baseRoute: string;
@@ -8,9 +8,8 @@ interface ICSDocumentsPageProps {
 
 export function ICSDocumentsPage({ baseRoute }: ICSDocumentsPageProps) {
     return (
-        <IssuanceListPage
+        <IssuanceDocumentsListPage
             baseRoute={baseRoute}
-            canIssue={false}
             pageTitle="ICS Documents"
             pageDescription="Browse and manage Inventory Custodian Slip (ICS) documents"
             fixedDocumentType="ICS"
