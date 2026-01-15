@@ -161,11 +161,19 @@ export default function VerifyMFAPage() {
                                     onChange: (e) => {
                                         // Auto-format: remove spaces and non-alphanumeric characters
                                         let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                                        // Format as 'XXX XXX' for 6-digit codes
-                                        if (!useBackupCode && value.length > 3) {
-                                            value = value.slice(0, 6).replace(/^(\w{3})(\w{0,3})$/, '$1 $2').trim();
+                                        if (useBackupCode) {
+                                            // Backup codes are 8 characters
+                                            value = value.slice(0, 8);
                                         } else {
-                                            value = value.slice(0, 6);
+                                            // Format as 'XXX XXX' for 6-digit codes
+                                            if (value.length > 3) {
+                                                value = value
+                                                    .slice(0, 6)
+                                                    .replace(/^(\w{3})(\w{0,3})$/, '$1 $2')
+                                                    .trim();
+                                            } else {
+                                                value = value.slice(0, 6);
+                                            }
                                         }
                                         e.target.value = value;
                                         form.setValue('code', value);

@@ -49,7 +49,11 @@ export default function AdminUsersCreatePage() {
             Username.trim().length >= 3 &&
             Email.trim().length > 0 &&
             typeof DepartmentID === 'number' &&
-            typeof UserRoleID === 'number'
+            Number.isFinite(DepartmentID) &&
+            DepartmentID > 0 &&
+            typeof UserRoleID === 'number' &&
+            Number.isFinite(UserRoleID) &&
+            UserRoleID > 0
         );
     }, [Username, Email, DepartmentID, UserRoleID]);
 
@@ -76,14 +80,39 @@ export default function AdminUsersCreatePage() {
     }, [roles]);
 
     const departmentOptions = useMemo(() => {
-        return departments.map((dept) => ({
-            id: dept.id,
-            label: dept.name,
-        }));
+        const seen = new Set<number>();
+        const normalized: Array<{ id: number; label: string }> = [];
+
+        for (const dept of departments) {
+            const d = dept as unknown as Record<string, unknown>;
+            const rawId = d.id ?? d.DepartmentID ?? d.DeptID;
+            const rawName = d.name ?? d.DepartmentName ?? d.Name;
+
+            const id = typeof rawId === 'number' ? rawId : Number(rawId);
+            if (!Number.isFinite(id) || id <= 0) continue;
+
+            const label =
+                typeof rawName === 'string' && rawName.trim().length > 0 ? rawName.trim() : `Department ${id}`;
+
+            if (seen.has(id)) continue;
+            seen.add(id);
+            normalized.push({ id, label });
+        }
+
+        return normalized;
     }, [departments]);
 
     async function onSubmit() {
         if (!canSubmit) return;
+
+        const deptId = typeof DepartmentID === 'number' ? DepartmentID : NaN;
+        const roleId = typeof UserRoleID === 'number' ? UserRoleID : NaN;
+        if (!Number.isFinite(deptId) || deptId <= 0 || !Number.isFinite(roleId) || roleId <= 0) {
+            toast.error('Invalid form selection', {
+                description: 'Please re-select Role and Department.',
+            });
+            return;
+        }
 
         setLoading(true);
         try {
@@ -91,8 +120,8 @@ export default function AdminUsersCreatePage() {
                 Username: Username.trim(),
                 Email: Email.trim(),
                 FullName: FullName.trim() ? FullName.trim() : undefined,
-                DepartmentID: DepartmentID as number,
-                UserRoleID: UserRoleID as number,
+                DepartmentID: deptId,
+                UserRoleID: roleId,
             });
 
             toast.success('User created', {
@@ -106,9 +135,28 @@ export default function AdminUsersCreatePage() {
             }
 
             router.push('/admin/users');
-        } catch (e) {
+        } catch (e: unknown) {
+            const err = e as {
+                response?: {
+                    data?: {
+                        message?: string;
+                        errors?: Record<string, string[]>;
+                    };
+                };
+                message?: string;
+            };
+
+            const backendMessage = err.response?.data?.message;
+            const backendErrors = err.response?.data?.errors;
+            const firstFieldError = backendErrors
+                ? Object.values(backendErrors).flat().find((m) => typeof m === 'string' && m.trim().length > 0)
+                : undefined;
+
             toast.error('Failed to create user', {
-                description: e instanceof Error ? e.message : 'Unknown error',
+                description:
+                    backendMessage ||
+                    firstFieldError ||
+                    (typeof err.message === 'string' ? err.message : 'Please check the form and try again.'),
             });
         } finally {
             setLoading(false);
