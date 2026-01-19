@@ -73,7 +73,7 @@ const issuanceAPI = {
 
     // Create new issuance following GSO workflow
     create: async (issuanceData: CreateIssuanceData) => {
-        const { data } = await apiClient.post<AssetIssuanceResponse>(
+        const { data } = await apiClient.post<import('@/types/assetIssuance').AssetIssuanceCreateResponse>(
             '/property-issuances',
             issuanceData
         );

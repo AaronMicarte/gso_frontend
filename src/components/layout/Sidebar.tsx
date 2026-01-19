@@ -111,6 +111,13 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         ]
                     },
                     {
+                        label: 'RIS (Requisition)',
+                        icon: FileText,
+                        children: [
+                            { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
+                        ]
+                    },
+                    {
                         label: 'Property Issuance',
                         icon: FileText,
                         children: [

@@ -25,6 +25,8 @@ NOTE: Vehicles and infrastructure property types (motor vehicles, buildings/stru
 - **DASHBOARD:** Fixed 500 errors by removing PR/JO table references.
 - **DATABASE:** Added `deleted_at` to `deliveryreceipt` tables to support SoftDeletes.
 - **TYPES:** Updated `DashboardStats` to reflect the new simplified workflow.
+- **RIS (REQUISITION & ISSUE SLIP):** RIS now includes both approved and unchecked request items. Unchecked items must show **Stock Available? = NO** (checkmark under **No**), and the **Issue Remarks** column must reflect the per-item **Admin Notes** captured during admin review.
+- **ISSUANCE UI:** On successful issuance submission, show a simple Sonner success toast like **"Issuance created"**.
 
 ## TECH STACK
 - **Frontend:** Next.js, Tailwind CSS, Lucide Icons, Sonner, Radix UI.

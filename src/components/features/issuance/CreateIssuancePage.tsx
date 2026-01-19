@@ -9,25 +9,25 @@ import {
     ArrowLeft,
     Save,
     Package,
-    AlertCircle,
     Loader2,
     Search,
     Plus,
     Trash2,
-    User,
-    FileText,
-    CheckCircle
+    FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import issuanceAPI from '@/lib/api/issuance';
+import assetIssuanceAPI from '@/lib/api/assetIssuance';
+import { getRis, listRis } from '@/lib/api/ris';
 import { AssetRequest } from '@/types/assetIssuance';
+import type { RisRecord } from '@/types/ris';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { SignatureModal } from '@/components/ui/SignatureModal';
 
 const issuanceSchema = z.object({
-    request_id: z.number().min(1, 'Request is required'),
+    ris_id: z.number().min(1, 'RIS is required'),
     date_issued: z.string().min(1, 'Issue date is required'),
     remarks: z.string().optional(),
     inventory_items: z.array(z.object({
@@ -41,20 +41,21 @@ type IssuanceFormValues = z.infer<typeof issuanceSchema>;
 
 interface InventoryItem {
     InventoryDetailID: number;
-    Description: string;
-    Brand?: string;
-    ModelNumber?: string;
-    PropertyNumber?: string;
-    SerialNumber?: string;
-    UnitCost: number;
-    IsAvailable: boolean;
-    PropertyName?: string;
-    UnitName?: string;
-    dr_item_description?: string;
-    InventoryNumber?: string;
-    DateReceived?: string;
-    PropertyStatusID?: number;
-    StatusName?: string;
+    Description?: string | null;
+    Brand?: string | null;
+    ModelNumber?: string | null;
+    PropertyNumber?: string | null;
+    SerialNumber?: string | null;
+    UnitCost?: number | null;
+    IsAvailable?: boolean;
+    QuantityAvailable?: number | null;
+    PropertyName?: string | null;
+    UnitName?: string | null;
+    dr_item_description?: string | null;
+    InventoryNumber?: string | null;
+    DateReceived?: string | null;
+    PropertyStatusID?: number | null;
+    StatusName?: string | null;
     drDetail?: {
         ItemDescription: string;
     };
@@ -78,12 +79,15 @@ interface CreateIssuancePageProps {
 
 export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
     const router = useRouter();
-    const [approvedRequests, setApprovedRequests] = useState<AssetRequest[]>([]);
+    const [risOptions, setRisOptions] = useState<RisRecord[]>([]);
+    const [selectedRis, setSelectedRis] = useState<RisRecord | null>(null);
     const [selectedRequest, setSelectedRequest] = useState<AssetRequest | null>(null);
     const [requestDetails, setRequestDetails] = useState<RequestDetail[]>([]);
     const [availableInventory, setAvailableInventory] = useState<InventoryItem[]>([]);
     const [inventorySearch, setInventorySearch] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isLoadingSelectedRis, setIsLoadingSelectedRis] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showInventoryModal, setShowInventoryModal] = useState(false);
     const [currentRequestDetailId, setCurrentRequestDetailId] = useState<number | null>(null);
@@ -106,7 +110,7 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
         }
     });
 
-    const watchedRequestId = watch('request_id');
+    const watchedRisId = watch('ris_id');
 
     // Sync requestDetails to form value for inventory_items
     useEffect(() => {
@@ -121,36 +125,103 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
     }, [requestDetails, setValue]);
 
     useEffect(() => {
-        loadApprovedRequests();
+        loadRisForIssuance();
         loadAvailableInventory();
     }, []);
 
-    useEffect(() => {
-        if (watchedRequestId) {
-            const request = approvedRequests.find(r => r.RequestID === Number(watchedRequestId));
-            if (request) {
-                setSelectedRequest(request);
-                initializeRequestDetails(request);
-            }
-        } else {
-            setSelectedRequest(null);
-            setRequestDetails([]);
-        }
-    }, [watchedRequestId, approvedRequests]);
-
-    const loadApprovedRequests = async () => {
+    const loadRisForIssuance = async () => {
         try {
             setLoading(true);
-            const response = await issuanceAPI.getRequestsForIssuance();
-            setApprovedRequests(response.data || []);
+            const response = await listRis({ status: 'for_issuance', per_page: 200 });
+            setRisOptions(response.data || []);
         } catch (error) {
-            console.error('Failed to load approved requests:', error);
-            toast.error('Failed to load approved requests');
-            setApprovedRequests([]);
+            console.error('Failed to load RIS list:', error);
+            toast.error('Failed to load RIS records');
+            setRisOptions([]);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const loadSelectedRis = async () => {
+            if (!watchedRisId) {
+                setSelectedRis(null);
+                setSelectedRequest(null);
+                setRequestDetails([]);
+                return;
+            }
+
+            // If the RIS is already in `risOptions`, use it immediately for a snappy UI,
+            // then fetch any missing/expanded data in the background. Do NOT flip the
+            // global `loading` (that's reserved for initial page load).
+            const opt = risOptions.find(r => Number(r.id) === Number(watchedRisId));
+            if (opt) {
+                setSelectedRis(opt as RisRecord);
+
+                // If opt already contains items we can initialize immediately (best case).
+                if (opt.items && opt.items.length > 0 && opt.asset_request_id) {
+                    try {
+                        setIsLoadingSelectedRis(true);
+                        const request = await assetIssuanceAPI.requests.getById(opt.asset_request_id);
+                        setSelectedRequest(request);
+                        initializeRequestDetailsFromRequestAndRis(request, opt);
+                    } catch (err) {
+                        // keep the optimistic selection but surface errors non-blocking
+                        console.error('Failed to load request for selected RIS (background):', err);
+                        toast.error('Failed to load full request for selected RIS');
+                        setSelectedRequest(null);
+                        setRequestDetails([]);
+                    } finally {
+                        setIsLoadingSelectedRis(false);
+                    }
+
+                    return;
+                }
+
+                // Otherwise fetch the full RIS (items) in background and populate the form
+                setIsLoadingSelectedRis(true);
+                try {
+                    const ris = await getRis(Number(watchedRisId));
+                    setSelectedRis(ris);
+                    const request = await assetIssuanceAPI.requests.getById(ris.asset_request_id);
+                    setSelectedRequest(request);
+                    initializeRequestDetailsFromRequestAndRis(request, ris);
+                } catch (error) {
+                    console.error('Failed to load selected RIS/request:', error);
+                    toast.error('Failed to load selected RIS');
+                    setSelectedRis(null);
+                    setSelectedRequest(null);
+                    setRequestDetails([]);
+                } finally {
+                    setIsLoadingSelectedRis(false);
+                }
+
+                return;
+            }
+
+            // If RIS not present in options (rare), fetch it but only show an inline loader.
+            setIsLoadingSelectedRis(true);
+            try {
+                const ris = await getRis(Number(watchedRisId));
+                setSelectedRis(ris);
+                const request = await assetIssuanceAPI.requests.getById(ris.asset_request_id);
+                setSelectedRequest(request);
+                initializeRequestDetailsFromRequestAndRis(request, ris);
+            } catch (error) {
+                console.error('Failed to load selected RIS/request:', error);
+                toast.error('Failed to load selected RIS');
+                setSelectedRis(null);
+                setSelectedRequest(null);
+                setRequestDetails([]);
+            } finally {
+                setIsLoadingSelectedRis(false);
+            }
+        };
+
+        loadSelectedRis();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [watchedRisId, risOptions]);
 
     const loadAvailableInventory = async () => {
         try {
@@ -159,24 +230,45 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                 search: inventorySearch
             });
             setAvailableInventory(response.data || []);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to load inventory:', error);
+            const maybeAxios = error as { response?: { data?: { error?: string; message?: string } } };
+            const serverMessage = maybeAxios?.response?.data?.error || maybeAxios?.response?.data?.message;
+            toast.error(serverMessage ? `Failed to load inventory: ${serverMessage}` : 'Failed to load inventory');
             setAvailableInventory([]);
         }
     };
 
-    const initializeRequestDetails = (request: AssetRequest) => {
-        const details: RequestDetail[] = (request.details || []).map(detail => ({
-            RequestDetailID: detail.RequestDetailID,
-            ItemDescription: detail.ItemDescription || 'No description',
-            QuantityRequested: detail.QuantityRequested,
-            Unit: detail.Unit || 'pcs',
-            Purpose: detail.Purpose,
-            IntendedEndUser: detail.IntendedEndUser || 'Not specified',
-            PropertyClassification: detail.PropertyClassification || 'ICS',
-            selectedInventory: [],
-            totalSelected: 0
-        }));
+    const handleInventorySearch = async () => {
+        try {
+            setIsSearching(true);
+            await loadAvailableInventory();
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const initializeRequestDetailsFromRequestAndRis = (request: AssetRequest, ris: RisRecord) => {
+        const allowedDetailIds = new Set(
+            (ris.items || [])
+                .filter(i => Boolean(i.stock_available))
+                .map(i => i.asset_request_detail_id)
+        );
+
+        const details: RequestDetail[] = (request.details || [])
+            .filter(d => Boolean(d.IsApprovedForIssuance) && allowedDetailIds.has(d.RequestDetailID))
+            .map(detail => ({
+                RequestDetailID: detail.RequestDetailID,
+                ItemDescription: detail.ItemDescription || 'No description',
+                QuantityRequested: detail.QuantityRequested,
+                Unit: detail.Unit || 'pcs',
+                Purpose: detail.Purpose,
+                IntendedEndUser: detail.IntendedEndUser || 'Not specified',
+                PropertyClassification: detail.PropertyClassification || 'ICS',
+                selectedInventory: [],
+                totalSelected: 0
+            }));
+
         setRequestDetails(details);
     };
 
@@ -235,8 +327,13 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
     };
 
     const onSubmit = async (data: IssuanceFormValues) => {
+        if (!selectedRis) {
+            toast.error('Please select a RIS to issue');
+            return;
+        }
+
         if (!selectedRequest) {
-            toast.error('Please select a request to issue');
+            toast.error('Failed to load the request for this RIS');
             return;
         }
 
@@ -267,16 +364,25 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
             setIsSubmitting(true);
 
             const submitData = {
-                ...data,
-                request_id: Number(data.request_id),
+                request_id: selectedRis.asset_request_id,
+                date_issued: data.date_issued,
+                remarks: data.remarks,
                 inventory_items: inventoryItems,
                 issuerSignature,
-                issuerSignatureSource
+                issuerSignatureSource,
             };
 
-            await issuanceAPI.create(submitData);
-            toast.success('Assets issued successfully');
-            router.push(`${baseRoute}`);
+            const res = await issuanceAPI.create(submitData);
+            const issuances = res.data?.issuances ?? [];
+            const first = issuances[0];
+
+            toast.success('Issuance created');
+
+            if (first?.IssuanceID) {
+                router.push(`${baseRoute}/${first.IssuanceID}`);
+            } else {
+                router.push(`${baseRoute}`);
+            }
         } catch (error) {
             console.error('Failed to create issuance:', error);
             toast.error('Failed to issue assets');
@@ -318,7 +424,7 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                     <div className="flex items-center justify-center min-h-[400px]">
                         <div className="flex items-center gap-3 text-slate-600">
                             <Loader2 className="w-5 h-5 animate-spin" />
-                            Loading approved requests...
+                            Loading RIS...
                         </div>
                     </div>
                 </div>
@@ -340,45 +446,57 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Issue Assets</h1>
                         <p className="text-slate-600 text-sm">
-                            Select approved requests and assign real inventory items
+                            Select RIS and assign real inventory items
                         </p>
                     </div>
                 </div>
 
-                <form 
+                <form
                     onSubmit={handleSubmit(onSubmit, (errors) => {
                         console.error('Form validation errors:', errors);
                         toast.error('Please fill in all required fields');
-                    })} 
+                    })}
                     className="space-y-6"
                 >
-                    {/* Request Selection */}
+                    {/* RIS Selection */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="p-6 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Request</h2>
+                            <h2 className="text-lg font-semibold text-slate-900 mb-4">Select RIS</h2>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        Approved Request *
+                                        RIS Number *
                                     </label>
-                                    <select
-                                        {...register('request_id', { 
-                                            valueAsNumber: true,
-                                            required: 'Please select a request',
-                                            validate: (value) => value > 0 || 'Please select a request'
-                                        })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                    >
-                                        <option value="">Select a request...</option>
-                                        {approvedRequests.map(request => (
-                                            <option key={request.RequestID} value={request.RequestID}>
-                                                {request.RequestNumber} - {request.requester?.FullName} ({request.department?.DepartmentName})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.request_id && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.request_id.message}</p>
+
+                                    <div className="relative">
+                                        <select
+                                            {...register('ris_id', {
+                                                valueAsNumber: true,
+                                                required: 'Please select a RIS',
+                                                validate: (value) => value > 0 || 'Please select a RIS'
+                                            })}
+                                            disabled={Boolean(isLoadingSelectedRis) || Boolean(loading)}
+                                            aria-busy={isLoadingSelectedRis}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+                                        >
+                                            <option value="">Select a RIS...</option>
+                                            {risOptions.map(ris => (
+                                                <option key={ris.id} value={ris.id}>
+                                                    {ris.ris_number} - {ris.request?.RequestNumber || `Request #${ris.asset_request_id}`}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        {isLoadingSelectedRis && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {errors.ris_id && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.ris_id.message}</p>
                                     )}
                                 </div>
 
@@ -458,10 +576,15 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                                                         <button
                                                             type="button"
                                                             onClick={() => openInventoryModal(detail.RequestDetailID)}
-                                                            disabled={detail.totalSelected >= detail.QuantityRequested}
-                                                            className="mt-2 px-3 py-1.5 bg-[var(--primary)] text-white text-sm rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            disabled={detail.totalSelected >= detail.QuantityRequested || isSearching}
+                                                            aria-busy={isSearching}
+                                                            className={`mt-2 px-3 py-1.5 bg-[var(--primary)] text-white text-sm rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50 ${isSearching ? 'cursor-not-allowed' : ''}`}
                                                         >
-                                                            <Plus className="w-4 h-4 inline mr-1" />
+                                                            {isSearching ? (
+                                                                <Loader2 className="w-4 h-4 inline mr-1 animate-spin" />
+                                                            ) : (
+                                                                <Plus className="w-4 h-4 inline mr-1" />
+                                                            )}
                                                             Add Item
                                                         </button>
                                                     </div>
@@ -495,6 +618,7 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                                                                         </div>
                                                                     )}
                                                                 </div>
+
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => removeInventoryItem(detail.RequestDetailID, item.InventoryDetailID)}
@@ -576,7 +700,7 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                     )}
 
                     {/* Submit Button */}
-                    {selectedRequest && requestDetails.every(d => d.totalSelected === d.QuantityRequested) && issuerSignature && (
+                    {selectedRequest && selectedRis && selectedRis.status !== 'cancelled' && requestDetails.every(d => d.totalSelected === d.QuantityRequested) && issuerSignature && (
                         <div className="flex justify-end">
                             <button
                                 type="submit"
@@ -606,13 +730,26 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                             <div className="p-6 border-b border-slate-200">
                                 <h3 className="text-lg font-semibold text-slate-900">Select Inventory Item</h3>
                                 <div className="mt-4 relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    {isSearching ? (
+                                        <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={handleInventorySearch}
+                                            className="absolute left-3 top-1/2 -translate-y-1/2"
+                                            aria-label="Search inventory"
+                                        >
+                                            <Search className="w-4 h-4 text-slate-400" />
+                                        </button>
+                                    )}
                                     <input
                                         type="text"
                                         placeholder="Search by description, brand, model, property number..."
                                         value={inventorySearch}
                                         onChange={(e) => setInventorySearch(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInventorySearch(); } }}
+                                        disabled={isSearching}
+                                        className={`w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 ${isSearching ? 'disabled:cursor-not-allowed opacity-80' : ''}`}
                                     />
                                 </div>
                             </div>
@@ -647,7 +784,7 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                                                     )}
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-sm font-medium text-slate-900">₱{item.UnitCost.toLocaleString()}</div>
+                                                    <div className="text-sm font-medium text-slate-900">{item.UnitCost ? `₱${Number(item.UnitCost).toLocaleString()}` : '-'}</div>
                                                     <div className="text-xs text-green-600">
                                                         {item.StatusName || (item.PropertyStatusID === 1 ? 'Available' : 'Unavailable')}
                                                     </div>

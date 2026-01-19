@@ -360,6 +360,14 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                                     <div className="flex-1">
                                                         <div className="font-semibold text-slate-900 mb-3 text-lg">
                                                             {detail.inventoryDetail?.propertyInventory?.ItemDescription || detail.ItemDescription}
+                                                            <span className={`ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${detail.IsApprovedForIssuance ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                                {detail.IsApprovedForIssuance ? (
+                                                                    <CheckCircle className="w-3.5 h-3.5" />
+                                                                ) : (
+                                                                    <XCircle className="w-3.5 h-3.5" />
+                                                                )}
+                                                                {detail.IsApprovedForIssuance ? 'Approved for issuance' : 'Not approved'}
+                                                            </span>
                                                         </div>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                                             {detail.inventoryDetail ? (
@@ -377,9 +385,9 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
                                                                         </div>
                                                                     </div>
                                                                     <div className="bg-white p-3 rounded-lg border border-slate-200">
-                                                                        <div className="text-xs text-slate-500 uppercase tracking-wide">Available</div>
+                                                                        <div className="text-xs text-slate-500 uppercase tracking-wide">Available Qty</div>
                                                                         <div className="font-medium text-slate-900">
-                                                                            {detail.inventoryDetail?.QuantityOnHand || 0}
+                                                                            {detail.inventoryDetail?.QuantityAvailable || 0}
                                                                         </div>
                                                                     </div>
                                                                     <div className="bg-white p-3 rounded-lg border border-slate-200">

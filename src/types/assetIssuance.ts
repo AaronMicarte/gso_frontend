@@ -51,6 +51,7 @@ export interface AssetRequestDetail {
     AssignedEndUserID: number | null;
     AssignedDepartmentID: number | null;
     AdminNotes: string | null;
+    IsApprovedForIssuance?: boolean | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
@@ -176,6 +177,7 @@ export interface AssetRequestReviewData {
         AssignedEndUserID: number | null;
         AssignedDepartmentID: number | null;
         AdminNotes: string | null;
+        IsApprovedForIssuance: boolean;
     }[];
     ReviewNotes?: string;
     approverSignature?: string;
@@ -190,11 +192,6 @@ export interface Position {
     CreatedDate: string;
     UpdatedDate: string | null;
     deleted_at: string | null;
-}
-
-export interface InventoryDetail {
-    InventoryDetailID: number;
-    // ... other inventory fields
 }
 
 // Request form types
@@ -215,7 +212,8 @@ export interface AssetRequestItem {
 export interface InventoryDetail {
     InventoryDetailID: number;
     InventoryID: number;
-    QuantityOnHand: number;
+    Quantity: number;
+    QuantityAvailable: number;
     ConditionID: number;
     PropertyTypeID: number;
     UnitOfMeasureID: number;
@@ -314,7 +312,13 @@ export interface AssetRequestResponse {
 
 export interface AssetIssuanceResponse {
     message: string;
-    issuance: AssetIssuance;
+    issuance?: AssetIssuance;
+}
+
+// Backend returns { message, data: { issuances: AssetIssuance[] } } for the create endpoint
+export interface AssetIssuanceCreateResponse {
+    message: string;
+    data: { issuances: AssetIssuance[] };
 }
 
 // Pagination
