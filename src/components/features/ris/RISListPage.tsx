@@ -16,11 +16,13 @@ export function RISListPage({ baseRoute }: { baseRoute: string }) {
     const [loading, setLoading] = useState(true);
     const [items, setItems] = useState<RisRecord[]>([]);
     const [search, setSearch] = useState('');
+    const [status, setStatus] = useState<string>('');
 
-    const load = async () => {
+    const load = async (opts?: { status?: string }) => {
         try {
             setLoading(true);
-            const data = await listRis({ per_page: 50, search: search || undefined });
+            const s = opts?.status !== undefined ? opts.status : status;
+            const data = await listRis({ per_page: 50, search: search || undefined, status: s || undefined });
             setItems(data.data || []);
         } catch {
             toast.error('Failed to load RIS');
@@ -70,6 +72,20 @@ export function RISListPage({ baseRoute }: { baseRoute: string }) {
                         className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                     />
                 </div>
+
+                <div className="w-56">
+                    <select
+                        value={status}
+                        onChange={(e) => { const v = e.target.value; setStatus(v); load({ status: v }); }}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                    >
+                        <option value="">All statuses</option>
+                        <option value="for_issuance">For issuance</option>
+                        <option value="issued">Issued</option>
+                        <option value="received">Received</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -105,8 +121,8 @@ export function RISListPage({ baseRoute }: { baseRoute: string }) {
                                 items.map((r) => (
                                     <tr key={r.id} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 font-medium text-slate-900">{text(r.ris_number, '0000-00-0000')}</td>
-                                        <td className="px-6 py-4 text-slate-600">{text(r.request?.RequestNumber, 'N/A')}</td>
-                                        <td className="px-6 py-4 text-slate-600">{text(r.request?.department?.DepartmentName, 'N/A')}</td>
+                                        <td className="px-6 py-4 text-slate-600">{text(r.request?.RequestNumber ?? r.asset_request?.RequestNumber, '-')}</td>
+                                        <td className="px-6 py-4 text-slate-600">{text(r.request?.department?.DepartmentName ?? r.asset_request?.department?.DepartmentName, '-')}</td>
                                         <td className="px-6 py-4 text-slate-600">{text(r.status, 'unknown')}</td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">

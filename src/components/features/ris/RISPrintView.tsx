@@ -18,46 +18,55 @@ const text = (value: unknown, fallback: string) => {
     return t.length > 0 ? t : fallback;
 };
 
+const asImageSrc = (value: string | null | undefined) => {
+    const v = (value ?? '').trim();
+    if (!v) return null;
+    if (v.startsWith('data:image/')) return v;
+    if (v.startsWith('http://') || v.startsWith('https://') || v.startsWith('/')) return v;
+    // Likely raw base64 (backend acknowledgment signature)
+    return `data:image/png;base64,${v}`;
+};
+
 export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(({ ris }, ref) => {
     const rowsNeeded = 20;
 
-    const requestedBySig = ris.signatures.requested_by?.url ?? null;
-    const approvedBySig = ris.signatures.approved_by?.url ?? null;
-    const issuedBySig = ris.signatures.issued_by?.url ?? null;
-    const receivedBySig = ris.signatures.received_by?.signature ?? null;
+    const req = ris.request ?? ris.asset_request ?? null;
+
+    const requestedBySig = asImageSrc(ris.signatures.requested_by?.url ?? null);
+    const approvedBySig = asImageSrc(ris.signatures.approved_by?.url ?? null);
+    const issuedBySig = asImageSrc(ris.signatures.issued_by?.url ?? null);
+    const receivedBySig = asImageSrc(ris.signatures.received_by?.signature ?? null);
 
     const requestedByName = text(ris.signatures.requested_by?.user?.FullName, 'REQUESTER');
     const approvedByName = text(ris.signatures.approved_by?.user?.FullName, 'APPROVER');
     const issuedByName = text(ris.signatures.issued_by?.user?.FullName, 'PROPERTY CUSTODIAN');
-    const receivedByName = text(ris.signatures.received_by?.issued_to_name ?? ris.request?.requester?.FullName, 'RECEIVER');
+    const receivedByName = text(ris.signatures.received_by?.issued_to_name ?? req?.requester?.FullName, 'RECEIVER');
 
-    const docDate = text(formatPHDate(ris.request?.RequestDate), formatPHDate(new Date().toISOString()));
+    const docDate = text(formatPHDate(req?.RequestDate), formatPHDate(new Date().toISOString()));
     const receivedDate = text(formatPHDate(ris.signatures.received_by?.acknowledged_at ?? null), docDate);
+
+    const officeText = text(req?.Office ?? req?.office ?? req?.department?.DepartmentName ?? '', '');
 
     return (
         <div ref={ref} className="print-container bg-white p-8 max-w-5xl mx-auto text-black">
             <style dangerouslySetInnerHTML={{
                 __html: `
+                    /* Base styles (screen + print) */
+                    .ris-table, .ris-sign-table { width: 100%; border-collapse: collapse; }
+                    .ris-table th, .ris-table td, .ris-sign-table th, .ris-sign-table td { border: 1px solid #000; }
+                    .ris-table th { font-weight: 700; }
+                    .ris-requisition-label { font-style: italic; font-weight: 600; text-align: center; }
+                    .ris-yesno { text-align: center; }
+                    .ris-sign-name { text-transform: uppercase; font-weight: 600; }
+                    .ris-sign-img { height: 44px; display: flex; align-items: flex-end; justify-content: center; }
+                    .ris-label-col { width: 90px; font-weight: 600; }
+
                     @media print {
                         .print-container { padding: 0; max-width: none; margin: 0; font-size: 12px; font-family: "Times New Roman", Georgia, serif; color: #000; -webkit-print-color-adjust: exact; }
                         .no-print { display: none !important; }
 
-                        /* Structural print styles only — visual (border) overrides moved to calling page */
-                        .ris-table { border-collapse: collapse; }
-                        .ris-table th, .ris-table td { padding: 4px 6px; vertical-align: middle; }
-
-                        /* Header visual grouping */
-                        .ris-table thead tr.top-group th { border-bottom-width: 1px; }
-                        .ris-requisition-label { font-style: italic; font-weight: 600; text-align: center; }
-
-                        /* Center checkmark reliably */
-                        .ris-yesno { display: flex !important; align-items: center !important; justify-content: center !important; height: 28px; font-size: 14px; }
-
-                        /* Signature tweaks */
-                        .ris-sign-name { text-transform: uppercase; font-weight: 600; }
-
-                        /* Small spacing/padding adjustments to match scanned form */
-                        .ris-table td { padding-top: 6px !important; padding-bottom: 6px !important; }
+                        .ris-table th, .ris-table td, .ris-sign-table th, .ris-sign-table td { padding: 6px 6px; vertical-align: middle; }
+                        .ris-yesno { font-size: 14px; }
                     }
                     @page { size: A4; margin: 10mm; }
                 `,
@@ -71,7 +80,7 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
                 <div className="space-y-1">
                     <div className="flex items-end gap-2"><div className="whitespace-nowrap">Entity Name :</div><div className="flex-1 border-b border-black pb-0.5">{text(ris.entity_name, 'N/A')}</div></div>
                     <div className="flex items-end gap-2"><div className="whitespace-nowrap">Division :</div><div className="flex-1 border-b border-black pb-0.5">{text(ris.division, 'N/A')}</div></div>
-                    <div className="flex items-end gap-2"><div className="whitespace-nowrap">Office :</div><div className="flex-1 border-b border-black pb-0.5">{text(ris.request?.Office ?? ris.request?.office ?? '', '')}</div></div>
+                    <div className="flex items-end gap-2"><div className="whitespace-nowrap">Office :</div><div className="flex-1 border-b border-black pb-0.5">{officeText}</div></div>
                 </div>
                 <div className="space-y-1">
                     <div className="flex items-end gap-2 justify-end"><div className="whitespace-nowrap">Fund Cluster :</div><div className="w-52 border-b border-black pb-0.5 text-right">{text(ris.fund_cluster, 'N/A')}</div></div>
@@ -81,6 +90,16 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
             </div>
 
             <table className="w-full ris-table text-[11px]">
+                <colgroup>
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 60 }} />
+                    <col />
+                    <col style={{ width: 70 }} />
+                    <col style={{ width: 50 }} />
+                    <col style={{ width: 50 }} />
+                    <col style={{ width: 70 }} />
+                    <col style={{ width: 140 }} />
+                </colgroup>
                 <thead>
                     <tr className="top-group">
                         <th className="px-1 py-1 w-[70px] text-center ris-requisition-label" colSpan={4}>Requisition</th>
@@ -93,7 +112,7 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
                         <th className="px-1 py-1 text-center">Description</th>
                         <th className="px-1 py-1 w-[60px] text-center">Quantity</th>
                         <th className="px-1 py-1 w-[45px] text-center">Yes</th>
-                        <th className="px-1 py-1 w-[45px] text-center vertical-divider">No</th>
+                        <th className="px-1 py-1 w-[45px] text-center">No</th>
                         <th className="px-1 py-1 w-[60px] text-center">Quantity</th>
                         <th className="px-1 py-1 w-[120px] text-center">Remarks</th>
                     </tr>
@@ -102,14 +121,14 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
                     {(() => {
                         const rows = (ris.items ?? []).slice(0, rowsNeeded).map((item) => (
                             <tr key={item.id}>
-                                <td className="border border-black px-1 py-1">{text(item.stock_no, 'N/A')}</td>
-                                <td className="border border-black px-1 py-1 text-center">{text(item.unit, 'unit')}</td>
-                                <td className="border border-black px-1 py-1">{text(item.description, 'N/A')}</td>
-                                <td className="border border-black px-1 py-1 text-center">{item.quantity_requested ?? ''}</td>
-                                <td className="border border-black px-1 py-1 ris-yesno">{item.stock_available ? '✔' : ''}</td>
-                                <td className="border border-black px-1 py-1 ris-yesno">{!item.stock_available ? '✔' : ''}</td>
-                                <td className="border border-black border-l-2 px-1 py-1 text-center vertical-divider">{(typeof item.quantity_issued === 'number' ? String(item.quantity_issued) : (item.quantity_issued == null ? '0' : String(item.quantity_issued)))}</td>
-                                <td className="border border-black px-1 py-1">{text(item.issue_remarks, '')}</td>
+                                <td className="px-1 py-1">{text(item.stock_no, '')}</td>
+                                <td className="px-1 py-1 text-center">{text(item.unit, '')}</td>
+                                <td className="px-1 py-1">{text(item.description, '')}</td>
+                                <td className="px-1 py-1 text-center">{item.quantity_requested ?? ''}</td>
+                                <td className="px-1 py-1 ris-yesno">{item.stock_available ? '✔' : ''}</td>
+                                <td className="px-1 py-1 ris-yesno">{!item.stock_available ? '✔' : ''}</td>
+                                <td className="px-1 py-1 text-center">{(typeof item.quantity_issued === 'number' ? String(item.quantity_issued) : (item.quantity_issued == null ? '0' : String(item.quantity_issued)))}</td>
+                                <td className="px-1 py-1">{text(item.issue_remarks, '')}</td>
                             </tr>
                         ));
 
@@ -117,14 +136,14 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
                         for (let i = 0; i < blanks; i++) {
                             rows.push(
                                 <tr key={`blank-${i}`}>
-                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black border-l-2 px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
+                                    <td className="px-1 py-1 h-6">&nbsp;</td>
+                                    <td className="px-1 py-1">&nbsp;</td>
+                                    <td className="px-1 py-1">&nbsp;</td>
+                                    <td className="px-1 py-1">&nbsp;</td>
+                                    <td className="px-1 py-1">&nbsp;</td>
+                                    <td className="px-1 py-1">&nbsp;</td>
+                                    <td className="px-1 py-1">&nbsp;</td>
+                                    <td className="px-1 py-1">&nbsp;</td>
                                 </tr>
                             );
                         }
@@ -141,37 +160,59 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
                 </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mt-10 text-xs">
-                {[
-                    { label: 'Requested by:', sig: requestedBySig, name: requestedByName, date: docDate, designation: ris.signatures.requested_by?.designation ?? '' },
-                    { label: 'Approved by:', sig: approvedBySig, name: approvedByName, date: docDate, designation: ris.signatures.approved_by?.designation ?? '' },
-                    { label: 'Issued by:', sig: issuedBySig, name: issuedByName, date: docDate, designation: ris.signatures.issued_by?.designation ?? '' },
-                    { label: 'Received by:', sig: receivedBySig, name: receivedByName, date: receivedDate, designation: ris.signatures.received_by?.designation ?? '' },
-                ].map((col) => (
-                    <div key={col.label}>
-                        <div className="mb-8">{col.label}</div>
-                        <div className="border-b border-black h-14 flex items-end justify-center">
-                            {col.sig && (
-                                <Image
-                                    src={col.sig}
-                                    alt={`${col.label} signature`}
-                                    width={180}
-                                    height={60}
-                                    unoptimized
-                                    className="max-h-12 object-contain"
-                                />
-                            )}
-                        </div>
-                        <div className="text-[10px] text-center mt-1">Signature</div>
-                        <div className="border-b border-black mt-3 pb-1 text-center ris-sign-name">{String(col.name).toUpperCase()}</div>
-                        <div className="text-[10px] text-center mt-1">Printed Name</div>
-                        <div className="border-b border-black mt-2 pb-1 text-center">{col.designation}</div>
-                        <div className="text-[10px] text-center mt-1">Designation</div>
-                        <div className="border-b border-black mt-2 pb-1 text-center">{col.date}</div>
-                        <div className="text-[10px] text-center mt-1">Date</div>
-                    </div>
-                ))}
-            </div>
+            <table className="ris-sign-table text-xs mt-8">
+                <thead>
+                    <tr>
+                        <th className="ris-label-col">&nbsp;</th>
+                        <th className="text-center">Requested by:</th>
+                        <th className="text-center">Approved by:</th>
+                        <th className="text-center">Issued by:</th>
+                        <th className="text-center">Received by:</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td className="px-2 py-2 font-medium">Signature :</td>
+                        {[requestedBySig, approvedBySig, issuedBySig, receivedBySig].map((sig, idx) => (
+                            <td key={idx} className="px-2 py-2">
+                                <div className="ris-sign-img">
+                                    {sig && (
+                                        <Image
+                                            src={sig}
+                                            alt="signature"
+                                            width={180}
+                                            height={60}
+                                            unoptimized
+                                            className="max-h-10 object-contain"
+                                        />
+                                    )}
+                                </div>
+                            </td>
+                        ))}
+                    </tr>
+                    <tr>
+                        <td className="px-2 py-2 font-medium">Printed Name :</td>
+                        <td className="px-2 py-2 text-center ris-sign-name">{String(requestedByName).toUpperCase()}</td>
+                        <td className="px-2 py-2 text-center ris-sign-name">{String(approvedByName).toUpperCase()}</td>
+                        <td className="px-2 py-2 text-center ris-sign-name">{String(issuedByName).toUpperCase()}</td>
+                        <td className="px-2 py-2 text-center ris-sign-name">{String(receivedByName).toUpperCase()}</td>
+                    </tr>
+                    <tr>
+                        <td className="px-2 py-2 font-medium">Designation :</td>
+                        <td className="px-2 py-2 text-center">{ris.signatures.requested_by?.designation ?? ''}</td>
+                        <td className="px-2 py-2 text-center">{ris.signatures.approved_by?.designation ?? ''}</td>
+                        <td className="px-2 py-2 text-center">{ris.signatures.issued_by?.designation ?? ''}</td>
+                        <td className="px-2 py-2 text-center">{ris.signatures.received_by?.designation ?? ''}</td>
+                    </tr>
+                    <tr>
+                        <td className="px-2 py-2 font-medium">Date :</td>
+                        <td className="px-2 py-2 text-center">{docDate}</td>
+                        <td className="px-2 py-2 text-center">{docDate}</td>
+                        <td className="px-2 py-2 text-center">{docDate}</td>
+                        <td className="px-2 py-2 text-center">{receivedDate}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     );
 });

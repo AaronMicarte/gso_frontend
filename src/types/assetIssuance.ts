@@ -15,7 +15,7 @@ export interface AssetRequest {
     RequestedBy: number;
     DepartmentID: number;
     Purpose?: string;
-    Status: 'pending' | 'approved' | 'rejected' | 'issued' | 'received' | 'cancelled';
+    Status: 'pending' | 'approved' | 'waiting_for_issuance' | 'rejected' | 'issued' | 'received' | 'cancelled';
     ReviewedBy: number | null;
     ReviewedAt: string | null;
     ReviewNotes: string | null;

@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
     approved: { label: 'Approved', color: 'bg-green-100 text-green-800', icon: CheckCircle },
+    waiting_for_issuance: { label: 'Waiting for Issuance', color: 'bg-emerald-100 text-emerald-800', icon: Clock },
     rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },
     issued: { label: 'Issued', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
     received: { label: 'Received', color: 'bg-purple-100 text-purple-800', icon: Package },
@@ -141,6 +142,7 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
                         <option value="">All statuses</option>
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
+                        <option value="waiting_for_issuance">Waiting for Issuance</option>
                         <option value="rejected">Rejected</option>
                         <option value="issued">Issued</option>
                         <option value="received">Received</option>

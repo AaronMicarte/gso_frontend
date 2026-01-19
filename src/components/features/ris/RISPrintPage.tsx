@@ -73,31 +73,6 @@ export function RISPrintPage() {
             <div className="ris-print-root">
                 <style dangerouslySetInnerHTML={{
                     __html: `@media print {
-                        .ris-print-root .ris-table { border: 1px solid #000 !important; border-collapse: collapse !important; }
-                        .ris-print-root .ris-table th, .ris-print-root .ris-table td { border: 1px solid #000 !important; box-shadow: none !important; }
-
-                        /* FORCE a clear horizontal rule under the top-group header (Requisition / Stock Available? / Issue) */
-                        .ris-print-root .ris-table thead tr.top-group th {
-                            border-bottom: 1px solid #000 !important;
-                            background: #fff !important;
-                        }
-
-                        /* vertical divider and cell padding */
-                        .ris-print-root .ris-table .vertical-divider { border-left: 1px solid #000 !important; }
-
-                        /* Ensure Yes/No cells don't render a darker boxed look in print */
-                        .ris-print-root .ris-table td.ris-yesno {
-                            box-shadow: none !important;
-                            border-left-width: 1px !important;
-                            border-right-width: 1px !important;
-                            border-color: #000 !important;
-                            background: transparent !important;
-                            padding-top: 6px !important;
-                            padding-bottom: 6px !important;
-                        }
-
-                        /* fallback: ensure normal cell padding for all cells */
-                        .ris-print-root .ris-table td { padding: 6px 6px !important; }
                         .ris-print-root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     }`
                 }} />

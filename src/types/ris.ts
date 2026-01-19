@@ -1,5 +1,18 @@
 export type RisStatus = 'for_issuance' | 'issued' | 'received' | 'cancelled';
 
+export interface RisRequestInfo {
+    RequestID: number;
+    RequestNumber: string;
+    RequestDate: string;
+    Status: string;
+    Office?: string | null;
+    office?: string | null;
+    department?: { DepartmentID: number; DepartmentName: string; DepartmentCode?: string };
+    requester?: { UserID: number; FullName: string; DepartmentID: number };
+    reviewer?: { UserID: number; FullName: string };
+    issuer?: { UserID: number; FullName: string };
+}
+
 export interface RisSignatureInfo {
     url?: string | null;
     user?: { UserID: number; FullName: string } | null;
@@ -33,18 +46,9 @@ export interface RisRecord {
     purpose: string;
     status: RisStatus;
     remarks?: string | null;
-    request?: {
-        RequestID: number;
-        RequestNumber: string;
-        RequestDate: string;
-        Status: string;
-        Office?: string | null;
-        office?: string | null;
-        department?: { DepartmentID: number; DepartmentName: string; DepartmentCode?: string };
-        requester?: { UserID: number; FullName: string; DepartmentID: number };
-        reviewer?: { UserID: number; FullName: string };
-        issuer?: { UserID: number; FullName: string };
-    } | null;
+    request?: RisRequestInfo | null;
+    // Back-compat: some endpoints/serializers may expose the relationship as snake_case.
+    asset_request?: RisRequestInfo | null;
     items: RisItem[];
     signatures: {
         requested_by: RisSignatureInfo | null;
