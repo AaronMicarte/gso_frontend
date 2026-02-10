@@ -137,6 +137,18 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
                             <p className="mt-1 text-slate-900">{dr.SupplierName || 'N/A'}</p>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-slate-700">Requested By</label>
+                            <p className="mt-1 text-slate-900">{dr.RequestedBy || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">Department</label>
+                            <p className="mt-1 text-slate-900">{dr.department?.DepartmentName || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">PR Number</label>
+                            <p className="mt-1 text-slate-900">{dr.PRNumber || 'N/A'}</p>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-slate-700">PO Number</label>
                             <p className="mt-1 text-slate-900">{dr.PONumber || 'N/A'}</p>
                         </div>

@@ -5,7 +5,6 @@ import { ApiResponse, PaginatedResponse } from '@/types/masterData';
 export interface PropertyTypeFilters {
     search?: string;
     category_id?: number;
-    classification_id?: number;
     property_classification_id?: number;
     page?: number;
     per_page?: number;
@@ -18,7 +17,6 @@ export async function getPropertyTypes(filters?: PropertyTypeFilters): Promise<P
 
     if (filters?.search) params.append('search', filters.search);
     if (filters?.category_id) params.append('category_id', filters.category_id.toString());
-    if (filters?.classification_id) params.append('classification_id', filters.classification_id.toString());
     if (filters?.property_classification_id) params.append('property_classification_id', filters.property_classification_id.toString());
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.per_page) params.append('per_page', filters.per_page.toString());
@@ -47,7 +45,6 @@ export async function getPropertyType(id: number): Promise<PropertyType> {
 export async function createPropertyType(data: PropertyTypeInput): Promise<PropertyType> {
     const payload = {
         PropertyName: data.name,
-        ClassificationID: data.classification_id,
         PropertyClassificationID: data.property_classification_id,
         Description: data.description
     };
@@ -61,7 +58,6 @@ export async function createPropertyType(data: PropertyTypeInput): Promise<Prope
 export async function updatePropertyType(id: number, data: PropertyTypeInput): Promise<PropertyType> {
     const payload = {
         PropertyName: data.name,
-        ClassificationID: data.classification_id,
         PropertyClassificationID: data.property_classification_id,
         Description: data.description
     };

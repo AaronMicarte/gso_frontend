@@ -2,8 +2,8 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { usePropertyType, useUpdatePropertyType, useAllCategories, useAllClassifications, useAllPropertyClassifications } from '@/lib/hooks/masterData';
-import { PropertyTypeInput, Classification, PropertyClassification, Category } from '@/types/masterData';
+import { usePropertyType, useUpdatePropertyType, useAllCategories, useAllPropertyClassifications } from '@/lib/hooks/masterData';
+import { PropertyTypeInput, PropertyClassification, Category } from '@/types/masterData';
 import { ApiError } from '@/types/api';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,13 +16,11 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
     const { data: propertyType, isLoading: isDataLoading, error } = usePropertyType(typeId);
     const updateMutation = useUpdatePropertyType();
     const { data: categories, isLoading: categoriesLoading } = useAllCategories();
-    const { data: classifications, isLoading: classificationsLoading } = useAllClassifications();
     const { data: propertyClassifications, isLoading: propertyClassificationsLoading } = useAllPropertyClassifications();
 
     const [formData, setFormData] = useState<PropertyTypeInput>({
         name: '',
         category_id: 0,
-        classification_id: 0,
         property_classification_id: 0,
         description: '',
     });
@@ -33,9 +31,8 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
         if (propertyType) {
             setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 name: propertyType.name,
-                category_id: propertyType.category_id,
-                classification_id: propertyType.classification_id,
-                property_classification_id: propertyType.property_classification_id,
+                category_id: propertyType.category_id ?? 0,
+                property_classification_id: propertyType.property_classification_id ?? 0,
                 description: propertyType.description || '',
             });
         }
@@ -61,14 +58,12 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
                         if (backendErrors.name) mappedErrors.name = backendErrors.name;
                         if (backendErrors.description) mappedErrors.description = backendErrors.description;
                         if (backendErrors.category_id) mappedErrors.category_id = backendErrors.category_id;
-                        if (backendErrors.classification_id) mappedErrors.classification_id = backendErrors.classification_id;
                         if (backendErrors.property_classification_id) mappedErrors.property_classification_id = backendErrors.property_classification_id;
 
                         // Map backend PascalCase to frontend camelCase
                         if (backendErrors.PropertyName) mappedErrors.name = backendErrors.PropertyName;
                         if (backendErrors.Description) mappedErrors.description = backendErrors.Description;
                         if (backendErrors.CategoryID) mappedErrors.category_id = backendErrors.CategoryID;
-                        if (backendErrors.ClassificationID) mappedErrors.classification_id = backendErrors.ClassificationID;
                         if (backendErrors.PropertyClassificationID) mappedErrors.property_classification_id = backendErrors.PropertyClassificationID;
 
                         setErrors(mappedErrors);
@@ -85,10 +80,11 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
+        const { name, value, type } = e.target;
+        const parsedValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
         setFormData((prev) => ({
             ...prev,
-            [name]: name.includes('_id') ? Number(value) : value,
+            [name]: name.includes('_id') ? Number(parsedValue) : parsedValue,
         }));
         // Clear error when user types
         if (errors[name]) {
@@ -100,7 +96,7 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
         }
     };
 
-    const isLoading = isDataLoading || categoriesLoading || classificationsLoading || propertyClassificationsLoading;
+    const isLoading = isDataLoading || categoriesLoading || propertyClassificationsLoading;
 
     if (isLoading) {
         return (
@@ -201,32 +197,6 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
                             )}
                         </div>
 
-                        {/* Classification Field */}
-                        <div>
-                            <label htmlFor="classification_id" className="block text-sm font-medium text-slate-700 mb-1">
-                                Classification <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                id="classification_id"
-                                name="classification_id"
-                                value={formData.classification_id}
-                                onChange={handleChange}
-                                className={`w-full px-4 py-2 rounded-lg border ${errors.classification_id ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-[var(--primary)]'
-                                    } focus:outline-none focus:ring-2 transition-all`}
-                                required
-                            >
-                                <option value={0}>Select a classification</option>
-                                {classifications?.map((classification: Classification) => (
-                                    <option key={classification.id} value={classification.id}>
-                                        {classification.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.classification_id && (
-                                <p className="mt-1 text-sm text-red-500">{errors.classification_id[0]}</p>
-                            )}
-                        </div>
-
                         {/* Property Classification Field */}
                         <div>
                             <label htmlFor="property_classification_id" className="block text-sm font-medium text-slate-700 mb-1">
@@ -272,6 +242,7 @@ export default function EditPropertyTypePage({ params }: { params: Promise<{ id:
                                 <p className="mt-1 text-sm text-red-500">{errors.description[0]}</p>
                             )}
                         </div>
+
                     </div>
 
                     {/* Form Actions */}

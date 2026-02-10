@@ -16,6 +16,8 @@ export interface IARDetail {
     propertyType?: {
         PropertyTypeID: number;
         PropertyName: string;
+        RequiresVerification?: boolean;
+        requires_verification?: boolean;
     };
     condition?: {
         ConditionID: number;

@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { toast } from 'sonner';
-import { Package, Hash, DollarSign, Calculator } from 'lucide-react';
+import { Package, Hash, Calculator } from 'lucide-react';
 
 const itemSchema = z.object({
     item_description: z.string().min(1, 'Item description is required'),
@@ -18,6 +18,15 @@ const itemSchema = z.object({
     unit_of_measure_id: z.number().int().min(1, 'Unit is required'),
     quantity_delivered: z.number().int().min(1, 'Quantity must be at least 1'),
     unit_cost: z.number().min(0),
+}).superRefine((data, ctx) => {
+    const serial = data.serial_number?.trim();
+    if (serial && data.quantity_delivered > 1) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['quantity_delivered'],
+            message: 'Quantity must be 1 when a serial number is provided',
+        });
+    }
 });
 
 export type ItemFormValues = z.infer<typeof itemSchema>;
@@ -48,16 +57,9 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
         }
     });
 
-    // Watch the property type to conditionally show brand/model/serial fields
-    const selectedPropertyTypeId = watch('property_type_id');
     const quantity = watch('quantity_delivered');
     const unitCost = watch('unit_cost');
     const totalCost = (quantity || 0) * (unitCost || 0);
-
-    // Property types that should show brand/model/serial fields (same as IAR verification requirements)
-    const equipmentPropertyTypeIds = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
-
-    const shouldShowBrandModelSerial = selectedPropertyTypeId && equipmentPropertyTypeIds.includes(selectedPropertyTypeId);
 
     // Use ref to track previous open state
     const prevOpenRef = useRef(open);
@@ -98,7 +100,7 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
             confirmText="Save Item"
             cancelText="Cancel"
             loading={loading}
-            contentClassName="max-w-2xl max-h-[90vh] overflow-y-auto"
+            contentClassName="w-[95vw] md:w-[900px] lg:w-[1100px] !max-w-none max-h-[90vh] overflow-y-auto"
         >
             <div className="space-y-6">
                 {/* Item Description */}
@@ -145,34 +147,35 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
                     </div>
                 </div>
 
-                {/* Equipment Details - conditionally shown */}
-                {shouldShowBrandModelSerial && (
-                    <div className="space-y-4">
-                        <div className="border-t border-slate-200 pt-4">
-                            <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                                <Hash className="w-4 h-4 text-[var(--primary)]" />
-                                Equipment Specifications
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Input
-                                    {...register('brand')}
-                                    label="Brand"
-                                    placeholder="e.g., Dell, HP"
-                                />
-                                <Input
-                                    {...register('model_number')}
-                                    label="Model Number"
-                                    placeholder="e.g., OptiPlex 7090"
-                                />
+                {/* Equipment Details - optional */}
+                <div className="space-y-4">
+                    <div className="border-t border-slate-200 pt-4">
+                        <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                            <Hash className="w-4 h-4 text-[var(--primary)]" />
+                            Equipment Specifications (Optional)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Input
+                                {...register('brand')}
+                                label="Brand"
+                                placeholder="e.g., Dell, HP"
+                            />
+                            <Input
+                                {...register('model_number')}
+                                label="Model Number"
+                                placeholder="e.g., OptiPlex 7090"
+                            />
+                            <div>
                                 <Input
                                     {...register('serial_number')}
                                     label="Serial Number"
                                     placeholder="e.g., SN123456789"
                                 />
+                                <p className="mt-1 text-xs text-slate-500">If you enter a serial number, quantity must be 1.</p>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
 
                 {/* Quantity & Cost */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -189,7 +192,6 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
 
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                            <DollarSign className="w-4 h-4 text-[var(--primary)]" />
                             <label className="text-sm font-semibold text-slate-900">Unit Cost (₱)</label>
                         </div>
                         <Input

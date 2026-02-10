@@ -1,5 +1,5 @@
-import { ClassificationsPage } from '@/components/features/masterdata/classifications/ClassificationsPage';
+import { PropertyClassificationsPage } from '@/components/features/masterdata/property-classifications/PropertyClassificationsPage';
 
 export default function AdminClassificationsPage() {
-    return <ClassificationsPage baseRoute="/admin" />;
+    return <PropertyClassificationsPage baseRoute="/admin" />;
 }

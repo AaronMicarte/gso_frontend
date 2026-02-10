@@ -164,14 +164,6 @@ export function PropertyTypesPage({ baseRoute }: PropertyTypesPageProps) {
                                             <h3 className="font-semibold text-slate-900 mb-1">
                                                 {type.name}
                                             </h3>
-                                            <div className="flex flex-wrap gap-2 mb-1">
-                                                <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">
-                                                    {type.category?.name || 'No Category'}
-                                                </span>
-                                                <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">
-                                                    {type.classification?.name || 'No Classification'}
-                                                </span>
-                                            </div>
                                             <p className="text-sm text-slate-600">
                                                 {type.description || 'No description'}
                                             </p>
@@ -219,12 +211,6 @@ export function PropertyTypesPage({ baseRoute }: PropertyTypesPageProps) {
                                                 Property Type Name
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                                Category
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                                Classification
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                                 Description
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -240,16 +226,6 @@ export function PropertyTypesPage({ baseRoute }: PropertyTypesPageProps) {
                                             <tr key={`desktop-type-${type.id}`} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="font-medium text-slate-900">{type.name}</div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-full">
-                                                        {type.category?.name || '-'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-full">
-                                                        {type.classification?.name || '-'}
-                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm text-slate-600">

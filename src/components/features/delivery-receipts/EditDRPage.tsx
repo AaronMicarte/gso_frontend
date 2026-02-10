@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
+import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { ItemDetailsModal } from './ItemDetailsModal';
 import { useForm, useFieldArray, Path } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,8 +32,11 @@ const drItemSchema = z.object({
 const drSchema = z.object({
     dr_number: z.string().min(1, 'DR number is required'),
     supplier_name: z.string().min(1, 'Supplier name is required'),
-    po_number: z.string().optional(),
-    invoice_number: z.string().optional(),
+    requested_by: z.string().min(1, 'Requested by is required'),
+    department_id: z.coerce.number().min(1, 'Department is required'),
+    pr_number: z.string().min(1, 'PR number is required'),
+    po_number: z.string().min(1, 'PO number is required'),
+    invoice_number: z.string().min(1, 'Invoice number is required'),
     date_received: z.string().min(1, 'Date received is required'),
     override_past_limit: z.boolean().optional(),
     remarks: z.string().optional(),
@@ -45,6 +49,7 @@ type DRFormValues = z.infer<typeof drSchema>;
 interface PropertyType {
     PropertyTypeID: number;
     PropertyName: string;
+    RequiresVerification?: boolean;
 }
 
 interface EditDRPageProps {
@@ -81,6 +86,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         defaultValues: {
             dr_number: '',
             supplier_name: '',
+            requested_by: '',
+            department_id: 0,
+            pr_number: '',
             po_number: '',
             invoice_number: '',
             date_received: manilaToday,
@@ -134,6 +142,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 // Populate form with existing data
                 setValue('dr_number', drData.DRNumber);
                 setValue('supplier_name', drData.SupplierName || '');
+                setValue('requested_by', drData.RequestedBy || '');
+                setValue('department_id', drData.DepartmentID || 0);
+                setValue('pr_number', drData.PRNumber || '');
                 setValue('po_number', drData.PONumber || '');
                 setValue('invoice_number', drData.InvoiceNumber || '');
                 // Use date-fns-tz to ensure Asia/Manila timezone
@@ -172,12 +183,17 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
 
     // Units of measure for items
     const { data: unitsData } = useAllUnitsOfMeasure();
+    const { data: departmentsData, isLoading: isLoadingDepartments } = useAllDepartments();
     // API returns UnitOfMeasureResource (id,name) — normalize to {id, name} to be safe
     type UnitOfMeasureResponse = { id?: number; name?: string; UnitOfMeasureID?: number; UnitName?: string };
     const units = Array.isArray(unitsData)
         ? (unitsData as UnitOfMeasureResponse[])
             .filter(u => u && (u.id ?? u.UnitOfMeasureID))
             .map(u => ({ id: u.id ?? u.UnitOfMeasureID!, name: u.name ?? u.UnitName! }))
+        : [];
+
+    const departments = Array.isArray(departmentsData)
+        ? departmentsData.filter((dept) => dept && dept.id)
         : [];
 
     const details = watch('details');
@@ -427,7 +443,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         );
     }
 
-    if (isLoadingData || isLoadingDR) {
+    if (isLoadingData || isLoadingDR || isLoadingDepartments) {
         return (
             <div className="flex items-center justify-center min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
                 <div className="text-center space-y-3">
@@ -498,29 +514,101 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 )}
                             </div>
 
+                            {/* Requested By */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Requested By *
+                                </label>
+                                <input
+                                    {...register('requested_by')}
+                                    type="text"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                    placeholder="Name of requester"
+                                />
+                                {errors.requested_by && (
+                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        {errors.requested_by.message}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Department */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Department *
+                                </label>
+                                <select
+                                    {...register('department_id')}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                >
+                                    <option value={0}>Select department</option>
+                                    {departments.length === 0 ? (
+                                        <option value={0} disabled>No departments found</option>
+                                    ) : (
+                                        departments.map((dept) => (
+                                            <option key={dept.id} value={dept.id}>
+                                                {dept.name}
+                                            </option>
+                                        ))
+                                    )}
+                                </select>
+                                {errors.department_id && (
+                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        {errors.department_id.message}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* PR Number */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    PR Number *
+                                </label>
+                                <input
+                                    {...register('pr_number')}
+                                    type="text"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                    placeholder="Enter PR number"
+                                />
+                                {errors.pr_number && (
+                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        {errors.pr_number.message}
+                                    </p>
+                                )}
+                            </div>
+
                             {/* PO Number */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    PO Number (Optional)
+                                    PO Number *
                                 </label>
                                 <input
                                     {...register('po_number')}
                                     type="text"
                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                    placeholder="PO reference (if any)"
+                                    placeholder="Enter PO number"
                                 />
+                                {errors.po_number && (
+                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        {errors.po_number.message}
+                                    </p>
+                                )}
                             </div>
 
                             {/* Invoice Number */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Invoice Number
+                                    Invoice Number *
                                 </label>
                                 <input
                                     {...register('invoice_number')}
                                     type="text"
                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                    placeholder="Enter invoice number (optional)"
+                                    placeholder="Enter invoice number"
                                 />
                                 {errors.invoice_number && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">

@@ -32,7 +32,10 @@ export interface DeliveryReceiptStatus {
 export interface DeliveryReceipt {
     DRID: number;
     DRNumber: string;
-    PONumber?: string; // Manual PO number reference (OPTIONAL - just a reference)
+    RequestedBy?: string; // Manual requester name
+    DepartmentID?: number; // Requesting department
+    PRNumber?: string; // Manual PR number reference
+    PONumber?: string; // Manual PO number reference
     SupplierName: string; // Manual supplier name (required)
     InvoiceNumber?: string; // Invoice number from supplier
     DateReceived: string;
@@ -40,6 +43,10 @@ export interface DeliveryReceipt {
     Remarks?: string;
     CreatedDate: string;
     dr_picture_url?: string; // URL to the DR picture
+    department?: {
+        DepartmentID: number;
+        DepartmentName: string;
+    };
 
     // Relationships
     details?: DeliveryReceiptDetail[];
@@ -61,8 +68,11 @@ export interface DeliveryReceipt {
 export interface CreateDeliveryReceiptPayload {
     dr_number: string;
     supplier_name: string; // Required manual supplier name
-    po_number?: string; // OPTIONAL manual PO reference (just for record keeping)
-    invoice_number?: string; // Invoice number from supplier
+    requested_by: string;
+    department_id: number;
+    pr_number: string;
+    po_number: string;
+    invoice_number: string;
     date_received: string;
     remarks?: string;
     dr_picture: File;
@@ -81,7 +91,11 @@ export interface CreateDeliveryReceiptPayload {
 export interface UpdateDeliveryReceiptPayload {
     dr_number: string;
     supplier_name: string;
-    po_number?: string; // OPTIONAL
+    requested_by: string;
+    department_id: number;
+    pr_number: string;
+    po_number: string;
+    invoice_number: string;
     date_received: string;
     remarks?: string;
     dr_picture: File;

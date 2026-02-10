@@ -42,6 +42,7 @@ export type InventoryDetail = {
     ConditionID?: number;
     PropertyStatusID?: number;
     PropertyTypeID?: number;
+    StatusName?: string;
     custodianName?: string;
     locationDepartment?: string;
     lastIssuedDate?: string | null;

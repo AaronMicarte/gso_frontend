@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useInventories, usePendingIngestion, useIngestFromIar, useAllInventoryItems } from '@/lib/hooks/useInventory';
-import { Package, Eye, ArrowDownToLine, User, AlertTriangle, CheckCircle, Clock, Archive } from 'lucide-react';
+import { Package, Eye, ArrowDownToLine, User, AlertTriangle, CheckCircle, Clock, Archive, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
@@ -93,7 +93,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <CheckCircle className="w-5 h-5 text-green-600" />
-                                <div className="text-sm font-medium text-slate-700">Available</div>
+                                <div className="text-sm font-medium text-slate-700">For Issuance</div>
                             </div>
                             <div className="text-2xl font-bold text-green-600">
                                 {availableItems}
@@ -102,7 +102,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <User className="w-5 h-5 text-amber-600" />
-                                <div className="text-sm font-medium text-slate-700">Assigned</div>
+                                <div className="text-sm font-medium text-slate-700">Issued</div>
                             </div>
                             <div className="text-2xl font-bold text-amber-600">
                                 {assignedItems}
@@ -260,23 +260,32 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                                 {format(toZonedTime(new Date(inv.DateAcquired), 'Asia/Manila'), 'MMM dd, yyyy')}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
-                                                ₱{inv.TotalValue.toFixed(2)}
+                                                ₱{inv.TotalValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             <td className="px-6 py-4">
                                                 {getAvailableLeft(inv.details) > 0 ? (
                                                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                         <CheckCircle className="w-3 h-3" />
-                                                        {getAvailableLeft(inv.details)} Available
+                                                        {getAvailableLeft(inv.details)} For issuance
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                         <User className="w-3 h-3" />
-                                                        All Assigned
+                                                        All Issued
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
-                                                GSO Property Custodian
+                                                <div className="flex items-center gap-1">
+                                                    <User className="w-3 h-3" />
+                                                    {inv.CurrentCustodianName || 'Requester not set'}
+                                                </div>
+                                                {inv.CurrentLocation && (
+                                                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                        <Building2 className="w-3 h-3" />
+                                                        {inv.CurrentLocation}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">

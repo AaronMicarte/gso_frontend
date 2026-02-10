@@ -78,7 +78,6 @@ export interface PropertyType {
     id: number;
     name: string;
     category_id: number;
-    classification_id: number;
     property_classification_id: number;
     description?: string | null;
     created_at: string;
@@ -87,10 +86,6 @@ export interface PropertyType {
     is_deleted?: boolean;
     // Relations
     category?: {
-        id: number;
-        name: string;
-    };
-    classification?: {
         id: number;
         name: string;
     };
@@ -104,7 +99,6 @@ export interface PropertyType {
 export interface PropertyTypeInput {
     name: string;
     category_id: number;
-    classification_id: number;
     property_classification_id: number;
     description?: string;
 }

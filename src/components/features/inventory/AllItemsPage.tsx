@@ -20,6 +20,9 @@ export function AllItemsPage() {
         const statusParam = searchParams.get('status');
         if (statusParam) {
             const statusMap: { [key: string]: number | null } = {
+                'for-issuance': 1,
+                'for issuance': 1,
+                'to-be-issued': 1,
                 'available': 1,
                 'assigned': 2,
                 'repair': 3,
@@ -44,8 +47,8 @@ export function AllItemsPage() {
     const { data: propertyTypes } = useAllPropertyTypes();
 
     const propertyStatuses = [
-        { id: 1, name: 'Available' },
-        { id: 2, name: 'Assigned' },
+        { id: 1, name: 'For Issuance' },
+        { id: 2, name: 'Issued' },
         { id: 3, name: 'For Repair' },
         { id: 4, name: 'For Disposal' },
         { id: 5, name: 'Disposed' },
@@ -117,50 +120,53 @@ export function AllItemsPage() {
         setEditingItem(null);
     };
 
-    const getStatusBadge = (statusId?: number) => {
-        switch (statusId) {
-            case 1:
-                return (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <CheckCircle className="w-3 h-3" />
-                        Available
-                    </span>
-                );
-            case 2:
-                return (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        <User className="w-3 h-3" />
-                        Assigned
-                    </span>
-                );
-            case 3:
-                return (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                        <AlertTriangle className="w-3 h-3" />
-                        For Repair
-                    </span>
-                );
-            case 4:
-                return (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        <AlertTriangle className="w-3 h-3" />
-                        For Disposal
-                    </span>
-                );
-            default:
-                return (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
-                        <Package className="w-3 h-3" />
-                        Unassigned
-                    </span>
-                );
+    const getStatusBadge = (statusId?: number, statusName?: string) => {
+        const label = statusName?.trim() || (statusId === 2 ? 'Issued' : statusId === 3 ? 'For Repair' : statusId === 4 ? 'For Disposal' : 'For issuance');
+        const normalized = label.toLowerCase();
+
+        if (normalized.includes('issuance') || normalized.includes('available')) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <CheckCircle className="w-3 h-3" />
+                    {label}
+                </span>
+            );
         }
+        if (normalized.includes('issued')) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <User className="w-3 h-3" />
+                    {label}
+                </span>
+            );
+        }
+        if (normalized.includes('repair')) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    <AlertTriangle className="w-3 h-3" />
+                    {label}
+                </span>
+            );
+        }
+        if (normalized.includes('disposal') || normalized.includes('disposed')) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    <AlertTriangle className="w-3 h-3" />
+                    {label}
+                </span>
+            );
+        }
+
+        return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                <Package className="w-3 h-3" />
+                {label}
+            </span>
+        );
     };
 
-    const getCustodianDisplayName = (statusId?: number, custodianName?: string) => {
-        if (custodianName) return custodianName;
-        if (statusId === 2) return 'Unassigned';
-        return 'GSO Property Custodian';
+    const getCustodianDisplayName = (custodianName?: string) => {
+        return custodianName || 'Requester not set';
     };
 
     const getQrCodeData = (item: InventoryItem): string | null => {
@@ -221,7 +227,7 @@ export function AllItemsPage() {
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <CheckCircle className="w-5 h-5 text-green-600" />
-                                <div className="text-sm font-medium text-slate-700">Available</div>
+                                <div className="text-sm font-medium text-slate-700">For Issuance</div>
                             </div>
                             <div className="text-2xl font-bold text-green-600">
                                 {data.data.filter(item => item.PropertyStatusID === 1).length}
@@ -230,7 +236,7 @@ export function AllItemsPage() {
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <User className="w-5 h-5 text-amber-600" />
-                                <div className="text-sm font-medium text-slate-700">Assigned</div>
+                                <div className="text-sm font-medium text-slate-700">Issued</div>
                             </div>
                             <div className="text-2xl font-bold text-amber-600">
                                 {data.data.filter(item => item.PropertyStatusID === 2).length}
@@ -332,12 +338,14 @@ export function AllItemsPage() {
                                                 <div className="font-medium">{item.InventoryNumber || 'N/A'}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                {getStatusBadge(item.PropertyStatusID)}
+                                                {getStatusBadge(item.PropertyStatusID, item.StatusName)}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
                                                 <div className="flex items-center gap-1">
                                                     <User className="w-3 h-3" />
-                                                    {getCustodianDisplayName(item.PropertyStatusID, item.custodianName)}
+                                                    {item.locationDepartment
+                                                        ? `${getCustodianDisplayName(item.custodianName)}`
+                                                        : getCustodianDisplayName(item.custodianName)}
                                                 </div>
                                                 {item.locationDepartment && (
                                                     <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
@@ -360,7 +368,7 @@ export function AllItemsPage() {
                                                                 if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
                                                                 return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
                                                             })()}
-                                                            custodianName={getCustodianDisplayName(item.PropertyStatusID, item.custodianName)}
+                                                            custodianName={getCustodianDisplayName(item.custodianName)}
                                                             date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
                                                             unitCost={item.UnitCost}
                                                         />

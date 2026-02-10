@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreateIAR } from '@/lib/hooks/useIAR';
 import { useDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
@@ -26,21 +26,6 @@ const iarDetailSchema = z.object({
     verified_model: z.string().optional(),
     verified_serial: z.string().optional(),
     remarks: z.string().optional(),
-}).refine((data) => {
-    // Property types that require brand/model/serial verification
-    const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
-
-    if (propertyTypesRequiringVerification.includes(data.property_type_id)) {
-        return (
-            (data.verified_brand?.trim() || '') !== '' &&
-            (data.verified_model?.trim() || '') !== '' &&
-            (data.verified_serial?.trim() || '') !== ''
-        );
-    }
-    return true;
-}, {
-    message: 'Brand, Model, and Serial are required for IT Equipment, Machinery, and Medical Equipment',
-    path: ['verified_brand'], // This will show the error on the brand field
 });
 
 const iarSchema = z.object({
@@ -106,7 +91,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
         },
     });
 
-    const { fields } = useFieldArray({
+    const { fields, append, remove } = useFieldArray({
         control,
         name: 'details',
     });
@@ -209,20 +194,97 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
     }, [acceptedBy, currentDateAccepted, setValue]);
 
     const details = watch('details');
+    const detailRows = fields.map((field, index) => ({ field, index, data: details[index] }));
 
     const onSubmit = async (data: IARFormValues) => {
         try {
-            // Validate quantities
-            const invalidItems = data.details.filter((detail, index) => {
-                const drDetail = drData?.details?.[index];
-                if (!drDetail) return false;
-                const total = detail.quantity_accepted + detail.quantity_rejected;
-                return total !== drDetail.QuantityDelivered;
+            // Validate quantities per DR detail and prevent duplicate condition rows
+            const drDetailsById = new Map(
+                (drData?.details || []).map((detail) => [detail.DRDetailID, detail])
+            );
+            const totalsByDrDetail = new Map<number, { accepted: number; rejected: number; delivered: number; description: string }>();
+            const conditionKeySet = new Set<string>();
+
+            for (const detail of data.details) {
+                const drDetail = drDetailsById.get(detail.dr_detail_id);
+                if (!drDetail) continue;
+
+                const key = detail.dr_detail_id;
+                const current = totalsByDrDetail.get(key) || {
+                    accepted: 0,
+                    rejected: 0,
+                    delivered: drDetail.QuantityDelivered,
+                    description: drDetail.ItemDescription,
+                };
+
+                current.accepted += detail.quantity_accepted || 0;
+                current.rejected += detail.quantity_rejected || 0;
+                totalsByDrDetail.set(key, current);
+
+                const conditionKey = `${detail.dr_detail_id}:${detail.condition_id}`;
+                if (conditionKeySet.has(conditionKey)) {
+                    toast.error(`Duplicate condition for ${drDetail.ItemDescription}. Use a single row per condition.`);
+                    return;
+                }
+                conditionKeySet.add(conditionKey);
+            }
+
+            for (const [, totals] of totalsByDrDetail) {
+                if (totals.accepted + totals.rejected !== totals.delivered) {
+                    toast.error(`Accepted + Rejected must equal Delivered for ${totals.description}`);
+                    return;
+                }
+            }
+
+            const verificationByDetail = new Map<number, { brand?: string; model?: string; serial?: string }>();
+            data.details.forEach((detail) => {
+                const brand = detail.verified_brand?.trim();
+                const model = detail.verified_model?.trim();
+                const serial = detail.verified_serial?.trim();
+                if (brand || model || serial) {
+                    verificationByDetail.set(detail.dr_detail_id, { brand, model, serial });
+                }
             });
 
-            if (invalidItems.length > 0) {
-                toast.error('Accepted + Rejected quantities must equal delivered quantities');
-                return;
+            data.details = data.details.map((detail) => {
+                const verification = verificationByDetail.get(detail.dr_detail_id);
+                if (!verification) return detail;
+                return {
+                    ...detail,
+                    verified_brand: verification.brand,
+                    verified_model: verification.model,
+                    verified_serial: verification.serial,
+                };
+            });
+
+            for (const detail of data.details) {
+                const drDetail = drDetailsById.get(detail.dr_detail_id);
+                if (!drDetail) continue;
+
+                const drBrand = (drDetail.Brand || '').trim();
+                const drModel = (drDetail.ModelNumber || '').trim();
+                const drSerial = (drDetail.SerialNumber || '').trim();
+
+                const verifiedBrand = (detail.verified_brand || '').trim();
+                const verifiedModel = (detail.verified_model || '').trim();
+                const verifiedSerial = (detail.verified_serial || '').trim();
+
+                if (drBrand || drModel || drSerial) {
+                    const matches =
+                        (drBrand === '' || drBrand.toLowerCase() === verifiedBrand.toLowerCase()) &&
+                        (drModel === '' || drModel.toLowerCase() === verifiedModel.toLowerCase()) &&
+                        (drSerial === '' || drSerial.toLowerCase() === verifiedSerial.toLowerCase());
+
+                    const hasAllVerified =
+                        (drBrand === '' || verifiedBrand) &&
+                        (drModel === '' || verifiedModel) &&
+                        (drSerial === '' || verifiedSerial);
+
+                    if (!hasAllVerified || !matches) {
+                        toast.error(`Verification must match the DR for ${drDetail.ItemDescription}. Edit the DR if actual items differ.`);
+                        return;
+                    }
+                }
             }
 
             // Convert "Leave blank" acceptor (value 0) to null so backend validation accepts it
@@ -509,19 +571,23 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                             <h2 className="text-lg font-semibold text-slate-900 mb-4">Item Inspection & Acceptance</h2>
                             <div className="space-y-4">
-                                {fields.map((field, index) => {
-                                    const drDetail = drData.details?.[index];
-                                    const currentDetail = details[index];
-                                    const totalQty = (currentDetail?.quantity_accepted || 0) + (currentDetail?.quantity_rejected || 0);
-                                    const isValid = totalQty === drDetail?.QuantityDelivered;
+                                {drData.details?.map((drDetail) => {
+                                    const rows = detailRows.filter((row) => row.data?.dr_detail_id === drDetail.DRDetailID);
+                                    if (rows.length === 0) return null;
+
+                                    const totalAccepted = rows.reduce((sum, row) => sum + (row.data?.quantity_accepted || 0), 0);
+                                    const totalRejected = rows.reduce((sum, row) => sum + (row.data?.quantity_rejected || 0), 0);
+                                    const totalQty = totalAccepted + totalRejected;
+                                    const isValid = totalQty === drDetail.QuantityDelivered;
+                                    const firstRowIndex = rows[0]?.index;
 
                                     return (
-                                        <div key={field.id} className="border border-slate-200 rounded-lg p-4">
+                                        <div key={drDetail.DRDetailID} className="border border-slate-200 rounded-lg p-4">
                                             <div className="flex items-start justify-between mb-3">
                                                 <div className="flex-1">
                                                     <h3 className="font-medium text-slate-900">
-                                                        {drDetail?.ItemDescription}
-                                                        {(drDetail?.Brand || drDetail?.ModelNumber || drDetail?.SerialNumber) && (
+                                                        {drDetail.ItemDescription}
+                                                        {(drDetail.Brand || drDetail.ModelNumber || drDetail.SerialNumber) && (
                                                             <span className="text-sm text-slate-600 ml-2">
                                                                 ({[
                                                                     drDetail.Brand,
@@ -532,7 +598,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                                                         )}
                                                     </h3>
                                                     <p className="text-sm text-slate-500">
-                                                        Delivered: {drDetail?.QuantityDelivered} {drDetail?.unitOfMeasure?.UnitName || 'pc'} • Unit Cost: ₱{drDetail?.UnitCost.toLocaleString('en-PH')}
+                                                        Delivered: {drDetail.QuantityDelivered} {drDetail.unitOfMeasure?.UnitName || 'pc'} • Unit Cost: ₱{drDetail.UnitCost.toLocaleString('en-PH')}
                                                     </p>
                                                 </div>
                                                 {isValid ? (
@@ -542,122 +608,157 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                                <input type="hidden" {...register(`details.${index}.dr_detail_id` as const)} />
-                                                <input type="hidden" {...register(`details.${index}.property_type_id` as const)} />
+                                            <div className="space-y-3">
+                                                {rows.map(({ field, index }) => (
+                                                    <div key={field.id} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 bg-slate-50 p-3 rounded-lg">
+                                                        <input type="hidden" {...register(`details.${index}.dr_detail_id` as const)} />
+                                                        <input type="hidden" {...register(`details.${index}.property_type_id` as const)} />
 
-                                                {/* Condition */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                                                        Condition *
-                                                    </label>
-                                                    <select
-                                                        {...register(`details.${index}.condition_id` as const, { valueAsNumber: true })}
-                                                        className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                    >
-                                                        {conditions.map((condition) => (
-                                                            <option key={condition.ConditionID} value={condition.ConditionID}>
-                                                                {condition.ConditionName}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                {/* Quantity Accepted */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                                                        Accepted *
-                                                    </label>
-                                                    <input
-                                                        {...register(`details.${index}.quantity_accepted` as const, { valueAsNumber: true })}
-                                                        type="number"
-                                                        min="0"
-                                                        step="1"
-                                                        className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                    />
-                                                </div>
-
-                                                {/* Quantity Rejected */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                                                        Rejected *
-                                                    </label>
-                                                    <input
-                                                        {...register(`details.${index}.quantity_rejected` as const, { valueAsNumber: true })}
-                                                        type="number"
-                                                        min="0"
-                                                        step="1"
-                                                        className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                    />
-                                                </div>
-
-                                                {/* Item Remarks */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                                                        Remarks
-                                                    </label>
-                                                    <input
-                                                        {...register(`details.${index}.remarks` as const)}
-                                                        type="text"
-                                                        className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
-                                                        placeholder="Notes..."
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Verified Brand/Model/Serial - Required for certain property types */}
-                                            {(() => {
-                                                const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
-                                                const requiresVerification = propertyTypesRequiringVerification.includes(drDetail?.PropertyTypeID || 0);
-
-                                                return requiresVerification ? (
-                                                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                                        <div className="text-xs font-medium text-amber-800 mb-2">
-                                                            Verification Required - Enter actual brand, model, and serial numbers from the received items:
+                                                        {/* Condition */}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                                Condition *
+                                                            </label>
+                                                            <select
+                                                                {...register(`details.${index}.condition_id` as const, { valueAsNumber: true })}
+                                                                className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                            >
+                                                                {conditions.map((condition) => (
+                                                                    <option key={condition.ConditionID} value={condition.ConditionID}>
+                                                                        {condition.ConditionName}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
                                                         </div>
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-amber-700 mb-1">
-                                                                    Brand *
-                                                                </label>
-                                                                <input
-                                                                    {...register(`details.${index}.verified_brand` as const)}
-                                                                    type="text"
-                                                                    className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
-                                                                    placeholder="e.g., Dell, HP, Lenovo"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-amber-700 mb-1">
-                                                                    Model *
-                                                                </label>
-                                                                <input
-                                                                    {...register(`details.${index}.verified_model` as const)}
-                                                                    type="text"
-                                                                    className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
-                                                                    placeholder="e.g., Latitude 5420, ThinkPad X1"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-amber-700 mb-1">
-                                                                    Serial *
-                                                                </label>
-                                                                <input
-                                                                    {...register(`details.${index}.verified_serial` as const)}
-                                                                    type="text"
-                                                                    className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
-                                                                    placeholder="e.g., ABC123456, SN-789012"
-                                                                />
-                                                            </div>
+
+                                                        {/* Quantity Accepted */}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                                Accepted *
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${index}.quantity_accepted` as const, { valueAsNumber: true })}
+                                                                type="number"
+                                                                min="0"
+                                                                step="1"
+                                                                className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                            />
+                                                        </div>
+
+                                                        {/* Quantity Rejected */}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                                Rejected *
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${index}.quantity_rejected` as const, { valueAsNumber: true })}
+                                                                type="number"
+                                                                min="0"
+                                                                step="1"
+                                                                className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                            />
+                                                        </div>
+
+                                                        {/* Item Remarks */}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                                Remarks
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${index}.remarks` as const)}
+                                                                type="text"
+                                                                className="w-full px-2 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/20 text-sm"
+                                                                placeholder="Notes..."
+                                                            />
+                                                        </div>
+
+                                                        <div className="flex items-end justify-end">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => remove(index)}
+                                                                disabled={rows.length === 1}
+                                                                className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                Remove
+                                                            </button>
                                                         </div>
                                                     </div>
-                                                ) : null;
-                                            })()}
+                                                ))}
+                                            </div>
+
+                                            <div className="mt-3 flex items-center justify-between">
+                                                <p className="text-xs text-slate-500">
+                                                    Total Accepted: {totalAccepted} • Total Rejected: {totalRejected}
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => append({
+                                                        dr_detail_id: drDetail.DRDetailID!,
+                                                        property_type_id: drDetail.PropertyTypeID,
+                                                        condition_id: 1,
+                                                        quantity_accepted: 0,
+                                                        quantity_rejected: 0,
+                                                        verified_brand: undefined,
+                                                        verified_model: undefined,
+                                                        verified_serial: undefined,
+                                                        remarks: '',
+                                                    })}
+                                                    className="px-3 py-1 text-xs text-[var(--primary)] border border-[var(--primary)] rounded hover:bg-[var(--primary)]/10"
+                                                >
+                                                    Add Condition Row
+                                                </button>
+                                            </div>
+
+                                            {firstRowIndex !== undefined && (
+                                                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                                    <div className="text-xs font-medium text-amber-800 mb-2">
+                                                        Verification
+                                                    </div>
+                                                    <p className="text-xs text-amber-700 mb-2">
+                                                        Applies to all condition rows for this item.
+                                                    </p>
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                Brand
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${firstRowIndex}.verified_brand` as const)}
+                                                                type="text"
+                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                placeholder="e.g., Dell, HP, Lenovo"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                Model
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${firstRowIndex}.verified_model` as const)}
+                                                                type="text"
+                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                placeholder="e.g., Latitude 5420, ThinkPad X1"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-amber-700 mb-1">
+                                                                Serial
+                                                            </label>
+                                                            <input
+                                                                {...register(`details.${firstRowIndex}.verified_serial` as const)}
+                                                                type="text"
+                                                                className="w-full px-2 py-1.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm"
+                                                                placeholder="e.g., ABC123456, SN-789012"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {!isValid && (
                                                 <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
                                                     <AlertCircle className="w-3 h-3" />
-                                                    Accepted ({currentDetail?.quantity_accepted || 0}) + Rejected ({currentDetail?.quantity_rejected || 0}) must equal Delivered ({drDetail?.QuantityDelivered})
+                                                    Accepted ({totalAccepted}) + Rejected ({totalRejected}) must equal Delivered ({drDetail.QuantityDelivered})
                                                 </p>
                                             )}
                                         </div>

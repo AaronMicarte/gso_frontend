@@ -9,7 +9,7 @@ import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { getIAR, updateIAR, uploadIARSignature } from '@/lib/api/iar';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { resolveStorageUrl, resolveSignatureUrl } from '@/lib/utils/signature';
-import { IAR } from '@/types/iar';
+import { IAR, IARDetail } from '@/types/iar';
 import { toast } from 'sonner';
 
 import { IARPrintView } from './IARPrintView';
@@ -75,8 +75,10 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
     const [verifiedEdits, setVerifiedEdits] = useState<Record<number, { verified_brand?: string; verified_model?: string; verified_serial?: string }>>({});
     const [isSavingVerifications, setIsSavingVerifications] = useState(false);
 
-    // Property types that require brand/model/serial verification
-    const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
+    const detailRequiresVerification = (detail: IARDetail) => {
+        const value = detail.propertyType?.requires_verification ?? detail.propertyType?.RequiresVerification;
+        return Boolean(value);
+    };
 
     // Use shared helpers to resolve signatures & storage URLs
     const inspectedSignatureUrl = iar ? resolveSignatureUrl(iar, 'inspected') : null;
@@ -90,11 +92,10 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
         }
 
         // Validate required verified fields for certain property types
-        const propertyTypesRequiringVerification = [3, 4, 5]; // IT Equipment, Machinery, Medical Equipment
         const missingVerifications: string[] = [];
 
         iar.details?.forEach((detail, index) => {
-            if (propertyTypesRequiringVerification.includes(detail.PropertyTypeID)) {
+            if (detailRequiresVerification(detail)) {
                 const verified = verifiedEdits[detail.IARDetailID || 0] || {};
                 const currentBrand = verified.verified_brand ?? detail.VerifiedBrand ?? '';
                 const currentModel = verified.verified_model ?? detail.VerifiedModel ?? '';
@@ -477,7 +478,7 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                                             // Validate required verified fields for certain property types
                                             const missingVerifications: string[] = [];
                                             iar.details?.forEach((detail, index) => {
-                                                if (propertyTypesRequiringVerification.includes(detail.PropertyTypeID)) {
+                                                if (detailRequiresVerification(detail)) {
                                                     const verified = verifiedEdits[detail.IARDetailID || 0] || {};
                                                     const currentBrand = verified.verified_brand ?? detail.VerifiedBrand ?? '';
                                                     const currentModel = verified.verified_model ?? detail.VerifiedModel ?? '';
@@ -577,7 +578,7 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                                                         </div>
                                                     )}
 
-                                                    {propertyTypesRequiringVerification.includes(detail.PropertyTypeID) && canEditVerifications ? (
+                                                    {detailRequiresVerification(detail) && canEditVerifications ? (
                                                         <div className="space-y-2">
                                                             <div className="font-medium text-slate-700 text-xs">Verified Values <span className="text-red-500">*</span>:</div>
                                                             <div className="flex gap-2">
@@ -585,21 +586,21 @@ export function ViewIARPage({ baseRoute }: ViewIARPageProps) {
                                                                     value={verifiedEdits[detail.IARDetailID || 0]?.verified_brand || ''}
                                                                     onChange={(e) => setVerifiedEdits(prev => ({ ...prev, [detail.IARDetailID || 0]: { ...prev[detail.IARDetailID || 0], verified_brand: e.target.value } }))}
                                                                     placeholder="Brand"
-                                                                    className={`px-2 py-1 border rounded text-sm w-1/3 ${propertyTypesRequiringVerification.includes(detail.PropertyTypeID) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
+                                                                    className={`px-2 py-1 border rounded text-sm w-1/3 ${detailRequiresVerification(detail) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
                                                                     required
                                                                 />
                                                                 <input
                                                                     value={verifiedEdits[detail.IARDetailID || 0]?.verified_model || ''}
                                                                     onChange={(e) => setVerifiedEdits(prev => ({ ...prev, [detail.IARDetailID || 0]: { ...prev[detail.IARDetailID || 0], verified_model: e.target.value } }))}
                                                                     placeholder="Model"
-                                                                    className={`px-2 py-1 border rounded text-sm w-1/3 ${propertyTypesRequiringVerification.includes(detail.PropertyTypeID) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
+                                                                    className={`px-2 py-1 border rounded text-sm w-1/3 ${detailRequiresVerification(detail) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
                                                                     required
                                                                 />
                                                                 <input
                                                                     value={verifiedEdits[detail.IARDetailID || 0]?.verified_serial || ''}
                                                                     onChange={(e) => setVerifiedEdits(prev => ({ ...prev, [detail.IARDetailID || 0]: { ...prev[detail.IARDetailID || 0], verified_serial: e.target.value } }))}
                                                                     placeholder="Serial"
-                                                                    className={`px-2 py-1 border rounded text-sm w-1/3 ${propertyTypesRequiringVerification.includes(detail.PropertyTypeID) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
+                                                                    className={`px-2 py-1 border rounded text-sm w-1/3 ${detailRequiresVerification(detail) ? 'border-red-300 focus:border-red-500' : 'border-slate-200'}`}
                                                                     required
                                                                 />
                                                             </div>
