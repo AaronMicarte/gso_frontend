@@ -329,6 +329,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     TotalCost: number;
                                                     ConditionID?: number;
                                                     PropertyStatusID?: number;
+                                                    StatusName?: string;
                                                     custodianName?: string;
                                                     locationDepartment?: string;
                                                     dr_item_description?: string;

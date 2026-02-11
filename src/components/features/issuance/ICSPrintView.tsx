@@ -37,7 +37,9 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
     }, []);
 
     const receivedBySignature = runtimePrintSignature || issuance.AcknowledgmentSignature || issuance.signature_url;
-    const issuerSignatureUrl = issuance.request?.signatures?.find(s => s.role === 'issuer')?.url || null;
+    const issuerSignatureUrl = issuance.IssuerSignature
+        || issuance.request?.signatures?.find(s => s.role === 'issuer')?.url
+        || null;
 
     const details = issuance.details ?? [];
 
@@ -49,11 +51,11 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
     const receivedFromOffice = ensureText(issuance.issuer?.department?.DepartmentName, 'GENERAL SERVICES OFFICE');
 
     const receivedByName = ensureText(
-        issuance.request?.requester?.FullName || issuance.IssuedToName,
+        issuance.request?.requester?.FullName || issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
         'REQUESTER'
     );
     const receivedByOffice = ensureText(
-        issuance.request?.department?.DepartmentName,
+        issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
         'DEPARTMENT'
     );
 

@@ -69,8 +69,8 @@ export default function AdminReportsAnalyticsPage() {
                                 <div className="text-2xl font-bold text-slate-900">{stats?.stats.totalInventory ?? 0}</div>
                             </div>
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-                                <div className="text-xs text-slate-500">Pending Requests</div>
-                                <div className="text-2xl font-bold text-slate-900">{stats?.stats.pendingRequests ?? 0}</div>
+                                <div className="text-xs text-slate-500">For Issuance</div>
+                                <div className="text-2xl font-bold text-slate-900">{stats?.stats.forIssuanceInventory ?? 0}</div>
                             </div>
                         </div>
 

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { deliveryReceiptKeys } from '@/lib/hooks/useDeliveryReceipts';
 import { useRouter } from 'next/navigation';
@@ -13,7 +13,7 @@ import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { ItemDetailsModal } from './ItemDetailsModal';
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
-import { getPropertyTypes } from '@/lib/api/deliveryReceipts';
+import { getDeliveryReceiptRequesters, getPropertyTypes } from '@/lib/api/deliveryReceipts';
 import { formatInTimeZone } from 'date-fns-tz';
 
 const drItemSchema = z.object({
@@ -31,7 +31,7 @@ const drItemSchema = z.object({
 const drSchema = z.object({
     dr_number: z.string().min(1, 'DR number is required'),
     supplier_name: z.string().min(1, 'Supplier name is required'),
-    requested_by: z.string().min(1, 'Requested by is required'),
+    requested_by_user_id: z.coerce.number().min(1, 'Requested by is required'),
     department_id: z.coerce.number().min(1, 'Department is required'),
     pr_number: z.string().min(1, 'PR number is required'),
     po_number: z.string().min(1, 'PO number is required'),
@@ -74,6 +74,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         control,
         handleSubmit,
         watch,
+        setValue,
         setError,
         formState: { errors, isSubmitting },
     } = useForm<DRFormValues>({
@@ -81,7 +82,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         defaultValues: {
             dr_number: '',
             supplier_name: '',
-            requested_by: '',
+            requested_by_user_id: 0,
             department_id: 0,
             pr_number: '',
             po_number: '',
@@ -92,6 +93,9 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             details: [],
         },
     });
+
+    const [requesters, setRequesters] = useState<{ UserID: number; FullName: string; DepartmentID: number; DepartmentName?: string | null }[]>([]);
+    const [requesterQuery, setRequesterQuery] = useState('');
 
     const { fields, append, remove, update } = useFieldArray({
         control,
@@ -143,7 +147,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
 
     // Units of measure for items
     const { data: unitsData, isLoading: isLoadingUnits } = useAllUnitsOfMeasure();
-    const { data: departmentsData, isLoading: isLoadingDepartments } = useAllDepartments();
+    const { data: departmentsData } = useAllDepartments();
     // API returns UnitOfMeasureResource (id,name) — normalize to {id, name} to be safe
     type UnitOfMeasureResponse = { id?: number; name?: string; UnitOfMeasureID?: number; UnitName?: string };
     const units = Array.isArray(unitsData)
@@ -152,14 +156,105 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             .map(u => ({ id: u.id ?? u.UnitOfMeasureID!, name: u.name ?? u.UnitName! }))
         : [];
 
+    type DepartmentResponse = { id?: number; name?: string; DepartmentID?: number; DepartmentName?: string };
     const departments = Array.isArray(departmentsData)
-        ? departmentsData.filter((dept) => dept && dept.id)
+        ? (departmentsData as DepartmentResponse[])
+            .filter((dept) => dept && (dept.id ?? dept.DepartmentID))
+            .map((dept) => ({
+                id: dept.id ?? dept.DepartmentID!,
+                name: dept.name ?? dept.DepartmentName ?? '',
+            }))
+            .filter((dept) => dept.name)
         : [];
 
+    const departmentLookup = new Map<string | number, string>();
+    departments.forEach((dept) => {
+        departmentLookup.set(dept.id, dept.name);
+        departmentLookup.set(String(dept.id), dept.name);
+    });
+
+    const getDepartmentName = (deptId: number | string | undefined | null) => {
+        if (deptId === undefined || deptId === null) return undefined;
+        return departmentLookup.get(deptId) ?? departmentLookup.get(String(deptId)) ?? undefined;
+    };
     const details = watch('details');
+    const watchedRequesterId = watch('requested_by_user_id');
     const totalAmount = details?.reduce((sum, item) => {
         return sum + (item.quantity_delivered * (item.unit_cost || 0));
     }, 0) || 0;
+
+    useEffect(() => {
+        const fetchRequesters = async () => {
+            try {
+                const results = await getDeliveryReceiptRequesters();
+                setRequesters(results || []);
+            } catch {
+                toast.error('Failed to load requesters');
+                setRequesters([]);
+            }
+        };
+
+        fetchRequesters();
+    }, []);
+
+    const filteredRequesters = requesters.filter((user) => {
+        const departmentName = user.DepartmentName || getDepartmentName(user.DepartmentID) || `Department ${user.DepartmentID}`;
+        const label = `${user.FullName} - ${departmentName}`.toLowerCase();
+        return label.includes(requesterQuery.trim().toLowerCase());
+    });
+
+    // Combobox state for accessible dropdown search
+    const [comboboxOpen, setComboboxOpen] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const comboboxRef = useRef<HTMLDivElement | null>(null);
+    const comboboxInputRef = useRef<HTMLInputElement | null>(null);
+    const comboboxListRef = useRef<HTMLUListElement | null>(null);
+
+    useEffect(() => {
+        const onClickOutside = (e: MouseEvent) => {
+            if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+                setComboboxOpen(false);
+                setHighlightedIndex(-1);
+            }
+        };
+        document.addEventListener('mousedown', onClickOutside);
+        return () => document.removeEventListener('mousedown', onClickOutside);
+    }, []);
+
+    const selectRequester = (user: { UserID: number; FullName: string; DepartmentID: number; DepartmentName?: string | null }) => {
+        const departmentName = user.DepartmentName || getDepartmentName(user.DepartmentID) || `Department ${user.DepartmentID}`;
+        setRequesterQuery(`${user.FullName} - ${departmentName}`);
+        setValue('requested_by_user_id', user.UserID);
+        setValue('department_id', user.DepartmentID);
+        setComboboxOpen(false);
+        setHighlightedIndex(-1);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!comboboxOpen) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex((prev) => Math.min(prev + 1, filteredRequesters.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedIndex >= 0 && highlightedIndex < filteredRequesters.length) {
+                selectRequester(filteredRequesters[highlightedIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            setComboboxOpen(false);
+            setHighlightedIndex(-1);
+        }
+    };
+
+    useEffect(() => {
+        const requester = requesters.find((user) => user.UserID === watchedRequesterId);
+        if (requester) {
+            setValue('department_id', requester.DepartmentID);
+        }
+    }, [watchedRequesterId, requesters, setValue]);
 
     const onSubmit = async (data: DRFormValues) => {
         // client-side checks: prevent future dates and too-old dates (unless override requested)
@@ -259,7 +354,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         });
     };
 
-    if (isLoadingData || isLoadingUnits || isLoadingDepartments) {
+    if (isLoadingData || isLoadingUnits) {
         return (
             <div className="flex items-center justify-center min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
                 <div className="text-center space-y-3">
@@ -283,7 +378,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                     </button>
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Create Delivery Receipt</h1>
-                        <p className="text-slate-500 text-sm">Step 1: Record delivery from supplier. IAR (Inspection) comes next.</p>
+                        <p className="text-slate-500 text-sm">Record delivery receipt information</p>
                     </div>
                 </div>
 
@@ -328,51 +423,55 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                     </p>
                                 )}
                             </div>
-
-                            {/* Requested By */}
-                            <div>
+                            {/* Requested By (Department Head) */}
+                            <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Requested By *
+                                    Requested By (Department Head) *
                                 </label>
-                                <input
-                                    {...register('requested_by')}
-                                    type="text"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                    placeholder="Name of requester"
-                                />
-                                {errors.requested_by && (
-                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        {errors.requested_by.message}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Department */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Department *
-                                </label>
-                                <select
-                                    {...register('department_id')}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                >
-                                    <option value={0}>Select department</option>
-                                    {departments.length === 0 ? (
-                                        <option value={0} disabled>No departments found</option>
-                                    ) : (
-                                        departments.map((dept) => (
-                                            <option key={dept.id} value={dept.id}>
-                                                {dept.name}
-                                            </option>
-                                        ))
+                                <div className="relative" ref={comboboxRef}>
+                                    <input
+                                        ref={comboboxInputRef}
+                                        type="text"
+                                        role="combobox"
+                                        aria-expanded={comboboxOpen}
+                                        aria-controls="requester-listbox"
+                                        aria-autocomplete="list"
+                                        value={requesterQuery}
+                                        onChange={(e) => { setRequesterQuery(e.target.value); setComboboxOpen(true); setHighlightedIndex(-1); }}
+                                        onKeyDown={handleKeyDown}
+                                        placeholder="Search by name or department..."
+                                        className="w-full px-3 py-2 mb-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                        onFocus={() => setComboboxOpen(true)}
+                                    />
+                                    {comboboxOpen && (
+                                        <ul id="requester-listbox" role="listbox" ref={comboboxListRef} className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
+                                            {filteredRequesters.length === 0 ? (
+                                                <li className="px-3 py-2 text-sm text-slate-500">No matches for "{requesterQuery}"</li>
+                                            ) : (
+                                                filteredRequesters.map((user, idx) => {
+                                                    const departmentName = user.DepartmentName || departmentLookup.get(user.DepartmentID) || `Department ${user.DepartmentID}`;
+                                                    const label = `${user.FullName} - ${departmentName}`;
+                                                    return (
+                                                        <li
+                                                            key={user.UserID}
+                                                            role="option"
+                                                            aria-selected={highlightedIndex === idx}
+                                                            onMouseDown={(e) => { e.preventDefault(); selectRequester(user); }}
+                                                            onMouseEnter={() => setHighlightedIndex(idx)}
+                                                            className={`px-3 py-2 text-sm cursor-pointer ${highlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
+                                                        >
+                                                            {label}
+                                                        </li>
+                                                    );
+                                                })
+                                            )}
+                                        </ul>
                                     )}
-                                </select>
-                                {errors.department_id && (
-                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        {errors.department_id.message}
-                                    </p>
+                                </div>
+                                <input type="hidden" {...register('requested_by_user_id', { valueAsNumber: true })} />
+                                <input type="hidden" {...register('department_id', { valueAsNumber: true })} />
+                                {errors.requested_by_user_id && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.requested_by_user_id.message}</p>
                                 )}
                             </div>
 

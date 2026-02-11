@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -170,6 +170,67 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
 
     type InventoryDetailWithPropertyName = InventoryDetail & { PropertyName?: string };
 
+    const aggregatedDetails = useMemo(() => {
+        const details = issuance?.details ?? [];
+        const map = new Map<string, {
+            key: string;
+            itemName: string;
+            unitName: string;
+            description: string;
+            brand: string;
+            model: string;
+            serial: string;
+            unitCost: number | null;
+            quantity: number;
+            totalCost: number;
+            propertyNumbers: Set<string>;
+            details: typeof details;
+        }>();
+
+        for (const detail of details) {
+            const inv = detail.inventoryDetail;
+            const prop = inv?.propertyInventory;
+            const itemName = prop?.ItemName || detail.ItemDescription || 'Item';
+            const description = prop?.ItemDescription || '-';
+            const brand = prop?.Brand || '';
+            const model = prop?.ModelNumber || '';
+            const serial = prop?.SerialNumber || '';
+            const unitName = inv?.unitOfMeasure?.UnitName || '';
+            const unitCost = inv?.UnitCost !== undefined && inv?.UnitCost !== null ? Number(inv.UnitCost) : null;
+            const quantity = detail.QuantityIssued || 0;
+
+            const key = [itemName, brand, model, serial, unitName, unitCost ?? ''].join('|');
+            if (!map.has(key)) {
+                map.set(key, {
+                    key,
+                    itemName,
+                    unitName,
+                    description,
+                    brand,
+                    model,
+                    serial,
+                    unitCost,
+                    quantity: 0,
+                    totalCost: 0,
+                    propertyNumbers: new Set<string>(),
+                    details: [],
+                });
+            }
+
+            const entry = map.get(key)!;
+            entry.quantity += quantity;
+            entry.details.push(detail);
+            if (unitCost !== null) {
+                entry.totalCost += unitCost * quantity;
+            }
+            if (inv?.PropertyNumber) {
+                entry.propertyNumbers.add(inv.PropertyNumber);
+            }
+        }
+
+        return Array.from(map.values());
+    }, [issuance?.details]);
+
     const getRecipientUserId = (): number | null => {
         if (!issuance) return null;
 
@@ -184,6 +245,11 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         );
     };
 
+    const canAcknowledgeDepartment = () => {
+        const departmentId = issuance?.deliveryReceipt?.DepartmentID;
+        return Boolean(user && departmentId && user.DepartmentID === departmentId);
+    };
+
     const handleAcknowledgeSignature = async (signatureData: string) => {
         if (!issuance) return;
         if (!user) {
@@ -193,6 +259,11 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
 
         const recipientUserId = getRecipientUserId();
         if (recipientUserId && user.UserID !== recipientUserId) {
+            toast.error('You are not allowed to acknowledge this issuance');
+            return;
+        }
+
+        if (!recipientUserId && !canAcknowledgeDepartment()) {
             toast.error('You are not allowed to acknowledge this issuance');
             return;
         }
@@ -218,11 +289,12 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     };
 
     const canAcknowledge = () => {
+        const recipientUserId = getRecipientUserId();
         return issuance &&
             issuance.Status === 'pending_acknowledgment' &&
             user &&
-            user.UserRoleID !== 1 && // Exclude admins
-            user.UserID === getRecipientUserId();
+            user.UserRoleID !== 1 &&
+            ((recipientUserId && user.UserID === recipientUserId) || (!recipientUserId && canAcknowledgeDepartment()));
     };
 
     const canViewDetails = () => {
@@ -230,7 +302,8 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         return user && (
             user.UserRoleID === 1 || // Admin
             user.UserID === issuance?.IssuedBy || // Issuer
-            (!!recipientUserId && user.UserID === recipientUserId) // Recipient
+            (!!recipientUserId && user.UserID === recipientUserId) ||
+            (!recipientUserId && canAcknowledgeDepartment())
         );
     };
 
@@ -419,62 +492,87 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {issuance.details?.map((detail, index) => (
-                                        <tr key={detail.IssuanceDetailID || index}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                                {detail.inventoryDetail?.propertyInventory?.ItemName || detail.ItemDescription || 'Item'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{detail.inventoryDetail?.unitOfMeasure?.UnitName}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">
-                                                <div className="font-medium">{detail.inventoryDetail?.propertyInventory?.ItemDescription || '-'}</div>
-                                                <div className="text-gray-500 text-xs mt-1">
-                                                    {detail.inventoryDetail?.propertyInventory?.Brand && `Brand: ${detail.inventoryDetail.propertyInventory.Brand} `}
-                                                    {detail.inventoryDetail?.propertyInventory?.ModelNumber && `Model: ${detail.inventoryDetail.propertyInventory.ModelNumber} `}
-                                                    {detail.inventoryDetail?.propertyInventory?.SerialNumber && `SN: ${detail.inventoryDetail.propertyInventory.SerialNumber}`}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                                                {detail.inventoryDetail?.PropertyNumber || 'N/A'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {detail.inventoryDetail?.UnitCost
-                                                    ? `${detail.QuantityIssued} × ₱${Number(detail.inventoryDetail.UnitCost).toLocaleString()}`
-                                                    : `${detail.QuantityIssued} × -`}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                                {detail.inventoryDetail?.UnitCost ? `₱${(Number(detail.inventoryDetail.UnitCost) * detail.QuantityIssued).toLocaleString()}` : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                {canShowQr && detail.inventoryDetail?.PropertyNumber && detail.inventoryDetail?.InventoryID && (
-                                                    <PropertySticker
-                                                        propertyNumber={detail.inventoryDetail.PropertyNumber}
-                                                        itemName={detail.inventoryDetail?.propertyInventory?.ItemName || detail.inventoryDetail?.propertyInventory?.ItemDescription || 'Asset'}
-                                                        category={
-                                                            // Prefer the InventoryDetail -> PropertyType name (true category)
-                                                            detail.inventoryDetail?.propertyType?.PropertyName ||
-                                                            // Fallback to its classification name
-                                                            detail.inventoryDetail?.propertyType?.propertyClassification?.ClassificationName ||
-                                                            // Some backend responses include a flattened PropertyName on the inventory detail
-                                                            (detail.inventoryDetail as InventoryDetailWithPropertyName)?.PropertyName ||
-                                                            '-'
-                                                        }
-                                                        url={(() => {
-                                                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                            const qrCodeData = (detail.inventoryDetail as unknown as { qrCode?: { QRCodeData?: string | null } | null }).qrCode?.QRCodeData;
-                                                            const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
-                                                            if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+                                    {aggregatedDetails.map((entry, index) => {
+                                        const firstDetail = entry.details[0];
+                                        const inv = firstDetail?.inventoryDetail;
+                                        const propertyNumbers = Array.from(entry.propertyNumbers);
+                                        const propertyNumber = entry.propertyNumbers.size === 1 ? propertyNumbers[0] : 'Multiple';
+                                        const canShowSingleQr = entry.details.length === 1 && canShowQr && inv?.PropertyNumber && inv?.InventoryID;
 
-                                                            return `${origin}/admin/inventory/${detail.inventoryDetail.InventoryID}?detail=${detail.inventoryDetail.InventoryDetailID}`;
-                                                        })()}
-                                                        custodianName={issuance.IssuedToName || issuance.issuedToUser?.FullName || 'Unassigned'}
-                                                        date={issuance.IssuanceDate ? format(toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila'), 'MM/dd/yyyy') : '-'}
-                                                        unitCost={detail.inventoryDetail?.UnitCost ? Number(detail.inventoryDetail.UnitCost) * detail.QuantityIssued : undefined}
-                                                    />
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {(!issuance.details || issuance.details.length === 0) && (
+                                        return (
+                                            <tr key={entry.key || index}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                    {entry.itemName}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.unitName || '-'}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-900">
+                                                    <div className="font-medium">{entry.description}</div>
+                                                    <div className="text-gray-500 text-xs mt-1">
+                                                        {entry.brand && `Brand: ${entry.brand} `}
+                                                        {entry.model && `Model: ${entry.model} `}
+                                                        {entry.serial && `SN: ${entry.serial}`}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                                                    {entry.details.length > 1 ? (
+                                                        <details>
+                                                            <summary className="cursor-pointer select-none text-gray-900">
+                                                                Multiple ({propertyNumbers.length})
+                                                            </summary>
+                                                            <div className="mt-2 space-y-1 text-xs text-gray-600">
+                                                                {propertyNumbers.length > 0 ? (
+                                                                    propertyNumbers.map((number) => (
+                                                                        <div key={number}>{number}</div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div>No property numbers</div>
+                                                                )}
+                                                            </div>
+                                                        </details>
+                                                    ) : (
+                                                        propertyNumber || 'N/A'
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {entry.unitCost !== null
+                                                        ? `${entry.quantity} × ₱${entry.unitCost.toLocaleString()}`
+                                                        : `${entry.quantity} × -`}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                    {entry.unitCost !== null ? `₱${entry.totalCost.toLocaleString()}` : '-'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                                    {canShowSingleQr && (
+                                                        <PropertySticker
+                                                            propertyNumber={inv.PropertyNumber}
+                                                            itemName={inv?.propertyInventory?.ItemName || inv?.propertyInventory?.ItemDescription || 'Asset'}
+                                                            category={
+                                                                // Prefer the InventoryDetail -> PropertyType name (true category)
+                                                                inv?.propertyType?.PropertyName ||
+                                                                // Fallback to its classification name
+                                                                inv?.propertyType?.propertyClassification?.ClassificationName ||
+                                                                // Some backend responses include a flattened PropertyName on the inventory detail
+                                                                (inv as InventoryDetailWithPropertyName)?.PropertyName ||
+                                                                '-'
+                                                            }
+                                                            url={(() => {
+                                                                const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                                const qrCodeData = (inv as unknown as { qrCode?: { QRCodeData?: string | null } | null }).qrCode?.QRCodeData;
+                                                                const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                                if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+
+                                                                return `${origin}/admin/inventory/${inv.InventoryID}?detail=${inv.InventoryDetailID}`;
+                                                            })()}
+                                                            custodianName={issuance.IssuedToName || issuance.issuedToUser?.FullName || 'Unassigned'}
+                                                            date={issuance.IssuanceDate ? format(toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila'), 'MM/dd/yyyy') : '-'}
+                                                            unitCost={entry.unitCost !== null ? entry.totalCost : undefined}
+                                                        />
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {aggregatedDetails.length === 0 && (
                                         <tr>
                                             <td colSpan={7} className="px-6 py-4 text-sm text-gray-500 text-center">No items found in this issuance.</td>
                                         </tr>
@@ -569,30 +667,60 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                     </div>
                 )}
 
-                {/* Request Information */}
-                {issuance.request && (
+                {/* Source Information */}
+                {(issuance.request || issuance.deliveryReceipt) && (
                     <div className="bg-white shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
-                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Original Request</h3>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                {issuance.request ? 'Original Request' : 'Delivery Receipt'}
+                            </h3>
                             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Request Number</label>
-                                    <p className="mt-1 text-sm text-gray-900">{issuance.request.RequestNumber}</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Request Date</label>
-                                    <p className="mt-1 text-sm text-gray-900">
-                                        {issuance.request.RequestDate
-                                            ? format(toZonedTime(new Date(issuance.request.RequestDate), 'Asia/Manila'), 'PPP')
-                                            : 'N/A'
-                                        }
-                                    </p>
-                                </div>
-                                {issuance.request.Purpose && (
-                                    <div className="sm:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700">Purpose</label>
-                                        <p className="mt-1 text-sm text-gray-900">{issuance.request.Purpose}</p>
-                                    </div>
+                                {issuance.request ? (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Request Number</label>
+                                            <p className="mt-1 text-sm text-gray-900">{issuance.request.RequestNumber}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Request Date</label>
+                                            <p className="mt-1 text-sm text-gray-900">
+                                                {issuance.request.RequestDate
+                                                    ? format(toZonedTime(new Date(issuance.request.RequestDate), 'Asia/Manila'), 'PPP')
+                                                    : 'N/A'
+                                                }
+                                            </p>
+                                        </div>
+                                        {issuance.request.Purpose && (
+                                            <div className="sm:col-span-2">
+                                                <label className="block text-sm font-medium text-gray-700">Purpose</label>
+                                                <p className="mt-1 text-sm text-gray-900">{issuance.request.Purpose}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">DR Number</label>
+                                            <p className="mt-1 text-sm text-gray-900">{issuance.deliveryReceipt?.DRNumber || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Date Received</label>
+                                            <p className="mt-1 text-sm text-gray-900">
+                                                {issuance.deliveryReceipt?.DateReceived
+                                                    ? format(toZonedTime(new Date(issuance.deliveryReceipt.DateReceived), 'Asia/Manila'), 'PPP')
+                                                    : 'N/A'
+                                                }
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Requested By</label>
+                                            <p className="mt-1 text-sm text-gray-900">{issuance.deliveryReceipt?.RequestedBy || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Department</label>
+                                            <p className="mt-1 text-sm text-gray-900">{issuance.deliveryReceipt?.DepartmentName || 'N/A'}</p>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         </div>

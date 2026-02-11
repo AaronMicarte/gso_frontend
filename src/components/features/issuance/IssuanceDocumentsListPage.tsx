@@ -264,7 +264,7 @@ export function IssuanceDocumentsListPage({
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Search document number, request number, requester, or department..."
+                                placeholder="Search document number, reference number, requester, or department..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
@@ -335,9 +335,9 @@ export function IssuanceDocumentsListPage({
                                                         {row.requesterName}
                                                     </span>
                                                     <span>{row.departmentName}</span>
-                                                    <span>Request: {row.RequestNumber}</span>
+                                                    <span>Reference: {row.RequestNumber}</span>
                                                     <span>Issued: {formatPHDate(issuance.IssuanceDate)}</span>
-                                                    <span>Requested: {formatPHDate(row.RequestDate)}</span>
+                                                    <span>Source Date: {formatPHDate(row.RequestDate)}</span>
                                                     {row.itemsCount > 0 && (
                                                         <span>{row.itemsCount} Item{row.itemsCount !== 1 ? 's' : ''}</span>
                                                     )}

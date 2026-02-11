@@ -89,11 +89,11 @@ export default function DepartmentHeadDashboard() {
                                 <Users className="w-5 h-5 text-green-600" />
                             </div>
                             <div>
-                                <div className="text-sm font-medium text-slate-700">Assigned</div>
+                                <div className="text-sm font-medium text-slate-700">Issued</div>
                                 <div className="text-2xl font-bold text-slate-900">{currentStats.assignedAssets}</div>
                             </div>
                         </div>
-                        <div className="text-xs text-slate-500">Currently assigned</div>
+                        <div className="text-xs text-slate-500">Currently issued</div>
                     </div>
 
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
@@ -102,11 +102,11 @@ export default function DepartmentHeadDashboard() {
                                 <Clock className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
-                                <div className="text-sm font-medium text-slate-700">Pending</div>
+                                <div className="text-sm font-medium text-slate-700">For Issuance</div>
                                 <div className="text-2xl font-bold text-slate-900">{currentStats.pendingRequests}</div>
                             </div>
                         </div>
-                        <div className="text-xs text-slate-500">Requests awaiting approval</div>
+                        <div className="text-xs text-slate-500">Items ready for issuance</div>
                     </div>
 
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">

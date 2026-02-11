@@ -86,7 +86,7 @@ export default function AdminUsersCreatePage() {
         for (const dept of departments) {
             const d = dept as unknown as Record<string, unknown>;
             const rawId = d.id ?? d.DepartmentID ?? d.DeptID;
-            const rawName = d.name ?? d.DepartmentName ?? d.Name;
+            const rawName = d.name ?? d.DepartmentName ?? d.department_name ?? d.Name;
 
             const id = typeof rawId === 'number' ? rawId : Number(rawId);
             if (!Number.isFinite(id) || id <= 0) continue;

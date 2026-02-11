@@ -1,12 +1,11 @@
 // Dashboard statistics from the database
 export interface DashboardStats {
-    totalAssets: number;
     totalInventory: number;
-    availableInventory: number;
+    forIssuanceInventory: number;
+    issuedInventory: number;
     totalDeliveryReceipts: number;
     totalUsers: number;
     totalDepartments: number;
-    pendingRequests: number;
     forDisposal: number;
     forRepair: number;
 }

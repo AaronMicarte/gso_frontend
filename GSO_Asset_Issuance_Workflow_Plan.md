@@ -1,60 +1,58 @@
 # GSO Asset Issuance Workflow Plan
 
 ## Problem Identification
-- Need traceability from supplier delivery to asset issuance without running procurement modules.
-- GSO does not handle procurement; PO/PR/JO processes are outside system scope.
-- Only manage asset and inventory assignment, not stock or warehouse management.
-- All items are pre-assigned; no requisition or stock tracking is needed.
-- Must capture requested by and department info, but not full procurement data.
+- Traceability is required from supplier delivery to final issuance without PR/PO/JO or request modules.
+- GSO does not run procurement workflows; the system must start at DR.
+- All delivered items are already assigned to a department and requester (from DR).
+- Requisition/RIS steps are no longer part of issuance.
 
 ## Goals
-- Start workflow at delivery receipt (when items arrive from supplier).
-- Record essential reference details manually (item, quantity, requested by, department, optional PO/PR numbers if present on paper).
-- Keep traceability on the DR record without building procurement modules.
-- Ingest items into inventory and mark as to be issued.
-- Issue assets directly to requester, skipping requisition and stock steps.
+- Start workflow at Delivery Receipt (DR).
+- Use DR Requested By + Department as the issuance basis.
+- Ingest accepted IAR items into inventory and mark as Available (for issuance).
+- Issue assets directly from inventory based on DR references.
+- Keep strong audit trail (DR → IAR → Inventory → Issuance).
 
-## Proposed Solutions
+## Correct Workflow (Aligned with Real GSO)
 
-### 1. Manual Reference Fields (No Procurement Module)
-- When creating a DR, manually input reference details (item, quantity, requested by, department).
-- If the paper includes PO/PR numbers, store them as simple text references on the DR.
-- Optionally, attach scanned PO/PR pages as supporting documents on the DR record.
+### 1) Delivery Receipt (DR)
+- Manual DR entry (supplier, requested by, department, optional PO/PR references, invoice).
+- DR details capture item description, qty, property type, cost.
 
-### 2. Enhanced Delivery Receipt
-- Add Requested By and Department fields to the DR.
-- Ensure DR lists all items delivered, with descriptions and quantities.
-- Include optional PO/PR reference numbers as plain text only.
+### 2) Inspection & Acceptance (IAR)
+- Mandatory inspection before inventory.
+- Accepted items only.
 
-### 3. Inventory Ingestion
-- When items are entered into inventory, mark them as to be issued.
-- Skip available or unassigned statuses; focus on assignment and issuance.
+### 3) Inventory Ingestion
+- Accepted items become inventory items.
+- Each inventory detail represents a real, issuable item.
+- Status = Available (for issuance).
 
-### 4. Issuance Workflow
-- Issue items directly to requester based on DR data and reference fields.
-- Record issuance details (date, recipient, department) for accountability.
+### 4) Issuance (PAR/ICS)
+- Select a DR that has available inventory items.
+- Choose inventory items from that DR.
+- System auto-groups into PAR or ICS based on property classification.
+- Issued To is derived from DR Requested By (with department as accountability).
+- Recipient acknowledgment signature required for completion.
 
-### 5. No Requisition Step
-- All items are pre-assigned; no requisition or request process needed.
-- Department heads do not request items in-system; assignment is based on DR reference info.
+### 5) Traceability
+- DR and Issuance records remain linked for audits.
+- Every issued item has an accountability record.
 
-### 6. Documentation and Traceability
-- Maintain clear records linking DR and issuance.
-- Keep reference fields and attachments for audit traceability.
-- Ensure each asset/item is traceable to its requester and department.
+## Key Rules
+- No Asset Request module and no RIS in the issuance flow.
+- Issuance is always from inventory items that came from a DR.
+- One PAR/ICS per recipient + document type.
+- All dates are Asia/Manila.
 
 ## Workflow Summary
 1. Supplier delivers items
-2. Delivery Receipt is created (requested by, department, optional PO/PR references, attachments)
-3. Items ingested into inventory as to be issued
-4. Items issued directly to requester
-5. All steps documented for traceability
+2. DR is created (requested by, department, optional PO/PR references)
+3. IAR is created and accepted items are ingested
+4. Inventory is issued by DR reference (PAR/ICS)
+5. Recipient acknowledges receipt
 
 ## Benefits
-- Simple, focused workflow tailored to GSO’s role
-- Manual entry allows flexibility and avoids unnecessary complexity
-- Clear traceability from supplier delivery to asset issuance
-
----
-
-Feel free to refine or expand this plan as needed for your implementation.
+- Realistic GSO flow with less friction
+- Clear accountability with DR-based traceability
+- Simpler issuance with fewer unnecessary modules

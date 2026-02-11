@@ -24,19 +24,35 @@ interface InventoryItem {
         InventoryNumber: string;
         DateReceived: string;
     };
+    DRID?: number | null;
+    DRNumber?: string | null;
+    RequestedBy?: string | null;
+    DepartmentName?: string | null;
+    DocumentType?: 'PAR' | 'ICS' | null;
+}
+
+interface DeliveryReceiptForIssuance {
+    DRID: number;
+    DRNumber: string;
+    RequestedBy?: string | null;
+    DepartmentID?: number | null;
+    DepartmentName?: string | null;
+    DateReceived?: string | null;
+    AvailableItems?: number;
 }
 
 interface CreateIssuanceData {
-    request_id: number;
+    request_id?: number;
+    dr_id?: number;
     date_issued: string;
     remarks?: string;
     inventory_items: Array<{
-        request_detail_id: number;
+        request_detail_id?: number;
         inventory_detail_id: number;
         quantity_issued: number;
     }>;
-    issuerSignature: string;
-    issuerSignatureSource: 'canvas' | 'upload';
+    issuerSignature?: string;
+    issuerSignatureSource?: 'canvas' | 'upload';
 }
 
 interface GroupedIssuance {
@@ -122,9 +138,19 @@ const issuanceAPI = {
         page?: number;
         search?: string;
         property_type?: number;
+        dr_id?: number;
     }) => {
         const { data } = await apiClient.get<PaginatedResponse<InventoryItem>>(
             '/property-issuances/available-inventory',
+            { params: filters }
+        );
+        return data;
+    },
+
+    // Get delivery receipts that have available inventory items for issuance
+    getDeliveryReceiptsForIssuance: async (filters?: { per_page?: number; page?: number; search?: string }) => {
+        const { data } = await apiClient.get<PaginatedResponse<DeliveryReceiptForIssuance>>(
+            '/property-issuances/delivery-receipts',
             { params: filters }
         );
         return data;

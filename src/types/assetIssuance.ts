@@ -88,7 +88,8 @@ export interface AssetAssignment {
 
 export interface AssetIssuance {
     IssuanceID: number;
-    RequestID: number;
+    RequestID: number | null;
+    DRID?: number | null;
     DocumentType: 'PAR' | 'ICS';
     DocumentNumber: string;
     PropertyInventoryDetailID?: number; // Optional if it's a header
@@ -99,6 +100,8 @@ export interface AssetIssuance {
     IssuanceDate: string;
     Status: 'pending_acknowledgment' | 'acknowledged' | 'returned' | 'disposed';
     IssuanceNotes: string | null;
+    IssuerSignature?: string | null;
+    IssuerSignatureSource?: 'canvas' | 'upload' | null;
     AcknowledgedBy: number | null;
     AcknowledgedAt: string | null;
     AcknowledgmentSignature: string | null;
@@ -109,6 +112,14 @@ export interface AssetIssuance {
 
     // Relationships
     request?: AssetRequest;
+    deliveryReceipt?: {
+        DRID: number;
+        DRNumber: string;
+        RequestedBy?: string | null;
+        DepartmentID?: number | null;
+        DepartmentName?: string | null;
+        DateReceived?: string | null;
+    } | null;
     inventoryDetail?: InventoryDetail;
     details?: IssuanceDetail[];
     issuedToUser?: User;

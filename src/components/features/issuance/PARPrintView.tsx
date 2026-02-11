@@ -40,18 +40,20 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
 
     // Signatures
     const receivedBySignature = runtimePrintSignature || issuance.AcknowledgmentSignature;
-    const issuerSignatureUrl = issuance.request?.signatures?.find(s => s.role === 'issuer')?.url || null;
+    const issuerSignatureUrl = issuance.IssuerSignature
+        || issuance.request?.signatures?.find(s => s.role === 'issuer')?.url
+        || null;
 
     // Names / departments
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
     const fundCluster = 'GENERAL FUND';
 
     const receivedByName = ensureText(
-        issuance.request?.requester?.FullName || issuance.IssuedToName,
+        issuance.request?.requester?.FullName || issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
         'REQUESTER'
     );
     const receivedByOffice = ensureText(
-        issuance.request?.department?.DepartmentName,
+        issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
         'DEPARTMENT'
     );
 

@@ -16,16 +16,17 @@
 1. **START POINT:** System begins at **Delivery Receipt (DR)**.
 2. **NO PR/PO/JO:** All Purchase Request, Purchase Order, and Job Order modules are GONE.
 3. **MANUAL ENTRY:** GSO staff enter DR info manually (Supplier/PO # are text fields).
-4. **INVENTORY:** Begins immediately upon DR recording.
-5. **FOCUS:** DR Management, Inventory, PAR/ICS Issuance, QR Tracking, Reporting, Disposal.
+4. **NO REQUEST/RIS FOR ISSUANCE:** Asset Request + RIS are not part of issuance. Issuance is based on DR Requested By + Department.
+5. **INVENTORY:** Begins immediately upon DR recording and IAR acceptance.
+6. **FOCUS:** DR Management, IAR, Inventory, PAR/ICS Issuance, QR Tracking, Reporting, Disposal.
 
 NOTE: Vehicles and infrastructure property types (motor vehicles, buildings/structures) are excluded from this implementation to match local GSO scope and simplify workflows.
 
 ## RECENT CRITICAL FIXES
 - **DASHBOARD:** Fixed 500 errors by removing PR/JO table references.
+- **DASHBOARD (ADMIN/STAFF):** No request counters. Use inventory status counts from DB (For issuance, Issued) plus DR totals.
 - **DATABASE:** Added `deleted_at` to `deliveryreceipt` tables to support SoftDeletes.
 - **TYPES:** Updated `DashboardStats` to reflect the new simplified workflow.
-- **RIS (REQUISITION & ISSUE SLIP):** RIS now includes both approved and unchecked request items. Unchecked items must show **Stock Available? = NO** (checkmark under **No**), and the **Issue Remarks** column must reflect the per-item **Admin Notes** captured during admin review.
 - **ISSUANCE UI:** On successful issuance submission, show a simple Sonner success toast like **"Issuance created"**.
 
 ## TECH STACK

@@ -25,6 +25,7 @@ export function AllItemsPage() {
                 'to-be-issued': 1,
                 'available': 1,
                 'assigned': 2,
+                'issued': 2,
                 'repair': 3,
                 'disposal': 4,
                 'disposed': 5,

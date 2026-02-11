@@ -75,6 +75,13 @@ export const getPropertyTypes = async (): Promise<{ PropertyTypeID: number; Prop
     return response.data.data;
 };
 
+export const getDeliveryReceiptRequesters = async (filters?: { department_id?: number }): Promise<{ UserID: number; FullName: string; DepartmentID: number; DepartmentName?: string | null }[]> => {
+    const params = new URLSearchParams();
+    if (filters?.department_id) params.append('department_id', String(filters.department_id));
+    const response = await apiClient.get(`/admin/procurement/delivery-receipts-helpers/requesters?${params.toString()}`);
+    return response.data.data;
+};
+
 export const rejectDeliveryReceipt = async (id: number): Promise<DeliveryReceipt> => {
     const response = await apiClient.patch(`/admin/procurement/delivery-receipts/${id}/reject`);
     return response.data.data;

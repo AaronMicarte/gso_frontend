@@ -1,43 +1,45 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
     ArrowLeft,
-    Save,
-    Package,
+    FileText,
     Loader2,
-    Search,
-    Plus,
-    Trash2,
-    FileText
+    Package,
+    Layers,
+    Save
 } from 'lucide-react';
 import { toast } from 'sonner';
-import Link from 'next/link';
-import issuanceAPI from '@/lib/api/issuance';
-import assetIssuanceAPI from '@/lib/api/assetIssuance';
-import { getRis, listRis } from '@/lib/api/ris';
-import { AssetRequest } from '@/types/assetIssuance';
-import type { RisRecord } from '@/types/ris';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { SignatureModal } from '@/components/ui/SignatureModal';
 
+import issuanceAPI from '@/lib/api/issuance';
 const issuanceSchema = z.object({
-    ris_id: z.number().min(1, 'RIS is required'),
+    dr_id: z.number().min(1, 'Delivery Receipt is required'),
     date_issued: z.string().min(1, 'Issue date is required'),
     remarks: z.string().optional(),
     inventory_items: z.array(z.object({
-        request_detail_id: z.number(),
         inventory_detail_id: z.number(),
         quantity_issued: z.number().min(1, 'Quantity must be at least 1')
-    })).min(1, 'At least one inventory item must be selected')
+    })).min(1, 'Select at least one inventory item')
 });
 
 type IssuanceFormValues = z.infer<typeof issuanceSchema>;
+
+interface DeliveryReceiptOption {
+    DRID: number;
+    DRNumber: string;
+    RequestedBy?: string | null;
+    DepartmentID?: number | null;
+    DepartmentName?: string | null;
+    DateReceived?: string | null;
+    AvailableItems?: number;
+}
 
 interface InventoryItem {
     InventoryDetailID: number;
@@ -47,8 +49,6 @@ interface InventoryItem {
     PropertyNumber?: string | null;
     SerialNumber?: string | null;
     UnitCost?: number | null;
-    IsAvailable?: boolean;
-    QuantityAvailable?: number | null;
     PropertyName?: string | null;
     UnitName?: string | null;
     dr_item_description?: string | null;
@@ -56,21 +56,11 @@ interface InventoryItem {
     DateReceived?: string | null;
     PropertyStatusID?: number | null;
     StatusName?: string | null;
-    drDetail?: {
-        ItemDescription: string;
-    };
-}
-
-interface RequestDetail {
-    RequestDetailID: number;
-    ItemDescription: string;
-    QuantityRequested: number;
-    Unit: string;
-    Purpose: string;
-    IntendedEndUser: string;
-    PropertyClassification: string;
-    selectedInventory: InventoryItem[];
-    totalSelected: number;
+    DRID?: number | null;
+    DRNumber?: string | null;
+    RequestedBy?: string | null;
+    DepartmentName?: string | null;
+    DocumentType?: 'PAR' | 'ICS' | null;
 }
 
 interface CreateIssuancePageProps {
@@ -79,30 +69,21 @@ interface CreateIssuancePageProps {
 
 export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
     const router = useRouter();
-    const [risOptions, setRisOptions] = useState<RisRecord[]>([]);
-    const [selectedRis, setSelectedRis] = useState<RisRecord | null>(null);
-    const [selectedRequest, setSelectedRequest] = useState<AssetRequest | null>(null);
-    const [requestDetails, setRequestDetails] = useState<RequestDetail[]>([]);
-    const [availableInventory, setAvailableInventory] = useState<InventoryItem[]>([]);
-    const [inventorySearch, setInventorySearch] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [isLoadingSelectedRis, setIsLoadingSelectedRis] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showInventoryModal, setShowInventoryModal] = useState(false);
-    const [currentRequestDetailId, setCurrentRequestDetailId] = useState<number | null>(null);
 
-    // Signature states
-    const [showSignatureModal, setShowSignatureModal] = useState(false);
-    const [issuerSignature, setIssuerSignature] = useState<string | null>(null);
-    const [issuerSignatureSource, setIssuerSignatureSource] = useState<'canvas' | 'upload' | null>(null);
+    const [drOptions, setDrOptions] = useState<DeliveryReceiptOption[]>([]);
+    const [selectedDr, setSelectedDr] = useState<DeliveryReceiptOption | null>(null);
+    const [availableInventory, setAvailableInventory] = useState<InventoryItem[]>([]);
+    const [selectedInventory, setSelectedInventory] = useState<InventoryItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isLoadingInventory, setIsLoadingInventory] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const {
         register,
         handleSubmit,
         watch,
+        setValue,
         formState: { errors },
-        setValue
     } = useForm<IssuanceFormValues>({
         resolver: zodResolver(issuanceSchema),
         defaultValues: {
@@ -110,253 +91,81 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
         }
     });
 
-    const watchedRisId = watch('ris_id');
-
-    // Sync requestDetails to form value for inventory_items
-    useEffect(() => {
-        const inventoryItems = requestDetails.flatMap(detail =>
-            detail.selectedInventory.map(inventory => ({
-                request_detail_id: detail.RequestDetailID,
-                inventory_detail_id: inventory.InventoryDetailID,
-                quantity_issued: 1
-            }))
-        );
-        setValue('inventory_items', inventoryItems, { shouldValidate: true });
-    }, [requestDetails, setValue]);
+    const watchedDrId = watch('dr_id');
 
     useEffect(() => {
-        loadRisForIssuance();
-        loadAvailableInventory();
+        loadDeliveryReceipts();
     }, []);
 
-    const loadRisForIssuance = async () => {
+    useEffect(() => {
+        if (!watchedDrId) {
+            setSelectedDr(null);
+            setAvailableInventory([]);
+            setSelectedInventory([]);
+            return;
+        }
+
+        const found = drOptions.find((dr) => Number(dr.DRID) === Number(watchedDrId)) || null;
+        setSelectedDr(found);
+        setSelectedInventory([]);
+        loadAvailableInventory(Number(watchedDrId));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [watchedDrId, drOptions]);
+
+    useEffect(() => {
+        const inventoryItems = selectedInventory.map(item => ({
+            inventory_detail_id: item.InventoryDetailID,
+            quantity_issued: 1
+        }));
+        setValue('inventory_items', inventoryItems, { shouldValidate: true });
+    }, [selectedInventory, setValue]);
+
+    const loadDeliveryReceipts = async () => {
         try {
             setLoading(true);
-            const response = await listRis({ status: 'for_issuance', per_page: 200 });
-            setRisOptions(response.data || []);
+            const response = await issuanceAPI.getDeliveryReceiptsForIssuance({ per_page: 200 });
+            setDrOptions(response.data || []);
         } catch (error) {
-            console.error('Failed to load RIS list:', error);
-            toast.error('Failed to load RIS records');
-            setRisOptions([]);
+            console.error('Failed to load delivery receipts:', error);
+            toast.error('Failed to load delivery receipts');
+            setDrOptions([]);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        const loadSelectedRis = async () => {
-            if (!watchedRisId) {
-                setSelectedRis(null);
-                setSelectedRequest(null);
-                setRequestDetails([]);
-                return;
-            }
-
-            // If the RIS is already in `risOptions`, use it immediately for a snappy UI,
-            // then fetch any missing/expanded data in the background. Do NOT flip the
-            // global `loading` (that's reserved for initial page load).
-            const opt = risOptions.find(r => Number(r.id) === Number(watchedRisId));
-            if (opt) {
-                setSelectedRis(opt as RisRecord);
-
-                // If opt already contains items we can initialize immediately (best case).
-                if (opt.items && opt.items.length > 0 && opt.asset_request_id) {
-                    try {
-                        setIsLoadingSelectedRis(true);
-                        const request = await assetIssuanceAPI.requests.getById(opt.asset_request_id);
-                        setSelectedRequest(request);
-                        initializeRequestDetailsFromRequestAndRis(request, opt);
-                    } catch (err) {
-                        // keep the optimistic selection but surface errors non-blocking
-                        console.error('Failed to load request for selected RIS (background):', err);
-                        toast.error('Failed to load full request for selected RIS');
-                        setSelectedRequest(null);
-                        setRequestDetails([]);
-                    } finally {
-                        setIsLoadingSelectedRis(false);
-                    }
-
-                    return;
-                }
-
-                // Otherwise fetch the full RIS (items) in background and populate the form
-                setIsLoadingSelectedRis(true);
-                try {
-                    const ris = await getRis(Number(watchedRisId));
-                    setSelectedRis(ris);
-                    const request = await assetIssuanceAPI.requests.getById(ris.asset_request_id);
-                    setSelectedRequest(request);
-                    initializeRequestDetailsFromRequestAndRis(request, ris);
-                } catch (error) {
-                    console.error('Failed to load selected RIS/request:', error);
-                    toast.error('Failed to load selected RIS');
-                    setSelectedRis(null);
-                    setSelectedRequest(null);
-                    setRequestDetails([]);
-                } finally {
-                    setIsLoadingSelectedRis(false);
-                }
-
-                return;
-            }
-
-            // If RIS not present in options (rare), fetch it but only show an inline loader.
-            setIsLoadingSelectedRis(true);
-            try {
-                const ris = await getRis(Number(watchedRisId));
-                setSelectedRis(ris);
-                const request = await assetIssuanceAPI.requests.getById(ris.asset_request_id);
-                setSelectedRequest(request);
-                initializeRequestDetailsFromRequestAndRis(request, ris);
-            } catch (error) {
-                console.error('Failed to load selected RIS/request:', error);
-                toast.error('Failed to load selected RIS');
-                setSelectedRis(null);
-                setSelectedRequest(null);
-                setRequestDetails([]);
-            } finally {
-                setIsLoadingSelectedRis(false);
-            }
-        };
-
-        loadSelectedRis();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [watchedRisId, risOptions]);
-
-    const loadAvailableInventory = async () => {
+    const loadAvailableInventory = async (drId: number) => {
         try {
+            setIsLoadingInventory(true);
             const response = await issuanceAPI.getAvailableInventory({
                 per_page: 500,
-                search: inventorySearch
+                dr_id: drId,
             });
-            setAvailableInventory(response.data || []);
+            const items = response.data || [];
+            setAvailableInventory(items);
+            setSelectedInventory(items);
         } catch (error: unknown) {
             console.error('Failed to load inventory:', error);
             const maybeAxios = error as { response?: { data?: { error?: string; message?: string } } };
             const serverMessage = maybeAxios?.response?.data?.error || maybeAxios?.response?.data?.message;
             toast.error(serverMessage ? `Failed to load inventory: ${serverMessage}` : 'Failed to load inventory');
             setAvailableInventory([]);
-        }
-    };
-
-    const handleInventorySearch = async () => {
-        try {
-            setIsSearching(true);
-            await loadAvailableInventory();
+            setSelectedInventory([]);
         } finally {
-            setIsSearching(false);
+            setIsLoadingInventory(false);
         }
-    };
-
-    const initializeRequestDetailsFromRequestAndRis = (request: AssetRequest, ris: RisRecord) => {
-        const allowedDetailIds = new Set(
-            (ris.items || [])
-                .filter(i => Boolean(i.stock_available))
-                .map(i => i.asset_request_detail_id)
-        );
-
-        const details: RequestDetail[] = (request.details || [])
-            .filter(d => Boolean(d.IsApprovedForIssuance) && allowedDetailIds.has(d.RequestDetailID))
-            .map(detail => ({
-                RequestDetailID: detail.RequestDetailID,
-                ItemDescription: detail.ItemDescription || 'No description',
-                QuantityRequested: detail.QuantityRequested,
-                Unit: detail.Unit || 'pcs',
-                Purpose: detail.Purpose,
-                IntendedEndUser: detail.IntendedEndUser || 'Not specified',
-                PropertyClassification: detail.PropertyClassification || 'ICS',
-                selectedInventory: [],
-                totalSelected: 0
-            }));
-
-        setRequestDetails(details);
-    };
-
-    const openInventoryModal = (requestDetailId: number) => {
-        setCurrentRequestDetailId(requestDetailId);
-        setShowInventoryModal(true);
-        loadAvailableInventory();
-    };
-
-    const selectInventoryItem = (inventoryItem: InventoryItem) => {
-        if (currentRequestDetailId === null) return;
-
-        setRequestDetails(prev => prev.map(detail => {
-            if (detail.RequestDetailID === currentRequestDetailId) {
-                const alreadySelected = detail.selectedInventory.find(
-                    item => item.InventoryDetailID === inventoryItem.InventoryDetailID
-                );
-
-                if (alreadySelected) {
-                    toast.warning('This inventory item is already selected');
-                    return detail;
-                }
-
-                if (detail.totalSelected >= detail.QuantityRequested) {
-                    toast.warning('All requested quantity has been fulfilled');
-                    return detail;
-                }
-
-                const updated = {
-                    ...detail,
-                    selectedInventory: [...detail.selectedInventory, inventoryItem],
-                    totalSelected: detail.totalSelected + 1
-                };
-                return updated;
-            }
-            return detail;
-        }));
-
-        setShowInventoryModal(false);
-        setCurrentRequestDetailId(null);
-    };
-
-    const removeInventoryItem = (requestDetailId: number, inventoryDetailId: number) => {
-        setRequestDetails(prev => prev.map(detail => {
-            if (detail.RequestDetailID === requestDetailId) {
-                return {
-                    ...detail,
-                    selectedInventory: detail.selectedInventory.filter(
-                        item => item.InventoryDetailID !== inventoryDetailId
-                    ),
-                    totalSelected: detail.totalSelected - 1
-                };
-            }
-            return detail;
-        }));
     };
 
     const onSubmit = async (data: IssuanceFormValues) => {
-        if (!selectedRis) {
-            toast.error('Please select a RIS to issue');
+        if (!selectedDr) {
+            toast.error('Please select a Delivery Receipt');
             return;
         }
 
-        if (!selectedRequest) {
-            toast.error('Failed to load the request for this RIS');
-            return;
-        }
-
-        if (!issuerSignature || !issuerSignatureSource) {
-            toast.error('Please provide your signature to issue these assets');
-            return;
-        }
-
-        // Validate all items have enough inventory selected
-        const invalidItems = requestDetails.filter(detail => detail.totalSelected !== detail.QuantityRequested);
-        if (invalidItems.length > 0) {
-            toast.error('Please select exact quantity for all requested items');
-            return;
-        }
-
-        // Prepare inventory items array
-        const inventoryItems = requestDetails.flatMap(detail =>
-            detail.selectedInventory.map(inventory => ({
-                request_detail_id: detail.RequestDetailID,
-                inventory_detail_id: inventory.InventoryDetailID,
-                quantity_issued: 1 // Each inventory item represents 1 unit
-            }))
-        );
+        const inventoryItems = selectedInventory.map(item => ({
+            inventory_detail_id: item.InventoryDetailID,
+            quantity_issued: 1
+        }));
 
         setValue('inventory_items', inventoryItems);
 
@@ -364,12 +173,10 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
             setIsSubmitting(true);
 
             const submitData = {
-                request_id: selectedRis.asset_request_id,
+                dr_id: selectedDr.DRID,
                 date_issued: data.date_issued,
                 remarks: data.remarks,
                 inventory_items: inventoryItems,
-                issuerSignature,
-                issuerSignatureSource,
             };
 
             const res = await issuanceAPI.create(submitData);
@@ -391,31 +198,63 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
         }
     };
 
-    const handleSignatureSave = (signature: string, source: 'canvas' | 'upload') => {
-        setIssuerSignature(signature);
-        setIssuerSignatureSource(source);
-        setShowSignatureModal(false);
-    };
+    const groupedInventory = useMemo(() => {
+        const groups = new Map<string, { key: string; item: InventoryItem; items: InventoryItem[] }>();
 
-    const filteredInventory = availableInventory
-        .filter((item) => {
-            // Defensive: only show items the backend considers available.
-            // Prefer PropertyStatusID when present; otherwise fall back to StatusName.
-            if (typeof item.PropertyStatusID === 'number') return item.PropertyStatusID === 1;
-            return (item.StatusName || '').toLowerCase() === 'available';
-        })
-        .filter(item => {
-            if (!inventorySearch) return true;
-            const search = inventorySearch.toLowerCase();
-            return (
-                (item.Description?.toLowerCase() || '').includes(search) ||
-                (item.Brand?.toLowerCase() || '').includes(search) ||
-                (item.ModelNumber?.toLowerCase() || '').includes(search) ||
-                (item.PropertyNumber?.toLowerCase() || '').includes(search) ||
-                (item.SerialNumber?.toLowerCase() || '').includes(search) ||
-                (item.dr_item_description?.toLowerCase() || '').includes(search)
-            );
+        selectedInventory.forEach((item) => {
+            const name = item.dr_item_description || item.PropertyName || 'Unknown Item';
+            const brand = item.Brand || '';
+            const model = item.ModelNumber || '';
+            const serial = item.SerialNumber || '';
+            const key = [name.trim().toLowerCase(), brand.trim().toLowerCase(), model.trim().toLowerCase(), serial.trim().toLowerCase()].join('::');
+
+            if (!groups.has(key)) {
+                groups.set(key, { key, item, items: [item] });
+            } else {
+                groups.get(key)?.items.push(item);
+            }
         });
+
+        return Array.from(groups.values());
+    }, [selectedInventory]);
+
+    const selectedSummary = useMemo(() => {
+        const counts = selectedInventory.reduce<Record<string, number>>((acc, item) => {
+            const key = item.DocumentType || 'Unknown';
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+
+        return Object.entries(counts)
+            .map(([type, count]) => `${type}: ${count}`)
+            .join(' • ');
+    }, [selectedInventory]);
+
+    const issuanceStats = useMemo(() => {
+        const totals = {
+            total: selectedInventory.length,
+            grouped: groupedInventory.length,
+            par: 0,
+            ics: 0,
+            unknown: 0,
+        };
+
+        selectedInventory.forEach((item) => {
+            if (item.DocumentType === 'PAR') {
+                totals.par += 1;
+                return;
+            }
+
+            if (item.DocumentType === 'ICS') {
+                totals.ics += 1;
+                return;
+            }
+
+            totals.unknown += 1;
+        });
+
+        return totals;
+    }, [groupedInventory.length, selectedInventory]);
 
     if (loading) {
         return (
@@ -424,7 +263,7 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                     <div className="flex items-center justify-center min-h-[400px]">
                         <div className="flex items-center gap-3 text-slate-600">
                             <Loader2 className="w-5 h-5 animate-spin" />
-                            Loading RIS...
+                            Loading delivery receipts...
                         </div>
                     </div>
                 </div>
@@ -435,7 +274,6 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
             <div className="p-6 space-y-6">
-                {/* Header */}
                 <div className="flex items-center gap-4">
                     <Link
                         href={`${baseRoute}`}
@@ -446,57 +284,46 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Issue Assets</h1>
                         <p className="text-slate-600 text-sm">
-                            Select RIS and assign real inventory items
+                            Issue accepted inventory directly from a Delivery Receipt
                         </p>
                     </div>
                 </div>
 
                 <form
-                    onSubmit={handleSubmit(onSubmit, (errors) => {
-                        console.error('Form validation errors:', errors);
+                    onSubmit={handleSubmit(onSubmit, (formErrors) => {
+                        console.error('Form validation errors:', formErrors);
                         toast.error('Please fill in all required fields');
                     })}
                     className="space-y-6"
                 >
-                    {/* RIS Selection */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="p-6 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900 mb-4">Select RIS</h2>
+                            <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Delivery Receipt</h2>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        RIS Number *
+                                        DR Number *
                                     </label>
 
-                                    <div className="relative">
-                                        <select
-                                            {...register('ris_id', {
-                                                valueAsNumber: true,
-                                                required: 'Please select a RIS',
-                                                validate: (value) => value > 0 || 'Please select a RIS'
-                                            })}
-                                            disabled={Boolean(isLoadingSelectedRis) || Boolean(loading)}
-                                            aria-busy={isLoadingSelectedRis}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:bg-slate-50"
-                                        >
-                                            <option value="">Select a RIS...</option>
-                                            {risOptions.map(ris => (
-                                                <option key={ris.id} value={ris.id}>
-                                                    {ris.ris_number} - {ris.request?.RequestNumber || `Request #${ris.asset_request_id}`}
-                                                </option>
-                                            ))}
-                                        </select>
+                                    <select
+                                        {...register('dr_id', {
+                                            valueAsNumber: true,
+                                            required: 'Please select a DR',
+                                            validate: (value) => value > 0 || 'Please select a DR'
+                                        })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                    >
+                                        <option value="">Select a DR...</option>
+                                        {drOptions.map(dr => (
+                                            <option key={dr.DRID} value={dr.DRID}>
+                                                {dr.DRNumber} - {dr.RequestedBy || 'Requester'} ({dr.DepartmentName || 'Department'})
+                                            </option>
+                                        ))}
+                                    </select>
 
-                                        {isLoadingSelectedRis && (
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {errors.ris_id && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.ris_id.message}</p>
+                                    {errors.dr_id && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.dr_id.message}</p>
                                     )}
                                 </div>
 
@@ -529,178 +356,116 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                             </div>
                         </div>
 
-                        {/* Request Details */}
-                        {selectedRequest && (
+                        {selectedDr && (
                             <div className="p-6 bg-slate-50">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-8 h-8 bg-[var(--primary)]/10 rounded-lg flex items-center justify-center">
-                                        <FileText className="w-4 h-4 text-[var(--primary)]" />
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center">
+                                                <FileText className="w-5 h-5 text-[var(--primary)]" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-semibold text-slate-900">{selectedDr.DRNumber}</h3>
+                                                <p className="text-sm text-slate-500">
+                                                    Requested by {selectedDr.RequestedBy || 'N/A'} • {selectedDr.DepartmentName || 'Department'} •{' '}
+                                                    {selectedDr.DateReceived
+                                                        ? format(toZonedTime(new Date(selectedDr.DateReceived), 'Asia/Manila'), 'MMM dd, yyyy')
+                                                        : 'Date N/A'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-xs text-slate-500 bg-white/80 border border-slate-200 px-3 py-2 rounded-full">
+                                            {isLoadingInventory ? 'Loading items...' : 'Auto-selected from this DR'}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-medium text-slate-900">{selectedRequest.RequestNumber}</h3>
-                                        <p className="text-sm text-slate-500">
-                                            Requested by {selectedRequest.requester?.FullName} on{' '}
-                                            {format(toZonedTime(new Date(selectedRequest.RequestDate), 'Asia/Manila'), 'MMM dd, yyyy')}
-                                        </p>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4">
+                                            <div className="text-xs uppercase tracking-wide text-slate-500">Total Items</div>
+                                            <div className="mt-2 text-2xl font-semibold text-slate-900">{issuanceStats.total}</div>
+                                        </div>
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4">
+                                            <div className="text-xs uppercase tracking-wide text-slate-500">Grouped Lines</div>
+                                            <div className="mt-2 text-2xl font-semibold text-slate-900">{issuanceStats.grouped}</div>
+                                        </div>
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4">
+                                            <div className="text-xs uppercase tracking-wide text-slate-500">PAR Items</div>
+                                            <div className="mt-2 text-2xl font-semibold text-purple-700">{issuanceStats.par}</div>
+                                        </div>
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4">
+                                            <div className="text-xs uppercase tracking-wide text-slate-500">ICS Items</div>
+                                            <div className="mt-2 text-2xl font-semibold text-indigo-700">{issuanceStats.ics}</div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    {requestDetails.map((detail) => (
-                                        <div key={detail.RequestDetailID} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                                            {/* Request Detail Header */}
-                                            <div className="p-4 border-b border-slate-100">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <h4 className="font-medium text-slate-900">{detail.ItemDescription}</h4>
-                                                        <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
-                                                            <span>Qty: {detail.QuantityRequested} {detail.Unit}</span>
-                                                            <span>For: {detail.IntendedEndUser}</span>
-                                                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${detail.PropertyClassification === 'PAR'
+                                <div className="mt-6 bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+                                        <div>
+                                            <h4 className="font-semibold text-slate-900">Selected Inventory Items</h4>
+                                            <p className="text-xs text-slate-500">
+                                                {selectedInventory.length === 0
+                                                    ? 'No items selected yet'
+                                                    : `${selectedInventory.length} item(s) selected`}
+                                                {selectedSummary ? ` • ${selectedSummary}` : ''}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                            <Layers className="w-4 h-4" />
+                                            Grouped by item, brand, model, serial
+                                        </div>
+                                    </div>
+
+                                    {selectedInventory.length > 0 && (
+                                        <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                            {groupedInventory.map((group) => {
+                                                const item = group.item;
+                                                const displayName = item.dr_item_description || item.PropertyName || 'Unknown Item';
+                                                const docType = item.DocumentType || 'Unknown';
+                                                const serial = item.SerialNumber || null;
+                                                const model = item.ModelNumber || null;
+                                                const brand = item.Brand || null;
+                                                const count = group.items.length;
+
+                                                return (
+                                                    <div key={group.key} className="flex items-start justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <div className="font-semibold text-slate-900">
+                                                                    {displayName}
+                                                                </div>
+                                                                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-slate-900 text-white">
+                                                                    Qty {count}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-sm text-slate-600 mt-1">
+                                                                {item.Description && <div>{item.Description}</div>}
+                                                                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-2">
+                                                                    {brand && <span>Brand: {brand}</span>}
+                                                                    {model && <span>Model: {model}</span>}
+                                                                    {serial && <span>Serial: {serial}</span>}
+                                                                </div>
+                                                            </div>
+                                                            <span className={`inline-flex items-center mt-3 px-2 py-0.5 rounded text-xs font-medium ${docType === 'PAR'
                                                                 ? 'bg-purple-100 text-purple-800'
-                                                                : 'bg-indigo-100 text-indigo-800'
+                                                                : docType === 'ICS'
+                                                                    ? 'bg-indigo-100 text-indigo-800'
+                                                                    : 'bg-slate-100 text-slate-600'
                                                                 }`}>
-                                                                {detail.PropertyClassification}
+                                                                {docType}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <div className={`text-sm font-medium ${detail.totalSelected === detail.QuantityRequested
-                                                            ? 'text-green-600'
-                                                            : detail.totalSelected > 0
-                                                                ? 'text-amber-600'
-                                                                : 'text-slate-500'
-                                                            }`}>
-                                                            {detail.totalSelected} / {detail.QuantityRequested} selected
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => openInventoryModal(detail.RequestDetailID)}
-                                                            disabled={detail.totalSelected >= detail.QuantityRequested || isSearching}
-                                                            aria-busy={isSearching}
-                                                            className={`mt-2 px-3 py-1.5 bg-[var(--primary)] text-white text-sm rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50 ${isSearching ? 'cursor-not-allowed' : ''}`}
-                                                        >
-                                                            {isSearching ? (
-                                                                <Loader2 className="w-4 h-4 inline mr-1 animate-spin" />
-                                                            ) : (
-                                                                <Plus className="w-4 h-4 inline mr-1" />
-                                                            )}
-                                                            Add Item
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Selected Inventory Items */}
-                                            {detail.selectedInventory.length > 0 && (
-                                                <div className="p-4 bg-slate-50">
-                                                    <h5 className="text-sm font-medium text-slate-700 mb-2">Selected Inventory Items</h5>
-                                                    <div className="space-y-2">
-                                                        {detail.selectedInventory.map((item) => (
-                                                            <div key={item.InventoryDetailID} className="flex items-start justify-between p-3 bg-white rounded border">
-                                                                <div className="flex-1">
-                                                                    <div className="font-medium text-slate-900">
-                                                                        {item.dr_item_description || item.PropertyName || 'Unknown Item'}
-                                                                        {item.PropertyNumber && <span className="text-sm font-normal text-slate-600 ml-2">({item.PropertyNumber})</span>}
-                                                                    </div>
-                                                                    <div className="text-sm text-slate-600 mt-1">
-                                                                        {item.Description && <div>{item.Description}</div>}
-                                                                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                                                                            {item.InventoryNumber && <span className="font-medium text-slate-700">{item.InventoryNumber}</span>}
-                                                                            {item.Brand && <span>Brand: {item.Brand}</span>}
-                                                                            {item.ModelNumber && <span>Model: {item.ModelNumber}</span>}
-                                                                            {item.SerialNumber && <span>Serial: {item.SerialNumber}</span>}
-                                                                        </div>
-                                                                    </div>
-                                                                    {item.DateReceived && (
-                                                                        <div className="text-xs text-slate-00 mt-1">
-                                                                            Received: {format(new Date(item.DateReceived), 'MMM dd, yyyy')}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeInventoryItem(detail.RequestDetailID, item.InventoryDetailID)}
-                                                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-2"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                                );
+                                            })}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Issuer Signature */}
-                    {selectedRequest && (
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                            <h3 className="font-semibold text-slate-900 mb-4">Issuer Signature</h3>
-                            <div className="space-y-4">
-                                {!requestDetails.every(d => d.totalSelected === d.QuantityRequested) && (
-                                    <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
-                                        <strong>Note:</strong> Please select all requested items before providing your signature.
-                                    </div>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        Your Signature <span className="text-red-500">*</span>
-                                    </label>
-                                    {issuerSignature ? (
-                                        <div className="space-y-2">
-                                            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
-                                                <img
-                                                    src={issuerSignature}
-                                                    alt="Your signature"
-                                                    className="max-h-20 max-w-full object-contain"
-                                                />
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowSignatureModal(true)}
-                                                    className="px-3 py-1 text-sm bg-slate-100 hover:bg-slate-200 rounded"
-                                                >
-                                                    Change Signature
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setIssuerSignature(null);
-                                                        setIssuerSignatureSource(null);
-                                                    }}
-                                                    className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowSignatureModal(true)}
-                                            disabled={!requestDetails.every(d => d.totalSelected === d.QuantityRequested)}
-                                            className="w-full h-32 border-2 border-dashed border-slate-300 rounded-lg hover:border-slate-400 transition-colors flex items-center justify-center text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Click to add your signature
-                                        </button>
-                                    )}
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Your signature is required to issue these assets.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Submit Button */}
-                    {selectedRequest && selectedRis && selectedRis.status !== 'cancelled' && requestDetails.every(d => d.totalSelected === d.QuantityRequested) && issuerSignature && (
+                    {selectedDr && selectedInventory.length > 0 && (
                         <div className="flex justify-end">
                             <button
                                 type="submit"
@@ -722,104 +487,6 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                         </div>
                     )}
                 </form>
-
-                {/* Inventory Selection Modal */}
-                {showInventoryModal && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                            <div className="p-6 border-b border-slate-200">
-                                <h3 className="text-lg font-semibold text-slate-900">Select Inventory Item</h3>
-                                <div className="mt-4 relative">
-                                    {isSearching ? (
-                                        <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={handleInventorySearch}
-                                            className="absolute left-3 top-1/2 -translate-y-1/2"
-                                            aria-label="Search inventory"
-                                        >
-                                            <Search className="w-4 h-4 text-slate-400" />
-                                        </button>
-                                    )}
-                                    <input
-                                        type="text"
-                                        placeholder="Search by description, brand, model, property number..."
-                                        value={inventorySearch}
-                                        onChange={(e) => setInventorySearch(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInventorySearch(); } }}
-                                        disabled={isSearching}
-                                        className={`w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 ${isSearching ? 'disabled:cursor-not-allowed opacity-80' : ''}`}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="p-6 max-h-[60vh] overflow-y-auto">
-                                <div className="grid gap-3">
-                                    {filteredInventory.map((item) => (
-                                        <div
-                                            key={item.InventoryDetailID}
-                                            onClick={() => selectInventoryItem(item)}
-                                            className="p-4 border border-slate-200 rounded-lg hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 cursor-pointer transition-colors"
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex-1">
-                                                    <div className="font-medium text-slate-900">
-                                                        {item.dr_item_description || item.PropertyName || 'Unknown Item'}
-                                                        {item.PropertyNumber && <span className="text-sm font-normal text-slate-600 ml-2">({item.PropertyNumber})</span>}
-                                                    </div>
-                                                    <div className="text-sm text-slate-600 mt-1">
-                                                        {item.Description && <div>{item.Description}</div>}
-                                                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                                                            {item.InventoryNumber && <span className="font-medium text-slate-700">Inv: {item.InventoryNumber}</span>}
-                                                            {item.Brand && <span>Brand: {item.Brand}</span>}
-                                                            {item.ModelNumber && <span>Model: {item.ModelNumber}</span>}
-                                                            {item.SerialNumber && <span>Serial: {item.SerialNumber}</span>}
-                                                        </div>
-                                                    </div>
-                                                    {item.DateReceived && (
-                                                        <div className="text-xs text-slate-400 mt-1">
-                                                            Received: {format(new Date(item.DateReceived), 'MMM dd, yyyy')}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-sm font-medium text-slate-900">{item.UnitCost ? `₱${Number(item.UnitCost).toLocaleString()}` : '-'}</div>
-                                                    <div className="text-xs text-green-600">
-                                                        {item.StatusName || (item.PropertyStatusID === 1 ? 'Available' : 'Unavailable')}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {filteredInventory.length === 0 && (
-                                    <div className="text-center py-8 text-slate-500">
-                                        <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                        No available inventory items found
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="p-6 border-t border-slate-200 flex justify-end">
-                                <button
-                                    onClick={() => setShowInventoryModal(false)}
-                                    className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Signature Modal */}
-                <SignatureModal
-                    open={showSignatureModal}
-                    onOpenChange={setShowSignatureModal}
-                    onSave={handleSignatureSave}
-                />
             </div>
         </div>
     );

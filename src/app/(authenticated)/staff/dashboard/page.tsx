@@ -338,35 +338,23 @@ export default function StaffDashboardPage() {
                     href="/staff/inventory/all-items?status=all"
                 />
                 <StatCard
-                    title="Available Inventory"
-                    value={stats?.availableInventory ?? 0}
+                    title="For Issuance"
+                    value={stats?.forIssuanceInventory ?? 0}
                     icon={Package}
                     iconColor="text-green-600"
                     bgColor="bg-green-100"
                     loading={statsLoading}
-                    href="/staff/inventory/all-items?status=available"
+                    href="/staff/inventory/all-items?status=for-issuance"
                 />
                 <StatCard
-                    title="Assigned Assets"
-                    value={stats?.totalAssets ?? 0}
+                    title="Issued"
+                    value={stats?.issuedInventory ?? 0}
                     icon={ClipboardList}
                     iconColor="text-amber-600"
                     bgColor="bg-amber-100"
                     loading={statsLoading}
-                    href="/staff/inventory/all-items?status=assigned"
+                    href="/staff/inventory/all-items?status=issued"
                 />
-                <StatCard
-                    title="Pending Requests"
-                    value={stats?.pendingRequests ?? 0}
-                    icon={Users}
-                    iconColor="text-purple-600"
-                    bgColor="bg-purple-100"
-                    loading={statsLoading}
-                />
-            </div>
-
-            {/* Secondary Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
                     title="Delivery Receipts"
                     value={stats?.totalDeliveryReceipts ?? 0}
@@ -375,12 +363,24 @@ export default function StaffDashboardPage() {
                     bgColor="bg-indigo-100"
                     loading={statsLoading}
                 />
+            </div>
+
+            {/* Secondary Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
                     title="Active Users"
                     value={stats?.totalUsers ?? 0}
                     icon={Users}
                     iconColor="text-orange-600"
                     bgColor="bg-orange-100"
+                    loading={statsLoading}
+                />
+                <StatCard
+                    title="Active Departments"
+                    value={stats?.totalDepartments ?? 0}
+                    icon={Building2}
+                    iconColor="text-blue-600"
+                    bgColor="bg-blue-100"
                     loading={statsLoading}
                 />
             </div>

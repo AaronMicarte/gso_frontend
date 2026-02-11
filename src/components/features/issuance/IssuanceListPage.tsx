@@ -47,6 +47,12 @@ const statusConfig = {
     },
 };
 
+function safeDate(dateValue: string | null | undefined): Date | null {
+    if (!dateValue) return null;
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 const documentTypeConfig = {
     PAR: {
         label: 'PAR',
@@ -122,9 +128,11 @@ export function IssuanceListPage({
             });
 
             // Sort by RequestDate descending (latest first)
-            const sortedData = response.data.sort((a, b) =>
-                new Date(b.RequestDate).getTime() - new Date(a.RequestDate).getTime()
-            );
+            const sortedData = response.data.sort((a, b) => {
+                const aDate = safeDate(a.RequestDate)?.getTime() ?? 0;
+                const bDate = safeDate(b.RequestDate)?.getTime() ?? 0;
+                return bDate - aDate;
+            });
 
             // Defensive client-side filter: some backends may ignore document_type on grouped responses.
             // Keep UI consistent for dedicated PAR/ICS pages.
@@ -219,7 +227,7 @@ export function IssuanceListPage({
                             {pageTitle || 'Asset Issuances'}
                         </h1>
                         <p className="text-slate-500 text-sm">
-                            {pageDescription || 'Manage property issuance records grouped by requests (PAR/ICS)'}
+                            {pageDescription || 'Manage property issuance records grouped by delivery receipts or requests (PAR/ICS)'}
                         </p>
                     </div>
                     <div className="flex gap-2">
@@ -250,7 +258,7 @@ export function IssuanceListPage({
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Search request number, requester, department, or document number..."
+                                placeholder="Search reference number, requester, department, or document number..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
@@ -334,7 +342,11 @@ export function IssuanceListPage({
                                                                 {group.requester.FullName}
                                                             </span>
                                                             <span>{group.department.DepartmentName}</span>
-                                                            <span>{format(toZonedTime(new Date(group.RequestDate), 'Asia/Manila'), 'MMM dd, yyyy')}</span>
+                                                            <span>
+                                                                {group.RequestDate
+                                                                    ? format(toZonedTime(new Date(group.RequestDate), 'Asia/Manila'), 'MMM dd, yyyy')
+                                                                    : 'N/A'}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>

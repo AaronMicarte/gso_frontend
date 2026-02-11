@@ -33,6 +33,7 @@ export interface DeliveryReceipt {
     DRID: number;
     DRNumber: string;
     RequestedBy?: string; // Manual requester name
+    RequestedByUserID?: number | null;
     DepartmentID?: number; // Requesting department
     PRNumber?: string; // Manual PR number reference
     PONumber?: string; // Manual PO number reference
@@ -46,6 +47,11 @@ export interface DeliveryReceipt {
     department?: {
         DepartmentID: number;
         DepartmentName: string;
+    };
+    requestedByUser?: {
+        UserID: number;
+        FullName: string;
+        DepartmentID: number;
     };
 
     // Relationships
@@ -68,7 +74,7 @@ export interface DeliveryReceipt {
 export interface CreateDeliveryReceiptPayload {
     dr_number: string;
     supplier_name: string; // Required manual supplier name
-    requested_by: string;
+    requested_by_user_id: number;
     department_id: number;
     pr_number: string;
     po_number: string;
@@ -91,7 +97,7 @@ export interface CreateDeliveryReceiptPayload {
 export interface UpdateDeliveryReceiptPayload {
     dr_number: string;
     supplier_name: string;
-    requested_by: string;
+    requested_by_user_id: number;
     department_id: number;
     pr_number: string;
     po_number: string;

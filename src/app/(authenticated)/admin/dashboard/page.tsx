@@ -176,8 +176,8 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
 function QuickActions() {
     const actions = [
         { label: 'Add User', href: '/admin/users/new', icon: UserPlus, color: 'text-blue-500' },
-        { label: 'New Asset', href: '/admin/assets/new', icon: Package, color: 'text-green-500' },
-        { label: 'Add Inventory', href: '/admin/inventory/new', icon: PackagePlus, color: 'text-amber-500' },
+        { label: 'New Delivery Receipt', href: '/admin/procurement/delivery-receipts/new', icon: FileText, color: 'text-green-500' },
+        { label: 'View IARs', href: '/admin/procurement/inspection-acceptance-reports', icon: FileCheck, color: 'text-amber-500' },
         { label: 'View Reports', href: '/admin/reports', icon: BarChart3, color: 'text-purple-500' },
     ];
 
@@ -206,9 +206,9 @@ function QuickActions() {
 // Inventory overview component
 function InventoryOverview({ stats, loading }: { stats: DashboardStats | null; loading: boolean }) {
     const total = stats?.totalInventory ?? 0;
-    const assigned = stats?.totalAssets ?? 0;
-    const available = stats?.availableInventory ?? 0;
-    const utilization = total > 0 ? Math.round((assigned / total) * 100) : 0;
+    const issued = stats?.issuedInventory ?? 0;
+    const forIssuance = stats?.forIssuanceInventory ?? 0;
+    const utilization = total > 0 ? Math.round((issued / total) * 100) : 0;
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -241,20 +241,20 @@ function InventoryOverview({ stats, loading }: { stats: DashboardStats | null; l
                             <div className="text-xs text-slate-500">Total Items</div>
                         </div>
                     </Link>
-                    <Link href="/admin/inventory/all-items?status=available" className="block">
+                    <Link href="/admin/inventory/all-items?status=for-issuance" className="block">
                         <div className="p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors cursor-pointer">
                             <div className="text-2xl font-bold text-green-600">
-                                {loading ? '...' : available.toLocaleString()}
+                                {loading ? '...' : forIssuance.toLocaleString()}
                             </div>
-                            <div className="text-xs text-slate-500">Available</div>
+                            <div className="text-xs text-slate-500">For Issuance</div>
                         </div>
                     </Link>
-                    <Link href="/admin/inventory/all-items?status=assigned" className="block">
+                    <Link href="/admin/inventory/all-items?status=issued" className="block">
                         <div className="p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer">
                             <div className="text-2xl font-bold text-amber-600">
-                                {loading ? '...' : assigned.toLocaleString()}
+                                {loading ? '...' : issued.toLocaleString()}
                             </div>
-                            <div className="text-xs text-slate-500">Assigned</div>
+                            <div className="text-xs text-slate-500">Issued</div>
                         </div>
                     </Link>
                 </div>
@@ -398,35 +398,23 @@ export default function AdminDashboardPage() {
                     href="/admin/inventory/all-items?status=all"
                 />
                 <StatCard
-                    title="Available Inventory"
-                    value={stats?.availableInventory ?? 0}
+                    title="For Issuance"
+                    value={stats?.forIssuanceInventory ?? 0}
                     icon={Package}
                     iconColor="text-green-600"
                     bgColor="bg-green-100"
                     loading={statsLoading}
-                    href="/admin/inventory/all-items?status=available"
+                    href="/admin/inventory/all-items?status=for-issuance"
                 />
                 <StatCard
-                    title="Assigned Assets"
-                    value={stats?.totalAssets ?? 0}
+                    title="Issued"
+                    value={stats?.issuedInventory ?? 0}
                     icon={ClipboardList}
                     iconColor="text-amber-600"
                     bgColor="bg-amber-100"
                     loading={statsLoading}
-                    href="/admin/inventory/all-items?status=assigned"
+                    href="/admin/inventory/all-items?status=issued"
                 />
-                <StatCard
-                    title="Pending Requests"
-                    value={stats?.pendingRequests ?? 0}
-                    icon={Users}
-                    iconColor="text-purple-600"
-                    bgColor="bg-purple-100"
-                    loading={statsLoading}
-                />
-            </div>
-
-            {/* Secondary Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
                     title="Delivery Receipts"
                     value={stats?.totalDeliveryReceipts ?? 0}
@@ -435,12 +423,24 @@ export default function AdminDashboardPage() {
                     bgColor="bg-indigo-100"
                     loading={statsLoading}
                 />
+            </div>
+
+            {/* Secondary Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
                 <StatCard
                     title="Active Users"
                     value={stats?.totalUsers ?? 0}
                     icon={Users}
                     iconColor="text-orange-600"
                     bgColor="bg-orange-100"
+                    loading={statsLoading}
+                />
+                <StatCard
+                    title="Active Departments"
+                    value={stats?.totalDepartments ?? 0}
+                    icon={Building2}
+                    iconColor="text-blue-600"
+                    bgColor="bg-blue-100"
                     loading={statsLoading}
                 />
             </div>
