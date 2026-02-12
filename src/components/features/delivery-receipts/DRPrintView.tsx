@@ -64,11 +64,11 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                     </div>
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">Requested By :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{dr.RequestedBy || 'N/A'}</div>
+                        <div className="flex-1 border-b border-black pb-0.5">{dr.requestedByUser?.FullName || dr.RequestedByName || 'N/A'}</div>
                     </div>
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">Department :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{dr.department?.DepartmentName || 'N/A'}</div>
+                        <div className="flex-1 border-b border-black pb-0.5">{dr.requestedByUser?.department?.DepartmentName || dr.DepartmentName || 'N/A'}</div>
                     </div>
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">PR No. :</div>

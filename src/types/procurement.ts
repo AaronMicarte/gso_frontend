@@ -32,9 +32,10 @@ export interface DeliveryReceiptStatus {
 export interface DeliveryReceipt {
     DRID: number;
     DRNumber: string;
-    RequestedBy?: string; // Manual requester name
-    RequestedByUserID?: number | null;
-    DepartmentID?: number; // Requesting department
+    RequestedBy?: number | null; // FK -> user.UserID
+    RequestedByName?: string | null; // convenience field from backend
+    DepartmentID?: number | null; // derived from requester user
+    DepartmentName?: string | null; // derived from requester user
     PRNumber?: string; // Manual PR number reference
     PONumber?: string; // Manual PO number reference
     SupplierName: string; // Manual supplier name (required)
@@ -44,14 +45,14 @@ export interface DeliveryReceipt {
     Remarks?: string;
     CreatedDate: string;
     dr_picture_url?: string; // URL to the DR picture
-    department?: {
-        DepartmentID: number;
-        DepartmentName: string;
-    };
     requestedByUser?: {
         UserID: number;
         FullName: string;
         DepartmentID: number;
+        department?: {
+            DepartmentID: number;
+            DepartmentName: string;
+        };
     };
 
     // Relationships
@@ -75,7 +76,6 @@ export interface CreateDeliveryReceiptPayload {
     dr_number: string;
     supplier_name: string; // Required manual supplier name
     requested_by_user_id: number;
-    department_id: number;
     pr_number: string;
     po_number: string;
     invoice_number: string;
@@ -98,7 +98,6 @@ export interface UpdateDeliveryReceiptPayload {
     dr_number: string;
     supplier_name: string;
     requested_by_user_id: number;
-    department_id: number;
     pr_number: string;
     po_number: string;
     invoice_number: string;

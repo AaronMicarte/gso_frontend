@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
-import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { ItemDetailsModal } from './ItemDetailsModal';
 import { useForm, useFieldArray, Path } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,7 +31,6 @@ const drSchema = z.object({
     dr_number: z.string().min(1, 'DR number is required'),
     supplier_name: z.string().min(1, 'Supplier name is required'),
     requested_by_user_id: z.coerce.number().min(1, 'Requested by is required'),
-    department_id: z.coerce.number().min(1, 'Department is required'),
     pr_number: z.string().min(1, 'PR number is required'),
     po_number: z.string().min(1, 'PO number is required'),
     invoice_number: z.string().min(1, 'Invoice number is required'),
@@ -86,7 +84,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             dr_number: '',
             supplier_name: '',
             requested_by_user_id: 0,
-            department_id: 0,
             pr_number: '',
             po_number: '',
             invoice_number: '',
@@ -144,8 +141,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 // Populate form with existing data
                 setValue('dr_number', drData.DRNumber);
                 setValue('supplier_name', drData.SupplierName || '');
-                setValue('requested_by_user_id', drData.RequestedByUserID ?? 0);
-                setValue('department_id', drData.DepartmentID || 0);
+                setValue('requested_by_user_id', (drData.RequestedBy ?? drData.requestedByUser?.UserID ?? 0) as number);
                 setValue('pr_number', drData.PRNumber || '');
                 setValue('po_number', drData.PONumber || '');
                 setValue('invoice_number', drData.InvoiceNumber || '');
@@ -185,7 +181,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
 
     // Units of measure for items
     const { data: unitsData } = useAllUnitsOfMeasure();
-    const { data: departmentsData } = useAllDepartments();
     // API returns UnitOfMeasureResource (id,name) — normalize to {id, name} to be safe
     type UnitOfMeasureResponse = { id?: number; name?: string; UnitOfMeasureID?: number; UnitName?: string };
     const units = Array.isArray(unitsData)
@@ -194,27 +189,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             .map(u => ({ id: u.id ?? u.UnitOfMeasureID!, name: u.name ?? u.UnitName! }))
         : [];
 
-    type DepartmentResponse = { id?: number; name?: string; DepartmentID?: number; DepartmentName?: string };
-    const departments = Array.isArray(departmentsData)
-        ? (departmentsData as DepartmentResponse[])
-            .filter((dept) => dept && (dept.id ?? dept.DepartmentID))
-            .map((dept) => ({
-                id: dept.id ?? dept.DepartmentID!,
-                name: dept.name ?? dept.DepartmentName ?? '',
-            }))
-            .filter((dept) => dept.name)
-        : [];
-
-    const departmentLookup = new Map<string | number, string>();
-    departments.forEach((dept) => {
-        departmentLookup.set(dept.id, dept.name);
-        departmentLookup.set(String(dept.id), dept.name);
-    });
-
-    const getDepartmentName = (deptId: number | string | undefined | null) => {
-        if (deptId === undefined || deptId === null) return undefined;
-        return departmentLookup.get(deptId) ?? departmentLookup.get(String(deptId)) ?? undefined;
-    };
     const details = watch('details');
     const watchedRequesterId = watch('requested_by_user_id');
     const totalAmount = details?.reduce((sum, item) => {
@@ -236,7 +210,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     }, []);
 
     const filteredRequesters = requesters.filter((user) => {
-        const departmentName = user.DepartmentName || getDepartmentName(user.DepartmentID) || `Department ${user.DepartmentID}`;
+        const departmentName = user.DepartmentName || `Department ${user.DepartmentID}`;
         const label = `${user.FullName} - ${departmentName}`.toLowerCase();
         return label.includes(requesterQuery.trim().toLowerCase());
     });
@@ -260,10 +234,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     }, []);
 
     const selectRequester = (user: { UserID: number; FullName: string; DepartmentID: number; DepartmentName?: string | null }) => {
-        const departmentName = user.DepartmentName || getDepartmentName(user.DepartmentID) || `Department ${user.DepartmentID}`;
+        const departmentName = user.DepartmentName || `Department ${user.DepartmentID}`;
         setRequesterQuery(`${user.FullName} - ${departmentName}`);
         setValue('requested_by_user_id', user.UserID);
-        setValue('department_id', user.DepartmentID);
         setComboboxOpen(false);
         setHighlightedIndex(-1);
     };
@@ -288,11 +261,14 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     };
 
     useEffect(() => {
+        // If requester id is set externally (e.g. form reset), populate the visible combobox text.
         const requester = requesters.find((user) => user.UserID === watchedRequesterId);
-        if (requester) {
-            setValue('department_id', requester.DepartmentID);
+        if (requester && requesterQuery.trim().length === 0) {
+            const departmentName = requester.DepartmentName || `Department ${requester.DepartmentID}`;
+            setRequesterQuery(`${requester.FullName} - ${departmentName}`);
         }
-    }, [watchedRequesterId, requesters, setValue]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [watchedRequesterId, requesters]);
 
     const onSubmit = async (data: DRFormValues) => {
         // client-side checks: prevent future dates and too-old dates (unless override requested)
@@ -607,34 +583,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 )}
                             </div>
 
-                            {/* Department */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Department *
-                                </label>
-                                <select
-                                    {...register('department_id')}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                >
-                                    <option value={0}>Select department</option>
-                                    {departments.length === 0 ? (
-                                        <option value={0} disabled>No departments found</option>
-                                    ) : (
-                                        departments.map((dept) => (
-                                            <option key={dept.id} value={dept.id}>
-                                                {dept.name}
-                                            </option>
-                                        ))
-                                    )}
-                                </select>
-                                {errors.department_id && (
-                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        {errors.department_id.message}
-                                    </p>
-                                )}
-                            </div>
-
                             {/* Requested By (Department Head) */}
                             <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -661,7 +609,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                 <li className="px-3 py-2 text-sm text-slate-500">No matches for "{requesterQuery}"</li>
                                             ) : (
                                                 filteredRequesters.map((user, idx) => {
-                                                    const departmentName = user.DepartmentName || getDepartmentName(user.DepartmentID) || `Department ${user.DepartmentID}`;
+                                                    const departmentName = user.DepartmentName || `Department ${user.DepartmentID}`;
                                                     const label = `${user.FullName} - ${departmentName}`;
                                                     return (
                                                         <li
@@ -681,7 +629,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                     )}
                                 </div>
                                 <input type="hidden" {...register('requested_by_user_id', { valueAsNumber: true })} />
-                                <input type="hidden" {...register('department_id', { valueAsNumber: true })} />
                                 {errors.requested_by_user_id && (
                                     <p className="mt-1 text-sm text-red-600">{errors.requested_by_user_id.message}</p>
                                 )}

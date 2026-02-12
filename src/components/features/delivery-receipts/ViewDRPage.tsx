@@ -138,11 +138,11 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Requested By</label>
-                            <p className="mt-1 text-slate-900">{dr.RequestedBy || 'N/A'}</p>
+                            <p className="mt-1 text-slate-900">{dr.requestedByUser?.FullName || dr.RequestedByName || 'N/A'}</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Department</label>
-                            <p className="mt-1 text-slate-900">{dr.department?.DepartmentName || 'N/A'}</p>
+                            <p className="mt-1 text-slate-900">{dr.requestedByUser?.department?.DepartmentName || dr.DepartmentName || 'N/A'}</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">PR Number</label>

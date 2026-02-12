@@ -542,7 +542,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                     {entry.unitCost !== null ? `₱${entry.totalCost.toLocaleString()}` : '-'}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                    {canShowSingleQr && (
+                                                    {canShowSingleQr && !!inv.PropertyNumber && (
                                                         <PropertySticker
                                                             propertyNumber={inv.PropertyNumber}
                                                             itemName={inv?.propertyInventory?.ItemName || inv?.propertyInventory?.ItemDescription || 'Asset'}
