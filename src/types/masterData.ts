@@ -97,6 +97,27 @@ export interface PropertyTypeInput {
 }
 
 // ============================================
+// ARTICLES
+// ============================================
+
+export interface Article {
+    id: number;
+    name: string;
+    description?: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+    is_deleted?: boolean;
+}
+
+export interface ArticleInput {
+    ArticleName: string;
+    Description?: string;
+    IsActive?: boolean;
+}
+
+// ============================================
 // UNITS OF MEASURE
 // ============================================
 

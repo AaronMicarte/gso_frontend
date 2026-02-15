@@ -38,7 +38,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         // Apply search filter
         if (searchTerm) {
             filtered = filtered.filter(detail =>
-                detail.dr_item_description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                detail.dr_article_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 detail.Description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 detail.PropertyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 detail.Brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,13 +148,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     };
 
     const getItemName = (detail: {
-        dr_item_description?: string;
+        dr_article_name?: string;
         PropertyName?: string;
         Brand?: string;
         ModelNumber?: string;
         SerialNumber?: string;
     }) => {
-        return detail.dr_item_description || detail.PropertyName || 'Property Item';
+        return detail.dr_article_name || detail.PropertyName || 'Property Item';
     };
 
     const getQrCodeData = (detail: {
@@ -304,7 +304,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                             <tr>
-                                                <th className="px-6 py-4">Item Name</th>
+                                                <th className="px-6 py-4">Article</th>
                                                 <th className="px-6 py-4">Property Type</th>
                                                 <th className="px-6 py-4">Description</th>
                                                 <th className="px-6 py-4">Quantity & Unit Cost</th>
@@ -342,7 +342,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     StatusName?: string;
                                                     custodianName?: string;
                                                     locationDepartment?: string;
-                                                    dr_item_description?: string;
+                                                    dr_article_name?: string;
                                                     qrCode?: { QRCodeData?: string | null } | null;
                                                     qrCodeData?: string | null;
                                                 }) => (

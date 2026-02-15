@@ -5,6 +5,7 @@
 export interface DeliveryReceiptDetail {
     DRDetailID?: number;
     DRID?: number;
+    ArticleID?: number;
     ItemDescription: string;
     Brand?: string;
     ModelNumber?: string;
@@ -15,6 +16,10 @@ export interface DeliveryReceiptDetail {
     UnitCost: number;
     TotalCost: number;
     InspectionStatus?: 'pending' | 'inspected';
+    article?: {
+        ArticleID: number;
+        ArticleName: string;
+    };
     propertyType?: {
         PropertyTypeID: number;
         PropertyName: string;

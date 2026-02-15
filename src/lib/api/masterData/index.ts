@@ -1,4 +1,5 @@
 // Master Data API - Centralized exports
+export * from './articles';
 export * from './categories';
 export * from './classifications';
 export * from './conditions';

@@ -11,12 +11,15 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
 import { getDeliveryReceipt, getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers } from '@/lib/api/deliveryReceipts';
+import { getActiveArticles } from '@/lib/api/masterData';
+import { Article } from '@/types/masterData';
 import { useUpdateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 
 const drItemSchema = z.object({
     dr_detail_id: z.number().optional(), // Optional for updates
-    item_description: z.string().min(1, 'Item description is required'),
+    article_id: z.number().min(1, 'Article is required'),
+    item_description: z.string().max(1000, 'Item description is too long').optional().or(z.literal('')),
     brand: z.string().optional(),
     model_number: z.string().optional(),
     serial_number: z.string().optional(),
@@ -58,6 +61,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     const router = useRouter();
     const updateMutation = useUpdateDeliveryReceipt();
     const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
+    const [articles, setArticles] = useState<Article[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isLoadingDR, setIsLoadingDR] = useState(true);
     const [currentPictureUrl, setCurrentPictureUrl] = useState<string | null>(null);
@@ -134,11 +138,13 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         const fetchData = async () => {
             try {
                 setIsLoadingData(true);
-                const [propertyTypesData, drData] = await Promise.all([
+                const [propertyTypesData, articlesData, drData] = await Promise.all([
                     getPropertyTypes(),
+                    getActiveArticles(),
                     getDeliveryReceipt(parseInt(params.id as string))
                 ]);
                 setPropertyTypes(propertyTypesData);
+                setArticles(articlesData);
 
                 // Populate form with existing data
                 setValue('dr_number', drData.DRNumber);
@@ -159,6 +165,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 }
                 setValue('details', drData.details?.map(detail => ({
                     dr_detail_id: detail.DRDetailID, // Include the detail ID for updates
+                    article_id: detail.ArticleID || 0,
                     item_description: detail.ItemDescription,
                     brand: detail.Brand ?? '',
                     model_number: detail.ModelNumber ?? '',
@@ -430,6 +437,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     const duplicateItem = (index: number) => {
         const item = details[index];
         append({
+            article_id: item?.article_id || 0,
             item_description: item?.item_description || '',
             brand: item?.brand || '',
             model_number: item?.model_number || '',
@@ -986,6 +994,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                             if (!open) setIsAddingItem(false);
                         }}
                         initialValues={isAddingItem ? {} : (editingIndex !== null ? watch(`details.${editingIndex}`) : {})}
+                        articles={articles}
                         propertyTypes={propertyTypes}
                         units={units}
                         onSave={handleSaveItem}

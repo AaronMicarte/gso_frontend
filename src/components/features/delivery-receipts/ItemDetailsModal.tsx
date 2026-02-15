@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 import { Package, Hash, Calculator } from 'lucide-react';
 
 const itemSchema = z.object({
-    item_description: z.string().min(1, 'Item description is required'),
+    article_id: z.number().int().min(1, 'Article is required'),
+    item_description: z.string().max(1000, 'Item description is too long').optional().or(z.literal('')),
     brand: z.string().optional(),
     model_number: z.string().optional(),
     serial_number: z.string().optional(),
@@ -35,16 +36,18 @@ interface ItemDetailsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     initialValues: Partial<ItemFormValues>;
+    articles: { id: number; name: string }[];
     propertyTypes: { PropertyTypeID: number; PropertyName: string }[];
     units: { id: number; name: string }[];
     onSave: (values: ItemFormValues) => Promise<void> | void;
     loading?: boolean;
 }
 
-export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTypes, units, onSave, loading = false }: ItemDetailsModalProps) {
-    const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<ItemFormValues>({
+export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, propertyTypes, units, onSave, loading = false }: ItemDetailsModalProps) {
+    const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<ItemFormValues>({
         resolver: zodResolver(itemSchema),
         defaultValues: {
+            article_id: 0,
             item_description: '',
             brand: '',
             model_number: '',
@@ -61,8 +64,75 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
     const unitCost = watch('unit_cost');
     const totalCost = (quantity || 0) * (unitCost || 0);
 
+    // Lock quantity when a serial number is provided
+    const serialNumber = watch('serial_number');
+    const isSerialProvided = Boolean(serialNumber && String(serialNumber).trim().length > 0);
+
+    // If serial number exists, force quantity to 1 and validate
+    useEffect(() => {
+        if (isSerialProvided) {
+            setValue('quantity_delivered', 1, { shouldValidate: true, shouldDirty: true });
+        }
+    }, [isSerialProvided, setValue]);
+
     // Use ref to track previous open state
     const prevOpenRef = useRef(open);
+
+    // Article combobox state & refs (searchable)
+    const [articleQuery, setArticleQuery] = useState('');
+    const [articleOpen, setArticleOpen] = useState(false);
+    const [articleHighlightedIndex, setArticleHighlightedIndex] = useState(-1);
+    const articleComboboxRef = useRef<HTMLDivElement | null>(null);
+    const articleComboboxInputRef = useRef<HTMLInputElement | null>(null);
+    const articleComboboxListRef = useRef<HTMLUListElement | null>(null);
+
+    const filteredArticles = articles.filter(a => a.name.toLowerCase().includes(articleQuery.trim().toLowerCase()));
+
+    const selectArticle = (a: { id: number; name: string }) => {
+        setArticleQuery(a.name);
+        setValue('article_id', a.id);
+        setArticleOpen(false);
+        setArticleHighlightedIndex(-1);
+    };
+
+    const handleArticleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setArticleHighlightedIndex(prev => Math.min(prev + 1, filteredArticles.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setArticleHighlightedIndex(prev => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (articleHighlightedIndex >= 0 && articleHighlightedIndex < filteredArticles.length) {
+                selectArticle(filteredArticles[articleHighlightedIndex]);
+            } else if (filteredArticles.length === 1) {
+                selectArticle(filteredArticles[0]);
+            }
+        } else if (e.key === 'Tab') {
+            if (articleQuery.trim() && filteredArticles.length > 0) {
+                if (articleHighlightedIndex >= 0 && articleHighlightedIndex < filteredArticles.length) {
+                    selectArticle(filteredArticles[articleHighlightedIndex]);
+                } else {
+                    selectArticle(filteredArticles[0]);
+                }
+            }
+        } else if (e.key === 'Escape') {
+            setArticleOpen(false);
+        }
+    };
+
+    // Close combobox when clicking outside
+    useEffect(() => {
+        function handleDocClick(e: MouseEvent) {
+            if (articleComboboxRef.current && !articleComboboxRef.current.contains(e.target as Node)) {
+                setArticleOpen(false);
+                setArticleHighlightedIndex(-1);
+            }
+        }
+        document.addEventListener('mousedown', handleDocClick);
+        return () => document.removeEventListener('mousedown', handleDocClick);
+    }, [articleComboboxRef]);
 
     React.useEffect(() => {
         // Only reset when modal opens (transitions from false to true)
@@ -74,10 +144,20 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
                 model_number: initialValues.model_number && initialValues.model_number !== '0' ? initialValues.model_number : '',
                 serial_number: initialValues.serial_number && initialValues.serial_number !== '0' ? initialValues.serial_number : '',
             });
+
+            // prefill article query from initialValues.article_id when editing
+            if (initialValues?.article_id) {
+                const found = articles.find(a => a.id === initialValues.article_id);
+                setArticleQuery(found?.name || '');
+                setValue('article_id', initialValues.article_id as number);
+            } else {
+                setArticleQuery('');
+                setValue('article_id', 0);
+            }
         }
         prevOpenRef.current = open;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, initialValues]);
+    }, [open, initialValues, articles]);
 
     const submit = handleSubmit(async (data) => {
         try {
@@ -103,6 +183,64 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
             contentClassName="w-[95vw] md:w-[900px] lg:w-[1100px] !max-w-none max-h-[90vh] overflow-y-auto"
         >
             <div className="space-y-6">
+                {/* Article Selection (searchable) */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-[var(--primary)]" />
+                        <label className="text-sm font-semibold text-slate-900">Article Type</label>
+                    </div>
+
+                    <div className="relative" ref={articleComboboxRef}>
+                        <input
+                            ref={articleComboboxInputRef}
+                            type="text"
+                            role="combobox"
+                            aria-expanded={articleOpen}
+                            aria-controls="article-listbox"
+                            aria-autocomplete="list"
+                            value={articleQuery}
+                            onChange={(e) => {
+                                setArticleQuery(e.target.value);
+                                setArticleOpen(true);
+                                setArticleHighlightedIndex(-1);
+                                setValue('article_id', 0);
+                            }}
+                            onKeyDown={handleArticleKeyDown}
+                            placeholder="Search article types..."
+                            className="w-full px-4 py-2.5 bg-white border-2 border-[var(--border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200"
+                            onFocus={() => setArticleOpen(true)}
+                        />
+
+                        {/* hidden numeric value bound to form */}
+                        <input type="hidden" {...register('article_id', { valueAsNumber: true })} />
+
+                        {articleOpen && (
+                            <ul id="article-listbox" role="listbox" ref={articleComboboxListRef} className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
+                                {filteredArticles.length === 0 ? (
+                                    <li className="px-3 py-2 text-sm text-slate-500">No articles found</li>
+                                ) : (
+                                    filteredArticles.map((a, idx) => (
+                                        <li
+                                            key={a.id}
+                                            role="option"
+                                            aria-selected={articleHighlightedIndex === idx}
+                                            onMouseDown={(e) => { e.preventDefault(); selectArticle(a); }}
+                                            onMouseEnter={() => setArticleHighlightedIndex(idx)}
+                                            className={`px-3 py-2 text-sm cursor-pointer ${articleHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
+                                        >
+                                            {a.name}
+                                        </li>
+                                    ))
+                                )}
+                            </ul>
+                        )}
+                    </div>
+
+                    {errors.article_id && (
+                        <p className="text-sm text-red-600">{errors.article_id.message}</p>
+                    )}
+                </div>
+
                 {/* Item Description */}
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
@@ -171,7 +309,9 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
                                     label="Serial Number"
                                     placeholder="e.g., SN123456789"
                                 />
-                                <p className="mt-1 text-xs text-slate-500">If you enter a serial number, quantity must be 1.</p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    {isSerialProvided ? 'Serial entered — quantity locked to 1.' : 'If you enter a serial number, quantity will be locked to 1.'}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -187,6 +327,8 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, propertyTy
                             min={1}
                             placeholder="Enter quantity"
                             error={errors.quantity_delivered?.message}
+                            disabled={isSerialProvided}
+                            className={isSerialProvided ? 'opacity-60' : ''}
                         />
                     </div>
 

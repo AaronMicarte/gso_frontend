@@ -13,10 +13,13 @@ import { ItemDetailsModal } from './ItemDetailsModal';
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers } from '@/lib/api/deliveryReceipts';
+import { getActiveArticles } from '@/lib/api/masterData';
+import { Article } from '@/types/masterData';
 import { formatInTimeZone } from 'date-fns-tz';
 
 const drItemSchema = z.object({
-    item_description: z.string().min(1, 'Item description is required'),
+    article_id: z.number().min(1, 'Article is required'),
+    item_description: z.string().max(1000, 'Item description is too long').optional().or(z.literal('')),
     brand: z.string().optional(),
     model_number: z.string().optional(),
     serial_number: z.string().optional(),
@@ -58,6 +61,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const queryClient = useQueryClient();
     const createMutation = useCreateDeliveryReceipt();
     const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
+    const [articles, setArticles] = useState<Article[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
 
     // Manila today's date (YYYY-MM-DD) for client-side max date and validation
@@ -132,8 +136,12 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         const fetchData = async () => {
             try {
                 setIsLoadingData(true);
-                const propertyTypesData = await getPropertyTypes();
+                const [propertyTypesData, articlesData] = await Promise.all([
+                    getPropertyTypes(),
+                    getActiveArticles()
+                ]);
                 setPropertyTypes(propertyTypesData);
+                setArticles(articlesData);
             } catch {
                 toast.error('Failed to load form data');
             } finally {
@@ -383,7 +391,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const duplicateItem = (index: number) => {
         const item = details[index];
         append({
-            item_description: item?.item_description || '',
+            article_id: item?.article_id || 0, item_description: item?.item_description || '',
             brand: item?.brand || '',
             model_number: item?.model_number || '',
             serial_number: item?.serial_number || '',
@@ -685,6 +693,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                 <thead>
                                     <tr className="border-b border-slate-200">
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">#</th>
+                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Article</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Details</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-24">Qty</th>
@@ -697,6 +706,16 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                     {fields.map((field, index) => (
                                         <tr key={field.id} className="border-b border-slate-100">
                                             <td className="py-3 px-3 text-sm text-slate-600">{index + 1}</td>
+                                            <td className="py-3 px-3">
+                                                <div className="text-sm text-slate-700">
+                                                    {articles.find(a => a.id === details[index]?.article_id)?.name || '—'}
+                                                </div>
+                                                {errors.details?.[index]?.article_id && (
+                                                    <p className="mt-1 text-xs text-red-600">
+                                                        {errors.details[index]?.article_id?.message}
+                                                    </p>
+                                                )}
+                                            </td>
                                             <td className="py-3 px-3">
                                                 <div className="text-sm text-slate-700">{details[index]?.item_description || '—'}</div>
                                                 {errors.details?.[index]?.item_description && (
@@ -736,7 +755,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                                 ₱{((details[index]?.quantity_delivered || 0) * (details[index]?.unit_cost || 0)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             <td className="py-3 px-3 flex items-center gap-2">
-                                                {(errors.details?.[index]?.property_type_id || errors.details?.[index]?.unit_of_measure_id || errors.details?.[index]?.quantity_delivered || errors.details?.[index]?.item_description) && (
+                                                {(errors.details?.[index]?.property_type_id || errors.details?.[index]?.unit_of_measure_id || errors.details?.[index]?.quantity_delivered) && (
                                                     <span className="text-red-600 mr-2" title="Missing required fields">
                                                         <AlertCircle className="w-4 h-4" />
                                                     </span>
@@ -794,6 +813,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                             if (!open) setIsAddingItem(false);
                         }}
                         initialValues={isAddingItem ? {} : (editingIndex !== null ? watch(`details.${editingIndex}`) : {})}
+                        articles={articles}
                         propertyTypes={propertyTypes}
                         units={units}
                         onSave={handleSaveItem}

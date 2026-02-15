@@ -64,7 +64,7 @@ export function AllItemsPage() {
         if (!data?.data) return [];
         if (!search) return data?.data || [];
         return (data?.data || []).filter(item =>
-            item.dr_item_description?.toLowerCase().includes(search.toLowerCase()) ||
+            item.dr_article_name?.toLowerCase().includes(search.toLowerCase()) ||
             item.Description?.toLowerCase().includes(search.toLowerCase()) ||
             item.PropertyName?.toLowerCase().includes(search.toLowerCase()) ||
             item.Brand?.toLowerCase().includes(search.toLowerCase()) ||
@@ -87,7 +87,7 @@ export function AllItemsPage() {
     };
 
     const getItemName = (item: InventoryItem) => {
-        return item.dr_item_description || item.PropertyName || 'Unknown Item';
+        return item.dr_article_name || item.PropertyName || 'Unknown Item';
     };
 
     const getCombinedDescription = (item: InventoryItem) => {
@@ -288,7 +288,7 @@ export function AllItemsPage() {
                         <table className="w-full text-sm text-left">
                             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                 <tr>
-                                    <th className="px-6 py-4">Item Name</th>
+                                    <th className="px-6 py-4">Article</th>
                                     <th className="px-6 py-4">Description</th>
                                     <th className="px-6 py-4">Property Type</th>
                                     <th className="px-6 py-4">Inventory Number</th>
