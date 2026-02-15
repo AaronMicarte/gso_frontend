@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
-import { getDeliveryReceipt, getDeliveryReceiptRequesters, getPropertyTypes } from '@/lib/api/deliveryReceipts';
+import { getDeliveryReceipt, getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers } from '@/lib/api/deliveryReceipts';
 import { useUpdateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 
@@ -96,6 +96,8 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
 
     const [requesters, setRequesters] = useState<{ UserID: number; FullName: string; DepartmentID: number; DepartmentName?: string | null }[]>([]);
     const [requesterQuery, setRequesterQuery] = useState('');
+    const [suppliers, setSuppliers] = useState<{ SupplierID: number; SupplierName: string }[]>([]);
+    const [supplierQuery, setSupplierQuery] = useState('');
 
     const { fields, append, remove, update } = useFieldArray({
         control,
@@ -141,6 +143,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 // Populate form with existing data
                 setValue('dr_number', drData.DRNumber);
                 setValue('supplier_name', drData.SupplierName || '');
+                setSupplierQuery(drData.SupplierName || ''); // Set supplier query for display
                 setValue('requested_by_user_id', (drData.RequestedBy ?? drData.requestedByUser?.UserID ?? 0) as number);
                 setValue('pr_number', drData.PRNumber || '');
                 setValue('po_number', drData.PONumber || '');
@@ -206,7 +209,18 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             }
         };
 
+        const fetchSuppliers = async () => {
+            try {
+                const results = await getSuppliers();
+                setSuppliers(results || []);
+            } catch {
+                toast.error('Failed to load suppliers');
+                setSuppliers([]);
+            }
+        };
+
         fetchRequesters();
+        fetchSuppliers();
     }, []);
 
     const filteredRequesters = requesters.filter((user) => {
@@ -215,18 +229,33 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         return label.includes(requesterQuery.trim().toLowerCase());
     });
 
-    // Combobox state for accessible dropdown search
+    const filteredSuppliers = suppliers.filter((supplier) => {
+        return supplier.SupplierName.toLowerCase().includes(supplierQuery.trim().toLowerCase());
+    });
+
+    // Combobox state for accessible dropdown search - Requesters
     const [comboboxOpen, setComboboxOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const comboboxRef = useRef<HTMLDivElement | null>(null);
     const comboboxInputRef = useRef<HTMLInputElement | null>(null);
     const comboboxListRef = useRef<HTMLUListElement | null>(null);
 
+    // Combobox state for suppliers
+    const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
+    const [supplierHighlightedIndex, setSupplierHighlightedIndex] = useState(-1);
+    const supplierComboboxRef = useRef<HTMLDivElement | null>(null);
+    const supplierComboboxInputRef = useRef<HTMLInputElement | null>(null);
+    const supplierComboboxListRef = useRef<HTMLUListElement | null>(null);
+
     useEffect(() => {
         const onClickOutside = (e: MouseEvent) => {
             if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
                 setComboboxOpen(false);
                 setHighlightedIndex(-1);
+            }
+            if (supplierComboboxRef.current && !supplierComboboxRef.current.contains(e.target as Node)) {
+                setSupplierComboboxOpen(false);
+                setSupplierHighlightedIndex(-1);
             }
         };
         document.addEventListener('mousedown', onClickOutside);
@@ -239,6 +268,13 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         setValue('requested_by_user_id', user.UserID);
         setComboboxOpen(false);
         setHighlightedIndex(-1);
+    };
+
+    const selectSupplier = (supplier: { SupplierID: number; SupplierName: string }) => {
+        setSupplierQuery(supplier.SupplierName);
+        setValue('supplier_name', supplier.SupplierName);
+        setSupplierComboboxOpen(false);
+        setSupplierHighlightedIndex(-1);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -260,6 +296,25 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         }
     };
 
+    const handleSupplierKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!supplierComboboxOpen) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSupplierHighlightedIndex((prev) => Math.min(prev + 1, filteredSuppliers.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSupplierHighlightedIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (supplierHighlightedIndex >= 0 && supplierHighlightedIndex < filteredSuppliers.length) {
+                selectSupplier(filteredSuppliers[supplierHighlightedIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            setSupplierComboboxOpen(false);
+            setSupplierHighlightedIndex(-1);
+        }
+    };
+
     useEffect(() => {
         // If requester id is set externally (e.g. form reset), populate the visible combobox text.
         const requester = requesters.find((user) => user.UserID === watchedRequesterId);
@@ -269,7 +324,14 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [watchedRequesterId, requesters]);
-
+    useEffect(() => {
+        // If supplier name in form is set externally, populate the visible combobox text.
+        const supplierName = watch('supplier_name');
+        if (supplierName && supplierQuery.trim().length === 0) {
+            setSupplierQuery(supplierName);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [watch('supplier_name'), suppliers]);
     const onSubmit = async (data: DRFormValues) => {
         // client-side checks: prevent future dates and too-old dates (unless override requested)
         if (data.date_received > manilaToday) {
@@ -565,16 +627,53 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                             </div>
 
                             {/* Supplier Name */}
-                            <div>
+                            <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Supplier Name *
                                 </label>
-                                <input
-                                    {...register('supplier_name')}
-                                    type="text"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                    placeholder="Enter supplier name manually"
-                                />
+                                <div className="relative" ref={supplierComboboxRef}>
+                                    <input
+                                        ref={supplierComboboxInputRef}
+                                        type="text"
+                                        role="combobox"
+                                        aria-expanded={supplierComboboxOpen}
+                                        aria-controls="supplier-listbox"
+                                        aria-autocomplete="list"
+                                        value={supplierQuery}
+                                        onChange={(e) => {
+                                            setSupplierQuery(e.target.value);
+                                            setValue('supplier_name', e.target.value);
+                                            setSupplierComboboxOpen(true);
+                                            setSupplierHighlightedIndex(-1);
+                                        }}
+                                        onKeyDown={handleSupplierKeyDown}
+                                        placeholder="Search suppliers or enter new supplier name..."
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                        onFocus={() => setSupplierComboboxOpen(true)}
+                                    />
+                                    {supplierComboboxOpen && (
+                                        <ul id="supplier-listbox" role="listbox" ref={supplierComboboxListRef} className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
+                                            {filteredSuppliers.length === 0 ? (
+                                                <li className="px-3 py-2 text-sm text-slate-500">
+                                                    {supplierQuery.trim() ? `No suppliers match "${supplierQuery}". Press Enter to use "${supplierQuery}" as new supplier.` : 'Type to search suppliers...'}
+                                                </li>
+                                            ) : (
+                                                filteredSuppliers.map((supplier, idx) => (
+                                                    <li
+                                                        key={supplier.SupplierID}
+                                                        role="option"
+                                                        aria-selected={supplierHighlightedIndex === idx}
+                                                        onMouseDown={(e) => { e.preventDefault(); selectSupplier(supplier); }}
+                                                        onMouseEnter={() => setSupplierHighlightedIndex(idx)}
+                                                        className={`px-3 py-2 cursor-pointer text-sm ${supplierHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
+                                                    >
+                                                        <div className="font-medium">{supplier.SupplierName}</div>
+                                                    </li>
+                                                ))
+                                            )}
+                                        </ul>
+                                    )}
+                                </div>
                                 {errors.supplier_name && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <AlertCircle className="w-3 h-3" />
