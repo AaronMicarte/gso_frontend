@@ -99,7 +99,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     };
 
     const getStatusBadge = (statusId?: number, statusName?: string) => {
-        const label = statusName?.trim() || (statusId === 2 ? 'Issued' : statusId === 3 ? 'For Repair' : statusId === 4 ? 'For Disposal' : 'For issuance');
+        const label = statusName?.trim() || (statusId === 2 ? 'Issued' : statusId === 3 ? 'For Repair' : statusId === 4 ? 'For Disposal' : 'Available');
         const normalized = label.toLowerCase();
 
         if (normalized.includes('issuance') || normalized.includes('available')) {
@@ -145,6 +145,18 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
     const getCustodianDisplayName = (custodianName?: string) => {
         return custodianName || 'Requester not set';
+    };
+
+    const getItemName = (detail: {
+        dr_item_description?: string;
+        PropertyName?: string;
+        Brand?: string;
+        ModelNumber?: string;
+        SerialNumber?: string;
+    }) => {
+        const baseName = detail.dr_item_description || detail.PropertyName || 'Property Item';
+        const details = [detail.Brand, detail.ModelNumber, detail.SerialNumber].filter(Boolean);
+        return details.length ? `${baseName} - ${details.join(' / ')}` : baseName;
     };
 
     const getQrCodeData = (detail: {
@@ -235,7 +247,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                                         <div className="flex items-center gap-2 mb-2">
                                             <CheckCircle className="w-5 h-5 text-green-600" />
-                                            <div className="text-sm font-medium text-slate-700">For Issuance</div>
+                                            <div className="text-sm font-medium text-slate-700">Available</div>
                                         </div>
                                         <div className="text-2xl font-bold text-green-600">
                                             {data?.details?.filter(d => d.PropertyStatusID === 1).length || 0}
@@ -340,7 +352,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         <td className="px-6 py-4">
                                                             <div>
                                                                 <div className="font-medium text-slate-900">
-                                                                    {d.dr_item_description || 'Property Item'}
+                                                                    {getItemName(d)}
                                                                 </div>
                                                                 <div className="text-xs text-slate-500 space-y-1 mt-1">
                                                                     {d.Brand && <div>Brand: {d.Brand}</div>}
@@ -396,7 +408,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 {d.PropertyNumber && (d.PropertyStatusID === 2) && Boolean(getQrCodeData(d)) && (
                                                                     <PropertySticker
                                                                         propertyNumber={d.PropertyNumber}
-                                                                        itemName={d.dr_item_description || 'Asset'}
+                                                                        itemName={getItemName(d)}
                                                                         category={d.PropertyName || d.ClassificationName || '-'}
                                                                         url={(() => {
                                                                             const origin = typeof window !== 'undefined' ? window.location.origin : '';

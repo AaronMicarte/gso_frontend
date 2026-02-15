@@ -82,6 +82,7 @@ function DepartmentHeadLayoutInner({
                 'admin': '/admin/dashboard',
                 'gso staff': '/staff/dashboard',
                 'end user': '/user/dashboard',
+                'inspection officer': '/inspection/inspections',
             };
             const correctRoute = roleRoutes[user.Role.toLowerCase()] || '/';
             router.push(correctRoute);

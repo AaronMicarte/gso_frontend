@@ -77,18 +77,12 @@ export interface PropertyClassificationInput {
 export interface PropertyType {
     id: number;
     name: string;
-    category_id: number;
     property_classification_id: number;
     description?: string | null;
     created_at: string;
     updated_at?: string | null;
     deleted_at?: string | null;
     is_deleted?: boolean;
-    // Relations
-    category?: {
-        id: number;
-        name: string;
-    };
     property_classification?: {
         id: number;
         name: string;
@@ -98,7 +92,6 @@ export interface PropertyType {
 
 export interface PropertyTypeInput {
     name: string;
-    category_id: number;
     property_classification_id: number;
     description?: string;
 }

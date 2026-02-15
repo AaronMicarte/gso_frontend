@@ -423,7 +423,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                     {comboboxOpen && (
                                         <ul id="requester-listbox" role="listbox" ref={comboboxListRef} className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
                                             {filteredRequesters.length === 0 ? (
-                                                <li className="px-3 py-2 text-sm text-slate-500">No matches for "{requesterQuery}"</li>
+                                                <li className="px-3 py-2 text-sm text-slate-500">No matches for &quot;{requesterQuery}&quot;</li>
                                             ) : (
                                                 filteredRequesters.map((user, idx) => {
                                                     const departmentName = user.DepartmentName || `Department ${user.DepartmentID}`;

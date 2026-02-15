@@ -60,6 +60,8 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
         return sum + (unitCost * deliveredQty);
     }, 0) || 0;
 
+    const acceptanceName = iar.acceptedByUser?.FullName || iar.deliveryReceipt?.requestedByUser?.FullName || '';
+
     return (
         <div ref={ref} className="hidden print:block p-4 bg-white text-black text-sm" style={{ fontFamily: 'Times New Roman, serif' }}>
             {/* Header */}
@@ -85,7 +87,7 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
                 <div className="grid grid-cols-2 divide-x divide-black">
                     <div className="p-2 space-y-2">
                         <p><span className="font-bold">Supplier:</span> {iar.deliveryReceipt?.SupplierName}</p>
-                        <p><span className="font-bold">PO No./Date:</span> {iar.deliveryReceipt?.PONumber || '____________________'} / ____________________</p>
+                        <p><span className="font-bold">PO No./Date:</span> {iar.deliveryReceipt?.PONumber || '____________________'}</p>
                         <p><span className="font-bold">Requisitioning Office/Dept:</span> ____________________</p>
                         <p><span className="font-bold">Responsibility Center Code:</span> ____________________</p>
                     </div>
@@ -116,7 +118,7 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
                             <td className="border border-black p-1" style={{ verticalAlign: 'top' }}>
                                 <div className="font-semibold">{detail.drDetail?.ItemDescription}</div>
                             </td>
-                            <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{detail.drDetail?.unitOfMeasure?.UnitName || 'pcs'}</td>
+                            <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{detail.drDetail?.unitOfMeasure?.UnitName || detail.drDetail?.UnitName || ''}</td>
                             <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{detail.drDetail?.QuantityDelivered}</td>
                             <td className="border border-black p-1 text-right" style={{ verticalAlign: 'top' }}>
                                 {((detail.drDetail?.QuantityDelivered || 0) * (detail.drDetail?.UnitCost || 0)).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
@@ -149,7 +151,7 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
                     <div className="p-2">
                         <h3 className="font-bold text-center mb-2 border-b border-black pb-1">INSPECTION</h3>
                         <div className="mb-2">
-                            <p className="mb-2">Date Inspected: <span className="underline">{formatDate(iar.DateInspected)}</span></p>
+                            <p className="mb-2">Date Inspected: <span className="inline-block border-b border-black min-w-[160px]">{formatDate(iar.DateInspected)}</span></p>
                             <div className="flex items-start gap-2">
                                 <div className="border border-black w-4 h-4 mt-1 flex items-center justify-center">
                                     ✓
@@ -159,19 +161,7 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
                         </div>
 
                         <div className="mt-4 text-center">
-                            <div style={{ height: 84, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '2px' }}>
-                                {inspectedFinal ? (
-                                    <img
-                                        src={resolveStorageUrl(inspectedFinal)}
-                                        alt="Inspected signature"
-                                        className="mb-1 object-contain"
-                                        style={{ maxWidth: '260px', maxHeight: '50px', position: 'relative', top: '8px', zIndex: 2 }}
-                                    />
-                                ) : (
-                                    <div className="w-64 h-8 border-b-2 border-black mb-1" />
-                                )}
-                            </div>
-
+                            <div className="h-10" />
                             <p className="font-bold uppercase" style={{ marginTop: 6, borderBottom: '1px solid black', minHeight: '1.2em', display: 'inline-block', width: '100%', textAlign: 'center', position: 'relative', zIndex: 1 }}>{iar.inspectedByUser?.FullName || ''}</p>
 
                             <p className="text-xs">Inspector Officer/Inspection Committee</p>
@@ -182,36 +172,24 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
                     <div className="p-2">
                         <h3 className="font-bold text-center mb-2 border-b border-black pb-1">ACCEPTANCE</h3>
                         <div className="mb-2">
-                            <p className="mb-2">Date Received: <span className="underline">{formatDate(iar.DateAccepted || iar.DateInspected)}</span></p>
+                            <p className="mb-2">Date Received: <span className="inline-block border-b border-black min-w-[160px]">{formatDate(iar.DateAccepted)}</span></p>
                             <div className="flex items-start gap-2 mb-1">
                                 <div className="border border-black w-4 h-4 mt-1 flex items-center justify-center">
-                                    {iar.details?.some(d => d.QuantityRejected > 0) ? '' : '✓'}
+
                                 </div>
                                 <p className="text-sm">Complete</p>
                             </div>
                             <div className="flex items-start gap-2">
                                 <div className="border border-black w-4 h-4 mt-1 flex items-center justify-center">
-                                    {iar.details?.some(d => d.QuantityRejected > 0) ? '✓' : ''}
+
                                 </div>
                                 <p className="text-sm">Partial (pls. specify quantity)</p>
                             </div>
                         </div>
 
                         <div className="mt-4 text-center">
-                            <div style={{ height: 84, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '2px' }}>
-                                {acceptedFinal ? (
-                                    <img
-                                        src={resolveStorageUrl(acceptedFinal)}
-                                        alt="Accepted signature"
-                                        className="mb-1 object-contain"
-                                        style={{ maxWidth: '260px', maxHeight: '50px', position: 'relative', top: '8px', zIndex: 2 }}
-                                    />
-                                ) : (
-                                    <div className="w-64 h-8 border-b-2 border-black mb-1" />
-                                )}
-                            </div>
-
-                            <p className="font-bold uppercase" style={{ marginTop: 6, borderBottom: '1px solid black', minHeight: '1.2em', display: 'inline-block', width: '100%', textAlign: 'center', position: 'relative', zIndex: 1 }}>{iar.acceptedByUser?.FullName || ''}</p>
+                            <div className="h-10" />
+                            <p className="font-bold uppercase" style={{ marginTop: 6, borderBottom: '1px solid black', minHeight: '1.2em', display: 'inline-block', width: '100%', textAlign: 'center', position: 'relative', zIndex: 1 }}>{acceptanceName}</p>
 
                             <p className="text-xs">Supply and/or Property Custodian</p>
                         </div>

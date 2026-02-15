@@ -20,10 +20,7 @@ import issuanceAPI from '@/lib/api/issuance';
 import { AssetIssuance, AcknowledgeAssetData, InventoryDetail } from '@/types/assetIssuance';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { SignatureModal } from '@/components/ui/SignatureModal';
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import React from 'react';
-import Image from 'next/image';
 
 const statusConfig = {
     pending_acknowledgment: {
@@ -65,37 +62,6 @@ const documentTypeConfig = {
     },
 };
 
-function AcknowledgmentSignatureViewer({ url }: { url: string }) {
-    const [src] = React.useState(url);
-    const [failed, setFailed] = React.useState(false);
-
-    return (
-        <>
-            <DialogPrimitive.Description className="sr-only">Acknowledgment signature preview</DialogPrimitive.Description>
-            <div className="flex justify-center">
-                {!failed ? (
-                    <Image
-                        src={src}
-                        alt="Acknowledgment signature"
-                        width={400}
-                        height={120}
-                        unoptimized
-                        className="object-contain border rounded"
-                        onError={() => setFailed(true)}
-                    />
-                ) : (
-                    <div className="w-full max-w-md border rounded p-4 text-center">
-                        <p className="text-slate-700">Signature could not be loaded.</p>
-                        <a href={src} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-[var(--primary)] underline">
-                            Open / download signature
-                        </a>
-                    </div>
-                )}
-            </div>
-        </>
-    );
-}
-
 interface ViewIssuancePageProps {
     baseRoute: string;
 }
@@ -107,8 +73,6 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     const [issuance, setIssuance] = useState<AssetIssuance | null>(null);
     const [loading, setLoading] = useState(true);
     const [isAcknowledging, setIsAcknowledging] = useState(false);
-    const [showSignatureModal, setShowSignatureModal] = useState(false);
-    const [showSignatureViewer, setShowSignatureViewer] = useState(false);
     const [acknowledgmentNotes, setAcknowledgmentNotes] = useState('');
 
     const issuanceId = params?.id ? parseInt(params.id as string) : null;
@@ -250,7 +214,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         return Boolean(user && departmentId && user.DepartmentID === departmentId);
     };
 
-    const handleAcknowledgeSignature = async (signatureData: string) => {
+    const handleAcknowledge = async () => {
         if (!issuance) return;
         if (!user) {
             toast.error('You must be logged in to acknowledge');
@@ -271,14 +235,12 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         try {
             setIsAcknowledging(true);
             const acknowledgmentData: AcknowledgeAssetData = {
-                acknowledgment_signature: signatureData,
                 acknowledgment_notes: acknowledgmentNotes || undefined,
                 acknowledged_by: user.UserID,
             };
 
             await issuanceAPI.acknowledge(issuance.IssuanceID, acknowledgmentData);
             toast.success('Asset acknowledged successfully!');
-            setShowSignatureModal(false);
             setAcknowledgmentNotes(''); // Clear notes
             loadIssuance(); // Reload to get updated data
         } catch {
@@ -404,23 +366,24 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                             <div className="space-y-3">
                                 <div>
                                     <label htmlFor="acknowledgment-notes" className="block text-sm font-medium text-gray-700 mb-2">
-                                        Optional Notes for Acknowledgment
+                                        Optional Notes
                                     </label>
                                     <textarea
                                         id="acknowledgment-notes"
                                         rows={3}
                                         className="shadow-sm focus:ring-[var(--primary)] focus:border-[var(--primary)] block w-full sm:text-sm border-gray-300 rounded-md"
-                                        placeholder="Enter any notes about receiving this asset..."
+                                        placeholder="Enter notes about receiving this asset..."
                                         value={acknowledgmentNotes}
                                         onChange={(e) => setAcknowledgmentNotes(e.target.value)}
                                     />
                                 </div>
                                 <button
-                                    onClick={() => setShowSignatureModal(true)}
+                                    onClick={handleAcknowledge}
+                                    disabled={isAcknowledging}
                                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)]"
                                 >
                                     <CheckCircle className="w-4 h-4 mr-2" />
-                                    Acknowledge Receipt
+                                    Mark Received
                                 </button>
                             </div>
                         )}
@@ -642,19 +605,6 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                 )}
                             </div>
 
-                            {issuance.AcknowledgmentSignature && (
-                                <div className="mt-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Signature</label>
-                                    <button
-                                        onClick={() => setShowSignatureViewer(true)}
-                                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)]"
-                                    >
-                                        <FileText className="w-4 h-4 mr-2" />
-                                        View Signature
-                                    </button>
-                                </div>
-                            )}
-
                             {issuance.AcknowledgmentNotes && (
                                 <div className="mt-4">
                                     <label className="block text-sm font-medium text-gray-700">Acknowledgment Notes</label>
@@ -727,34 +677,6 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                     </div>
                 )}
 
-                {/* Signature Modal for Acknowledgment */}
-                <SignatureModal
-                    open={showSignatureModal}
-                    onOpenChange={setShowSignatureModal}
-                    onSave={(signatureData) => handleAcknowledgeSignature(signatureData)}
-                    loading={isAcknowledging}
-                    confirmText="Confirm Signature"
-                    confirmPrompt="Confirm your signature to acknowledge receipt?"
-                />
-
-                {/* Signature Viewer */}
-                {issuance.AcknowledgmentSignature && (
-                    <DialogPrimitive.Root open={showSignatureViewer} onOpenChange={setShowSignatureViewer}>
-                        <DialogPrimitive.Portal>
-                            <DialogPrimitive.Overlay className="fixed inset-0 bg-black/50 z-50" />
-                            <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
-                                <div className="flex justify-between items-center mb-4">
-                                    <DialogPrimitive.Title className="text-lg font-medium">Acknowledgment Signature</DialogPrimitive.Title>
-                                    <DialogPrimitive.Close className="text-gray-400 hover:text-gray-600">
-                                        <span className="sr-only">Close</span>
-                                        ✕
-                                    </DialogPrimitive.Close>
-                                </div>
-                                <AcknowledgmentSignatureViewer url={issuance.AcknowledgmentSignature} />
-                            </DialogPrimitive.Content>
-                        </DialogPrimitive.Portal>
-                    </DialogPrimitive.Root>
-                )}
             </div>
         </div>
     );

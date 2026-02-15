@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useIARs, useDeleteIAR } from '@/lib/hooks/useIAR';
 import {
     ClipboardCheck,
@@ -15,6 +16,7 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
 import { toast } from 'sonner';
+import { ViewIARPage } from './ViewIARPage';
 
 interface IARListPageProps {
     baseRoute: string;
@@ -24,6 +26,8 @@ interface IARListPageProps {
 export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [isViewOpen, setIsViewOpen] = useState(false);
+    const [selectedIarId, setSelectedIarId] = useState<number | null>(null);
     const deleteMutation = useDeleteIAR();
     const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
@@ -37,6 +41,18 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
                 toast.success('IAR deleted successfully');
             },
         });
+    };
+
+    const handleOpenChange = (open: boolean) => {
+        setIsViewOpen(open);
+        if (!open) {
+            setSelectedIarId(null);
+        }
+    };
+
+    const handleView = (id: number) => {
+        setSelectedIarId(id);
+        setIsViewOpen(true);
     };
 
     const { data, isLoading } = useIARs({
@@ -138,13 +154,14 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    <Link
-                                                        href={`${baseRoute}/inspection-acceptance-reports/${iar.IARID}`}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleView(iar.IARID)}
                                                         className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
                                                         title="View Details"
                                                     >
                                                         <Eye className="w-4 h-4" />
-                                                    </Link>
+                                                    </button>
                                                     {canDelete && (
                                                         <button
                                                             onClick={() => handleDelete(iar.IARID, iar.IARNumber)}
@@ -194,6 +211,23 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
                     )}
                 </div>
             </div>
+
+            <DialogPrimitive.Root open={isViewOpen} onOpenChange={handleOpenChange}>
+                <DialogPrimitive.Portal>
+                    <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40 z-40" />
+                    <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-6xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-xl">
+                        <DialogPrimitive.Title className="sr-only">Inspection and Acceptance Report Details</DialogPrimitive.Title>
+                        {selectedIarId ? (
+                            <ViewIARPage
+                                baseRoute={baseRoute}
+                                iarId={selectedIarId}
+                                isModal
+                                onClose={() => handleOpenChange(false)}
+                            />
+                        ) : null}
+                    </DialogPrimitive.Content>
+                </DialogPrimitive.Portal>
+            </DialogPrimitive.Root>
         </div>
     );
 }

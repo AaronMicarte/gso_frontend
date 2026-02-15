@@ -38,6 +38,12 @@ interface DeliveryReceiptForIssuance {
     DepartmentID?: number | null;
     DepartmentName?: string | null;
     DateReceived?: string | null;
+    InspectionStatus?: 'pending' | 'inspected' | null;
+    IARID?: number | null;
+    IARNumber?: string | null;
+    IARDateAccepted?: string | null;
+    IARAcceptedBy?: number | null;
+    IsAccepted?: number | boolean | null;
     AvailableItems?: number;
 }
 
@@ -110,6 +116,15 @@ const issuanceAPI = {
         const { data } = await apiClient.post<AssetIssuanceResponse>(
             `/property-issuances/${id}/acknowledge`,
             acknowledgmentData
+        );
+        return data;
+    },
+
+    // Acknowledge inspected IAR to ingest inventory
+    acknowledgeInspection: async (payload: { dr_id?: number; iar_id?: number }) => {
+        const { data } = await apiClient.post<{ message: string }>(
+            '/property-issuances/acknowledge-iar',
+            payload
         );
         return data;
     },

@@ -310,7 +310,7 @@ export interface IssueAssetData {
 }
 
 export interface AcknowledgeAssetData {
-    acknowledgment_signature: string; // Base64 encoded (data URL recommended)
+    acknowledgment_signature?: string; // Base64 encoded (data URL recommended)
     acknowledgment_notes?: string;
     acknowledged_by: number;
 }

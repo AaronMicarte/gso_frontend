@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, ClipboardCheck, AlertCircle, Loader2, CheckCircle, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, AlertCircle, Loader2, CheckCircle, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
@@ -13,41 +13,50 @@ import { useAuth } from '@/lib/hooks/useAuth';
 
 interface ViewDRPageProps {
     baseRoute: string;
+    drId?: number;
+    isModal?: boolean;
+    onClose?: () => void;
 }
 
-export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
+export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDRPageProps) {
     const params = useParams();
     const router = useRouter();
     const { user } = useAuth();
     const [dr, setDr] = useState<DeliveryReceipt | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const resolvedId = drId ?? (params.id ? parseInt(params.id as string, 10) : null);
+
     // Permissions
     const canEdit = user?.UserRoleID === 1 || user?.UserRoleID === 2; // Admin or Staff
-    const canCreateIAR = user?.UserRoleID === 1 || user?.UserRoleID === 2; // Admin or Staff
+    const inspectionStatus = dr?.inspection_status || dr?.InspectionStatus || 'pending';
 
     useEffect(() => {
         const fetchDR = async () => {
             try {
-                const id = params.id as string;
-                const data = await getDeliveryReceipt(parseInt(id));
+                if (!resolvedId) return;
+                const data = await getDeliveryReceipt(resolvedId);
                 setDr(data);
             } catch {
                 toast.error('Failed to load delivery receipt');
-                router.push(`${baseRoute}/delivery-receipts`);
+                if (isModal) {
+                    onClose?.();
+                } else {
+                    router.push(`${baseRoute}/delivery-receipts`);
+                }
             } finally {
                 setIsLoading(false);
             }
         };
 
-        if (params.id) {
+        if (resolvedId) {
             fetchDR();
         }
-    }, [params.id, router, baseRoute]);
+    }, [resolvedId, router, baseRoute, isModal, onClose]);
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
+            <div className={`flex items-center justify-center ${isModal ? 'py-10' : 'min-h-screen'}`} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
                 <div className="text-center space-y-3">
                     <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)] mx-auto" />
                     <p className="text-slate-600">Loading delivery receipt...</p>
@@ -58,16 +67,26 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
 
     if (!dr) {
         return (
-            <div className="flex items-center justify-center min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
+            <div className={`flex items-center justify-center ${isModal ? 'py-10' : 'min-h-screen'}`} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
                 <div className="text-center space-y-3">
                     <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
                     <p className="text-slate-600">Delivery receipt not found</p>
-                    <Link
-                        href={`${baseRoute}/delivery-receipts`}
-                        className="text-[var(--primary)] hover:underline"
-                    >
-                        Back to list
-                    </Link>
+                    {isModal ? (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="text-[var(--primary)] hover:underline"
+                        >
+                            Close
+                        </button>
+                    ) : (
+                        <Link
+                            href={`${baseRoute}/delivery-receipts`}
+                            className="text-[var(--primary)] hover:underline"
+                        >
+                            Back to list
+                        </Link>
+                    )}
                 </div>
             </div>
         );
@@ -79,16 +98,26 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
     }, 0) : 0;
 
     return (
-        <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+        <div className={isModal ? 'print:hidden' : 'min-h-screen bg-cover bg-center bg-no-repeat print:hidden'} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
             <div className="p-6 max-w-6xl mx-auto space-y-6">
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => router.back()}
-                        className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                        type="button"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </button>
+                    {isModal ? (
+                        <button
+                            onClick={onClose}
+                            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                            type="button"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => router.back()}
+                            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                            type="button"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
+                    )}
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Delivery Receipt Details</h1>
                         <p className="text-slate-500 text-sm">DR Number: {dr.DRNumber}</p>
@@ -104,22 +133,13 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
                         <Printer className="w-4 h-4" />
                         Print DR
                     </Link>
-                    {canEdit && !dr?.hasIAR && (
+                    {canEdit && inspectionStatus !== 'inspected' && (
                         <Link
                             href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
                         >
                             <Edit className="w-4 h-4" />
                             Edit DR
-                        </Link>
-                    )}
-                    {!dr.hasIAR && canCreateIAR && (
-                        <Link
-                            href={`${baseRoute}/delivery-receipts/create-iar?dr_id=${dr.DRID}`}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                        >
-                            <ClipboardCheck className="w-4 h-4" />
-                            Create IAR
                         </Link>
                     )}
                 </div>
@@ -239,21 +259,16 @@ export function ViewDRPage({ baseRoute }: ViewDRPageProps) {
                     </div>
                     <div className="flex items-center justify-between mt-4">
                         <span className="text-slate-600">IAR Status:</span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${dr.iar_status === 'Accepted' ? 'bg-green-100 text-green-700' : dr.iar_status === 'Inspected' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {dr.iar_status === 'Accepted' ? (
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${inspectionStatus === 'inspected' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {inspectionStatus === 'inspected' ? (
                                 <>
                                     <CheckCircle className="w-3 h-3" />
-                                    Accepted
-                                </>
-                            ) : dr.iar_status === 'Inspected' ? (
-                                <>
-                                    <ClipboardCheck className="w-3 h-3" />
-                                    Inspected
+                                    To be accepted
                                 </>
                             ) : (
                                 <>
                                     <AlertCircle className="w-3 h-3" />
-                                    Pending IAR
+                                    Pending inspection
                                 </>
                             )}
                         </span>

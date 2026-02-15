@@ -2,19 +2,16 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useInventories, usePendingIngestion, useIngestFromIar, useAllInventoryItems } from '@/lib/hooks/useInventory';
-import { Package, Eye, ArrowDownToLine, User, AlertTriangle, CheckCircle, Clock, Archive, Building2 } from 'lucide-react';
+import { useInventories, useAllInventoryItems } from '@/lib/hooks/useInventory';
+import { Package, Eye, User, AlertTriangle, CheckCircle, Archive, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { toast } from 'sonner';
 
 export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
 
     const { data, isLoading } = useInventories({ page, per_page: 10, search });
-    const { data: pendingIars, isLoading: isLoadingPending } = usePendingIngestion();
-    const { mutate: ingest, isPending: isIngesting } = useIngestFromIar();
 
     // Summary stats should reflect actual per-item status (same logic as AllItemsPage)
     // Use per_page=1 to avoid loading large datasets; we only need the totals.
@@ -27,16 +24,6 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
     const assignedItems = assignedItemsStats?.total ?? 0;
     const otherItems = Math.max(0, totalItems - availableItems - assignedItems);
 
-    const handleIngest = (iarId: number) => {
-        ingest(iarId, {
-            onSuccess: () => toast.success('Property ledger updated successfully'),
-            onError: (err) => toast.error('Failed to ingest: ' + err.message)
-        });
-    };
-
-    const handleViewIarDetails = (iarId: number) => {
-        window.open(`${baseRoute}/inspection-acceptance-reports/${iarId}`, '_blank');
-    };
 
     type InventoryRowDetail = {
         PropertyStatusID?: number;
@@ -82,7 +69,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
 
                 {/* Summary Stats - GSO Style */}
                 {data?.data && data.data.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <Package className="w-5 h-5 text-blue-600" />
@@ -93,7 +80,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <CheckCircle className="w-5 h-5 text-green-600" />
-                                <div className="text-sm font-medium text-slate-700">For Issuance</div>
+                                <div className="text-sm font-medium text-slate-700">Available</div>
                             </div>
                             <div className="text-2xl font-bold text-green-600">
                                 {availableItems}
@@ -117,82 +104,8 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 {otherItems}
                             </div>
                         </div>
-                        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Clock className="w-5 h-5 text-amber-600" />
-                                <div className="text-sm font-medium text-slate-700">Pending</div>
-                            </div>
-                            <div className="text-2xl font-bold text-amber-600">{pendingIars?.length ?? 0}</div>
-                        </div>
                     </div>
                 )}
-
-                {/* Pending Ingestion Section */}
-                {isLoadingPending ? (
-                    <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-amber-100 rounded-lg">
-                                <ArrowDownToLine className="w-5 h-5 text-amber-600" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-semibold text-amber-900">Pending Property Ingestion</h2>
-                                <p className="text-sm text-amber-700">Loading accepted IARs ready for property ledger...</p>
-                            </div>
-                        </div>
-                    </div>
-                ) : pendingIars && pendingIars.length > 0 ? (
-                    <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6 shadow-sm">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-amber-100 rounded-lg">
-                                <ArrowDownToLine className="w-5 h-5 text-amber-600" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-semibold text-amber-900">Pending Property Ingestion</h2>
-                                <p className="text-sm text-amber-700">{pendingIars.length} IAR{pendingIars.length > 1 ? 's' : ''} ready for property accountability ledger</p>
-                            </div>
-                        </div>
-                        <p className="text-sm text-amber-700 mb-4">
-                            These accepted inspection reports are ready to be added to the property accountability ledger. Click &quot;Ingest&quot; to create property records and assign accountability.
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {pendingIars.map((iar) => (
-                                <div key={iar.IARID} className="bg-white p-4 rounded-lg border border-amber-100 shadow-sm hover:shadow-md transition-shadow">
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <div className="font-medium text-slate-900">{iar.IARNumber}</div>
-                                            <button
-                                                onClick={() => handleViewIarDetails(iar.IARID)}
-                                                className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                                                title="View IAR Details"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="text-xs text-slate-500">Accepted: {format(toZonedTime(new Date(iar.DateAccepted), 'Asia/Manila'), 'MMM dd, yyyy')}</div>
-                                    <div className="text-xs text-slate-500 mt-1">{iar.details.length} item{iar.details.length > 1 ? 's' : ''} • {iar.details.reduce((sum, d) => sum + d.QuantityAccepted, 0)} total quantity</div>
-                                    <button
-                                        onClick={() => handleIngest(iar.IARID)}
-                                        disabled={isIngesting}
-                                        className="w-full mt-3 px-3 py-2 bg-amber-600 text-white text-sm font-medium rounded-md hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        {isIngesting ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
-                                                Processing...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <ArrowDownToLine className="w-3 h-3" />
-                                                Ingest to Property Ledger
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ) : null}
 
                 {/* Property Accountability Ledger - Real GSO Style */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

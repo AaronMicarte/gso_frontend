@@ -1,5 +1,5 @@
-import { ViewIARPage } from '@/components/features/iar/ViewIARPage';
+import { InspectionReportDetailPage } from '@/components/features/inspection/InspectionReportDetailPage';
 
 export default function StaffViewIARPage() {
-    return <ViewIARPage baseRoute="/staff" />;
+    return <InspectionReportDetailPage baseRoute="/staff" />;
 }

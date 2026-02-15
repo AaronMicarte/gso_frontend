@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
     ArrowLeft,
+    CheckCircle,
     FileText,
     Loader2,
     Package,
@@ -38,6 +39,12 @@ interface DeliveryReceiptOption {
     DepartmentID?: number | null;
     DepartmentName?: string | null;
     DateReceived?: string | null;
+    InspectionStatus?: 'pending' | 'inspected' | null;
+    IARID?: number | null;
+    IARNumber?: string | null;
+    IARDateAccepted?: string | null;
+    IARAcceptedBy?: number | null;
+    IsAccepted?: number | boolean | null;
     AvailableItems?: number;
 }
 
@@ -69,6 +76,7 @@ interface CreateIssuancePageProps {
 
 export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
 
     const [drOptions, setDrOptions] = useState<DeliveryReceiptOption[]>([]);
     const [selectedDr, setSelectedDr] = useState<DeliveryReceiptOption | null>(null);
@@ -96,6 +104,14 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
     useEffect(() => {
         loadDeliveryReceipts();
     }, []);
+
+    useEffect(() => {
+        const drParam = searchParams.get('dr_id');
+        if (!drParam) return;
+        const parsed = Number(drParam);
+        if (!Number.isFinite(parsed) || parsed <= 0) return;
+        setValue('dr_id', parsed, { shouldValidate: true });
+    }, [searchParams, setValue]);
 
     useEffect(() => {
         if (!watchedDrId) {
@@ -374,8 +390,19 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="text-xs text-slate-500 bg-white/80 border border-slate-200 px-3 py-2 rounded-full">
-                                            {isLoadingInventory ? 'Loading items...' : 'Auto-selected from this DR'}
+                                        <div className="flex flex-col items-end gap-2">
+                                            {!!selectedDr.IsAccepted && (
+                                                <div className="inline-flex items-center gap-1 text-xs font-medium bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">
+                                                    <CheckCircle className="w-3.5 h-3.5" />
+                                                    Accepted
+                                                    {selectedDr.IARDateAccepted
+                                                        ? ` • ${format(toZonedTime(new Date(selectedDr.IARDateAccepted), 'Asia/Manila'), 'MMM dd, yyyy')}`
+                                                        : ''}
+                                                </div>
+                                            )}
+                                            <div className="text-xs text-slate-500 bg-white/80 border border-slate-200 px-3 py-2 rounded-full">
+                                                {isLoadingInventory ? 'Loading items...' : 'Auto-selected from this DR'}
+                                            </div>
                                         </div>
                                     </div>
 

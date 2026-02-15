@@ -31,6 +31,7 @@ export interface IARDetail {
         SerialNumber?: string;
         QuantityDelivered: number;
         UnitCost: number;
+        UnitName?: string;
         unitOfMeasure?: {
             UnitOfMeasureID: number;
             UnitName: string;
@@ -65,6 +66,15 @@ export interface IAR {
         DateReceived: string;
         PONumber?: string;
         InvoiceNumber?: string;
+        requestedByUser?: {
+            UserID: number;
+            FullName: string;
+            DepartmentID: number;
+            department?: {
+                DepartmentID: number;
+                DepartmentName: string;
+            };
+        };
     };
     // Optional signature relationships
     inspectedSignature?: { url: string } | null;

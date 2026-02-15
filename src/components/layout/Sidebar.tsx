@@ -55,6 +55,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
     const isAdmin = user.UserRoleID === 1;
     const isGSOStaff = user.UserRoleID === 2;
     const isDepartmentHead = user.UserRoleID === 4;
+    const isInspectionOfficer = user.UserRoleID === 6;
 
     const sections: NavSection[] = [
         // MAIN - Everyone sees dashboard
@@ -121,7 +122,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         label: 'Property Issuance',
                         icon: FileText,
                         children: [
-                            { label: 'Issuance Requests', href: `${baseRoute}/issuance`, icon: FileText },
+                            { label: 'For Issuance', href: `${baseRoute}/issuance`, icon: FileText },
                             { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
                             { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
                         ]
@@ -239,6 +240,29 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
         );
     }
 
+    if (isInspectionOfficer) {
+        sections.push({
+            section: 'INSPECTION',
+            items: [
+                {
+                    label: 'Inspection Queue',
+                    href: `${baseRoute}/inspections`,
+                    icon: ClipboardList,
+                },
+                {
+                    label: 'Saved Inspections',
+                    href: `${baseRoute}/saved-inspections`,
+                    icon: FileClock,
+                },
+                {
+                    label: 'Completed Inspections',
+                    href: `${baseRoute}/completed-inspections`,
+                    icon: FileCheck,
+                },
+            ],
+        });
+    }
+
     // 🟡 GSO STAFF (Operational Level)
     if (isGSOStaff) {
         sections.push(
@@ -328,6 +352,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 section: 'PROPERTY OVERSIGHT',
                 items: [
                     { label: 'Property Oversight', href: `${baseRoute}/properties`, icon: Building2 },
+                    { label: 'Received Items', href: `${baseRoute}/received-items`, icon: Package },
                 ]
             },
             {

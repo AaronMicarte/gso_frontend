@@ -1,5 +1,5 @@
-import { IARListPage } from '@/components/features/iar/IARListPage';
+import { InspectionReportListPage } from '@/components/features/inspection/InspectionReportListPage';
 
 export default function StaffIARListPage() {
-    return <IARListPage baseRoute="/staff" canDelete={false} />;
+    return <InspectionReportListPage baseRoute="/staff" />;
 }

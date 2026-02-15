@@ -48,7 +48,7 @@ export function AllItemsPage() {
     const { data: propertyTypes } = useAllPropertyTypes();
 
     const propertyStatuses = [
-        { id: 1, name: 'For Issuance' },
+        { id: 1, name: 'Available' },
         { id: 2, name: 'Issued' },
         { id: 3, name: 'For Repair' },
         { id: 4, name: 'For Disposal' },
@@ -84,6 +84,12 @@ export function AllItemsPage() {
             }
             return newSet;
         });
+    };
+
+    const getItemName = (item: InventoryItem) => {
+        const baseName = item.dr_item_description || item.PropertyName || 'Unknown Item';
+        const details = [item.Brand, item.ModelNumber, item.SerialNumber].filter(Boolean);
+        return details.length ? `${baseName} - ${details.join(' / ')}` : baseName;
     };
 
     const getCombinedDescription = (item: InventoryItem) => {
@@ -122,7 +128,7 @@ export function AllItemsPage() {
     };
 
     const getStatusBadge = (statusId?: number, statusName?: string) => {
-        const label = statusName?.trim() || (statusId === 2 ? 'Issued' : statusId === 3 ? 'For Repair' : statusId === 4 ? 'For Disposal' : 'For issuance');
+        const label = statusName?.trim() || (statusId === 2 ? 'Issued' : statusId === 3 ? 'For Repair' : statusId === 4 ? 'For Disposal' : 'Available');
         const normalized = label.toLowerCase();
 
         if (normalized.includes('issuance') || normalized.includes('available')) {
@@ -228,7 +234,7 @@ export function AllItemsPage() {
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <CheckCircle className="w-5 h-5 text-green-600" />
-                                <div className="text-sm font-medium text-slate-700">For Issuance</div>
+                                <div className="text-sm font-medium text-slate-700">Available</div>
                             </div>
                             <div className="text-2xl font-bold text-green-600">
                                 {data.data.filter(item => item.PropertyStatusID === 1).length}
@@ -318,7 +324,7 @@ export function AllItemsPage() {
                                         <tr key={item.InventoryDetailID} className="hover:bg-slate-50">
                                             <td className="px-6 py-4">
                                                 <div className="font-medium text-slate-900">
-                                                    {item.dr_item_description || item.PropertyName || 'Unknown Item'}
+                                                    {getItemName(item)}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
@@ -360,7 +366,7 @@ export function AllItemsPage() {
                                                     {item.PropertyNumber && (item.PropertyStatusID === 2) && Boolean(getQrCodeData(item)) && (
                                                         <PropertySticker
                                                             propertyNumber={item.PropertyNumber}
-                                                            itemName={item.dr_item_description || item.PropertyName || 'Asset'}
+                                                            itemName={getItemName(item)}
                                                             category={item.PropertyName || item.ClassificationName || '-'}
                                                             url={(() => {
                                                                 const origin = typeof window !== 'undefined' ? window.location.origin : '';

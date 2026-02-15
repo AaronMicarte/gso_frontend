@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useDeliveryReceipts, useDeleteDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
 import {
@@ -11,22 +12,32 @@ import {
     Edit,
     Trash2,
     Package,
-    FileText,
     RefreshCw,
     CheckCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
+import { ViewDRPage } from './ViewDRPage';
 
 interface DeliveryReceiptsPageProps {
     baseRoute: string;
     canDelete?: boolean;
 }
 
+const workflowBadgeStyles: Record<string, string> = {
+    pending_inspection: 'bg-amber-100 text-amber-800',
+    to_be_accepted: 'bg-blue-100 text-blue-800',
+    to_be_issued: 'bg-indigo-100 text-indigo-800',
+    issued: 'bg-emerald-100 text-emerald-800',
+    acknowledged: 'bg-green-100 text-green-800',
+};
+
 export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryReceiptsPageProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [isViewOpen, setIsViewOpen] = useState(false);
+    const [selectedDrId, setSelectedDrId] = useState<number | null>(null);
     const deleteMutation = useDeleteDeliveryReceipt();
     const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
@@ -53,6 +64,18 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                 toast.success('Delivery Receipt deleted successfully');
             },
         });
+    };
+
+    const handleOpenChange = (open: boolean) => {
+        setIsViewOpen(open);
+        if (!open) {
+            setSelectedDrId(null);
+        }
+    };
+
+    const handleView = (id: number) => {
+        setSelectedDrId(id);
+        setIsViewOpen(true);
     };
 
     return (
@@ -108,7 +131,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                     <th className="px-6 py-4">Supplier</th>
                                     <th className="px-6 py-4">Date Received</th>
                                     <th className="px-6 py-4">Received By</th>
-                                    <th className="px-6 py-4">IAR Status</th>
+                                    <th className="px-6 py-4">Inspection Status</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -148,40 +171,36 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                                 {dr.receivedByUser?.FullName || 'N/A'}
                                             </td>
                                             <td className="px-6 py-4">
-                                                {dr.iar_status === 'Accepted' ? (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                        <CheckCircle className="w-3 h-3" />
-                                                        Accepted
-                                                    </span>
-                                                ) : dr.iar_status === 'Inspected' ? (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                        <FileText className="w-3 h-3" />
-                                                        Inspected
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                                        Pending IAR
-                                                    </span>
-                                                )}
+                                                {(() => {
+                                                    const fallbackStatus = (dr.inspection_status || dr.InspectionStatus) === 'inspected'
+                                                        ? 'to_be_accepted'
+                                                        : 'pending_inspection';
+                                                    const workflowStatus = dr.workflow_status || fallbackStatus;
+                                                    const workflowLabel = dr.workflow_status_label
+                                                        || (workflowStatus === 'to_be_accepted' ? 'To be accepted' : 'Pending inspection');
+                                                    const badgeClass = workflowBadgeStyles[workflowStatus] || workflowBadgeStyles.pending_inspection;
+                                                    const showCheck = workflowStatus !== 'pending_inspection';
+
+                                                    return (
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
+                                                            {showCheck && <CheckCircle className="w-3 h-3" />}
+                                                            {workflowLabel}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <Link
-                                                        href={`${baseRoute}/delivery-receipts/${dr.DRID}`}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleView(dr.DRID)}
                                                         className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
                                                         title="View Details"
                                                     >
                                                         <Eye className="w-4 h-4" />
-                                                    </Link>
-                                                    {!dr.hasIAR && (
+                                                    </button>
+                                                    {(dr.inspection_status || dr.InspectionStatus) !== 'inspected' && (
                                                         <>
-                                                            <Link
-                                                                href={`${baseRoute}/delivery-receipts/create-iar?dr_id=${dr.DRID}`}
-                                                                className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                                title="Create IAR"
-                                                            >
-                                                                <FileText className="w-4 h-4" />
-                                                            </Link>
                                                             <Link
                                                                 href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
                                                                 className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -233,6 +252,23 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                     )}
                 </div>
             </div>
+
+            <DialogPrimitive.Root open={isViewOpen} onOpenChange={handleOpenChange}>
+                <DialogPrimitive.Portal>
+                    <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40 z-40" />
+                    <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-6xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-xl">
+                        <DialogPrimitive.Title className="sr-only">Delivery Receipt Details</DialogPrimitive.Title>
+                        {selectedDrId ? (
+                            <ViewDRPage
+                                baseRoute={baseRoute}
+                                drId={selectedDrId}
+                                isModal
+                                onClose={() => handleOpenChange(false)}
+                            />
+                        ) : null}
+                    </DialogPrimitive.Content>
+                </DialogPrimitive.Portal>
+            </DialogPrimitive.Root>
         </div>
     );
 }

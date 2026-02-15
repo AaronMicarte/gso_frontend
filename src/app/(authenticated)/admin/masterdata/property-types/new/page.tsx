@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCreatePropertyType, useAllCategories, useAllPropertyClassifications } from '@/lib/hooks/masterData';
-import { PropertyTypeInput, PropertyClassification, Category } from '@/types/masterData';
+import { useCreatePropertyType, useAllPropertyClassifications } from '@/lib/hooks/masterData';
+import { PropertyTypeInput, PropertyClassification } from '@/types/masterData';
 import { ApiError } from '@/types/api';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,12 +11,10 @@ import { toast } from 'sonner';
 export default function NewPropertyTypePage() {
     const router = useRouter();
     const createMutation = useCreatePropertyType();
-    const { data: categories, isLoading: categoriesLoading } = useAllCategories();
     const { data: propertyClassifications, isLoading: propertyClassificationsLoading } = useAllPropertyClassifications();
 
     const [formData, setFormData] = useState<PropertyTypeInput>({
         name: '',
-        category_id: 0,
         property_classification_id: 0,
         description: '',
     });
@@ -40,13 +38,11 @@ export default function NewPropertyTypePage() {
 
                     if (backendErrors.name) mappedErrors.name = backendErrors.name;
                     if (backendErrors.description) mappedErrors.description = backendErrors.description;
-                    if (backendErrors.category_id) mappedErrors.category_id = backendErrors.category_id;
                     if (backendErrors.property_classification_id) mappedErrors.property_classification_id = backendErrors.property_classification_id;
 
                     // Map backend PascalCase to frontend camelCase
                     if (backendErrors.PropertyName) mappedErrors.name = backendErrors.PropertyName;
                     if (backendErrors.Description) mappedErrors.description = backendErrors.Description;
-                    if (backendErrors.CategoryID) mappedErrors.category_id = backendErrors.CategoryID;
                     if (backendErrors.PropertyClassificationID) mappedErrors.property_classification_id = backendErrors.PropertyClassificationID;
 
                     setErrors(mappedErrors);
@@ -78,7 +74,7 @@ export default function NewPropertyTypePage() {
         }
     };
 
-    const isLoading = categoriesLoading || propertyClassificationsLoading;
+    const isLoading = propertyClassificationsLoading;
 
     if (isLoading) {
         return (
@@ -133,32 +129,6 @@ export default function NewPropertyTypePage() {
                             />
                             {errors.name && (
                                 <p className="mt-1 text-sm text-red-500">{errors.name[0]}</p>
-                            )}
-                        </div>
-
-                        {/* Category Field */}
-                        <div>
-                            <label htmlFor="category_id" className="block text-sm font-medium text-slate-700 mb-1">
-                                Category <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                id="category_id"
-                                name="category_id"
-                                value={formData.category_id}
-                                onChange={handleChange}
-                                className={`w-full px-4 py-2 rounded-lg border ${errors.category_id ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-[var(--primary)]'
-                                    } focus:outline-none focus:ring-2 transition-all`}
-                                required
-                            >
-                                <option value={0}>Select a category</option>
-                                {categories?.map((category: Category) => (
-                                    <option key={category.id} value={category.id}>
-                                        {category.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.category_id && (
-                                <p className="mt-1 text-sm text-red-500">{errors.category_id[0]}</p>
                             )}
                         </div>
 

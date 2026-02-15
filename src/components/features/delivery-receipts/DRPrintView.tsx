@@ -173,8 +173,13 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                     <div className="mb-6">Remarks:</div>
                     <div className="border border-black min-h-[96px] p-2 whitespace-pre-line">{dr.Remarks || ''}</div>
                     <div className="mt-3">
-                        <div className="text-[10px]">IAR Status:</div>
-                        <div className="font-semibold">{dr.iar_status || (dr.hasIAR ? 'With IAR' : 'Pending IAR')}</div>
+                        <div className="text-[10px]">Inspection Status:</div>
+                        <div className="font-semibold">
+                            {dr.workflow_status_label
+                                || ((dr.inspection_status || dr.InspectionStatus) === 'inspected'
+                                    ? 'To be accepted'
+                                    : 'Pending inspection')}
+                        </div>
                     </div>
                 </div>
             </div>

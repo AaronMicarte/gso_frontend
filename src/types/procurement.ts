@@ -14,6 +14,7 @@ export interface DeliveryReceiptDetail {
     QuantityDelivered: number;
     UnitCost: number;
     TotalCost: number;
+    InspectionStatus?: 'pending' | 'inspected';
     propertyType?: {
         PropertyTypeID: number;
         PropertyName: string;
@@ -45,6 +46,10 @@ export interface DeliveryReceipt {
     Remarks?: string;
     CreatedDate: string;
     dr_picture_url?: string; // URL to the DR picture
+    InspectionStatus?: 'pending' | 'inspected';
+    InspectionCompletedAt?: string | null;
+    workflow_status?: 'pending_inspection' | 'to_be_accepted' | 'to_be_issued' | 'issued' | 'acknowledged' | string;
+    workflow_status_label?: string | null;
     requestedByUser?: {
         UserID: number;
         FullName: string;
@@ -61,15 +66,7 @@ export interface DeliveryReceipt {
         UserID: number;
         FullName: string;
     };
-    // IAR status
-    hasIAR?: boolean;
-    iar?: {
-        IARID: number;
-        IARNumber: string;
-        DateInspected: string;
-    };
-    // Computed status string from backend: 'Pending IAR' | 'Inspected' | 'Accepted'
-    iar_status?: string;
+    inspection_status?: 'pending' | 'inspected';
 }
 
 export interface CreateDeliveryReceiptPayload {
