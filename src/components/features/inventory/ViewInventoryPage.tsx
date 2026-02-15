@@ -154,9 +154,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         ModelNumber?: string;
         SerialNumber?: string;
     }) => {
-        const baseName = detail.dr_item_description || detail.PropertyName || 'Property Item';
-        const details = [detail.Brand, detail.ModelNumber, detail.SerialNumber].filter(Boolean);
-        return details.length ? `${baseName} - ${details.join(' / ')}` : baseName;
+        return detail.dr_item_description || detail.PropertyName || 'Property Item';
     };
 
     const getQrCodeData = (detail: {

@@ -87,18 +87,13 @@ export function AllItemsPage() {
     };
 
     const getItemName = (item: InventoryItem) => {
-        const baseName = item.dr_item_description || item.PropertyName || 'Unknown Item';
-        const details = [item.Brand, item.ModelNumber, item.SerialNumber].filter(Boolean);
-        return details.length ? `${baseName} - ${details.join(' / ')}` : baseName;
+        return item.dr_item_description || item.PropertyName || 'Unknown Item';
     };
 
     const getCombinedDescription = (item: InventoryItem) => {
         const parts = [];
         if (item.Description) parts.push(item.Description);
-        if (item.Brand) parts.push(`Brand: ${item.Brand}`);
-        if (item.ModelNumber) parts.push(`Model: ${item.ModelNumber}`);
-        if (item.SerialNumber) parts.push(`Serial: ${item.SerialNumber}`);
-        return parts.join('\n') || 'No details';
+        return parts.length > 0 ? parts.join('\n') : 'No additional details';
     };
 
     const openEditModal = (inventoryDetailId: number, currentDescription: string) => {
@@ -323,8 +318,15 @@ export function AllItemsPage() {
                                     filteredDetails.map((item) => (
                                         <tr key={item.InventoryDetailID} className="hover:bg-slate-50">
                                             <td className="px-6 py-4">
-                                                <div className="font-medium text-slate-900">
-                                                    {getItemName(item)}
+                                                <div>
+                                                    <div className="font-medium text-slate-900">
+                                                        {getItemName(item)}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 space-y-1 mt-1">
+                                                        {item.Brand && <div>Brand: {item.Brand}</div>}
+                                                        {item.ModelNumber && <div>Model: {item.ModelNumber}</div>}
+                                                        {item.SerialNumber && <div>Serial: {item.SerialNumber}</div>}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
@@ -363,7 +365,7 @@ export function AllItemsPage() {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {item.PropertyNumber && (item.PropertyStatusID === 2) && Boolean(getQrCodeData(item)) && (
+                                                    {item.PropertyNumber && Boolean(getQrCodeData(item)) && (
                                                         <PropertySticker
                                                             propertyNumber={item.PropertyNumber}
                                                             itemName={getItemName(item)}
