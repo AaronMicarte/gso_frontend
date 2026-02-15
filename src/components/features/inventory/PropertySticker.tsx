@@ -184,7 +184,7 @@ export function PropertySticker({
                             </div>
 
                             <div className="flex items-end gap-4">
-                                <div className="w-28 text-lg">Item Name:</div>
+                                <div className="w-28 text-lg">Article:</div>
                                 <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
                                     {resolvedItemName}
                                 </div>

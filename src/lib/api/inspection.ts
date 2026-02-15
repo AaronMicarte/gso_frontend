@@ -15,10 +15,15 @@ export type InspectionCondition = {
 
 export type { InspectionReportFilters };
 
-export const getPendingInspectionReceipts = async (filters?: { per_page?: number; page?: number }): Promise<{
-    data: InspectionPendingReceipt[];
-    meta: { total: number; per_page: number; current_page: number; last_page: number };
-}> => {
+export type PagedResponse<T> = {
+    data: T[];
+    total: number;
+    per_page: number;
+    current_page: number;
+    last_page: number;
+};
+
+export const getPendingInspectionReceipts = async (filters?: { per_page?: number; page?: number }): Promise<PagedResponse<InspectionPendingReceipt>> => {
     const params = new URLSearchParams();
     if (filters?.per_page) params.append('per_page', filters.per_page.toString());
     if (filters?.page) params.append('page', filters.page.toString());
@@ -26,10 +31,7 @@ export const getPendingInspectionReceipts = async (filters?: { per_page?: number
     return response.data.data;
 };
 
-export const getInspectionReports = async (filters?: InspectionReportFilters): Promise<{
-    data: InspectionReport[];
-    meta: { total: number; per_page: number; current_page: number; last_page: number };
-}> => {
+export const getInspectionReports = async (filters?: InspectionReportFilters): Promise<PagedResponse<InspectionReport>> => {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.per_page) params.append('per_page', filters.per_page.toString());

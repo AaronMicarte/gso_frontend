@@ -106,11 +106,11 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
                         </table>
                     </div>
 
-                    {data?.meta && data.meta.last_page > 1 && (
+                    {data && data.last_page > 1 && (
                         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
                             <div className="flex items-center justify-between">
                                 <div className="text-sm text-slate-500">
-                                    Showing {((data.meta.current_page - 1) * data.meta.per_page) + 1} to {Math.min(data.meta.current_page * data.meta.per_page, data.meta.total)} of {data.meta.total} entries
+                                    Showing {((data.current_page - 1) * data.per_page) + 1} to {Math.min(data.current_page * data.per_page, data.total)} of {data.total} entries
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
@@ -121,11 +121,11 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
                                         Previous
                                     </button>
                                     <span className="text-sm text-slate-600">
-                                        Page {data.meta.current_page} of {data.meta.last_page}
+                                        Page {data.current_page} of {data.last_page}
                                     </span>
                                     <button
-                                        onClick={() => setPage(Math.min(data.meta.last_page, page + 1))}
-                                        disabled={page === data.meta.last_page}
+                                        onClick={() => setPage(Math.min(data.last_page, page + 1))}
+                                        disabled={page === data.last_page}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Next
