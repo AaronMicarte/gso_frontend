@@ -11,6 +11,7 @@ export interface InspectionReportItem {
     VerifiedSerial?: string | null;
     NoSerial?: boolean | null;
     Remarks?: string | null;
+    change_reason?: string | null;
     drDetail?: {
         DRDetailID: number;
         ItemDescription: string;

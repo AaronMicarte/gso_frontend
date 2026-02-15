@@ -239,7 +239,8 @@ export function ViewIARPage({ baseRoute, iarId, isModal = false, onClose }: View
                                         <th className="px-6 py-4">Condition</th>
                                         <th className="px-6 py-4 text-right">Accepted</th>
                                         <th className="px-6 py-4 text-right">Rejected</th>
-                                        <th className="px-6 py-4">Remarks</th>
+                                        <th className="px-6 py-4">Reject Reason</th>
+                                        <th className="px-6 py-4">Change Reason</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200">
@@ -288,6 +289,9 @@ export function ViewIARPage({ baseRoute, iarId, isModal = false, onClose }: View
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
                                                 {detail.Remarks || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {detail.change_reason || '-'}
                                             </td>
                                         </tr>
                                     ))}

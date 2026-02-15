@@ -14,16 +14,18 @@ import {
 } from '@/lib/hooks/useInspection';
 import { InspectionPendingReceipt } from '@/types/inspection';
 
-type ItemState = {
+type ItemRowState = {
     remarks: string;
+    conditionId: number | '';
+    quantity: number;
+};
+
+type ItemMetaState = {
     brand: string;
     modelNumber: string;
     serialNumber: string;
     noSerial: boolean;
     changeReason: string;
-    conditionId: number | '';
-    quantityAccepted: number;
-    quantityRejected: number;
 };
 
 type OriginalDetail = {
@@ -38,7 +40,8 @@ export function InspectionQueuePage() {
     const [selected, setSelected] = useState<InspectionPendingReceipt | null>(null);
     const [reportId, setReportId] = useState<number | null>(null);
     const [remarks, setRemarks] = useState('');
-    const [items, setItems] = useState<Record<number, ItemState>>({});
+    const [itemRows, setItemRows] = useState<Record<number, ItemRowState[]>>({});
+    const [itemMeta, setItemMeta] = useState<Record<number, ItemMetaState>>({});
     const [originalDetails, setOriginalDetails] = useState<Record<number, OriginalDetail>>({});
 
     const { data, isLoading } = usePendingInspectionReceipts({ per_page: 50 });
@@ -57,7 +60,8 @@ export function InspectionQueuePage() {
         if (!receipt) {
             setReportId(null);
             setRemarks('');
-            setItems({});
+            setItemRows({});
+            setItemMeta({});
             setOriginalDetails({});
             return;
         }
@@ -66,23 +70,31 @@ export function InspectionQueuePage() {
         setReportId(draft?.IARID || null);
         setRemarks(draft?.Remarks || '');
 
-        const initial: Record<number, ItemState> = {};
+        const initialRows: Record<number, ItemRowState[]> = {};
+        const initialMeta: Record<number, ItemMetaState> = {};
         const originals: Record<number, OriginalDetail> = {};
         receipt.details?.forEach((detail) => {
-            const existing = draft?.details?.find((item) => item.DRDetailID === detail.DRDetailID);
             const brand = detail.Brand || '';
             const modelNumber = detail.ModelNumber || '';
             const serialNumber = detail.SerialNumber || '';
-            initial[detail.DRDetailID] = {
-                remarks: existing?.Remarks || '',
-                brand: existing?.VerifiedBrand || brand,
-                modelNumber: existing?.VerifiedModel || modelNumber,
-                serialNumber: existing?.VerifiedSerial || serialNumber,
-                noSerial: existing?.NoSerial ?? false,
-                changeReason: '',
-                conditionId: existing?.ConditionID ?? '',
-                quantityAccepted: existing?.QuantityAccepted ?? detail.QuantityDelivered,
-                quantityRejected: existing?.QuantityRejected ?? 0,
+            const existingRows = draft?.details?.filter((item) => item.DRDetailID === detail.DRDetailID) || [];
+            const buildRow = (row?: typeof existingRows[number]): ItemRowState => ({
+                remarks: row?.Remarks || '',
+                conditionId: row?.ConditionID ?? '',
+                quantity: (row?.QuantityAccepted ?? 0) + (row?.QuantityRejected ?? 0) || detail.QuantityDelivered,
+            });
+
+            initialRows[detail.DRDetailID] = existingRows.length > 0
+                ? existingRows.map((row) => buildRow(row))
+                : [buildRow()];
+
+            const firstRow = existingRows[0];
+            initialMeta[detail.DRDetailID] = {
+                brand: firstRow?.VerifiedBrand || brand,
+                modelNumber: firstRow?.VerifiedModel || modelNumber,
+                serialNumber: firstRow?.VerifiedSerial || serialNumber,
+                noSerial: firstRow?.NoSerial ?? false,
+                changeReason: firstRow?.change_reason || '',
             };
             originals[detail.DRDetailID] = {
                 brand,
@@ -91,7 +103,8 @@ export function InspectionQueuePage() {
             };
         });
 
-        setItems(initial);
+        setItemRows(initialRows);
+        setItemMeta(initialMeta);
         setOriginalDetails(originals);
     };
 
@@ -114,55 +127,146 @@ export function InspectionQueuePage() {
 
     const normalizeValue = (value: string) => value.trim();
 
+    const getRows = (detailId: number) => itemRows[detailId] || [];
+    const getMeta = (detailId: number) => itemMeta[detailId];
+
+    const updateRow = (detailId: number, rowIndex: number, patch: Partial<ItemRowState>) => {
+        setItemRows((prev) => {
+            const rows = [...(prev[detailId] || [])];
+            if (!rows[rowIndex]) return prev;
+            rows[rowIndex] = { ...rows[rowIndex], ...patch };
+            return { ...prev, [detailId]: rows };
+        });
+    };
+
+    const updateMeta = (detailId: number, patch: Partial<ItemMetaState>) => {
+        setItemMeta((prev) => {
+            const current = prev[detailId];
+            if (!current) return prev;
+            return { ...prev, [detailId]: { ...current, ...patch } };
+        });
+    };
+
+    const addRow = (detailId: number, quantity: number) => {
+        setItemRows((prev) => {
+            const rows = [...(prev[detailId] || [])];
+            rows.push({
+                remarks: '',
+                conditionId: '',
+                quantity: Math.max(0, quantity),
+            });
+            return { ...prev, [detailId]: rows };
+        });
+    };
+
+    const removeRow = (detailId: number, rowIndex: number) => {
+        setItemRows((prev) => {
+            const rows = [...(prev[detailId] || [])];
+            if (rows.length <= 1) return prev;
+            rows.splice(rowIndex, 1);
+            return { ...prev, [detailId]: rows };
+        });
+    };
+
+    const conditionMap = useMemo(() => {
+        const entries = conditions?.map((condition) => [condition.ConditionID, condition.ConditionName] as const) || [];
+        return new Map<number, string>(entries);
+    }, [conditions]);
+
+    const getConditionMode = (conditionId: number | '') => {
+        if (!conditionId) return 'reject';
+        const name = (conditionMap.get(conditionId) || '').toLowerCase();
+        if (name.includes('unserviceable') || name.includes('unservicable')) return 'reject';
+        if (name.includes('serviceable')) return 'accept';
+        return 'reject';
+    };
+
+    function hasDetailChanges(detailId: number, meta?: ItemMetaState) {
+        const original = originalDetails[detailId];
+        if (!original || !meta) return false;
+        return (
+            normalizeValue(meta.brand) !== normalizeValue(original.brand) ||
+            normalizeValue(meta.modelNumber) !== normalizeValue(original.modelNumber) ||
+            normalizeValue(meta.serialNumber) !== normalizeValue(original.serialNumber)
+        );
+    }
+
+    const getRowQuantity = (row: ItemRowState) => Math.max(0, Number(row.quantity || 0));
+
     const totalItems = selected?.details?.length || 0;
     const isItemComplete = (detailId: number, delivered: number) => {
-        const state = items[detailId];
-        if (!state) return false;
-        if (!normalizeValue(state.brand) || !normalizeValue(state.modelNumber)) return false;
-        if (!state.noSerial && !normalizeValue(state.serialNumber)) return false;
-        if (!state.conditionId) return false;
-        if (state.quantityAccepted + state.quantityRejected !== delivered) return false;
+        const rows = getRows(detailId);
+        const meta = getMeta(detailId);
+        if (rows.length === 0) return false;
+        if (!meta) return false;
+
+        let total = 0;
+        for (const row of rows) {
+            if (!normalizeValue(meta.brand) || !normalizeValue(meta.modelNumber)) return false;
+            if (!meta.noSerial && !normalizeValue(meta.serialNumber)) return false;
+            if (!row.conditionId) return false;
+
+            const qty = getRowQuantity(row);
+            if (qty <= 0) return false;
+            const mode = getConditionMode(row.conditionId);
+            if (row.conditionId && mode === 'reject' && !normalizeValue(row.remarks)) return false;
+            if (hasDetailChanges(detailId, meta) && !normalizeValue(meta.changeReason)) return false;
+            total += qty;
+        }
+        if (total !== delivered) return false;
         return true;
     };
     const inspectedCount = selected?.details?.filter((detail) => isItemComplete(detail.DRDetailID, detail.QuantityDelivered)).length || 0;
     const canComplete = totalItems > 0 && inspectedCount === totalItems && reportId !== null;
 
-    const hasDetailChanges = (detailId: number) => {
-        const current = items[detailId];
-        const original = originalDetails[detailId];
-        if (!current || !original) return false;
-        return (
-            normalizeValue(current.brand) !== normalizeValue(original.brand) ||
-            normalizeValue(current.modelNumber) !== normalizeValue(original.modelNumber) ||
-            normalizeValue(current.serialNumber) !== normalizeValue(original.serialNumber)
-        );
-    };
-
     const validateItemDetails = () => {
         if (!selected?.details) return true;
         for (const detail of selected.details) {
-            const state = items[detail.DRDetailID];
-            if (!state) continue;
-
-            if (!normalizeValue(state.brand) || !normalizeValue(state.modelNumber)) {
-                toast.error('Brand and model are required for inspection.');
+            const rows = getRows(detail.DRDetailID);
+            const meta = getMeta(detail.DRDetailID);
+            if (rows.length === 0) {
+                toast.error(`Add at least one inspection row for ${detail.ItemDescription}.`);
                 return false;
             }
-            if (!state.noSerial && !normalizeValue(state.serialNumber)) {
-                toast.error('Serial number is required or mark no serial.');
-                return false;
-            }
-            if (!state.conditionId) {
-                toast.error('Condition is required for each item.');
-                return false;
-            }
-            if (state.quantityAccepted + state.quantityRejected !== detail.QuantityDelivered) {
-                toast.error('Accepted + rejected must equal delivered quantity.');
+            if (!meta) {
+                toast.error(`Missing item details for ${detail.ItemDescription}.`);
                 return false;
             }
 
-            if (hasDetailChanges(detail.DRDetailID) && !normalizeValue(state.changeReason)) {
-                toast.error('Provide a reason for brand/model/serial changes.');
+            let total = 0;
+            for (const [index, row] of rows.entries()) {
+                const rowLabel = `Row ${index + 1}`;
+                if (!normalizeValue(meta.brand) || !normalizeValue(meta.modelNumber)) {
+                    toast.error(`${rowLabel}: Brand and model are required for ${detail.ItemDescription}.`);
+                    return false;
+                }
+                if (!meta.noSerial && !normalizeValue(meta.serialNumber)) {
+                    toast.error(`${rowLabel}: Serial number is required or mark no serial for ${detail.ItemDescription}.`);
+                    return false;
+                }
+                if (!row.conditionId) {
+                    toast.error(`${rowLabel}: Condition is required for ${detail.ItemDescription}.`);
+                    return false;
+                }
+                const qty = getRowQuantity(row);
+                if (qty <= 0) {
+                    toast.error(`${rowLabel}: Quantity must be greater than 0.`);
+                    return false;
+                }
+                const mode = getConditionMode(row.conditionId);
+                if (row.conditionId && mode === 'reject' && !normalizeValue(row.remarks)) {
+                    toast.error(`${rowLabel}: Reject reason is required when rejecting quantity.`);
+                    return false;
+                }
+                if (hasDetailChanges(detail.DRDetailID, meta) && !normalizeValue(meta.changeReason)) {
+                    toast.error(`Provide a reason for brand/model/serial changes in ${detail.ItemDescription}.`);
+                    return false;
+                }
+                total += qty;
+            }
+
+            if (total !== detail.QuantityDelivered) {
+                toast.error(`Accepted + rejected must equal delivered quantity for ${detail.ItemDescription}.`);
                 return false;
             }
         }
@@ -184,20 +288,22 @@ export function InspectionQueuePage() {
         if (!validateInspectorName()) return;
         if (!validateItemDetails()) return;
 
-        const payloadItems = selected.details?.map((detail) => {
-            const state = items[detail.DRDetailID];
-            return {
+        const payloadItems = selected.details?.flatMap((detail) => {
+            const rows = getRows(detail.DRDetailID);
+            const meta = getMeta(detail.DRDetailID);
+            if (!meta) return [];
+            return rows.map((row) => ({
                 dr_detail_id: detail.DRDetailID,
-                condition_id: typeof state?.conditionId === 'number' ? state.conditionId : 0,
-                quantity_accepted: state?.quantityAccepted ?? 0,
-                quantity_rejected: state?.quantityRejected ?? 0,
-                verified_brand: state?.brand ? normalizeValue(state.brand) : null,
-                verified_model: state?.modelNumber ? normalizeValue(state.modelNumber) : null,
-                verified_serial: state?.serialNumber ? normalizeValue(state.serialNumber) : null,
-                no_serial: state?.noSerial || false,
-                remarks: state?.remarks || '',
-                change_reason: state?.changeReason ? normalizeValue(state.changeReason) : undefined,
-            };
+                condition_id: typeof row.conditionId === 'number' ? row.conditionId : 0,
+                quantity_accepted: getConditionMode(row.conditionId) === 'accept' ? getRowQuantity(row) : 0,
+                quantity_rejected: getConditionMode(row.conditionId) === 'reject' ? getRowQuantity(row) : 0,
+                verified_brand: meta.brand ? normalizeValue(meta.brand) : null,
+                verified_model: meta.modelNumber ? normalizeValue(meta.modelNumber) : null,
+                verified_serial: meta.serialNumber ? normalizeValue(meta.serialNumber) : null,
+                no_serial: meta.noSerial || false,
+                remarks: row.remarks || '',
+                change_reason: meta.changeReason ? normalizeValue(meta.changeReason) : undefined,
+            }));
         }) || [];
 
         try {
@@ -377,18 +483,17 @@ export function InspectionQueuePage() {
                                     <h3 className="text-sm font-semibold text-slate-700">Inspection Items</h3>
                                     <div className="space-y-3">
                                         {selected.details?.map((detail) => {
-                                            const state = items[detail.DRDetailID] || {
-                                                remarks: '',
-                                                brand: '',
-                                                modelNumber: '',
-                                                serialNumber: '',
-                                                noSerial: false,
-                                                changeReason: '',
+                                            const rows = getRows(detail.DRDetailID);
+                                            const meta = getMeta(detail.DRDetailID);
+                                            const fallbackRow: ItemRowState = {
                                                 conditionId: '',
-                                                quantityAccepted: 0,
-                                                quantityRejected: 0,
+                                                remarks: '',
+                                                quantity: detail.QuantityDelivered,
                                             };
-                                            const detailChanged = hasDetailChanges(detail.DRDetailID);
+                                            const displayRows: ItemRowState[] = rows.length > 0 ? rows : [fallbackRow];
+                                            const totalUsed = rows.reduce((sum, row) => sum + getRowQuantity(row), 0);
+                                            const remaining = Math.max(0, detail.QuantityDelivered - totalUsed);
+                                            const detailChanged = meta ? hasDetailChanges(detail.DRDetailID, meta) : false;
                                             return (
                                                 <div key={detail.DRDetailID} className="border border-slate-200 rounded-lg p-4">
                                                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -400,154 +505,146 @@ export function InspectionQueuePage() {
                                                             {isItemComplete(detail.DRDetailID, detail.QuantityDelivered) ? 'Ready to complete' : 'Incomplete'}
                                                         </div>
                                                     </div>
-                                                    <div className="mt-3">
-                                                        <input
-                                                            value={state.remarks}
-                                                            onChange={(event) => setItems((prev) => ({
-                                                                ...prev,
-                                                                [detail.DRDetailID]: {
-                                                                    ...prev[detail.DRDetailID],
-                                                                    remarks: event.target.value,
-                                                                },
-                                                            }))}
-                                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                                            placeholder="Item remarks (damaged, incomplete, etc.)"
-                                                        />
-                                                    </div>
-                                                    <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-                                                        <div>
-                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Condition</label>
-                                                            <select
-                                                                value={state.conditionId}
-                                                                onChange={(event) => setItems((prev) => ({
-                                                                    ...prev,
-                                                                    [detail.DRDetailID]: {
-                                                                        ...prev[detail.DRDetailID],
-                                                                        conditionId: event.target.value ? Number(event.target.value) : '',
-                                                                    },
-                                                                }))}
-                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                                            >
-                                                                <option value="">Select condition</option>
-                                                                {conditions?.map((condition) => (
-                                                                    <option key={condition.ConditionID} value={condition.ConditionID}>
-                                                                        {condition.ConditionName}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Accepted</label>
-                                                            <input
-                                                                type="number"
-                                                                min={0}
-                                                                max={detail.QuantityDelivered}
-                                                                value={state.quantityAccepted}
-                                                                onChange={(event) => setItems((prev) => ({
-                                                                    ...prev,
-                                                                    [detail.DRDetailID]: {
-                                                                        ...prev[detail.DRDetailID],
-                                                                        quantityAccepted: Math.max(0, Number(event.target.value || 0)),
-                                                                    },
-                                                                }))}
-                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Rejected</label>
-                                                            <input
-                                                                type="number"
-                                                                min={0}
-                                                                max={detail.QuantityDelivered}
-                                                                value={state.quantityRejected}
-                                                                onChange={(event) => setItems((prev) => ({
-                                                                    ...prev,
-                                                                    [detail.DRDetailID]: {
-                                                                        ...prev[detail.DRDetailID],
-                                                                        quantityRejected: Math.max(0, Number(event.target.value || 0)),
-                                                                    },
-                                                                }))}
-                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Brand</label>
-                                                            <input
-                                                                value={state.brand}
-                                                                onChange={(event) => setItems((prev) => ({
-                                                                    ...prev,
-                                                                    [detail.DRDetailID]: {
-                                                                        ...prev[detail.DRDetailID],
-                                                                        brand: event.target.value,
-                                                                    },
-                                                                }))}
-                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                                                placeholder="Brand"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Model</label>
-                                                            <input
-                                                                value={state.modelNumber}
-                                                                onChange={(event) => setItems((prev) => ({
-                                                                    ...prev,
-                                                                    [detail.DRDetailID]: {
-                                                                        ...prev[detail.DRDetailID],
-                                                                        modelNumber: event.target.value,
-                                                                    },
-                                                                }))}
-                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                                                placeholder="Model number"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Serial Number</label>
-                                                            <input
-                                                                value={state.serialNumber}
-                                                                onChange={(event) => setItems((prev) => ({
-                                                                    ...prev,
-                                                                    [detail.DRDetailID]: {
-                                                                        ...prev[detail.DRDetailID],
-                                                                        serialNumber: event.target.value,
-                                                                    },
-                                                                }))}
-                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 disabled:bg-slate-100"
-                                                                placeholder="Serial number"
-                                                                disabled={state.noSerial}
-                                                            />
-                                                            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                                                    {meta && (
+                                                        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                            <div>
+                                                                <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Brand</label>
                                                                 <input
-                                                                    type="checkbox"
-                                                                    checked={state.noSerial}
-                                                                    onChange={(event) => setItems((prev) => ({
-                                                                        ...prev,
-                                                                        [detail.DRDetailID]: {
-                                                                            ...prev[detail.DRDetailID],
-                                                                            noSerial: event.target.checked,
-                                                                        },
-                                                                    }))}
+                                                                    value={meta.brand}
+                                                                    onChange={(event) => updateMeta(detail.DRDetailID, { brand: event.target.value })}
+                                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                                                    placeholder="Brand"
                                                                 />
-                                                                No serial number
-                                                            </label>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Model</label>
+                                                                <input
+                                                                    value={meta.modelNumber}
+                                                                    onChange={(event) => updateMeta(detail.DRDetailID, { modelNumber: event.target.value })}
+                                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                                                    placeholder="Model number"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Serial Number</label>
+                                                                <input
+                                                                    value={meta.serialNumber}
+                                                                    onChange={(event) => updateMeta(detail.DRDetailID, { serialNumber: event.target.value })}
+                                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 disabled:bg-slate-100"
+                                                                    placeholder="Serial number"
+                                                                    disabled={meta.noSerial}
+                                                                />
+                                                                <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={meta.noSerial}
+                                                                        onChange={(event) => updateMeta(detail.DRDetailID, { noSerial: event.target.checked })}
+                                                                    />
+                                                                    No serial number
+                                                                </label>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    {detailChanged && (
+                                                    )}
+                                                    {detailChanged && meta && (
                                                         <div className="mt-3">
                                                             <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Change Reason</label>
                                                             <input
-                                                                value={state.changeReason}
-                                                                onChange={(event) => setItems((prev) => ({
-                                                                    ...prev,
-                                                                    [detail.DRDetailID]: {
-                                                                        ...prev[detail.DRDetailID],
-                                                                        changeReason: event.target.value,
-                                                                    },
-                                                                }))}
+                                                                value={meta.changeReason}
+                                                                onChange={(event) => updateMeta(detail.DRDetailID, { changeReason: event.target.value })}
                                                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                                                                 placeholder="Why is this different from the DR/PO?"
                                                             />
                                                         </div>
                                                     )}
+                                                    <div className="mt-4 space-y-4">
+                                                        {displayRows.map((row, rowIndex) => {
+                                                            const usedByOthers = rows.reduce((sum, item, index) => {
+                                                                return index === rowIndex ? sum : sum + getRowQuantity(item);
+                                                            }, 0);
+                                                            const maxQty = Math.max(0, detail.QuantityDelivered - usedByOthers);
+                                                            const mode = row.conditionId ? getConditionMode(row.conditionId) : 'unknown';
+                                                            const qty = getRowQuantity(row);
+                                                            const quantityLabel = mode === 'accept'
+                                                                ? 'Quantity (Accepted)'
+                                                                : mode === 'reject'
+                                                                    ? 'Quantity (Rejected)'
+                                                                    : 'Quantity';
+                                                            return (
+                                                                <div key={`${detail.DRDetailID}-${rowIndex}`} className="border border-slate-200 rounded-lg p-3 bg-slate-50/40">
+                                                                    <div className="flex items-center justify-between mb-3">
+                                                                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                                                            Condition Row {rowIndex + 1}
+                                                                        </div>
+                                                                        {displayRows.length > 1 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => removeRow(detail.DRDetailID, rowIndex)}
+                                                                                className="text-xs text-red-500 hover:text-red-600"
+                                                                            >
+                                                                                Remove
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                                                                        <div>
+                                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Condition</label>
+                                                                            <select
+                                                                                value={row.conditionId}
+                                                                                onChange={(event) => updateRow(detail.DRDetailID, rowIndex, { conditionId: event.target.value ? Number(event.target.value) : '' })}
+                                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                                                            >
+                                                                                <option value="">Select condition</option>
+                                                                                {conditions?.map((condition) => (
+                                                                                    <option key={condition.ConditionID} value={condition.ConditionID}>
+                                                                                        {condition.ConditionName}
+                                                                                    </option>
+                                                                                ))}
+                                                                            </select>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">
+                                                                                {quantityLabel}
+                                                                            </label>
+                                                                            <input
+                                                                                type="number"
+                                                                                min={0}
+                                                                                max={maxQty}
+                                                                                value={row.quantity}
+                                                                                onChange={(event) => updateRow(detail.DRDetailID, rowIndex, { quantity: Math.min(Math.max(0, Number(event.target.value || 0)), maxQty) })}
+                                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                                                            />
+                                                                            {mode !== 'unknown' && (
+                                                                                <div className="mt-1 text-xs text-slate-400">
+                                                                                    Accepted: {mode === 'accept' ? qty : 0} · Rejected: {mode === 'reject' ? qty : 0}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    {mode === 'reject' && row.conditionId && (
+                                                                        <div className="mt-3">
+                                                                            <label className="block text-xs uppercase tracking-wide text-slate-400 mb-1">Reject Reason</label>
+                                                                            <input
+                                                                                value={row.remarks}
+                                                                                onChange={(event) => updateRow(detail.DRDetailID, rowIndex, { remarks: event.target.value })}
+                                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                                                                placeholder="Why is this rejected? (required)"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div className="mt-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => addRow(detail.DRDetailID, remaining)}
+                                                            disabled={remaining === 0}
+                                                            className="text-xs text-[var(--primary)] hover:text-[var(--primary)]/80 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                                        >
+                                                            + Add condition row {remaining > 0 ? `(remaining ${remaining})` : ''}
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             );
                                         })}

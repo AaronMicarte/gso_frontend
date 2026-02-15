@@ -12,6 +12,7 @@ export interface IARDetail {
     VerifiedBrand?: string;
     VerifiedModel?: string;
     VerifiedSerial?: string;
+    change_reason?: string | null;
     // Relationships
     propertyType?: {
         PropertyTypeID: number;

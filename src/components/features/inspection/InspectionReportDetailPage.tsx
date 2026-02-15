@@ -126,7 +126,8 @@ export function InspectionReportDetailPage({ baseRoute, reportId, isModal = fals
                                     <th className="text-left px-4 py-3">Item</th>
                                     <th className="text-left px-4 py-3">Quantity</th>
                                     <th className="text-left px-4 py-3">Results</th>
-                                    <th className="text-left px-4 py-3">Remarks</th>
+                                    <th className="text-left px-4 py-3">Reject Reason</th>
+                                    <th className="text-left px-4 py-3">Change Reason</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -152,6 +153,7 @@ export function InspectionReportDetailPage({ baseRoute, reportId, isModal = fals
                                                 <div className="text-xs text-slate-500">Condition: {item.condition?.ConditionName || 'N/A'}</div>
                                             </td>
                                             <td className="px-4 py-3 text-slate-600">{item.Remarks || '—'}</td>
+                                            <td className="px-4 py-3 text-slate-600">{item.change_reason || '—'}</td>
                                         </tr>
                                     );
                                 })}

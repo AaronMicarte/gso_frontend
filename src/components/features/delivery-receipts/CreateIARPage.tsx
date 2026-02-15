@@ -136,7 +136,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
             const detailsToAdd = drData.details.map((detail) => ({
                 dr_detail_id: detail.DRDetailID!,
                 property_type_id: detail.PropertyTypeID,
-                condition_id: 1, // Default to "Good"
+                condition_id: 1, // Default to "Serviceable"
                 quantity_accepted: detail.QuantityDelivered, // Default: accept all
                 quantity_rejected: 0,
                 verified_brand: undefined,
@@ -177,21 +177,16 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
         setValue('inspected_by', user.UserID);
     }, [user, setValue]);
 
-    // Automatically set/clear date_accepted when acceptor changes
+    // Keep `date_accepted` empty by default; do NOT auto-fill when acceptor is selected
     const acceptedBy = useWatch({ control, name: 'accepted_by' });
-    const currentDateAccepted = useWatch({ control, name: 'date_accepted' });
 
     useEffect(() => {
-        // If an acceptor is selected and date_accepted is empty, set it to today (Manila)
-        if (acceptedBy && acceptedBy !== 0) {
-            if (!currentDateAccepted) {
-                setValue('date_accepted', formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd'));
-            }
-        } else {
-            // No acceptor chosen -> ensure date accepted is empty
+        // When acceptor is cleared, clear the date. Do NOT auto-set the date when an acceptor is chosen —
+        // the department should explicitly set Date Accepted when acknowledging the IAR.
+        if (!acceptedBy || acceptedBy === 0) {
             setValue('date_accepted', '');
         }
-    }, [acceptedBy, currentDateAccepted, setValue]);
+    }, [acceptedBy, setValue]);
 
     const details = watch('details');
     const detailRows = fields.map((field, index) => ({ field, index, data: details[index] }));
