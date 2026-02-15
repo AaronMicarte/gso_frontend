@@ -197,14 +197,15 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         label: 'Configuration',
                         icon: FolderTree,
                         children: [
-                            { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
-                            { label: 'End Users', href: `${baseRoute}/masterdata/end-users`, icon: Users },
+                            { label: 'Articles', href: `${baseRoute}/masterdata/articles`, icon: Package },
                             { label: 'Categories', href: `${baseRoute}/masterdata/categories`, icon: FolderTree },
+                            { label: 'Conditions', href: `${baseRoute}/masterdata/conditions`, icon: Activity },
+                            { label: 'Disposal Methods', href: `${baseRoute}/masterdata/disposal-methods`, icon: Trash2 },
+                            { label: 'End Users', href: `${baseRoute}/masterdata/end-users`, icon: Users },
                             { label: 'Property Classifications', href: `${baseRoute}/masterdata/property-classifications`, icon: Tag },
                             { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: Box },
-                            { label: 'Conditions', href: `${baseRoute}/masterdata/conditions`, icon: Activity },
+                            { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
                             { label: 'Units of Measure', href: `${baseRoute}/masterdata/units-of-measure`, icon: Ruler },
-                            { label: 'Disposal Methods', href: `${baseRoute}/masterdata/disposal-methods`, icon: Trash2 },
                         ]
                     }
                 ]
@@ -336,8 +337,8 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         label: 'Master Data',
                         icon: FolderTree,
                         children: [
-                            { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
                             { label: 'End Users', href: `${baseRoute}/masterdata/end-users`, icon: Users },
+                            { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
                         ]
                     }
                 ]

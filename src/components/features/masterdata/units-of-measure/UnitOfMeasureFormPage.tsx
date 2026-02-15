@@ -35,7 +35,7 @@ export function UnitOfMeasureFormPage({ baseRoute, unitId }: UnitOfMeasureFormPa
                 description: unit.description || '',
             });
         }
-    }, [unit, isEditing]);  
+    }, [unit, isEditing]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -80,7 +80,7 @@ export function UnitOfMeasureFormPage({ baseRoute, unitId }: UnitOfMeasureFormPa
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
             </div>
         );
@@ -88,7 +88,7 @@ export function UnitOfMeasureFormPage({ baseRoute, unitId }: UnitOfMeasureFormPa
 
     if (isEditing && !unit && !isLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-slate-800 mb-2">Unit Not Found</h1>
                     <p className="text-slate-600 mb-4">The unit of measure you&apos;re looking for doesn&apos;t exist.</p>
@@ -104,7 +104,7 @@ export function UnitOfMeasureFormPage({ baseRoute, unitId }: UnitOfMeasureFormPa
     }
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
                 <div className="px-4 sm:px-6 py-4">

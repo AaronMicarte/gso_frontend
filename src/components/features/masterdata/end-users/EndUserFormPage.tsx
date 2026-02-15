@@ -115,7 +115,7 @@ export function EndUserFormPage({ baseRoute, endUserId }: EndUserFormPageProps) 
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
             </div>
         );
@@ -123,7 +123,7 @@ export function EndUserFormPage({ baseRoute, endUserId }: EndUserFormPageProps) 
 
     if (isEditing && !endUser && !isLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-slate-800 mb-2">End User Not Found</h1>
                     <p className="text-slate-600 mb-4">The end user you&apos;re looking for doesn&apos;t exist.</p>
@@ -139,7 +139,7 @@ export function EndUserFormPage({ baseRoute, endUserId }: EndUserFormPageProps) 
     }
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
                 <div className="px-4 sm:px-6 py-4">

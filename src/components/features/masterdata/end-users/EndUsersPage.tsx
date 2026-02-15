@@ -1,11 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useEndUsers, useDeleteEndUser } from '@/lib/hooks/masterData';
-import { EndUser } from '@/types/masterData';
-import { showConfirmDialog } from '@/lib/utils/confirm';
-import { Plus, Search, Edit, Trash2, Box, RefreshCw } from 'lucide-react';
+import {
+    useEndUsers,
+    useEndUser,
+    useCreateEndUser,
+    useDeleteEndUser,
+    useUpdateEndUser,
+    useAllDepartments,
+    useAllPositions,
+} from '@/lib/hooks/masterData';
+import { EndUser, EndUserInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
+import { FormDialog } from '@/components/ui/FormDialog';
+import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
+import { Plus, Search, Edit, Trash2, Box, RefreshCw, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EndUsersPageProps {
@@ -14,11 +23,23 @@ interface EndUsersPageProps {
     canDelete?: boolean;
 }
 
-export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: EndUsersPageProps) {
-    const router = useRouter();
+export function EndUsersPage({ baseRoute: _baseRoute, canEdit = true, canDelete = true }: EndUsersPageProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [formOpen, setFormOpen] = useState(false);
+    const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+    const [activeEndUserId, setActiveEndUserId] = useState<number | null>(null);
+    const [formData, setFormData] = useState<EndUserInput>({
+        full_name: '',
+        department_id: 0,
+        position_id: 0,
+        contact_number: '',
+        email: '',
+        is_active: true,
+    });
+    const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
     // Use React Query for cached data fetching
     const { data, isLoading, error, refetch } = useEndUsers({
@@ -30,6 +51,11 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
     });
 
     const deleteMutation = useDeleteEndUser();
+    const createMutation = useCreateEndUser();
+    const updateMutation = useUpdateEndUser();
+    const { data: activeEndUser, isLoading: isLoadingEndUser } = useEndUser(activeEndUserId);
+    const { data: departmentsData } = useAllDepartments();
+    const { data: positionsData } = useAllPositions();
 
     const endUsers = data?.data || [];
     const pagination = data;
@@ -44,15 +70,36 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    const openCreateModal = () => {
+        setFormMode('create');
+        setActiveEndUserId(null);
+        setFormErrors({});
+        setFormData({
+            full_name: '',
+            department_id: 0,
+            position_id: 0,
+            contact_number: '',
+            email: '',
+            is_active: true,
+        });
+        setFormOpen(true);
+    };
+
+    const openEditModal = (id: number) => {
+        setFormMode('edit');
+        setActiveEndUserId(id);
+        setFormErrors({});
+        setFormOpen(true);
+    };
+
     const handleDelete = (id: number, name: string) => {
-        showConfirmDialog({
-            title: 'Delete End User',
-            description: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-            confirmText: 'Delete',
-            cancelText: 'Cancel',
-            onConfirm: () => {
-                deleteMutation.mutate(id);
-            },
+        setDeleteTarget({ id, name });
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!deleteTarget) return;
+        deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
         });
     };
 
@@ -65,8 +112,108 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
         toast.success('End users refreshed');
     };
 
+    useEffect(() => {
+        if (formMode === 'edit' && activeEndUser) {
+            setFormData({
+                full_name: activeEndUser.full_name,
+                department_id: activeEndUser.department_id,
+                position_id: activeEndUser.position_id,
+                contact_number: activeEndUser.contact_number || '',
+                email: activeEndUser.email || '',
+                is_active: activeEndUser.is_active,
+            });
+        }
+    }, [activeEndUser, formMode]);
+
+    const handleFormChange = (field: keyof EndUserInput, value: string | number | boolean) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+        if (formErrors[field as string]) {
+            setFormErrors((prev) => {
+                const nextErrors = { ...prev };
+                delete nextErrors[field as string];
+                return nextErrors;
+            });
+        }
+    };
+
+    const handleFormError = (error: unknown) => {
+        const apiError = error as ApiError;
+        const backendErrors = apiError?.response?.data?.errors;
+
+        if (!backendErrors) {
+            return;
+        }
+
+        const mappedErrors: Record<string, string[]> = {};
+        if (backendErrors.full_name) mappedErrors.full_name = backendErrors.full_name;
+        if (backendErrors.department_id) mappedErrors.department_id = backendErrors.department_id;
+        if (backendErrors.position_id) mappedErrors.position_id = backendErrors.position_id;
+        if (backendErrors.contact_number) mappedErrors.contact_number = backendErrors.contact_number;
+        if (backendErrors.email) mappedErrors.email = backendErrors.email;
+        if (backendErrors.FullName) mappedErrors.full_name = backendErrors.FullName;
+        if (backendErrors.DepartmentId) mappedErrors.department_id = backendErrors.DepartmentId;
+        if (backendErrors.PositionId) mappedErrors.position_id = backendErrors.PositionId;
+        if (backendErrors.ContactNumber) mappedErrors.contact_number = backendErrors.ContactNumber;
+        if (backendErrors.Email) mappedErrors.email = backendErrors.Email;
+
+        setFormErrors(mappedErrors);
+
+        if (Object.keys(mappedErrors).length === 0 && Object.keys(backendErrors).length > 0) {
+            toast.error('Please check the form for errors');
+        }
+    };
+
+    const handleFormSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        setFormErrors({});
+
+        const payload: EndUserInput = {
+            full_name: formData.full_name.trim(),
+            department_id: Number(formData.department_id),
+            position_id: Number(formData.position_id),
+            contact_number: formData.contact_number?.trim() || undefined,
+            email: formData.email?.trim() || undefined,
+            is_active: formData.is_active ?? true,
+        };
+
+        const validationErrors: Record<string, string[]> = {};
+        if (!payload.department_id) {
+            validationErrors.department_id = ['Department is required'];
+        }
+        if (!payload.position_id) {
+            validationErrors.position_id = ['Position is required'];
+        }
+
+        if (Object.keys(validationErrors).length > 0) {
+            setFormErrors(validationErrors);
+            return;
+        }
+
+        if (formMode === 'create') {
+            createMutation.mutate(payload, {
+                onSuccess: () => setFormOpen(false),
+                onError: handleFormError,
+            });
+            return;
+        }
+
+        if (activeEndUserId) {
+            updateMutation.mutate(
+                { id: activeEndUserId, data: payload },
+                {
+                    onSuccess: () => setFormOpen(false),
+                    onError: handleFormError,
+                }
+            );
+        }
+    };
+
+    const isSaving = createMutation.isPending || updateMutation.isPending;
+    const departments = departmentsData || [];
+    const positions = positionsData || [];
+
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200">
                 <div className="px-4 sm:px-6 py-4">
@@ -89,7 +236,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
                             </button>
                             {canEdit && (
                                 <button
-                                    onClick={() => router.push(`${baseRoute}/masterdata/end-users/new`)}
+                                    onClick={openCreateModal}
                                     className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors w-full sm:w-auto focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2"
                                     aria-label="Create new end user"
                                 >
@@ -105,7 +252,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
             {/* Main Content */}
             <div className="p-4 sm:p-6 lg:p-8">
                 {/* Search Bar */}
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6">
+                <div className="bg-white rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true" />
                         <input
@@ -128,7 +275,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
 
                 {/* Loading State */}
                 {isLoading ? (
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
+                    <div className="bg-white rounded-lg p-8">
                         <div className="space-y-4">
                             {[...Array(5)].map((_, i) => (
                                 <div key={`skeleton-${i}`} className="h-16 bg-slate-100 rounded animate-pulse" />
@@ -137,7 +284,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
                     </div>
                 ) : endUsers.length === 0 ? (
                     // Empty State
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
+                    <div className="bg-white rounded-lg p-12 text-center">
                         <Box className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                         <h3 className="text-lg font-semibold text-slate-700 mb-2">No end users found</h3>
                         <p className="text-slate-500 mb-6">
@@ -147,7 +294,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
                         </p>
                         {!searchTerm && (
                             <button
-                                onClick={() => router.push(`${baseRoute}/masterdata/end-users/new`)}
+                                onClick={openCreateModal}
                                 className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
                             >
                                 Add End User
@@ -161,7 +308,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
                             {endUsers.map((user: EndUser) => (
                                 <div
                                     key={`mobile-user-${user.id}`}
-                                    className="bg-white rounded-lg shadow-sm border border-slate-200 p-4"
+                                    className="bg-white rounded-lg p-4"
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex-1">
@@ -192,7 +339,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
                                         <div className="flex items-center gap-2">
                                             {canEdit && (
                                                 <button
-                                                    onClick={() => router.push(`${baseRoute}/masterdata/end-users/${user.id}`)}
+                                                    onClick={() => openEditModal(user.id)}
                                                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                     title="Edit"
                                                 >
@@ -215,7 +362,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
                         </div>
 
                         {/* Desktop Table View */}
-                        <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="hidden lg:block bg-white rounded-lg overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead className="bg-slate-50 border-b border-slate-200">
@@ -275,7 +422,7 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
                                                     <div className="flex items-center justify-end gap-2">
                                                         {canEdit && (
                                                             <button
-                                                                onClick={() => router.push(`${baseRoute}/masterdata/end-users/${user.id}`)}
+                                                                onClick={() => openEditModal(user.id)}
                                                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                                 title="Edit"
                                                             >
@@ -327,6 +474,150 @@ export function EndUsersPage({ baseRoute, canEdit = true, canDelete = true }: En
                     </>
                 )}
             </div>
+            <FormDialog
+                open={formOpen}
+                onOpenChange={setFormOpen}
+                title={formMode === 'create' ? 'Add End User' : 'Edit End User'}
+                description="Manage end users"
+                contentClassName="max-w-3xl"
+            >
+                {formMode === 'edit' && isLoadingEndUser ? (
+                    <div className="flex items-center justify-center py-10">
+                        <Loader2 className="w-6 h-6 animate-spin text-[var(--primary)]" />
+                    </div>
+                ) : (
+                    <form onSubmit={handleFormSubmit} className="space-y-5">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Full Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.full_name}
+                                onChange={(e) => handleFormChange('full_name', e.target.value)}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.full_name ? 'border-red-500' : 'border-slate-300'}`}
+                                placeholder="Enter full name"
+                                required
+                            />
+                            {formErrors.full_name && (
+                                <p className="text-sm text-red-600 mt-1">{formErrors.full_name[0]}</p>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Department <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={formData.department_id}
+                                    onChange={(e) => handleFormChange('department_id', Number(e.target.value))}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.department_id ? 'border-red-500' : 'border-slate-300'}`}
+                                    required
+                                >
+                                    <option value={0}>Select department</option>
+                                    {departments.map((department) => (
+                                        <option key={department.id} value={department.id}>
+                                            {department.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {formErrors.department_id && (
+                                    <p className="text-sm text-red-600 mt-1">{formErrors.department_id[0]}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Position <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={formData.position_id}
+                                    onChange={(e) => handleFormChange('position_id', Number(e.target.value))}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.position_id ? 'border-red-500' : 'border-slate-300'}`}
+                                    required
+                                >
+                                    <option value={0}>Select position</option>
+                                    {positions.map((position) => (
+                                        <option key={position.id} value={position.id}>
+                                            {position.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {formErrors.position_id && (
+                                    <p className="text-sm text-red-600 mt-1">{formErrors.position_id[0]}</p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                                <input
+                                    type="email"
+                                    value={formData.email || ''}
+                                    onChange={(e) => handleFormChange('email', e.target.value)}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.email ? 'border-red-500' : 'border-slate-300'}`}
+                                    placeholder="Enter email"
+                                />
+                                {formErrors.email && (
+                                    <p className="text-sm text-red-600 mt-1">{formErrors.email[0]}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Contact Number</label>
+                                <input
+                                    type="text"
+                                    value={formData.contact_number || ''}
+                                    onChange={(e) => handleFormChange('contact_number', e.target.value)}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.contact_number ? 'border-red-500' : 'border-slate-300'}`}
+                                    placeholder="Enter contact number"
+                                />
+                                {formErrors.contact_number && (
+                                    <p className="text-sm text-red-600 mt-1">{formErrors.contact_number[0]}</p>
+                                )}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={!!formData.is_active}
+                                    onChange={(e) => handleFormChange('is_active', e.target.checked)}
+                                    className="rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                                />
+                                <span className="text-sm font-medium text-slate-700">Active</span>
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                            <button
+                                type="button"
+                                onClick={() => setFormOpen(false)}
+                                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
+                            >
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                {isSaving ? 'Saving...' : formMode === 'create' ? 'Save End User' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </FormDialog>
+            <ConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => {
+                    if (!open) setDeleteTarget(null);
+                }}
+                title="Delete End User"
+                description={deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.` : undefined}
+                confirmText="Delete"
+                cancelText="Cancel"
+                onConfirm={handleDeleteConfirm}
+                loading={deleteMutation.isPending}
+            />
         </div>
     );
 }

@@ -35,7 +35,7 @@ export function DisposalMethodFormPage({ baseRoute, disposalMethodId }: Disposal
                 description: disposalMethod.description || '',
             });
         }
-    }, [disposalMethod, isEditing]);  
+    }, [disposalMethod, isEditing]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -85,7 +85,7 @@ export function DisposalMethodFormPage({ baseRoute, disposalMethodId }: Disposal
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
             </div>
         );
@@ -93,7 +93,7 @@ export function DisposalMethodFormPage({ baseRoute, disposalMethodId }: Disposal
 
     if (isEditing && !disposalMethod && !isLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-slate-800 mb-2">Disposal Method Not Found</h1>
                     <p className="text-slate-600 mb-4">The disposal method you&apos;re looking for doesn&apos;t exist.</p>
@@ -109,7 +109,7 @@ export function DisposalMethodFormPage({ baseRoute, disposalMethodId }: Disposal
     }
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200">
                 <div className="px-6 py-4">

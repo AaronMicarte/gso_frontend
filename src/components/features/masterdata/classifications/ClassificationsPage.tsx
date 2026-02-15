@@ -1,22 +1,39 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useClassifications, useDeleteClassification } from '@/lib/hooks/masterData';
-import { Classification } from '@/types/masterData';
-import { showConfirmDialog } from '@/lib/utils/confirm';
-import { Plus, Search, Edit, Trash2, Tag, RefreshCw } from 'lucide-react';
+import {
+    useClassifications,
+    useClassification,
+    useCreateClassification,
+    useDeleteClassification,
+    useUpdateClassification,
+    useAllCategories,
+} from '@/lib/hooks/masterData';
+import { Classification, ClassificationInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
+import { FormDialog } from '@/components/ui/FormDialog';
+import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
+import { Plus, Search, Edit, Trash2, Tag, RefreshCw, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ClassificationsPageProps {
     baseRoute: string;
 }
 
-export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
-    const router = useRouter();
+export function ClassificationsPage({ baseRoute: _baseRoute }: ClassificationsPageProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [formOpen, setFormOpen] = useState(false);
+    const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+    const [activeClassificationId, setActiveClassificationId] = useState<number | null>(null);
+    const [formData, setFormData] = useState<ClassificationInput>({
+        name: '',
+        description: '',
+        category_id: 0,
+    });
+    const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
     // Use React Query for cached data fetching
     const { data, isLoading, error, refetch } = useClassifications({
@@ -28,6 +45,10 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
     });
 
     const deleteMutation = useDeleteClassification();
+    const createMutation = useCreateClassification();
+    const updateMutation = useUpdateClassification();
+    const { data: activeClassification, isLoading: isLoadingClassification } = useClassification(activeClassificationId);
+    const { data: categoriesData } = useAllCategories();
 
     const classifications = data?.data || [];
     const pagination = data;
@@ -42,15 +63,29 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    const openCreateModal = () => {
+        setFormMode('create');
+        setActiveClassificationId(null);
+        setFormErrors({});
+        setFormData({ name: '', description: '', category_id: 0 });
+        setFormOpen(true);
+    };
+
+    const openEditModal = (id: number) => {
+        setFormMode('edit');
+        setActiveClassificationId(id);
+        setFormErrors({});
+        setFormOpen(true);
+    };
+
     const handleDelete = (id: number, name: string) => {
-        showConfirmDialog({
-            title: 'Delete Classification',
-            description: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-            confirmText: 'Delete',
-            cancelText: 'Cancel',
-            onConfirm: () => {
-                deleteMutation.mutate(id);
-            },
+        setDeleteTarget({ id, name });
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!deleteTarget) return;
+        deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
         });
     };
 
@@ -63,8 +98,88 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
         toast.success('Classifications refreshed');
     };
 
+    useEffect(() => {
+        if (formMode === 'edit' && activeClassification) {
+            setFormData({
+                name: activeClassification.name,
+                description: activeClassification.description || '',
+                category_id: activeClassification.category_id,
+            });
+        }
+    }, [activeClassification, formMode]);
+
+    const handleFormChange = (field: keyof ClassificationInput, value: string | number) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+        if (formErrors[field as string]) {
+            setFormErrors((prev) => {
+                const nextErrors = { ...prev };
+                delete nextErrors[field as string];
+                return nextErrors;
+            });
+        }
+    };
+
+    const handleFormError = (error: unknown) => {
+        const apiError = error as ApiError;
+        const backendErrors = apiError?.response?.data?.errors;
+
+        if (!backendErrors) {
+            return;
+        }
+
+        const mappedErrors: Record<string, string[]> = {};
+        if (backendErrors.name) mappedErrors.name = backendErrors.name;
+        if (backendErrors.description) mappedErrors.description = backendErrors.description;
+        if (backendErrors.category_id) mappedErrors.category_id = backendErrors.category_id;
+        if (backendErrors.CategoryId) mappedErrors.category_id = backendErrors.CategoryId;
+        if (backendErrors.Description) mappedErrors.description = backendErrors.Description;
+
+        setFormErrors(mappedErrors);
+
+        if (Object.keys(mappedErrors).length === 0 && Object.keys(backendErrors).length > 0) {
+            toast.error('Please check the form for errors');
+        }
+    };
+
+    const handleFormSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        setFormErrors({});
+
+        const payload: ClassificationInput = {
+            name: formData.name.trim(),
+            description: formData.description?.trim() || undefined,
+            category_id: Number(formData.category_id),
+        };
+
+        if (!payload.category_id) {
+            setFormErrors({ category_id: ['Category is required'] });
+            return;
+        }
+
+        if (formMode === 'create') {
+            createMutation.mutate(payload, {
+                onSuccess: () => setFormOpen(false),
+                onError: handleFormError,
+            });
+            return;
+        }
+
+        if (activeClassificationId) {
+            updateMutation.mutate(
+                { id: activeClassificationId, data: payload },
+                {
+                    onSuccess: () => setFormOpen(false),
+                    onError: handleFormError,
+                }
+            );
+        }
+    };
+
+    const isSaving = createMutation.isPending || updateMutation.isPending;
+    const categories = categoriesData || [];
+
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200">
                 <div className="px-4 sm:px-6 py-4">
@@ -86,7 +201,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
                                 <span className="hidden sm:inline">Refresh</span>
                             </button>
                             <button
-                                onClick={() => router.push(`${baseRoute}/masterdata/classifications/new`)}
+                                onClick={openCreateModal}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors w-full sm:w-auto focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2"
                                 aria-label="Create new classification"
                             >
@@ -101,7 +216,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
             {/* Main Content */}
             <div className="p-4 sm:p-6 lg:p-8">
                 {/* Search Bar */}
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6">
+                <div className="bg-white rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true" />
                         <input
@@ -124,7 +239,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
 
                 {/* Loading State */}
                 {isLoading ? (
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
+                    <div className="bg-white rounded-lg p-8">
                         <div className="space-y-4">
                             {[...Array(5)].map((_, i) => (
                                 <div key={`skeleton-${i}`} className="h-16 bg-slate-100 rounded animate-pulse" />
@@ -133,7 +248,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
                     </div>
                 ) : classifications.length === 0 ? (
                     // Empty State
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
+                    <div className="bg-white rounded-lg p-12 text-center">
                         <Tag className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                         <h3 className="text-lg font-semibold text-slate-700 mb-2">No classifications found</h3>
                         <p className="text-slate-500 mb-6">
@@ -143,7 +258,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
                         </p>
                         {!searchTerm && (
                             <button
-                                onClick={() => router.push(`${baseRoute}/masterdata/classifications/new`)}
+                                onClick={openCreateModal}
                                 className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
                             >
                                 Add Classification
@@ -157,7 +272,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
                             {classifications.map((classification: Classification) => (
                                 <div
                                     key={`mobile-classification-${classification.id}`}
-                                    className="bg-white rounded-lg shadow-sm border border-slate-200 p-4"
+                                    className="bg-white rounded-lg p-4"
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex-1">
@@ -187,7 +302,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
                                         </span>
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => router.push(`${baseRoute}/masterdata/classifications/${classification.id}`)}
+                                                onClick={() => openEditModal(classification.id)}
                                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                 title="Edit"
                                             >
@@ -207,7 +322,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
                         </div>
 
                         {/* Desktop Table View */}
-                        <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="hidden lg:block bg-white rounded-lg overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead className="bg-slate-50 border-b border-slate-200">
@@ -260,7 +375,7 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={() => router.push(`${baseRoute}/masterdata/classifications/${classification.id}`)}
+                                                            onClick={() => openEditModal(classification.id)}
                                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                             title="Edit"
                                                         >
@@ -309,6 +424,100 @@ export function ClassificationsPage({ baseRoute }: ClassificationsPageProps) {
                     </>
                 )}
             </div>
+            <FormDialog
+                open={formOpen}
+                onOpenChange={setFormOpen}
+                title={formMode === 'create' ? 'Add Classification' : 'Edit Classification'}
+                description="Manage property classifications"
+            >
+                {formMode === 'edit' && isLoadingClassification ? (
+                    <div className="flex items-center justify-center py-10">
+                        <Loader2 className="w-6 h-6 animate-spin text-[var(--primary)]" />
+                    </div>
+                ) : (
+                    <form onSubmit={handleFormSubmit} className="space-y-5">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Classification Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => handleFormChange('name', e.target.value)}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.name ? 'border-red-500' : 'border-slate-300'}`}
+                                placeholder="Enter classification name"
+                                required
+                            />
+                            {formErrors.name && (
+                                <p className="text-sm text-red-600 mt-1">{formErrors.name[0]}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Category <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={formData.category_id}
+                                onChange={(e) => handleFormChange('category_id', Number(e.target.value))}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.category_id ? 'border-red-500' : 'border-slate-300'}`}
+                                required
+                            >
+                                <option value={0}>Select category</option>
+                                {categories.map((category) => (
+                                    <option key={category.id} value={category.id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {formErrors.category_id && (
+                                <p className="text-sm text-red-600 mt-1">{formErrors.category_id[0]}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
+                            <textarea
+                                value={formData.description || ''}
+                                onChange={(e) => handleFormChange('description', e.target.value)}
+                                rows={4}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.description ? 'border-red-500' : 'border-slate-300'}`}
+                                placeholder="Optional description"
+                            />
+                            {formErrors.description && (
+                                <p className="text-sm text-red-600 mt-1">{formErrors.description[0]}</p>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                            <button
+                                type="button"
+                                onClick={() => setFormOpen(false)}
+                                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
+                            >
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                {isSaving ? 'Saving...' : formMode === 'create' ? 'Save Classification' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </FormDialog>
+            <ConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => {
+                    if (!open) setDeleteTarget(null);
+                }}
+                title="Delete Classification"
+                description={deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.` : undefined}
+                confirmText="Delete"
+                cancelText="Cancel"
+                onConfirm={handleDeleteConfirm}
+                loading={deleteMutation.isPending}
+            />
         </div>
     );
 }

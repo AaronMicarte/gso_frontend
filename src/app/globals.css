@@ -55,6 +55,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.bg-app {
+  background-image: url('/assets/images/background/bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 h1,
 h2,
 h3,

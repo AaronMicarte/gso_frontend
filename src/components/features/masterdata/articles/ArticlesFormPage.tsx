@@ -132,19 +132,16 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={handleCancel}
-                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                        <Package className="h-5 w-5 text-blue-600" />
-                    </div>
+        <div className="min-h-screen bg-app print:hidden">
+            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+                {/* Header */}
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={handleCancel}
+                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">
                             {mode === 'create' ? 'Create Article' : 'Edit Article'}
@@ -157,83 +154,83 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
                         </p>
                     </div>
                 </div>
-            </div>
 
-            {/* Form */}
-            <div className="bg-white border rounded-lg">
-                <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-                    {/* Article Name */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Article Name <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            {...register('ArticleName')}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.ArticleName ? 'border-red-300' : 'border-gray-300'
-                                }`}
-                            placeholder="Enter article name"
-                        />
-                        {errors.ArticleName && (
-                            <p className="mt-1 text-sm text-red-600">{errors.ArticleName.message}</p>
-                        )}
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Description
-                        </label>
-                        <textarea
-                            {...register('Description')}
-                            rows={3}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.Description ? 'border-red-300' : 'border-gray-300'
-                                }`}
-                            placeholder="Enter article description (optional)"
-                        />
-                        {errors.Description && (
-                            <p className="mt-1 text-sm text-red-600">{errors.Description.message}</p>
-                        )}
-                    </div>
-
-                    {/* Active Status */}
-                    <div>
-                        <label className="flex items-center gap-2">
+                {/* Form */}
+                <div className="bg-white rounded-lg">
+                    <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+                        {/* Article Name */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Article Name <span className="text-red-500">*</span>
+                            </label>
                             <input
-                                type="checkbox"
-                                {...register('IsActive')}
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                type="text"
+                                {...register('ArticleName')}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.ArticleName ? 'border-red-300' : 'border-gray-300'
+                                    }`}
+                                placeholder="Enter article name"
                             />
-                            <span className="text-sm font-medium text-gray-700">
-                                Active
-                            </span>
-                        </label>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Inactive articles will not be available for selection in delivery receipts
-                        </p>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 border-t border-gray-200">
-                        <button
-                            type="button"
-                            onClick={handleCancel}
-                            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-                        >
-                            {isLoading && (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            {errors.ArticleName && (
+                                <p className="mt-1 text-sm text-red-600">{errors.ArticleName.message}</p>
                             )}
-                            {mode === 'create' ? 'Create Article' : 'Update Article'}
-                        </button>
-                    </div>
-                </form>
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Description
+                            </label>
+                            <textarea
+                                {...register('Description')}
+                                rows={3}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.Description ? 'border-red-300' : 'border-gray-300'
+                                    }`}
+                                placeholder="Enter article description (optional)"
+                            />
+                            {errors.Description && (
+                                <p className="mt-1 text-sm text-red-600">{errors.Description.message}</p>
+                            )}
+                        </div>
+
+                        {/* Active Status */}
+                        <div>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    {...register('IsActive')}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                    Active
+                                </span>
+                            </label>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Inactive articles will not be available for selection in delivery receipts
+                            </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isLoading && (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                )}
+                                {mode === 'create' ? 'Create Article' : 'Update Article'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );

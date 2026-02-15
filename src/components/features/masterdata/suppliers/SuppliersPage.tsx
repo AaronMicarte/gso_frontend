@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSuppliers, useDeleteSupplier } from '@/lib/hooks/masterData';
-import { Supplier } from '@/types/masterData';
-import { showConfirmDialog } from '@/lib/utils/confirm';
-import { Plus, Search, Edit, Trash2, Truck, RefreshCw } from 'lucide-react';
+import { useSuppliers, useSupplier, useCreateSupplier, useDeleteSupplier, useUpdateSupplier } from '@/lib/hooks/masterData';
+import { Supplier, SupplierInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
+import { FormDialog } from '@/components/ui/FormDialog';
+import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
+import { Plus, Search, Edit, Trash2, Truck, RefreshCw, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SuppliersPageProps {
@@ -14,11 +15,24 @@ interface SuppliersPageProps {
     canDelete?: boolean;
 }
 
-export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: SuppliersPageProps) {
-    const router = useRouter();
+export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete = true }: SuppliersPageProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [formOpen, setFormOpen] = useState(false);
+    const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+    const [activeSupplierId, setActiveSupplierId] = useState<number | null>(null);
+    const [formData, setFormData] = useState<SupplierInput>({
+        name: '',
+        contact_person: '',
+        contact_number: '',
+        email: '',
+        address: '',
+        tin: '',
+        is_active: true,
+    });
+    const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
     // Use React Query for cached data fetching
     const { data, isLoading, error, refetch } = useSuppliers({
@@ -30,6 +44,9 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
     });
 
     const deleteMutation = useDeleteSupplier();
+    const createMutation = useCreateSupplier();
+    const updateMutation = useUpdateSupplier();
+    const { data: activeSupplier, isLoading: isLoadingSupplier } = useSupplier(activeSupplierId);
 
     const suppliers = data?.data || [];
     const pagination = data;
@@ -44,15 +61,37 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    const openCreateModal = () => {
+        setFormMode('create');
+        setActiveSupplierId(null);
+        setFormErrors({});
+        setFormData({
+            name: '',
+            contact_person: '',
+            contact_number: '',
+            email: '',
+            address: '',
+            tin: '',
+            is_active: true,
+        });
+        setFormOpen(true);
+    };
+
+    const openEditModal = (id: number) => {
+        setFormMode('edit');
+        setActiveSupplierId(id);
+        setFormErrors({});
+        setFormOpen(true);
+    };
+
     const handleDelete = (id: number, name: string) => {
-        showConfirmDialog({
-            title: 'Delete Supplier',
-            description: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-            confirmText: 'Delete',
-            cancelText: 'Cancel',
-            onConfirm: () => {
-                deleteMutation.mutate(id);
-            },
+        setDeleteTarget({ id, name });
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!deleteTarget) return;
+        deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
         });
     };
 
@@ -65,8 +104,97 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
         toast.success('Suppliers refreshed');
     };
 
+    useEffect(() => {
+        if (formMode === 'edit' && activeSupplier) {
+            setFormData({
+                name: activeSupplier.name,
+                contact_person: activeSupplier.contact_person || '',
+                contact_number: activeSupplier.contact_number || '',
+                email: activeSupplier.email || '',
+                address: activeSupplier.address || '',
+                tin: activeSupplier.tin || '',
+                is_active: activeSupplier.is_active,
+            });
+        }
+    }, [activeSupplier, formMode]);
+
+    const handleFormChange = (field: keyof SupplierInput, value: string | boolean) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+        if (formErrors[field as string]) {
+            setFormErrors((prev) => {
+                const nextErrors = { ...prev };
+                delete nextErrors[field as string];
+                return nextErrors;
+            });
+        }
+    };
+
+    const handleFormError = (error: unknown) => {
+        const apiError = error as ApiError;
+        const backendErrors = apiError?.response?.data?.errors;
+
+        if (!backendErrors) {
+            return;
+        }
+
+        const mappedErrors: Record<string, string[]> = {};
+        if (backendErrors.name) mappedErrors.name = backendErrors.name;
+        if (backendErrors.contact_person) mappedErrors.contact_person = backendErrors.contact_person;
+        if (backendErrors.contact_number) mappedErrors.contact_number = backendErrors.contact_number;
+        if (backendErrors.email) mappedErrors.email = backendErrors.email;
+        if (backendErrors.address) mappedErrors.address = backendErrors.address;
+        if (backendErrors.tin) mappedErrors.tin = backendErrors.tin;
+        if (backendErrors.SupplierName) mappedErrors.name = backendErrors.SupplierName;
+        if (backendErrors.ContactPerson) mappedErrors.contact_person = backendErrors.ContactPerson;
+        if (backendErrors.ContactNumber) mappedErrors.contact_number = backendErrors.ContactNumber;
+        if (backendErrors.Email) mappedErrors.email = backendErrors.Email;
+        if (backendErrors.Address) mappedErrors.address = backendErrors.Address;
+        if (backendErrors.TIN) mappedErrors.tin = backendErrors.TIN;
+
+        setFormErrors(mappedErrors);
+
+        if (Object.keys(mappedErrors).length === 0 && Object.keys(backendErrors).length > 0) {
+            toast.error('Please check the form for errors');
+        }
+    };
+
+    const handleFormSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        setFormErrors({});
+
+        const payload: SupplierInput = {
+            name: formData.name.trim(),
+            contact_person: formData.contact_person?.trim() || undefined,
+            contact_number: formData.contact_number?.trim() || undefined,
+            email: formData.email?.trim() || undefined,
+            address: formData.address?.trim() || undefined,
+            tin: formData.tin?.trim() || undefined,
+            is_active: formData.is_active ?? true,
+        };
+
+        if (formMode === 'create') {
+            createMutation.mutate(payload, {
+                onSuccess: () => setFormOpen(false),
+                onError: handleFormError,
+            });
+            return;
+        }
+
+        if (activeSupplierId) {
+            updateMutation.mutate(
+                { id: activeSupplierId, data: payload },
+                {
+                    onSuccess: () => setFormOpen(false),
+                    onError: handleFormError,
+                }
+            );
+        }
+    };
+
+    const isSaving = createMutation.isPending || updateMutation.isPending;
+
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200">
                 <div className="px-4 sm:px-6 py-4">
@@ -89,7 +217,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
                             </button>
                             {canEdit && (
                                 <button
-                                    onClick={() => router.push(`${baseRoute}/masterdata/suppliers/new`)}
+                                    onClick={openCreateModal}
                                     className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors w-full sm:w-auto focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2"
                                     aria-label="Create new supplier"
                                 >
@@ -105,7 +233,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
             {/* Main Content */}
             <div className="p-4 sm:p-6 lg:p-8">
                 {/* Search Bar */}
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6">
+                <div className="bg-white rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true" />
                         <input
@@ -128,7 +256,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
 
                 {/* Loading State */}
                 {isLoading ? (
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
+                    <div className="bg-white rounded-lg p-8">
                         <div className="space-y-4">
                             {[...Array(5)].map((_, i) => (
                                 <div key={`skeleton-${i}`} className="h-16 bg-slate-100 rounded animate-pulse" />
@@ -137,7 +265,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
                     </div>
                 ) : suppliers.length === 0 ? (
                     // Empty State
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
+                    <div className="bg-white rounded-lg p-12 text-center">
                         <Truck className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                         <h3 className="text-lg font-semibold text-slate-700 mb-2">No suppliers found</h3>
                         <p className="text-slate-500 mb-6">
@@ -147,7 +275,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
                         </p>
                         {!searchTerm && (
                             <button
-                                onClick={() => router.push(`${baseRoute}/masterdata/suppliers/new`)}
+                                onClick={openCreateModal}
                                 className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
                             >
                                 Add Supplier
@@ -161,7 +289,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
                             {suppliers.map((supplier: Supplier) => (
                                 <div
                                     key={`mobile-supplier-${supplier.id}`}
-                                    className="bg-white rounded-lg shadow-sm border border-slate-200 p-4"
+                                    className="bg-white rounded-lg p-4"
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex-1">
@@ -190,7 +318,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
                                         <div className="flex items-center gap-2">
                                             {canEdit && (
                                                 <button
-                                                    onClick={() => router.push(`${baseRoute}/masterdata/suppliers/${supplier.id}`)}
+                                                    onClick={() => openEditModal(supplier.id)}
                                                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                     title="Edit"
                                                 >
@@ -213,7 +341,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
                         </div>
 
                         {/* Desktop Table View */}
-                        <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="hidden lg:block bg-white rounded-lg overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead className="bg-slate-50 border-b border-slate-200">
@@ -268,7 +396,7 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
                                                     <div className="flex items-center justify-end gap-2">
                                                         {canEdit && (
                                                             <button
-                                                                onClick={() => router.push(`${baseRoute}/masterdata/suppliers/${supplier.id}`)}
+                                                                onClick={() => openEditModal(supplier.id)}
                                                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                                 title="Edit"
                                                             >
@@ -320,6 +448,139 @@ export function SuppliersPage({ baseRoute, canEdit = true, canDelete = true }: S
                     </>
                 )}
             </div>
+            <FormDialog
+                open={formOpen}
+                onOpenChange={setFormOpen}
+                title={formMode === 'create' ? 'Add Supplier' : 'Edit Supplier'}
+                description="Manage supplier records"
+                contentClassName="max-w-3xl"
+            >
+                {formMode === 'edit' && isLoadingSupplier ? (
+                    <div className="flex items-center justify-center py-10">
+                        <Loader2 className="w-6 h-6 animate-spin text-[var(--primary)]" />
+                    </div>
+                ) : (
+                    <form onSubmit={handleFormSubmit} className="space-y-5">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Supplier Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => handleFormChange('name', e.target.value)}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.name ? 'border-red-500' : 'border-slate-300'}`}
+                                placeholder="Enter supplier name"
+                                required
+                            />
+                            {formErrors.name && <p className="mt-1 text-sm text-red-500">{formErrors.name[0]}</p>}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Contact Person</label>
+                                <input
+                                    type="text"
+                                    value={formData.contact_person || ''}
+                                    onChange={(e) => handleFormChange('contact_person', e.target.value)}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.contact_person ? 'border-red-500' : 'border-slate-300'}`}
+                                    placeholder="Enter contact person"
+                                />
+                                {formErrors.contact_person && (
+                                    <p className="mt-1 text-sm text-red-500">{formErrors.contact_person[0]}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Contact Number</label>
+                                <input
+                                    type="text"
+                                    value={formData.contact_number || ''}
+                                    onChange={(e) => handleFormChange('contact_number', e.target.value)}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.contact_number ? 'border-red-500' : 'border-slate-300'}`}
+                                    placeholder="Enter contact number"
+                                />
+                                {formErrors.contact_number && (
+                                    <p className="mt-1 text-sm text-red-500">{formErrors.contact_number[0]}</p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
+                                <input
+                                    type="email"
+                                    value={formData.email || ''}
+                                    onChange={(e) => handleFormChange('email', e.target.value)}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.email ? 'border-red-500' : 'border-slate-300'}`}
+                                    placeholder="Enter email address"
+                                />
+                                {formErrors.email && <p className="mt-1 text-sm text-red-500">{formErrors.email[0]}</p>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">TIN</label>
+                                <input
+                                    type="text"
+                                    value={formData.tin || ''}
+                                    onChange={(e) => handleFormChange('tin', e.target.value)}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.tin ? 'border-red-500' : 'border-slate-300'}`}
+                                    placeholder="Enter tax identification number"
+                                />
+                                {formErrors.tin && <p className="mt-1 text-sm text-red-500">{formErrors.tin[0]}</p>}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Address</label>
+                            <textarea
+                                value={formData.address || ''}
+                                onChange={(e) => handleFormChange('address', e.target.value)}
+                                rows={3}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.address ? 'border-red-500' : 'border-slate-300'}`}
+                                placeholder="Enter complete address"
+                            />
+                            {formErrors.address && <p className="mt-1 text-sm text-red-500">{formErrors.address[0]}</p>}
+                        </div>
+                        <div>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={!!formData.is_active}
+                                    onChange={(e) => handleFormChange('is_active', e.target.checked)}
+                                    className="rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                                />
+                                <span className="text-sm font-medium text-slate-700">Active</span>
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                            <button
+                                type="button"
+                                onClick={() => setFormOpen(false)}
+                                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
+                            >
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                {isSaving ? 'Saving...' : formMode === 'create' ? 'Save Supplier' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </FormDialog>
+            <ConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => {
+                    if (!open) setDeleteTarget(null);
+                }}
+                title="Delete Supplier"
+                description={deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.` : undefined}
+                confirmText="Delete"
+                cancelText="Cancel"
+                onConfirm={handleDeleteConfirm}
+                loading={deleteMutation.isPending}
+            />
         </div>
     );
 }

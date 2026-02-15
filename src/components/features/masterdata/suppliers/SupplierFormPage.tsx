@@ -50,7 +50,7 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
                 is_active: supplier.is_active,
             });
         }
-    }, [isEditMode, supplier]);  
+    }, [isEditMode, supplier]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -104,7 +104,7 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)]"></div>
             </div>
         );
@@ -112,7 +112,7 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
 
     if (isEditMode && !supplier) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <div className="text-center">
                     <h2 className="text-xl font-semibold text-slate-800">Supplier not found</h2>
                     <button
@@ -127,7 +127,7 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
     }
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
                 <div className="px-4 sm:px-6 py-4">

@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useDisposalMethods, useDeleteDisposalMethod } from '@/lib/hooks/masterData';
-import { DisposalMethod } from '@/types/masterData';
-import { showConfirmDialog } from '@/lib/utils/confirm';
-import { Plus, Search, Edit, Trash2, Trash, RefreshCw } from 'lucide-react';
+import { useDisposalMethods, useDisposalMethod, useCreateDisposalMethod, useDeleteDisposalMethod, useUpdateDisposalMethod } from '@/lib/hooks/masterData';
+import { DisposalMethod, DisposalMethodInput } from '@/types/masterData';
+import { ApiError } from '@/types/api';
+import { FormDialog } from '@/components/ui/FormDialog';
+import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
+import { Plus, Search, Edit, Trash2, Trash, RefreshCw, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface DisposalMethodsPageProps {
@@ -14,11 +15,19 @@ interface DisposalMethodsPageProps {
     canDelete?: boolean;
 }
 
-export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = true }: DisposalMethodsPageProps) {
-    const router = useRouter();
+export function DisposalMethodsPage({ baseRoute: _baseRoute, canEdit = true, canDelete = true }: DisposalMethodsPageProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [formOpen, setFormOpen] = useState(false);
+    const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+    const [activeMethodId, setActiveMethodId] = useState<number | null>(null);
+    const [formData, setFormData] = useState<DisposalMethodInput>({
+        name: '',
+        description: '',
+    });
+    const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
     // Use React Query for cached data fetching
     const { data, isLoading, error, refetch } = useDisposalMethods({
@@ -30,6 +39,9 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
     });
 
     const deleteMutation = useDeleteDisposalMethod();
+    const createMutation = useCreateDisposalMethod();
+    const updateMutation = useUpdateDisposalMethod();
+    const { data: activeMethod, isLoading: isLoadingMethod } = useDisposalMethod(activeMethodId);
 
     const disposalMethods = data?.data || [];
     const pagination = data;
@@ -44,15 +56,29 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    const openCreateModal = () => {
+        setFormMode('create');
+        setActiveMethodId(null);
+        setFormErrors({});
+        setFormData({ name: '', description: '' });
+        setFormOpen(true);
+    };
+
+    const openEditModal = (id: number) => {
+        setFormMode('edit');
+        setActiveMethodId(id);
+        setFormErrors({});
+        setFormOpen(true);
+    };
+
     const handleDelete = (id: number, name: string) => {
-        showConfirmDialog({
-            title: 'Delete Disposal Method',
-            description: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-            confirmText: 'Delete',
-            cancelText: 'Cancel',
-            onConfirm: () => {
-                deleteMutation.mutate(id);
-            },
+        setDeleteTarget({ id, name });
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!deleteTarget) return;
+        deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
         });
     };
 
@@ -65,8 +91,79 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
         toast.success('Disposal methods refreshed');
     };
 
+    useEffect(() => {
+        if (formMode === 'edit' && activeMethod) {
+            setFormData({
+                name: activeMethod.name,
+                description: activeMethod.description || '',
+            });
+        }
+    }, [activeMethod, formMode]);
+
+    const handleFormChange = (field: keyof DisposalMethodInput, value: string) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+        if (formErrors[field]) {
+            setFormErrors((prev) => {
+                const nextErrors = { ...prev };
+                delete nextErrors[field];
+                return nextErrors;
+            });
+        }
+    };
+
+    const handleFormError = (error: unknown) => {
+        const apiError = error as ApiError;
+        const backendErrors = apiError?.response?.data?.errors;
+
+        if (!backendErrors) {
+            return;
+        }
+
+        const mappedErrors: Record<string, string[]> = {};
+        if (backendErrors.name) mappedErrors.name = backendErrors.name;
+        if (backendErrors.description) mappedErrors.description = backendErrors.description;
+        if (backendErrors.DisposalMethodName) mappedErrors.name = backendErrors.DisposalMethodName;
+        if (backendErrors.Description) mappedErrors.description = backendErrors.Description;
+
+        setFormErrors(mappedErrors);
+
+        if (Object.keys(mappedErrors).length === 0 && Object.keys(backendErrors).length > 0) {
+            toast.error('Please check the form for errors');
+        }
+    };
+
+    const handleFormSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        setFormErrors({});
+
+        const payload: DisposalMethodInput = {
+            name: formData.name.trim(),
+            description: formData.description?.trim() || undefined,
+        };
+
+        if (formMode === 'create') {
+            createMutation.mutate(payload, {
+                onSuccess: () => setFormOpen(false),
+                onError: handleFormError,
+            });
+            return;
+        }
+
+        if (activeMethodId) {
+            updateMutation.mutate(
+                { id: activeMethodId, data: payload },
+                {
+                    onSuccess: () => setFormOpen(false),
+                    onError: handleFormError,
+                }
+            );
+        }
+    };
+
+    const isSaving = createMutation.isPending || updateMutation.isPending;
+
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200">
                 <div className="px-4 sm:px-6 py-4">
@@ -89,7 +186,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
                             </button>
                             {canEdit && (
                                 <button
-                                    onClick={() => router.push(`${baseRoute}/masterdata/disposal-methods/new`)}
+                                    onClick={openCreateModal}
                                     className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors w-full sm:w-auto focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2"
                                     aria-label="Create new disposal method"
                                 >
@@ -105,7 +202,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
             {/* Main Content */}
             <div className="p-4 sm:p-6 lg:p-8">
                 {/* Search Bar */}
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6">
+                <div className="bg-white rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true" />
                         <input
@@ -128,7 +225,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
 
                 {/* Loading State */}
                 {isLoading ? (
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
+                    <div className="bg-white rounded-lg p-8">
                         <div className="space-y-4">
                             {[...Array(5)].map((_, i) => (
                                 <div key={`skeleton-${i}`} className="h-16 bg-slate-100 rounded animate-pulse" />
@@ -137,7 +234,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
                     </div>
                 ) : disposalMethods.length === 0 ? (
                     // Empty State
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
+                    <div className="bg-white rounded-lg p-12 text-center">
                         <Trash className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                         <h3 className="text-lg font-semibold text-slate-700 mb-2">No disposal methods found</h3>
                         <p className="text-slate-500 mb-6">
@@ -147,7 +244,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
                         </p>
                         {!searchTerm && (
                             <button
-                                onClick={() => router.push(`${baseRoute}/masterdata/disposal-methods/new`)}
+                                onClick={openCreateModal}
                                 className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
                             >
                                 Add Disposal Method
@@ -161,7 +258,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
                             {disposalMethods.map((disposalMethod: DisposalMethod) => (
                                 <div
                                     key={`mobile-disposal-method-${disposalMethod.id}`}
-                                    className="bg-white rounded-lg shadow-sm border border-slate-200 p-4"
+                                    className="bg-white rounded-lg p-4"
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex-1">
@@ -187,7 +284,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
                                         <div className="flex items-center gap-2">
                                             {canEdit && (
                                                 <button
-                                                    onClick={() => router.push(`${baseRoute}/masterdata/disposal-methods/${disposalMethod.id}`)}
+                                                    onClick={() => openEditModal(disposalMethod.id)}
                                                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                     title="Edit"
                                                 >
@@ -210,7 +307,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
                         </div>
 
                         {/* Desktop Table View */}
-                        <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="hidden lg:block bg-white rounded-lg overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead className="bg-slate-50 border-b border-slate-200">
@@ -259,7 +356,7 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
                                                         <div className="flex items-center justify-end gap-2">
                                                             {canEdit && (
                                                                 <button
-                                                                    onClick={() => router.push(`${baseRoute}/masterdata/disposal-methods/${disposalMethod.id}`)}
+                                                                    onClick={() => openEditModal(disposalMethod.id)}
                                                                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                                     title="Edit"
                                                                 >
@@ -312,6 +409,81 @@ export function DisposalMethodsPage({ baseRoute, canEdit = true, canDelete = tru
                     </>
                 )}
             </div>
+            <FormDialog
+                open={formOpen}
+                onOpenChange={setFormOpen}
+                title={formMode === 'create' ? 'Add Disposal Method' : 'Edit Disposal Method'}
+                description="Manage property disposal methods"
+            >
+                {formMode === 'edit' && isLoadingMethod ? (
+                    <div className="flex items-center justify-center py-10">
+                        <Loader2 className="w-6 h-6 animate-spin text-[var(--primary)]" />
+                    </div>
+                ) : (
+                    <form onSubmit={handleFormSubmit} className="space-y-5">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Disposal Method <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => handleFormChange('name', e.target.value)}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.name ? 'border-red-500' : 'border-slate-300'}`}
+                                placeholder="e.g., Sale"
+                                required
+                            />
+                            {formErrors.name && (
+                                <p className="text-sm text-red-600 mt-1">{formErrors.name[0]}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Description
+                            </label>
+                            <textarea
+                                value={formData.description}
+                                onChange={(e) => handleFormChange('description', e.target.value)}
+                                rows={4}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.description ? 'border-red-500' : 'border-slate-300'}`}
+                                placeholder="Enter disposal method details (optional)"
+                            />
+                            {formErrors.description && (
+                                <p className="text-sm text-red-600 mt-1">{formErrors.description[0]}</p>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                            <button
+                                type="button"
+                                onClick={() => setFormOpen(false)}
+                                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
+                            >
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                {isSaving ? 'Saving...' : formMode === 'create' ? 'Save Method' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </FormDialog>
+            <ConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => {
+                    if (!open) setDeleteTarget(null);
+                }}
+                title="Delete Disposal Method"
+                description={deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.` : undefined}
+                confirmText="Delete"
+                cancelText="Cancel"
+                onConfirm={handleDeleteConfirm}
+                loading={deleteMutation.isPending}
+            />
         </div>
     );
 }
