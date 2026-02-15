@@ -403,7 +403,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">
-                                                                {d.PropertyNumber && (d.PropertyStatusID === 2) && Boolean(getQrCodeData(d)) && (
+                                                                {d.PropertyNumber && (
                                                                     <PropertySticker
                                                                         propertyNumber={d.PropertyNumber}
                                                                         itemName={getItemName(d)}

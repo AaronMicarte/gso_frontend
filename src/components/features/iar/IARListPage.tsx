@@ -26,6 +26,9 @@ interface IARListPageProps {
 export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [searchBy, setSearchBy] = useState<'iar' | 'dr'>('iar');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedIarId, setSelectedIarId] = useState<number | null>(null);
     const deleteMutation = useDeleteIAR();
@@ -58,6 +61,9 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
     const { data, isLoading } = useIARs({
         page,
         per_page: 10,
+        ...(search ? (searchBy === 'iar' ? { iar_number: search } : { dr_number: search }) : {}),
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
     });
 
     return (
@@ -79,8 +85,38 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
                             type="text"
                             placeholder="Search IAR Number or DR Number..."
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') setPage(1); }}
                             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2 w-56">
+                        <select
+                            value={searchBy}
+                            onChange={(e) => { setSearchBy(e.target.value as 'iar' | 'dr'); setPage(1); }}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                            title="Search by"
+                        >
+                            <option value="iar">IAR Number</option>
+                            <option value="dr">DR Number</option>
+                        </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                            title="Start date"
+                        />
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                            title="End date"
                         />
                     </div>
                 </div>

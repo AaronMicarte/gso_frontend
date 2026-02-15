@@ -365,7 +365,7 @@ export function AllItemsPage() {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {item.PropertyNumber && Boolean(getQrCodeData(item)) && (
+                                                    {item.PropertyNumber && (
                                                         <PropertySticker
                                                             propertyNumber={item.PropertyNumber}
                                                             itemName={getItemName(item)}

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { ClipboardCheck, Eye, Package } from 'lucide-react';
+import { ClipboardCheck, Eye, Package, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { useInspectionReports } from '@/lib/hooks/useInspection';
@@ -18,9 +18,21 @@ interface InspectionReportListPageProps {
 
 export function InspectionReportListPage({ baseRoute, status, title, subtitle }: InspectionReportListPageProps) {
     const [page, setPage] = useState(1);
+    const [search, setSearch] = useState('');
+    const [searchBy, setSearchBy] = useState<'iar' | 'dr'>('iar');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
-    const { data, isLoading } = useInspectionReports({ page, per_page: 10, status });
+
+    const { data, isLoading } = useInspectionReports({
+        page,
+        per_page: 10,
+        status,
+        ...(search ? (searchBy === 'iar' ? { iar_number: search } : { dr_number: search }) : {}),
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
+    });
 
     const handleOpenChange = (open: boolean) => {
         setIsViewOpen(open);
@@ -39,6 +51,50 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">{title || 'Inspection Reports'}</h1>
                         <p className="text-slate-500 text-sm">{subtitle || 'Inspection records for delivered items'}</p>
+                    </div>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search IAR Number or DR Number..."
+                            value={search}
+                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') setPage(1); }}
+                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2 w-56">
+                        <select
+                            value={searchBy}
+                            onChange={(e) => { setSearchBy(e.target.value as 'iar' | 'dr'); setPage(1); }}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                            title="Search by"
+                        >
+                            <option value="iar">IAR Number</option>
+                            <option value="dr">DR Number</option>
+                        </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                            title="Start date"
+                        />
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                            title="End date"
+                        />
                     </div>
                 </div>
 

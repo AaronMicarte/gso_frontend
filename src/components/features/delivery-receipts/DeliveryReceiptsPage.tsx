@@ -36,17 +36,30 @@ const workflowBadgeStyles: Record<string, string> = {
 export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryReceiptsPageProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedDrId, setSelectedDrId] = useState<number | null>(null);
     const deleteMutation = useDeleteDeliveryReceipt();
     const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
-    // Assuming useDeliveryReceipts accepts these params
     const { data, isLoading, refetch } = useDeliveryReceipts({
         page,
         per_page: 10,
-        // We might need to implement search in the hook/API if not present
-        // For now, we'll just pass page/per_page
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
+        // If the user entered text that looks like a supplier name, forward it server-side for better results
+        ...(search && /[a-zA-Z]/.test(search) ? { supplier_name: search } : {}),
+    });
+
+    const filteredData = (data?.data || []).filter((dr) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+            String(dr.DRNumber || '').toLowerCase().includes(q) ||
+            String(dr.PONumber || '').toLowerCase().includes(q) ||
+            String(dr.SupplierName || '').toLowerCase().includes(q)
+        );
     });
 
     const handleRefresh = () => {
@@ -114,8 +127,26 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                             type="text"
                             placeholder="Search DR Number, PO Number, or Supplier..."
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') setPage(1); }}
                             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                            title="Start date"
+                        />
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                            title="End date"
                         />
                     </div>
                 </div>
@@ -145,7 +176,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                             </div>
                                         </td>
                                     </tr>
-                                ) : data?.data?.length === 0 ? (
+                                ) : filteredData.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
@@ -153,7 +184,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                         </td>
                                     </tr>
                                 ) : (
-                                    data?.data?.map((dr) => (
+                                    filteredData.map((dr) => (
                                         <tr key={dr.DRID} className="hover:bg-slate-50">
                                             <td className="px-6 py-4 font-medium text-slate-900">
                                                 {dr.DRNumber}
