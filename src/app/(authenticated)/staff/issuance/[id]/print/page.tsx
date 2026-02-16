@@ -63,22 +63,6 @@ export default function StaffIssuancePrintPage() {
         );
     }
 
-    if (issuance.Status === 'pending_acknowledgment') {
-        return (
-            <div className="min-h-screen flex items-center justify-center p-6">
-                <div className="max-w-md w-full bg-white shadow rounded-lg p-6">
-                    <div className="text-slate-900 font-semibold">Printable document unavailable</div>
-                    <div className="text-sm text-slate-600 mt-1">This document becomes available after receipt is acknowledged.</div>
-                    <div className="mt-4">
-                        <Link href={`/staff/issuance/${issuance.IssuanceID}`} className="text-sm text-[var(--primary)] underline">
-                            Back to issuance
-                        </Link>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen bg-slate-100 py-6">
             <div className="no-print max-w-4xl mx-auto px-4 mb-4 flex items-center justify-between">

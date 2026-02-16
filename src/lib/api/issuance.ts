@@ -129,6 +129,35 @@ const issuanceAPI = {
         return data;
     },
 
+    // Ensure issuances exist for inspected DRs (for pre-printing PAR/ICS)
+    ensureIssuances: async (payload: { dr_id?: number; iar_id?: number }) => {
+        const { data } = await apiClient.post<{
+            message: string;
+            data: {
+                DRID: number;
+                IARID: number;
+                issuances_by_document_type: {
+                    PAR?: {
+                        IssuanceID: number;
+                        DocumentType?: 'PAR' | 'ICS' | string | null;
+                        DocumentNumber?: string | null;
+                        Status?: string | null;
+                    } | null;
+                    ICS?: {
+                        IssuanceID: number;
+                        DocumentType?: 'PAR' | 'ICS' | string | null;
+                        DocumentNumber?: string | null;
+                        Status?: string | null;
+                    } | null;
+                };
+            };
+        }>(
+            '/property-issuances/ensure-issuances',
+            payload
+        );
+        return data;
+    },
+
     // Get approved requests ready for issuance
     getApprovedRequests: async (filters?: { per_page?: number; page?: number }) => {
         const { data } = await apiClient.get<{ data: AssetRequest[]; message: string; total: number }>(

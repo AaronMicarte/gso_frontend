@@ -27,6 +27,10 @@ interface DeliveryReceiptForIssuance {
         PAR?: IarIssuedItem[];
         ICS?: IarIssuedItem[];
     };
+    issuances_by_document_type?: {
+        PAR?: IssuanceSummary | null;
+        ICS?: IssuanceSummary | null;
+    };
 }
 
 interface IarIssuedItem {
@@ -37,6 +41,13 @@ interface IarIssuedItem {
     SerialNumber?: string | null;
     QuantityAccepted?: number | null;
     DocumentType?: 'PAR' | 'ICS' | string | null;
+}
+
+interface IssuanceSummary {
+    IssuanceID: number;
+    DocumentType?: 'PAR' | 'ICS' | string | null;
+    DocumentNumber?: string | null;
+    Status?: string | null;
 }
 
 interface IssuanceListPageProps {
@@ -147,6 +158,39 @@ export function IssuanceListPage({
         setPendingRow(null);
     };
 
+    const handlePrint = (row: DeliveryReceiptForIssuance, docType: 'PAR' | 'ICS') => {
+        const existing = row.issuances_by_document_type?.[docType];
+        if (existing?.IssuanceID) {
+            const printUrl = `${baseRoute}/${existing.IssuanceID}/print`;
+            window.open(printUrl, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        issuanceAPI.ensureIssuances({ dr_id: row.DRID, iar_id: row.IARID || undefined })
+            .then((response) => {
+                const ensured = response.data?.issuances_by_document_type?.[docType];
+                if (!ensured?.IssuanceID) {
+                    toast.error('Issuance document is not available yet');
+                    return;
+                }
+
+                setRows((prev) => prev.map((item) => (
+                    item.DRID === row.DRID
+                        ? {
+                            ...item,
+                            issuances_by_document_type: response.data?.issuances_by_document_type,
+                        }
+                        : item
+                )));
+
+                const printUrl = `${baseRoute}/${ensured.IssuanceID}/print`;
+                window.open(printUrl, '_blank', 'noopener,noreferrer');
+            })
+            .catch(() => {
+                toast.error('Failed to prepare issuance document');
+            });
+    };
+
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
             <div className="p-6 space-y-6">
@@ -211,6 +255,8 @@ export function IssuanceListPage({
                                     ?? 'PAR';
                                 const currentItems = itemsByType[selectedType] ?? [];
                                 const isExpanded = expandedByDr[row.DRID] ?? false;
+                                const issuanceByType = row.issuances_by_document_type ?? {};
+                                const canPrint = row.InspectionStatus === 'inspected' && availableTypes.length > 0;
 
                                 return (
                                     <div key={row.DRID} className="p-4 hover:bg-slate-50 transition-colors">
@@ -251,6 +297,17 @@ export function IssuanceListPage({
                                                         </>
                                                     )}
                                                 </span>
+                                                {availableTypes.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handlePrint(row, selectedType)}
+                                                        disabled={!canPrint}
+                                                        className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                                                    >
+                                                        <FileText className="w-4 h-4" />
+                                                        Print {selectedType}
+                                                    </button>
+                                                )}
                                                 <button
                                                     type="button"
                                                     onClick={() => openConfirm(row)}
