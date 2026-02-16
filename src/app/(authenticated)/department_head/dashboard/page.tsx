@@ -48,7 +48,7 @@ export default function DepartmentHeadDashboard() {
     const defaultStats = {
         totalAssets: 0,
         assignedAssets: 0,
-        pendingRequests: 0,
+        forIssuance: 0,
         overdueReturns: 0,
     };
 
@@ -103,7 +103,7 @@ export default function DepartmentHeadDashboard() {
                             </div>
                             <div>
                                 <div className="text-sm font-medium text-slate-700">For Issuance</div>
-                                <div className="text-2xl font-bold text-slate-900">{currentStats.pendingRequests}</div>
+                                <div className="text-2xl font-bold text-slate-900">{currentStats.forIssuance}</div>
                             </div>
                         </div>
                         <div className="text-xs text-slate-500">Items ready for issuance</div>
@@ -128,28 +128,28 @@ export default function DepartmentHeadDashboard() {
                     <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Link
-                            href="/department_head/asset-requests/new"
+                            href="/department_head/received-items"
                             className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                         >
                             <div className="p-2 bg-blue-100 rounded-lg">
-                                <FileText className="w-5 h-5 text-blue-600" />
+                                <Package className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                                <div className="font-medium text-slate-900">Create Request</div>
-                                <div className="text-sm text-slate-500">Request new property assignment</div>
+                                <div className="font-medium text-slate-900">Received Items</div>
+                                <div className="text-sm text-slate-500">View items received for your department</div>
                             </div>
                         </Link>
 
                         <Link
-                            href="/department_head/asset-requests"
+                            href="/department_head/issuance"
                             className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                         >
                             <div className="p-2 bg-green-100 rounded-lg">
-                                <Package className="w-5 h-5 text-green-600" />
+                                <FileText className="w-5 h-5 text-green-600" />
                             </div>
                             <div>
-                                <div className="font-medium text-slate-900">View Requests</div>
-                                <div className="text-sm text-slate-500">Check request status</div>
+                                <div className="font-medium text-slate-900">Issued Documents</div>
+                                <div className="text-sm text-slate-500">Review PAR/ICS issuances</div>
                             </div>
                         </Link>
 

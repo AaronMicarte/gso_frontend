@@ -37,7 +37,7 @@ export interface RecentActivityResponse {
 export interface DepartmentHeadStats {
     totalAssets: number;        // Total properties under this department head's care
     assignedAssets: number;     // Currently assigned to end users
-    pendingRequests: number;    // Pending issuance requests
+    forIssuance: number;        // Items ready for issuance
     overdueReturns: number;     // Items past due date
 }
 
@@ -48,9 +48,10 @@ export interface DepartmentHeadStatsResponse {
 
 export interface DepartmentHeadActivity {
     id: string;
-    type: 'assignment' | 'request' | 'return' | 'verification';
+    type: 'assignment' | 'issuance' | 'return' | 'verification';
     message: string;
     time: string;
+    timestamp?: string;
     status: 'completed' | 'pending' | 'overdue';
 }
 

@@ -377,19 +377,6 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 ]
             },
             {
-                section: 'ASSET REQUESTS',
-                items: [
-                    {
-                        label: 'Asset Requests',
-                        icon: FileText,
-                        children: [
-                            { label: 'My Requests', href: `${baseRoute}/asset-requests`, icon: FileText },
-                            { label: 'Create Request', href: `${baseRoute}/asset-requests/new`, icon: Plus },
-                        ]
-                    }
-                ]
-            },
-            {
                 section: 'REPORTS',
                 items: [
                     // Keep reports minimal until role-specific reporting is implemented.
