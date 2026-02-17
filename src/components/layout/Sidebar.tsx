@@ -357,6 +357,19 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 ]
             },
             {
+                section: 'TRANSFER REQUESTS',
+                items: [
+                    {
+                        label: 'Property Transfers',
+                        icon: ArrowRightLeft,
+                        children: [
+                            { label: 'My Requests', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
+                            { label: 'Incoming Requests', href: `${baseRoute}/transfer/incoming`, icon: FileClock },
+                        ]
+                    }
+                ]
+            },
+            {
                 section: 'ACCOUNTABILITY DOCUMENTS',
                 items: [
                     {

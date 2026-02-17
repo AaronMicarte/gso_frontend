@@ -1,0 +1,484 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, PlusCircle, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
+
+import transferAPI from '@/lib/api/transfer';
+import {
+    PropertyTransferCreatePayload,
+    TransferDepartment,
+    TransferEndUser,
+    TransferableItem,
+} from '@/types/propertyTransfer';
+import { useAuth } from '@/lib/hooks/useAuth';
+
+interface TransferCreatePageProps {
+    baseRoute: string;
+}
+
+export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
+    const router = useRouter();
+    const { user } = useAuth();
+    const [departments, setDepartments] = useState<TransferDepartment[]>([]);
+    const [fromEndUsers, setFromEndUsers] = useState<TransferEndUser[]>([]);
+    const [toEndUsers, setToEndUsers] = useState<TransferEndUser[]>([]);
+    const [availableItems, setAvailableItems] = useState<TransferableItem[]>([]);
+    const [selectedItems, setSelectedItems] = useState<TransferableItem[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [itemLoading, setItemLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [reason, setReason] = useState('');
+    const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
+    const [fromEndUserSearch, setFromEndUserSearch] = useState('');
+    const [releasingComboboxOpen, setReleasingComboboxOpen] = useState(false);
+    const [releasingHighlightedIndex, setReleasingHighlightedIndex] = useState(-1);
+    const releasingComboboxRef = useRef<HTMLDivElement | null>(null);
+
+    const [fromDepartmentId, setFromDepartmentId] = useState<number | ''>('');
+    const [toDepartmentId, setToDepartmentId] = useState<number | ''>(user?.DepartmentID ?? '');
+    const [fromEndUserId, setFromEndUserId] = useState<number | ''>('');
+    const [toEndUserId, setToEndUserId] = useState<number | ''>('');
+
+    const [receivingEndUser, setReceivingEndUser] = useState<TransferEndUser | null>(null);
+    const [receivingError, setReceivingError] = useState<string | null>(null);
+
+    const isDepartmentHead = user?.UserRoleID === 4;
+
+    const formattedToday = format(toZonedTime(new Date(), 'Asia/Manila'), 'MMM dd, yyyy');
+
+    const loadHelpers = useCallback(async () => {
+        try {
+            const [deptData, receivingEndUsers, releasingEndUsers] = await Promise.all([
+                transferAPI.getDepartments(),
+                user?.DepartmentID ? transferAPI.getEndUsers(user.DepartmentID) : Promise.resolve([]),
+                transferAPI.getEndUsers(),
+            ]);
+            setDepartments(deptData);
+            setToEndUsers(receivingEndUsers);
+            setFromEndUsers(releasingEndUsers);
+        } catch {
+            toast.error('Failed to load transfer helpers');
+        }
+    }, [user?.DepartmentID]);
+
+    const loadAvailableItems = useCallback(async () => {
+        if (!fromDepartmentId || !fromEndUserId) {
+            setAvailableItems([]);
+            return;
+        }
+
+        try {
+            setItemLoading(true);
+            const data = await transferAPI.getAvailableItems({
+                search: searchTerm || undefined,
+                from_department_id: Number(fromDepartmentId),
+                from_end_user_id: Number(fromEndUserId),
+                per_page: 20,
+            });
+            setAvailableItems(data.data || []);
+        } catch {
+            toast.error('Failed to load transfer items');
+        } finally {
+            setItemLoading(false);
+        }
+    }, [fromDepartmentId, fromEndUserId, searchTerm]);
+
+    useEffect(() => {
+        loadHelpers();
+    }, [loadHelpers]);
+
+    useEffect(() => {
+        const onClickOutside = (event: MouseEvent) => {
+            if (releasingComboboxRef.current && !releasingComboboxRef.current.contains(event.target as Node)) {
+                setReleasingComboboxOpen(false);
+                setReleasingHighlightedIndex(-1);
+            }
+        };
+        document.addEventListener('mousedown', onClickOutside);
+        return () => document.removeEventListener('mousedown', onClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (user?.DepartmentID && !toDepartmentId) {
+            setToDepartmentId(user.DepartmentID);
+        }
+    }, [user?.DepartmentID, toDepartmentId]);
+
+    useEffect(() => {
+        if (isDepartmentHead && user?.DepartmentID) {
+            setToDepartmentId(user.DepartmentID);
+        }
+    }, [isDepartmentHead, user?.DepartmentID]);
+
+    useEffect(() => {
+        if (!toDepartmentId) {
+            setToEndUsers([]);
+            setToEndUserId('');
+            setReceivingEndUser(null);
+            setReceivingError(null);
+            return;
+        }
+
+        transferAPI.getEndUsers(Number(toDepartmentId))
+            .then((endUsers) => {
+                setToEndUsers(endUsers);
+                const requesterName = (user?.FullName || '').trim().toLowerCase();
+                const match = endUsers.find((entry) => entry.FullName.trim().toLowerCase() === requesterName) || null;
+                if (!match) {
+                    setReceivingEndUser(null);
+                    setToEndUserId('');
+                    setReceivingError('Requester must have a matching End User record in their department.');
+                } else {
+                    setReceivingEndUser(match);
+                    setToEndUserId(match.EndUserID);
+                    setReceivingError(null);
+                }
+            })
+            .catch(() => toast.error('Failed to load receiving end users'));
+    }, [toDepartmentId, user?.FullName]);
+
+    useEffect(() => {
+        loadAvailableItems();
+    }, [loadAvailableItems]);
+
+    const toggleItem = (item: TransferableItem) => {
+        setSelectedItems((prev) => {
+            if (prev.some((entry) => entry.InventoryDetailID === item.InventoryDetailID)) {
+                return prev.filter((entry) => entry.InventoryDetailID !== item.InventoryDetailID);
+            }
+            return [...prev, item];
+        });
+    };
+
+    const removeSelected = (inventoryDetailId: number) => {
+        setSelectedItems((prev) => prev.filter((entry) => entry.InventoryDetailID !== inventoryDetailId));
+    };
+
+    const isItemSelected = (inventoryDetailId: number) => (
+        selectedItems.some((entry) => entry.InventoryDetailID === inventoryDetailId)
+    );
+
+    const toggleExpanded = (inventoryDetailId: number) => {
+        setExpandedItems((prev) => ({
+            ...prev,
+            [inventoryDetailId]: !prev[inventoryDetailId],
+        }));
+    };
+
+    const buildItemSummary = (item: TransferableItem) => {
+        const article = item.ArticleName || 'Item';
+        const itemDescription = item.ItemDescription || item.InventoryDescription || item.AssignedDescription || '';
+        const brandModel = [item.Brand, item.ModelNumber].filter(Boolean).join(' ');
+        const serial = item.SerialNumber ? `SN: ${item.SerialNumber}` : '';
+        const details = [itemDescription, brandModel, serial].filter(Boolean).join(' | ');
+        return details ? `${article} - ${details}` : article;
+    };
+
+    const filteredFromEndUsers = useMemo(() => {
+        const term = fromEndUserSearch.trim().toLowerCase();
+        const requesterName = (user?.FullName || '').trim().toLowerCase();
+        const requesterDepartmentId = user?.DepartmentID ?? null;
+
+        return fromEndUsers.filter((endUser) => {
+            if (requesterDepartmentId && endUser.DepartmentID === requesterDepartmentId) {
+                return false;
+            }
+            if (requesterName && endUser.FullName.trim().toLowerCase() === requesterName) {
+                return false;
+            }
+            if (!term) return true;
+            const display = `${endUser.FullName} ${endUser.DepartmentName ?? ''}`.toLowerCase();
+            return display.includes(term);
+        });
+    }, [fromEndUsers, fromEndUserSearch, user?.FullName, user?.DepartmentID]);
+
+    const canSubmit = useMemo(() => {
+        return !!fromDepartmentId
+            && !!toDepartmentId
+            && !!fromEndUserId
+            && !!toEndUserId
+            && selectedItems.length > 0
+            && fromDepartmentId !== toDepartmentId
+            && !receivingError;
+    }, [fromDepartmentId, toDepartmentId, fromEndUserId, toEndUserId, selectedItems, receivingError]);
+
+    const handleSubmit = async () => {
+        if (!canSubmit) {
+            toast.error('Complete all required fields before submitting');
+            return;
+        }
+
+        const payload: PropertyTransferCreatePayload = {
+            from_department_id: Number(fromDepartmentId),
+            to_department_id: Number(toDepartmentId),
+            from_end_user_id: Number(fromEndUserId),
+            to_end_user_id: Number(toEndUserId),
+            reason: reason.trim() || null,
+            items: selectedItems.map((item) => ({
+                inventory_detail_id: item.InventoryDetailID,
+                quantity: 1,
+            })),
+        };
+
+        try {
+            setLoading(true);
+            const response = await transferAPI.create(payload);
+            toast.success('Transfer request submitted');
+            router.push(`${baseRoute}/${response.transfer.TransferID}`);
+        } catch (error: unknown) {
+            const maybeAxios = error as { response?: { data?: { message?: string } } };
+            const message = maybeAxios?.response?.data?.message;
+            toast.error(message || 'Failed to submit transfer request');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+            <div className="p-6 space-y-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Create Transfer Request</h1>
+                    <p className="text-slate-500 text-sm">Prepare the PTR request for GSO approval and paper signing</p>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                            <div className="text-sm text-slate-600">Request Date: {formattedToday}</div>
+                            <div className="text-sm text-slate-600">
+                                Requested By: {user?.FullName || 'Missing requester'}{user?.Department ? ` - ${user.Department}` : ''}
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700">Releasing Custodian (Current Holder)</label>
+                                    <div className="relative mt-2" ref={releasingComboboxRef}>
+                                        <input
+                                            type="text"
+                                            role="combobox"
+                                            aria-expanded={releasingComboboxOpen}
+                                            aria-controls="releasing-listbox"
+                                            aria-autocomplete="list"
+                                            value={fromEndUserSearch}
+                                            onChange={(event) => {
+                                                setFromEndUserSearch(event.target.value);
+                                                setReleasingComboboxOpen(true);
+                                                setReleasingHighlightedIndex(-1);
+                                            }}
+                                            onFocus={() => setReleasingComboboxOpen(true)}
+                                            onKeyDown={(event) => {
+                                                if (!releasingComboboxOpen) return;
+                                                if (event.key === 'ArrowDown') {
+                                                    event.preventDefault();
+                                                    setReleasingHighlightedIndex((prev) => Math.min(prev + 1, filteredFromEndUsers.length - 1));
+                                                } else if (event.key === 'ArrowUp') {
+                                                    event.preventDefault();
+                                                    setReleasingHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                                                } else if (event.key === 'Enter') {
+                                                    event.preventDefault();
+                                                    const selected = filteredFromEndUsers[releasingHighlightedIndex];
+                                                    if (selected) {
+                                                        setFromEndUserId(selected.EndUserID);
+                                                        setFromDepartmentId(selected.DepartmentID ?? '');
+                                                        setFromEndUserSearch(`${selected.FullName}${selected.DepartmentName ? ` - ${selected.DepartmentName}` : ''}`);
+                                                        setReleasingComboboxOpen(false);
+                                                    }
+                                                } else if (event.key === 'Escape') {
+                                                    setReleasingComboboxOpen(false);
+                                                    setReleasingHighlightedIndex(-1);
+                                                }
+                                            }}
+                                            placeholder="Search custodian"
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                        />
+                                        {releasingComboboxOpen && (
+                                            <ul id="releasing-listbox" role="listbox" className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
+                                                {filteredFromEndUsers.length === 0 ? (
+                                                    <li className="px-3 py-2 text-sm text-slate-500">No matching custodians.</li>
+                                                ) : (
+                                                    filteredFromEndUsers.map((endUser, idx) => (
+                                                        <li
+                                                            key={endUser.EndUserID}
+                                                            role="option"
+                                                            aria-selected={releasingHighlightedIndex === idx}
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                setFromEndUserId(endUser.EndUserID);
+                                                                setFromDepartmentId(endUser.DepartmentID ?? '');
+                                                                setFromEndUserSearch(`${endUser.FullName}${endUser.DepartmentName ? ` - ${endUser.DepartmentName}` : ''}`);
+                                                                setReleasingComboboxOpen(false);
+                                                            }}
+                                                            onMouseEnter={() => setReleasingHighlightedIndex(idx)}
+                                                            className={`px-3 py-2 text-sm cursor-pointer ${releasingHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
+                                                        >
+                                                            {endUser.FullName}{endUser.DepartmentName ? ` - ${endUser.DepartmentName}` : ''}
+                                                        </li>
+                                                    ))
+                                                )}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700">Receiving Custodian (Requester)</label>
+                                    <input
+                                        type="text"
+                                        value={receivingEndUser
+                                            ? `${receivingEndUser.FullName}${receivingEndUser.DepartmentName ? ` - ${receivingEndUser.DepartmentName}` : ''}`
+                                            : `${user?.FullName ?? 'Missing requester'}${user?.Department ? ` - ${user.Department}` : ''}`}
+                                        readOnly
+                                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
+                                    />
+                                    {receivingError && (
+                                        <p className="mt-2 text-sm text-red-600">{receivingError}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium text-slate-700">Reason / Notes</label>
+                                <textarea
+                                    value={reason}
+                                    onChange={(event) => setReason(event.target.value)}
+                                    rows={3}
+                                    className="mt-2 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                    placeholder="Optional reason for transfer"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                                <div>
+                                    <h2 className="text-lg font-semibold text-slate-900">Select Items to Transfer</h2>
+                                    <p className="text-sm text-slate-500">Only items assigned to the borrower are listed</p>
+                                </div>
+                                <div className="relative w-full md:w-64">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search items"
+                                        value={searchTerm}
+                                        onChange={(event) => setSearchTerm(event.target.value)}
+                                        className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                    />
+                                </div>
+                            </div>
+
+                            {itemLoading ? (
+                                <div className="flex items-center justify-center py-10 text-slate-500">Loading items...</div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-slate-200">
+                                        <thead className="bg-slate-50">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Select</th>
+                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
+                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Description</th>
+                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">End User</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200">
+                                            {availableItems.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
+                                                        Select a borrower to view transferable assets.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                availableItems.map((item) => (
+                                                    <tr key={item.InventoryDetailID} className="hover:bg-slate-50">
+                                                        <td className="px-3 py-2">
+                                                            <button
+                                                                onClick={() => toggleItem(item)}
+                                                                className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                                                                aria-label="Toggle item"
+                                                            >
+                                                                <PlusCircle className={`w-5 h-5 ${isItemSelected(item.InventoryDetailID) ? 'text-green-600' : ''}`} />
+                                                            </button>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            {item.PropertyNumber || 'Missing property number'}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleExpanded(item.InventoryDetailID)}
+                                                                className={`text-left w-full ${expandedItems[item.InventoryDetailID] ? 'whitespace-normal' : 'truncate'}`}
+                                                                title={buildItemSummary(item)}
+                                                            >
+                                                                {buildItemSummary(item)}
+                                                            </button>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            {item.EndUserName || 'Missing end user'}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h2 className="text-lg font-semibold text-slate-900">Selected Items</h2>
+                            <p className="text-sm text-slate-500">PTR requires signed paper copies (4x)</p>
+
+                            <div className="mt-4 space-y-3">
+                                {selectedItems.length === 0 ? (
+                                    <div className="text-sm text-slate-500">No items selected yet.</div>
+                                ) : (
+                                    selectedItems.map((item) => (
+                                        <div key={item.InventoryDetailID} className="border border-slate-200 rounded-lg p-3">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleExpanded(item.InventoryDetailID)}
+                                                        className={`text-sm font-semibold text-slate-900 text-left w-full ${expandedItems[item.InventoryDetailID] ? 'whitespace-normal' : 'truncate'}`}
+                                                        title={buildItemSummary(item)}
+                                                    >
+                                                        {buildItemSummary(item)}
+                                                    </button>
+                                                    <div className="text-xs text-slate-500">
+                                                        Property #: {item.PropertyNumber || 'Missing property number'}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeSelected(item.InventoryDetailID)}
+                                                    className="text-slate-400 hover:text-red-500"
+                                                    aria-label="Remove item"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <button
+                                onClick={handleSubmit}
+                                disabled={!canSubmit || loading}
+                                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-white text-sm hover:bg-[var(--primary-hover)] disabled:opacity-50"
+                            >
+                                {loading ? 'Submitting...' : 'Submit Transfer Request'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
