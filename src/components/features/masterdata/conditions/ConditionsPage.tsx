@@ -91,10 +91,16 @@ export function ConditionsPage({ baseRoute: _baseRoute }: ConditionsPageProps) {
 
     useEffect(() => {
         if (formMode === 'edit' && activeCondition) {
-            setFormData({
+            const nextFormData: ConditionInput = {
                 name: activeCondition.name,
                 description: activeCondition.description || '',
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeCondition, formMode]);
 

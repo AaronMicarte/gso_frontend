@@ -106,7 +106,7 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
 
     useEffect(() => {
         if (formMode === 'edit' && activeSupplier) {
-            setFormData({
+            const nextFormData: SupplierInput = {
                 name: activeSupplier.name,
                 contact_person: activeSupplier.contact_person || '',
                 contact_number: activeSupplier.contact_number || '',
@@ -114,7 +114,13 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
                 address: activeSupplier.address || '',
                 tin: activeSupplier.tin || '',
                 is_active: activeSupplier.is_active,
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeSupplier, formMode]);
 

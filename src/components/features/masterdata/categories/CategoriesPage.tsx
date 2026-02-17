@@ -92,10 +92,16 @@ export function CategoriesPage({ baseRoute: _baseRoute }: CategoriesPageProps) {
 
     useEffect(() => {
         if (formMode === 'edit' && activeCategory) {
-            setFormData({
+            const nextFormData: CategoryInput = {
                 name: activeCategory.name,
                 description: activeCategory.description || '',
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeCategory, formMode]);
 

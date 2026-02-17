@@ -100,11 +100,17 @@ export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPagePr
 
     useEffect(() => {
         if (formMode === 'edit' && activeType) {
-            setFormData({
+            const nextFormData: PropertyTypeInput = {
                 name: activeType.name,
                 description: activeType.description || '',
                 property_classification_id: activeType.property_classification_id,
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeType, formMode]);
 

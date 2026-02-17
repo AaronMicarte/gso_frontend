@@ -100,11 +100,17 @@ export function ClassificationsPage({ baseRoute: _baseRoute }: ClassificationsPa
 
     useEffect(() => {
         if (formMode === 'edit' && activeClassification) {
-            setFormData({
+            const nextFormData: ClassificationInput = {
                 name: activeClassification.name,
                 description: activeClassification.description || '',
                 category_id: activeClassification.category_id,
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeClassification, formMode]);
 

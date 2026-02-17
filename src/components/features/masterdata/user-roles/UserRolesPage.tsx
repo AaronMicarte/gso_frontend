@@ -93,10 +93,16 @@ export function UserRolesPage({ baseRoute: _baseRoute, canEdit = true, canDelete
 
     useEffect(() => {
         if (formMode === 'edit' && activeRole) {
-            setFormData({
+            const nextFormData: UserRoleInput = {
                 name: activeRole.name,
                 description: activeRole.description || '',
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeRole, formMode]);
 

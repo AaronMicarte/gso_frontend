@@ -114,14 +114,20 @@ export function EndUsersPage({ baseRoute: _baseRoute, canEdit = true, canDelete 
 
     useEffect(() => {
         if (formMode === 'edit' && activeEndUser) {
-            setFormData({
+            const nextFormData: EndUserInput = {
                 full_name: activeEndUser.full_name,
                 department_id: activeEndUser.department_id,
                 position_id: activeEndUser.position_id,
                 contact_number: activeEndUser.contact_number || '',
                 email: activeEndUser.email || '',
                 is_active: activeEndUser.is_active,
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeEndUser, formMode]);
 

@@ -97,11 +97,17 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
 
     useEffect(() => {
         if (formMode === 'edit' && activeArticle) {
-            setFormData({
+            const nextFormData: ArticleInput = {
                 ArticleName: activeArticle.name,
                 Description: activeArticle.description || '',
                 IsActive: activeArticle.is_active,
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeArticle, formMode]);
 

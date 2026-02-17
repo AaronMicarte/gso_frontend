@@ -98,11 +98,17 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
 
     useEffect(() => {
         if (formMode === 'edit' && activeDepartment) {
-            setFormData({
+            const nextFormData: DepartmentInput = {
                 DepartmentCode: activeDepartment.code || '',
                 DepartmentName: activeDepartment.name || '',
                 Description: activeDepartment.description || '',
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeDepartment, formMode]);
 

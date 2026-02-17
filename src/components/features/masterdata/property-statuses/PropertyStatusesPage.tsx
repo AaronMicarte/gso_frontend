@@ -91,10 +91,16 @@ export function PropertyStatusesPage({ baseRoute: _baseRoute }: PropertyStatuses
 
     useEffect(() => {
         if (formMode === 'edit' && activeStatus) {
-            setFormData({
+            const nextFormData: PropertyStatusInput = {
                 name: activeStatus.name,
                 description: activeStatus.description || '',
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeStatus, formMode]);
 

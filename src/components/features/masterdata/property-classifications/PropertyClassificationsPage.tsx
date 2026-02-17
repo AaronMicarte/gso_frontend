@@ -98,11 +98,17 @@ export function PropertyClassificationsPage({ baseRoute: _baseRoute }: PropertyC
 
     useEffect(() => {
         if (formMode === 'edit' && activeClassification) {
-            setFormData({
+            const nextFormData: PropertyClassificationInput = {
                 name: activeClassification.name,
                 description: activeClassification.description || '',
                 document_type: activeClassification.document_type,
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeClassification, formMode]);
 

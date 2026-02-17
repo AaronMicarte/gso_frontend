@@ -10,6 +10,194 @@ import {
     TransferEndUser,
 } from '@/types/propertyTransfer';
 
+interface RawDepartment {
+    DepartmentID?: number;
+    DepartmentName?: string | null;
+    DepartmentCode?: string | null;
+}
+
+interface RawEndUser {
+    EndUserID?: number;
+    FullName?: string | null;
+    DepartmentID?: number | null;
+    DepartmentName?: string | null;
+    department?: RawDepartment | null;
+}
+
+interface RawUser {
+    UserID?: number;
+    FullName?: string | null;
+    DepartmentID?: number | null;
+    department?: RawDepartment | null;
+}
+
+interface RawInventoryDetail {
+    InventoryDetailID?: number;
+    PropertyNumber?: string | null;
+    Description?: string | null;
+    Brand?: string | null;
+    ModelNumber?: string | null;
+    SerialNumber?: string | null;
+    UnitCost?: number | null;
+    unitOfMeasure?: { UnitName?: string | null } | null;
+    unit_of_measure?: { UnitName?: string | null } | null;
+    inventory?: {
+        InventoryNumber?: string | null;
+        DateReceived?: string | null;
+        DateAcquired?: string | null;
+    } | null;
+}
+
+interface RawTransferItem {
+    TransferItemID?: number;
+    TransferID?: number;
+    InventoryDetailID?: number;
+    Quantity?: number;
+    Remarks?: string | null;
+    inventoryDetail?: RawInventoryDetail | null;
+    inventory_detail?: RawInventoryDetail | null;
+}
+
+interface RawTransfer {
+    TransferID: number;
+    TransferNumber: string;
+    RequestedByUserID: number;
+    FromDepartmentID: number;
+    ToDepartmentID: number;
+    FromEndUserID?: number | null;
+    ToEndUserID?: number | null;
+    Reason?: string | null;
+    Status: PropertyTransfer['Status'];
+    ApprovedByUserID?: number | null;
+    ApprovedAt?: string | null;
+    CompletedByUserID?: number | null;
+    CompletedAt?: string | null;
+    BorrowerSignedAt?: string | null;
+    BorrowingSignedAt?: string | null;
+    GsoNotes?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+    items_count?: number;
+    items?: RawTransferItem[];
+    requestedBy?: RawUser | null;
+    requested_by?: RawUser | null;
+    approvedBy?: RawUser | null;
+    approved_by?: RawUser | null;
+    completedBy?: RawUser | null;
+    completed_by?: RawUser | null;
+    fromDepartment?: RawDepartment | null;
+    from_department?: RawDepartment | null;
+    toDepartment?: RawDepartment | null;
+    to_department?: RawDepartment | null;
+    fromEndUser?: RawEndUser | null;
+    from_end_user?: RawEndUser | null;
+    toEndUser?: RawEndUser | null;
+    to_end_user?: RawEndUser | null;
+}
+
+const normalizeDepartment = (department?: RawDepartment | null) => {
+    if (!department) return null;
+    return {
+        DepartmentID: department.DepartmentID ?? 0,
+        DepartmentName: department.DepartmentName ?? '',
+        DepartmentCode: department.DepartmentCode ?? null,
+    };
+};
+
+const normalizeEndUser = (endUser?: RawEndUser | null) => {
+    if (!endUser) return null;
+    const departmentName = endUser.DepartmentName ?? endUser.department?.DepartmentName ?? null;
+    return {
+        EndUserID: endUser.EndUserID ?? 0,
+        FullName: endUser.FullName ?? '',
+        DepartmentID: endUser.DepartmentID ?? null,
+        DepartmentName: departmentName,
+    };
+};
+
+const normalizeUser = (user?: RawUser | null) => {
+    if (!user) return null;
+    return {
+        UserID: user.UserID ?? 0,
+        FullName: user.FullName ?? '',
+        DepartmentID: user.DepartmentID ?? null,
+        department: normalizeDepartment(user.department),
+    };
+};
+
+const normalizeInventoryDetail = (inventoryDetail?: RawInventoryDetail | null) => {
+    if (!inventoryDetail) return null;
+    const unitOfMeasure = inventoryDetail.unitOfMeasure ?? inventoryDetail.unit_of_measure ?? null;
+    return {
+        InventoryDetailID: inventoryDetail.InventoryDetailID ?? 0,
+        PropertyNumber: inventoryDetail.PropertyNumber ?? null,
+        Description: inventoryDetail.Description ?? null,
+        Brand: inventoryDetail.Brand ?? null,
+        ModelNumber: inventoryDetail.ModelNumber ?? null,
+        SerialNumber: inventoryDetail.SerialNumber ?? null,
+        UnitCost: inventoryDetail.UnitCost ?? null,
+        unitOfMeasure: unitOfMeasure
+            ? {
+                UnitName: unitOfMeasure.UnitName ?? null,
+            }
+            : null,
+        inventory: inventoryDetail.inventory
+            ? {
+                InventoryNumber: inventoryDetail.inventory.InventoryNumber ?? null,
+                DateReceived: inventoryDetail.inventory.DateReceived ?? null,
+                DateAcquired: inventoryDetail.inventory.DateAcquired ?? null,
+            }
+            : null,
+    };
+};
+
+const normalizeTransfer = (transfer: RawTransfer): PropertyTransfer => {
+    const requestedBy = transfer.requestedBy ?? transfer.requested_by ?? null;
+    const approvedBy = transfer.approvedBy ?? transfer.approved_by ?? null;
+    const completedBy = transfer.completedBy ?? transfer.completed_by ?? null;
+    const fromDepartment = transfer.fromDepartment ?? transfer.from_department ?? null;
+    const toDepartment = transfer.toDepartment ?? transfer.to_department ?? null;
+    const fromEndUser = transfer.fromEndUser ?? transfer.from_end_user ?? null;
+    const toEndUser = transfer.toEndUser ?? transfer.to_end_user ?? null;
+
+    return {
+        TransferID: transfer.TransferID,
+        TransferNumber: transfer.TransferNumber,
+        RequestedByUserID: transfer.RequestedByUserID,
+        FromDepartmentID: transfer.FromDepartmentID,
+        ToDepartmentID: transfer.ToDepartmentID,
+        FromEndUserID: transfer.FromEndUserID ?? null,
+        ToEndUserID: transfer.ToEndUserID ?? null,
+        Reason: transfer.Reason ?? null,
+        Status: transfer.Status,
+        ApprovedByUserID: transfer.ApprovedByUserID ?? null,
+        ApprovedAt: transfer.ApprovedAt ?? null,
+        CompletedByUserID: transfer.CompletedByUserID ?? null,
+        CompletedAt: transfer.CompletedAt ?? null,
+        BorrowerSignedAt: transfer.BorrowerSignedAt ?? null,
+        BorrowingSignedAt: transfer.BorrowingSignedAt ?? null,
+        GsoNotes: transfer.GsoNotes ?? null,
+        created_at: transfer.created_at ?? null,
+        updated_at: transfer.updated_at ?? null,
+        items_count: transfer.items_count,
+        items: (transfer.items ?? []).map((item) => ({
+            TransferItemID: item.TransferItemID ?? 0,
+            TransferID: item.TransferID ?? transfer.TransferID,
+            InventoryDetailID: item.InventoryDetailID ?? 0,
+            Quantity: item.Quantity ?? 1,
+            Remarks: item.Remarks ?? null,
+            inventoryDetail: normalizeInventoryDetail(item.inventoryDetail ?? item.inventory_detail),
+        })),
+        requestedBy: normalizeUser(requestedBy),
+        approvedBy: normalizeUser(approvedBy),
+        completedBy: normalizeUser(completedBy),
+        fromDepartment: normalizeDepartment(fromDepartment),
+        toDepartment: normalizeDepartment(toDepartment),
+        fromEndUser: normalizeEndUser(fromEndUser),
+        toEndUser: normalizeEndUser(toEndUser),
+    };
+};
+
 interface TransferFilters {
     status?: PropertyTransfer['Status'];
     search?: string;
@@ -28,44 +216,59 @@ interface TransferableItemFilters {
 
 const transferAPI = {
     getAll: async (filters?: TransferFilters) => {
-        const { data } = await apiClient.get<PaginatedResponse<PropertyTransfer>>('/property-transfers', {
+        const { data } = await apiClient.get<PaginatedResponse<RawTransfer>>('/property-transfers', {
             params: filters,
         });
-        return data;
+        return {
+            ...data,
+            data: (data.data || []).map(normalizeTransfer),
+        } as PaginatedResponse<PropertyTransfer>;
     },
 
     getById: async (id: number) => {
-        const { data } = await apiClient.get<PropertyTransfer>(`/property-transfers/${id}`);
-        return data;
+        const { data } = await apiClient.get<RawTransfer>(`/property-transfers/${id}`);
+        return normalizeTransfer(data);
     },
 
     create: async (payload: PropertyTransferCreatePayload) => {
-        const { data } = await apiClient.post<{ message: string; transfer: PropertyTransfer }>(
+        const { data } = await apiClient.post<{ message: string; transfer: RawTransfer }>(
             '/property-transfers',
             payload
         );
-        return data;
+        return {
+            ...data,
+            transfer: normalizeTransfer(data.transfer),
+        };
     },
 
     approve: async (id: number) => {
-        const { data } = await apiClient.post<PropertyTransferActionResponse>(`/property-transfers/${id}/approve`);
-        return data;
+        const { data } = await apiClient.post<{ message: string; transfer: RawTransfer }>(`/property-transfers/${id}/approve`);
+        return {
+            ...data,
+            transfer: normalizeTransfer(data.transfer),
+        } as PropertyTransferActionResponse;
     },
 
     reject: async (id: number, payload?: { notes?: string | null }) => {
-        const { data } = await apiClient.post<PropertyTransferActionResponse>(
+        const { data } = await apiClient.post<{ message: string; transfer: RawTransfer }>(
             `/property-transfers/${id}/reject`,
             payload || {}
         );
-        return data;
+        return {
+            ...data,
+            transfer: normalizeTransfer(data.transfer),
+        } as PropertyTransferActionResponse;
     },
 
     complete: async (id: number, payload: PropertyTransferCompletePayload) => {
-        const { data } = await apiClient.post<PropertyTransferActionResponse>(
+        const { data } = await apiClient.post<{ message: string; transfer: RawTransfer }>(
             `/property-transfers/${id}/complete`,
             payload
         );
-        return data;
+        return {
+            ...data,
+            transfer: normalizeTransfer(data.transfer),
+        } as PropertyTransferActionResponse;
     },
 
     getAvailableItems: async (filters?: TransferableItemFilters) => {

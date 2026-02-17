@@ -91,10 +91,16 @@ export function PositionsPage({ baseRoute: _baseRoute }: PositionsPageProps) {
 
     useEffect(() => {
         if (formMode === 'edit' && activePosition) {
-            setFormData({
+            const nextFormData: PositionInput = {
                 name: activePosition.name,
                 description: activePosition.description || '',
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activePosition, formMode]);
 

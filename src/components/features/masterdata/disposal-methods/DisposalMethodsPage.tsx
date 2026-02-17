@@ -93,10 +93,16 @@ export function DisposalMethodsPage({ baseRoute: _baseRoute, canEdit = true, can
 
     useEffect(() => {
         if (formMode === 'edit' && activeMethod) {
-            setFormData({
+            const nextFormData: DisposalMethodInput = {
                 name: activeMethod.name,
                 description: activeMethod.description || '',
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeMethod, formMode]);
 

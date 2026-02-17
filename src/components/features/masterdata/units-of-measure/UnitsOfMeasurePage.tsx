@@ -93,10 +93,16 @@ export function UnitsOfMeasurePage({ baseRoute: _baseRoute, canEdit = true, canD
 
     useEffect(() => {
         if (formMode === 'edit' && activeUnit) {
-            setFormData({
+            const nextFormData: UnitOfMeasureInput = {
                 name: activeUnit.name,
                 description: activeUnit.description || '',
-            });
+            };
+
+            const timer = setTimeout(() => {
+                setFormData(nextFormData);
+            }, 0);
+
+            return () => clearTimeout(timer);
         }
     }, [activeUnit, formMode]);
 
