@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRightLeft, RefreshCw, Search } from 'lucide-react';
+import { ArrowRightLeft, RefreshCw, Search, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
@@ -171,7 +171,7 @@ export function TransferListPage({
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Items</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Actions</th>
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200">
@@ -212,13 +212,17 @@ export function TransferListPage({
                                                             {statusConfig[status].label}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm">
-                                                        <Link
-                                                            href={`${baseRoute}/${transfer.TransferID}`}
-                                                            className="text-[var(--primary)] hover:underline"
-                                                        >
-                                                            View
-                                                        </Link>
+                                                    <td className="px-4 py-3 text-sm text-center">
+                                                        <div className="inline-flex items-center justify-center gap-3 text-slate-400">
+                                                            <Link
+                                                                href={`${baseRoute}/${transfer.TransferID}`}
+                                                                className="hover:text-slate-700"
+                                                                aria-label={`View ${transfer.TransferNumber}`}
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                                <span className="sr-only">View</span>
+                                                            </Link>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );

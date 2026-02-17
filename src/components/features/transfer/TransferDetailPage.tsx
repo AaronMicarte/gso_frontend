@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle, Clock, FileText, Printer, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock, FileText, Printer, XCircle } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
+import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
 
 import transferAPI from '@/lib/api/transfer';
-import { PropertyTransfer, TransferStatus } from '@/types/propertyTransfer';
+import { PropertyTransfer, ReleasingDecision, TransferStatus } from '@/types/propertyTransfer';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 const statusConfig: Record<TransferStatus, { label: string; className: string; icon: typeof Clock }> = {
@@ -25,6 +26,13 @@ interface TransferDetailPageProps {
     baseRoute: string;
 }
 
+type PendingConfirmAction = 'approve' | 'signReleasing' | 'signReceiving' | null;
+
+function displaySafeText(value: string | null | undefined, fallback: string) {
+    const text = value?.trim();
+    return text && text.length > 0 ? text : fallback;
+}
+
 export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const params = useParams();
     const router = useRouter();
@@ -34,14 +42,69 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [rejectNotes, setRejectNotes] = useState('');
     const [completeNotes, setCompleteNotes] = useState('');
-    const [borrowerSignedAt, setBorrowerSignedAt] = useState('');
-    const [borrowingSignedAt, setBorrowingSignedAt] = useState('');
     const [rejectOpen, setRejectOpen] = useState(false);
     const [completeOpen, setCompleteOpen] = useState(false);
+    const [releasingReviewOpen, setReleasingReviewOpen] = useState(false);
+    const [releasingDecision, setReleasingDecision] = useState<'approved' | 'rejected'>('approved');
+    const [releasingProvidedByGroup, setReleasingProvidedByGroup] = useState<Record<string, number>>({});
+    const [releasingReason, setReleasingReason] = useState('');
+    const [pendingConfirmAction, setPendingConfirmAction] = useState<PendingConfirmAction>(null);
 
     const transferId = params?.id ? parseInt(params.id as string) : null;
 
-    const canApprove = user?.UserRoleID === 1 || user?.UserRoleID === 2;
+    const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
+    const canApprove = isPrivilegedUser;
+    const canReleasingReview = user?.UserRoleID === 4
+        && transfer?.Status === 'pending'
+        && (transfer?.ReleasingDecision ?? 'pending') === 'pending'
+        && Number(user?.DepartmentID ?? 0) === Number(transfer?.FromDepartmentID ?? 0);
+    const canSignReleasing = isPrivilegedUser
+        && transfer?.Status === 'approved'
+        && !transfer?.BorrowerSignedAt;
+    const canSignReceiving = user?.UserRoleID === 4
+        && transfer?.Status === 'approved'
+        && !!transfer?.BorrowerSignedAt
+        && !transfer?.BorrowingSignedAt
+        && Number(user?.DepartmentID ?? 0) === Number(transfer?.ToDepartmentID ?? 0);
+    const canCompleteTransfer = isPrivilegedUser
+        && transfer?.Status === 'approved'
+        && !!transfer?.BorrowerSignedAt
+        && !!transfer?.BorrowingSignedAt;
+
+    const groupedRequestedItems = useMemo(() => {
+        const groups = new Map<string, {
+            key: string;
+            label: string;
+            requestedQty: number;
+            itemIds: number[];
+            itemById: Record<number, { requestedQty: number }>;
+        }>();
+
+        for (const item of transfer?.items ?? []) {
+            const itemId = item.TransferItemID;
+            const requestedQty = Number(item.Quantity ?? 1);
+            const description = displaySafeText(item.inventoryDetail?.Description, 'Unspecified item');
+            const unit = displaySafeText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'unit');
+            const groupKey = `${description}||${unit}`;
+
+            if (!groups.has(groupKey)) {
+                groups.set(groupKey, {
+                    key: groupKey,
+                    label: `${description} (${unit})`,
+                    requestedQty: 0,
+                    itemIds: [],
+                    itemById: {},
+                });
+            }
+
+            const existing = groups.get(groupKey)!;
+            existing.requestedQty += requestedQty;
+            existing.itemIds.push(itemId);
+            existing.itemById[itemId] = { requestedQty };
+        }
+
+        return Array.from(groups.values());
+    }, [transfer?.items]);
 
     const loadTransfer = useCallback(async () => {
         if (!transferId) return;
@@ -63,12 +126,20 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
     useEffect(() => {
         if (!transfer) return;
-        const formatDate = (dateValue?: string | null) => {
-            if (!dateValue) return '';
-            return format(toZonedTime(new Date(dateValue), 'Asia/Manila'), 'yyyy-MM-dd');
-        };
-        setBorrowerSignedAt(formatDate(transfer.BorrowerSignedAt) || '');
-        setBorrowingSignedAt(formatDate(transfer.BorrowingSignedAt) || '');
+        const groupedDefaults: Record<string, number> = {};
+        const groups = new Map<string, number>();
+        for (const item of transfer.items ?? []) {
+            const description = displaySafeText(item.inventoryDetail?.Description, 'Unspecified item');
+            const unit = displaySafeText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'unit');
+            const key = `${description}||${unit}`;
+            groups.set(key, (groups.get(key) ?? 0) + Number(item.Quantity ?? 1));
+        }
+        groups.forEach((qty, key) => {
+            groupedDefaults[key] = qty;
+        });
+        setReleasingProvidedByGroup(groupedDefaults);
+        setReleasingDecision('approved');
+        setReleasingReason(transfer.ReleasingDecisionReason ?? '');
     }, [transfer]);
 
     const handleApprove = async () => {
@@ -100,13 +171,84 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         }
     };
 
+    const handleReleasingReview = async () => {
+        if (!transfer) return;
+
+        const requestedCount = groupedRequestedItems.reduce((sum, group) => sum + group.requestedQty, 0);
+        let approvedCount = 0;
+
+        const approvedQuantities: Record<number, number> = {};
+
+        for (const group of groupedRequestedItems) {
+            const providedQtyRaw = Number(releasingProvidedByGroup[group.key] ?? group.requestedQty);
+            const providedQty = Number.isFinite(providedQtyRaw) ? providedQtyRaw : 0;
+
+            if (providedQty < 0) {
+                toast.error(`Provided quantity cannot be negative for ${group.label}`);
+                return;
+            }
+
+            if (providedQty > group.requestedQty) {
+                toast.error(`Provided quantity cannot exceed requested quantity for ${group.label}`);
+                return;
+            }
+
+            let remaining = providedQty;
+            for (const itemId of group.itemIds) {
+                const itemRequestedQty = group.itemById[itemId].requestedQty;
+                const itemApprovedQty = Math.max(0, Math.min(itemRequestedQty, remaining));
+                approvedQuantities[itemId] = itemApprovedQty;
+                remaining -= itemApprovedQty;
+            }
+
+            approvedCount += providedQty;
+        }
+
+        if (releasingDecision === 'approved') {
+            if (approvedCount < 1) {
+                toast.error('Approved quantity must be at least 1');
+                return;
+            }
+            if (approvedCount > requestedCount) {
+                toast.error('Approved quantity cannot exceed requested quantity');
+                return;
+            }
+            if (approvedCount < requestedCount && releasingReason.trim() === '') {
+                toast.error('Reason is required when provided quantity is less than requested');
+                return;
+            }
+        }
+
+        if (releasingDecision === 'rejected' && releasingReason.trim() === '') {
+            toast.error('Reason is required when rejecting request');
+            return;
+        }
+
+        try {
+            setIsProcessing(true);
+            await transferAPI.releasingReview(transfer.TransferID, {
+                decision: releasingDecision,
+                approved_quantities: releasingDecision === 'approved' ? approvedQuantities : {},
+                reason: releasingReason.trim() || null,
+            });
+            toast.success('Releasing review submitted');
+            setReleasingReviewOpen(false);
+            await loadTransfer();
+        } catch (error: unknown) {
+            const maybeAxios = error as { response?: { data?: { message?: string } } };
+            const message = maybeAxios?.response?.data?.message;
+            toast.error(message || 'Failed to submit releasing review');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const handleComplete = async () => {
         if (!transfer) return;
+
         try {
             setIsProcessing(true);
             await transferAPI.complete(transfer.TransferID, {
-                borrower_signed_at: borrowerSignedAt || null,
-                borrowing_signed_at: borrowingSignedAt || null,
                 notes: completeNotes.trim() || null,
             });
             toast.success('Transfer completed and inventory updated');
@@ -119,6 +261,86 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    const handleSignReleasing = async () => {
+        if (!transfer) return;
+
+        try {
+            setIsProcessing(true);
+            await transferAPI.signReleasing(transfer.TransferID);
+            toast.success('GSO releasing signature confirmed');
+            await loadTransfer();
+        } catch (error: unknown) {
+            const maybeAxios = error as { response?: { data?: { message?: string } } };
+            const message = maybeAxios?.response?.data?.message;
+            toast.error(message || 'Failed to confirm releasing signature');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleSignReceiving = async () => {
+        if (!transfer) return;
+
+        try {
+            setIsProcessing(true);
+            await transferAPI.signReceiving(transfer.TransferID);
+            toast.success('Receiving signature confirmed');
+            await loadTransfer();
+        } catch (error: unknown) {
+            const maybeAxios = error as { response?: { data?: { message?: string } } };
+            const message = maybeAxios?.response?.data?.message;
+            toast.error(message || 'Failed to confirm receiving signature');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleConfirmAction = async () => {
+        if (!pendingConfirmAction) return;
+
+        if (pendingConfirmAction === 'approve') {
+            await handleApprove();
+            setPendingConfirmAction(null);
+            return;
+        }
+
+        if (pendingConfirmAction === 'signReleasing') {
+            await handleSignReleasing();
+            setPendingConfirmAction(null);
+            return;
+        }
+
+        if (pendingConfirmAction === 'signReceiving') {
+            await handleSignReceiving();
+            setPendingConfirmAction(null);
+            return;
+        }
+    };
+
+    const confirmDialogConfig = () => {
+        if (pendingConfirmAction === 'approve') {
+            return {
+                title: 'Confirm GSO Approval',
+                description: 'Are you sure you want to approve this transfer as GSO/Admin?',
+                confirmText: 'Confirm Approval',
+            };
+        }
+
+        if (pendingConfirmAction === 'signReleasing') {
+            return {
+                title: 'Confirm GSO Release Signature',
+                description: 'Confirm that GSO has released the item(s) for this transfer.',
+                confirmText: 'Confirm Release',
+            };
+        }
+
+        return {
+            title: 'Confirm Receiving Signature',
+            description: 'Confirm that the receiving department has received the item(s).',
+            confirmText: 'Confirm Received',
+        };
     };
 
     const canPrint = transfer?.Status === 'approved' || transfer?.Status === 'completed';
@@ -135,24 +357,47 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
     const approvalDisplay = () => {
         if (!transfer) return '';
-        if (transfer.Status === 'pending') return 'Pending approval';
+        if (transfer.Status === 'pending' && (transfer.ReleasingDecision ?? 'pending') === 'pending') {
+            return 'Pending releasing review';
+        }
+        if (transfer.Status === 'pending' && transfer.ReleasingDecision === 'approved') {
+            return 'Pending GSO/Admin approval';
+        }
         if (transfer.Status === 'rejected') {
             return formatDisplayDate(transfer.ApprovedAt) || 'Rejected (approval date missing)';
         }
         return formatDisplayDate(transfer.ApprovedAt) || 'Approved (date missing)';
     };
 
+    const releasingDecisionLabel = (decision?: ReleasingDecision) => {
+        if (decision === 'approved') return 'Approved by releasing custody';
+        if (decision === 'rejected') return 'Rejected by releasing custody';
+        return 'Pending releasing custody review';
+    };
+
+    const releasingDecisionBadgeClass = (decision?: ReleasingDecision) => {
+        if (decision === 'approved') return 'bg-emerald-100 text-emerald-700';
+        if (decision === 'rejected') return 'bg-rose-100 text-rose-700';
+        return 'bg-amber-100 text-amber-700';
+    };
+
+    const releasingReviewedAtDisplay = () => {
+        if (!transfer?.ReleasingReviewedAt) return 'Pending review';
+        return formatDisplayDate(transfer.ReleasingReviewedAt) || 'Pending review';
+    };
+
     const borrowerSignedDisplay = () => {
         if (!transfer) return '';
         if (transfer.Status === 'pending') return 'Awaiting approval';
         if (transfer.Status === 'rejected') return 'Not applicable';
-        return formatDisplayDate(transfer.BorrowerSignedAt) || 'Pending releasing signature';
+        return formatDisplayDate(transfer.BorrowerSignedAt) || 'Pending GSO releasing confirmation';
     };
 
     const borrowingSignedDisplay = () => {
         if (!transfer) return '';
         if (transfer.Status === 'pending') return 'Awaiting approval';
         if (transfer.Status === 'rejected') return 'Not applicable';
+        if (!transfer.BorrowerSignedAt) return 'Waiting for GSO releasing confirmation';
         return formatDisplayDate(transfer.BorrowingSignedAt) || 'Pending receiving signature';
     };
 
@@ -197,8 +442,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                     <div className="text-slate-900 font-semibold">Transfer not found</div>
                     <div className="text-sm text-slate-600 mt-1">The request could not be loaded.</div>
                     <div className="mt-4">
-                        <Link href={baseRoute} className="text-sm text-[var(--primary)] underline">
-                            Back to transfers
+                        <Link href={baseRoute} className="inline-flex items-center gap-2 text-sm text-[var(--primary)] hover:underline">
+                            <ArrowLeft className="w-4 h-4" />
+                            <span className="hidden sm:inline">Back to transfers</span>
                         </Link>
                     </div>
                 </div>
@@ -211,8 +457,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
             <div className="p-6 space-y-6">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div>
-                        <Link href={baseRoute} className="text-sm text-[var(--primary)] underline">
-                            Back to transfers
+                        <Link href={baseRoute} className="inline-flex items-center gap-2 text-sm text-[var(--primary)] hover:underline">
+                            <ArrowLeft className="w-4 h-4" />
+                            <span className="hidden sm:inline">Back to transfers</span>
                         </Link>
                         <h1 className="text-2xl font-bold text-slate-900 mt-2">{transfer.TransferNumber}</h1>
                         <div className="mt-2">{statusBadge}</div>
@@ -227,9 +474,115 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 Print PTR
                             </button>
                         )}
-                        {canApprove && transfer.Status === 'pending' && (
+                        {canReleasingReview && (
+                            <Dialog.Root open={releasingReviewOpen} onOpenChange={setReleasingReviewOpen}>
+                                <Dialog.Trigger asChild>
+                                    <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">
+                                        <FileText className="w-4 h-4" />
+                                        Releasing Review
+                                    </button>
+                                </Dialog.Trigger>
+                                <Dialog.Portal>
+                                    <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+                                    <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
+                                        <Dialog.Title className="text-lg font-semibold text-slate-900">Releasing Custody Review</Dialog.Title>
+                                        <Dialog.Description className="text-sm text-slate-500 mt-1">
+                                            Enter how many items your department can actually provide per requested item.
+                                        </Dialog.Description>
+
+                                        <div className="grid gap-4 mt-4">
+                                            <div>
+                                                <label className="text-sm font-medium text-slate-700">Decision</label>
+                                                <select
+                                                    value={releasingDecision}
+                                                    onChange={(event) => setReleasingDecision(event.target.value as 'approved' | 'rejected')}
+                                                    className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                                >
+                                                    <option value="approved">Approve for forwarding to GSO/Admin</option>
+                                                    <option value="rejected">Reject request</option>
+                                                </select>
+                                            </div>
+
+                                            {releasingDecision === 'approved' && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-slate-700">Provided Quantity Per Requested Item</label>
+                                                    <div className="mt-2 border border-slate-200 rounded-lg max-h-72 overflow-auto">
+                                                        {groupedRequestedItems.map((group) => (
+                                                            <div key={group.key} className="grid grid-cols-12 gap-3 p-3 border-b border-slate-100 last:border-b-0 items-center">
+                                                                <div className="col-span-12 md:col-span-7 text-sm text-slate-700">
+                                                                    <div className="font-medium">{group.label}</div>
+                                                                    <div className="text-xs text-slate-500">Requested: {group.requestedQty}</div>
+                                                                </div>
+                                                                <div className="col-span-12 md:col-span-5">
+                                                                    <label className="text-xs text-slate-500">Can Provide</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        max={group.requestedQty}
+                                                                        value={releasingProvidedByGroup[group.key] ?? group.requestedQty}
+                                                                        onChange={(event) => {
+                                                                            const rawValue = Number(event.target.value || 0);
+                                                                            const value = Math.max(0, Math.min(group.requestedQty, rawValue));
+                                                                            setReleasingProvidedByGroup((prev) => ({
+                                                                                ...prev,
+                                                                                [group.key]: value,
+                                                                            }));
+                                                                        }}
+                                                                        onBlur={(event) => {
+                                                                            const rawValue = Number(event.target.value || 0);
+                                                                            const value = Math.max(0, Math.min(group.requestedQty, rawValue));
+                                                                            setReleasingProvidedByGroup((prev) => ({
+                                                                                ...prev,
+                                                                                [group.key]: value,
+                                                                            }));
+                                                                        }}
+                                                                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                                                    />
+                                                                    <p className="mt-1 text-[11px] text-slate-500">
+                                                                        Max allowed: {group.requestedQty}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <p className="mt-1 text-xs text-slate-500">
+                                                        Requested total: {groupedRequestedItems.reduce((sum, group) => sum + group.requestedQty, 0)} | Provided total: {groupedRequestedItems.reduce((sum, group) => sum + Number(releasingProvidedByGroup[group.key] ?? group.requestedQty), 0)}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label className="text-sm font-medium text-slate-700">Reason</label>
+                                                <textarea
+                                                    value={releasingReason}
+                                                    onChange={(event) => setReleasingReason(event.target.value)}
+                                                    rows={3}
+                                                    placeholder="Required when rejecting or approving less than requested"
+                                                    className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-6 flex justify-end gap-2">
+                                            <Dialog.Close asChild>
+                                                <button className="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">Cancel</button>
+                                            </Dialog.Close>
+                                            <button
+                                                onClick={handleReleasingReview}
+                                                disabled={isProcessing}
+                                                className="px-4 py-2 text-sm rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
+                                            >
+                                                Submit Review
+                                            </button>
+                                        </div>
+                                    </Dialog.Content>
+                                </Dialog.Portal>
+                            </Dialog.Root>
+                        )}
+
+                        {canApprove && transfer.Status === 'pending' && transfer.ReleasingDecision === 'approved' && (
                             <button
-                                onClick={handleApprove}
+                                onClick={() => setPendingConfirmAction('approve')}
                                 disabled={isProcessing}
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
                             >
@@ -237,7 +590,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 Approve
                             </button>
                         )}
-                        {canApprove && transfer.Status === 'pending' && (
+                        {canApprove && transfer.Status === 'pending' && transfer.ReleasingDecision === 'approved' && (
                             <Dialog.Root open={rejectOpen} onOpenChange={setRejectOpen}>
                                 <Dialog.Trigger asChild>
                                     <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
@@ -274,7 +627,27 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </Dialog.Portal>
                             </Dialog.Root>
                         )}
-                        {canApprove && transfer.Status === 'approved' && (
+                        {canSignReleasing && (
+                            <button
+                                onClick={() => setPendingConfirmAction('signReleasing')}
+                                disabled={isProcessing}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                            >
+                                <CheckCircle className="w-4 h-4" />
+                                Confirm Release (GSO)
+                            </button>
+                        )}
+                        {canSignReceiving && (
+                            <button
+                                onClick={() => setPendingConfirmAction('signReceiving')}
+                                disabled={isProcessing}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                            >
+                                <CheckCircle className="w-4 h-4" />
+                                Confirm Received
+                            </button>
+                        )}
+                        {canCompleteTransfer && (
                             <Dialog.Root open={completeOpen} onOpenChange={setCompleteOpen}>
                                 <Dialog.Trigger asChild>
                                     <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
@@ -287,28 +660,10 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                     <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
                                         <Dialog.Title className="text-lg font-semibold text-slate-900">Complete Transfer</Dialog.Title>
                                         <Dialog.Description className="text-sm text-slate-500 mt-1">
-                                            Confirm the paper signatures and update inventory ownership.
+                                            Both signatures are already confirmed. Finalize this transfer and update inventory ownership.
                                         </Dialog.Description>
 
                                         <div className="grid gap-4 mt-4">
-                                            <div>
-                                                <label className="text-sm font-medium text-slate-700">Borrower Signed Date</label>
-                                                <input
-                                                    type="date"
-                                                    value={borrowerSignedAt}
-                                                    onChange={(event) => setBorrowerSignedAt(event.target.value)}
-                                                    className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-medium text-slate-700">Borrowing Signed Date</label>
-                                                <input
-                                                    type="date"
-                                                    value={borrowingSignedAt}
-                                                    onChange={(event) => setBorrowingSignedAt(event.target.value)}
-                                                    className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
-                                                />
-                                            </div>
                                             <div>
                                                 <label className="text-sm font-medium text-slate-700">GSO Notes (optional)</label>
                                                 <textarea
@@ -335,6 +690,21 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                     </Dialog.Content>
                                 </Dialog.Portal>
                             </Dialog.Root>
+                        )}
+                        {canApprove && transfer.Status === 'pending' && transfer.ReleasingDecision !== 'approved' && (
+                            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                Waiting for releasing custody review before GSO/Admin action.
+                            </div>
+                        )}
+                        {isPrivilegedUser && transfer.Status === 'approved' && !transfer.BorrowerSignedAt && (
+                            <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                Complete the GSO release confirmation first.
+                            </div>
+                        )}
+                        {isPrivilegedUser && transfer.Status === 'approved' && transfer.BorrowerSignedAt && !transfer.BorrowingSignedAt && (
+                            <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                                Waiting for receiving department confirmation before completion.
+                            </div>
                         )}
                     </div>
                 </div>
@@ -375,6 +745,18 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                     {formatDisplayDate(transfer.created_at) || 'Missing request date'}
                                 </div>
                             </div>
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Requested Count</div>
+                                <div className="text-sm font-semibold text-slate-900">
+                                    {transfer.RequestedItemsCount ?? transfer.items?.length ?? 0}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Approved by Releasing</div>
+                                <div className="text-sm font-semibold text-slate-900">
+                                    {transfer.ReleasingApprovedCount ?? 'Pending'}
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -385,22 +767,50 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                        <div className="text-sm font-semibold text-slate-900">Approval & Signing</div>
-                        <div className="text-xs text-slate-500">Approved At</div>
-                        <div className="text-sm text-slate-800">{approvalDisplay()}</div>
-                        <div className="text-xs text-slate-500">Releasing Signed</div>
-                        <div className="text-sm text-slate-800">{borrowerSignedDisplay()}</div>
-                        <div className="text-xs text-slate-500">Receiving Signed</div>
-                        <div className="text-sm text-slate-800">{borrowingSignedDisplay()}</div>
-                        <div className="text-xs text-slate-500">Completed At</div>
-                        <div className="text-sm text-slate-800">{completedDisplay()}</div>
-                        {transfer.GsoNotes && (
-                            <div className="text-xs text-slate-500">Notes</div>
-                        )}
-                        {transfer.GsoNotes && (
-                            <div className="text-sm text-slate-700">{transfer.GsoNotes}</div>
-                        )}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                            <div className="text-sm font-semibold text-slate-900">Approval & Signing</div>
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${releasingDecisionBadgeClass(transfer.ReleasingDecision)}`}>
+                                {releasingDecisionLabel(transfer.ReleasingDecision)}
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
+                                <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
+                                <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">GSO Releasing Signed</div>
+                                <div className="text-sm font-medium text-slate-800 mt-1">{borrowerSignedDisplay()}</div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Receiving Department Signed</div>
+                                <div className="text-sm font-medium text-slate-800 mt-1">{borrowingSignedDisplay()}</div>
+                            </div>
+                            <div className="md:col-span-2">
+                                <div className="text-xs text-slate-500 uppercase">Completed At</div>
+                                <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
+                            </div>
+
+                            {transfer.ReleasingDecisionReason && (
+                                <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                                    <div className="text-xs text-amber-700 uppercase">Releasing Reason</div>
+                                    <div className="text-sm text-amber-900 mt-1">{transfer.ReleasingDecisionReason}</div>
+                                </div>
+                            )}
+
+                            {transfer.GsoNotes && (
+                                <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <div className="text-xs text-slate-500 uppercase">Notes</div>
+                                    <div className="text-sm text-slate-700 mt-1">{transfer.GsoNotes}</div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -410,9 +820,11 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                         <table className="min-w-full divide-y divide-slate-200">
                             <thead className="bg-slate-50">
                                 <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Qty</th>
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Description</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Serial</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Article</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Item Description</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Full Specs</th>
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Unit</th>
                                 </tr>
                             </thead>
@@ -420,13 +832,26 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 {(transfer.items || []).map((item) => (
                                     <tr key={item.TransferItemID}>
                                         <td className="px-3 py-2 text-sm text-slate-700">
+                                            {item.Quantity ?? 1}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">
                                             {displayText(item.inventoryDetail?.PropertyNumber, 'Missing property number')}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
-                                            {displayText(item.inventoryDetail?.Description, 'Missing description')}
+                                            {displayText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article')}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
-                                            {displayText(item.inventoryDetail?.SerialNumber, 'Missing serial')}
+                                            {displayText(
+                                                item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description,
+                                                'Missing item description'
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                            {[
+                                                item.inventoryDetail?.Brand,
+                                                item.inventoryDetail?.ModelNumber,
+                                                item.inventoryDetail?.SerialNumber ? `SN: ${item.inventoryDetail.SerialNumber}` : null,
+                                            ].filter(Boolean).join(' | ') || 'Missing full specs'}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
                                             {displayText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'Missing unit')}
@@ -435,7 +860,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 ))}
                                 {(!transfer.items || transfer.items.length === 0) && (
                                     <tr>
-                                        <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
+                                        <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
                                             No items recorded for this transfer.
                                         </td>
                                     </tr>
@@ -444,6 +869,19 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                         </table>
                     </div>
                 </div>
+
+                <ConfirmDialog
+                    open={pendingConfirmAction !== null}
+                    onOpenChange={(open) => {
+                        if (!open) setPendingConfirmAction(null);
+                    }}
+                    title={confirmDialogConfig().title}
+                    description={confirmDialogConfig().description}
+                    confirmText={confirmDialogConfig().confirmText}
+                    cancelText="Cancel"
+                    onConfirm={handleConfirmAction}
+                    loading={isProcessing}
+                />
             </div>
         </div>
     );

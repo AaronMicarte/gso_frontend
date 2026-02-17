@@ -5,6 +5,7 @@ import {
     PropertyTransferCreatePayload,
     PropertyTransferActionResponse,
     PropertyTransferCompletePayload,
+    PropertyTransferReleasingReviewPayload,
     TransferableItem,
     TransferDepartment,
     TransferEndUser,
@@ -46,6 +47,18 @@ interface RawInventoryDetail {
         DateReceived?: string | null;
         DateAcquired?: string | null;
     } | null;
+    drDetail?: {
+        ItemDescription?: string | null;
+        article?: {
+            ArticleName?: string | null;
+        } | null;
+    } | null;
+    dr_detail?: {
+        ItemDescription?: string | null;
+        article?: {
+            ArticleName?: string | null;
+        } | null;
+    } | null;
 }
 
 interface RawTransferItem {
@@ -67,6 +80,12 @@ interface RawTransfer {
     FromEndUserID?: number | null;
     ToEndUserID?: number | null;
     Reason?: string | null;
+    RequestedItemsCount?: number | null;
+    ReleasingDecision?: 'pending' | 'approved' | 'rejected';
+    ReleasingApprovedCount?: number | null;
+    ReleasingDecisionReason?: string | null;
+    ReleasingReviewedByUserID?: number | null;
+    ReleasingReviewedAt?: string | null;
     Status: PropertyTransfer['Status'];
     ApprovedByUserID?: number | null;
     ApprovedAt?: string | null;
@@ -81,6 +100,8 @@ interface RawTransfer {
     items?: RawTransferItem[];
     requestedBy?: RawUser | null;
     requested_by?: RawUser | null;
+    releasingReviewedBy?: RawUser | null;
+    releasing_reviewed_by?: RawUser | null;
     approvedBy?: RawUser | null;
     approved_by?: RawUser | null;
     completedBy?: RawUser | null;
@@ -128,6 +149,7 @@ const normalizeUser = (user?: RawUser | null) => {
 const normalizeInventoryDetail = (inventoryDetail?: RawInventoryDetail | null) => {
     if (!inventoryDetail) return null;
     const unitOfMeasure = inventoryDetail.unitOfMeasure ?? inventoryDetail.unit_of_measure ?? null;
+    const drDetail = inventoryDetail.drDetail ?? inventoryDetail.dr_detail ?? null;
     return {
         InventoryDetailID: inventoryDetail.InventoryDetailID ?? 0,
         PropertyNumber: inventoryDetail.PropertyNumber ?? null,
@@ -148,6 +170,16 @@ const normalizeInventoryDetail = (inventoryDetail?: RawInventoryDetail | null) =
                 DateAcquired: inventoryDetail.inventory.DateAcquired ?? null,
             }
             : null,
+        drDetail: drDetail
+            ? {
+                ItemDescription: drDetail.ItemDescription ?? null,
+                article: drDetail.article
+                    ? {
+                        ArticleName: drDetail.article.ArticleName ?? null,
+                    }
+                    : null,
+            }
+            : null,
     };
 };
 
@@ -155,6 +187,7 @@ const normalizeTransfer = (transfer: RawTransfer): PropertyTransfer => {
     const requestedBy = transfer.requestedBy ?? transfer.requested_by ?? null;
     const approvedBy = transfer.approvedBy ?? transfer.approved_by ?? null;
     const completedBy = transfer.completedBy ?? transfer.completed_by ?? null;
+    const releasingReviewedBy = transfer.releasingReviewedBy ?? transfer.releasing_reviewed_by ?? null;
     const fromDepartment = transfer.fromDepartment ?? transfer.from_department ?? null;
     const toDepartment = transfer.toDepartment ?? transfer.to_department ?? null;
     const fromEndUser = transfer.fromEndUser ?? transfer.from_end_user ?? null;
@@ -169,6 +202,12 @@ const normalizeTransfer = (transfer: RawTransfer): PropertyTransfer => {
         FromEndUserID: transfer.FromEndUserID ?? null,
         ToEndUserID: transfer.ToEndUserID ?? null,
         Reason: transfer.Reason ?? null,
+        RequestedItemsCount: transfer.RequestedItemsCount ?? null,
+        ReleasingDecision: transfer.ReleasingDecision ?? 'pending',
+        ReleasingApprovedCount: transfer.ReleasingApprovedCount ?? null,
+        ReleasingDecisionReason: transfer.ReleasingDecisionReason ?? null,
+        ReleasingReviewedByUserID: transfer.ReleasingReviewedByUserID ?? null,
+        ReleasingReviewedAt: transfer.ReleasingReviewedAt ?? null,
         Status: transfer.Status,
         ApprovedByUserID: transfer.ApprovedByUserID ?? null,
         ApprovedAt: transfer.ApprovedAt ?? null,
@@ -189,6 +228,7 @@ const normalizeTransfer = (transfer: RawTransfer): PropertyTransfer => {
             inventoryDetail: normalizeInventoryDetail(item.inventoryDetail ?? item.inventory_detail),
         })),
         requestedBy: normalizeUser(requestedBy),
+        releasingReviewedBy: normalizeUser(releasingReviewedBy),
         approvedBy: normalizeUser(approvedBy),
         completedBy: normalizeUser(completedBy),
         fromDepartment: normalizeDepartment(fromDepartment),
@@ -264,6 +304,37 @@ const transferAPI = {
         const { data } = await apiClient.post<{ message: string; transfer: RawTransfer }>(
             `/property-transfers/${id}/complete`,
             payload
+        );
+        return {
+            ...data,
+            transfer: normalizeTransfer(data.transfer),
+        } as PropertyTransferActionResponse;
+    },
+
+    releasingReview: async (id: number, payload: PropertyTransferReleasingReviewPayload) => {
+        const { data } = await apiClient.post<{ message: string; transfer: RawTransfer }>(
+            `/property-transfers/${id}/releasing-review`,
+            payload
+        );
+        return {
+            ...data,
+            transfer: normalizeTransfer(data.transfer),
+        } as PropertyTransferActionResponse;
+    },
+
+    signReleasing: async (id: number) => {
+        const { data } = await apiClient.post<{ message: string; transfer: RawTransfer }>(
+            `/property-transfers/${id}/sign-releasing`
+        );
+        return {
+            ...data,
+            transfer: normalizeTransfer(data.transfer),
+        } as PropertyTransferActionResponse;
+    },
+
+    signReceiving: async (id: number) => {
+        const { data } = await apiClient.post<{ message: string; transfer: RawTransfer }>(
+            `/property-transfers/${id}/sign-receiving`
         );
         return {
             ...data,

@@ -1,4 +1,5 @@
 export type TransferStatus = 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+export type ReleasingDecision = 'pending' | 'approved' | 'rejected';
 
 export interface TransferDepartment {
     DepartmentID: number;
@@ -36,6 +37,12 @@ export interface TransferInventoryDetail {
         DateReceived?: string | null;
         DateAcquired?: string | null;
     } | null;
+    drDetail?: {
+        ItemDescription?: string | null;
+        article?: {
+            ArticleName?: string | null;
+        } | null;
+    } | null;
 }
 
 export interface PropertyTransferItem {
@@ -56,6 +63,12 @@ export interface PropertyTransfer {
     FromEndUserID?: number | null;
     ToEndUserID?: number | null;
     Reason?: string | null;
+    RequestedItemsCount?: number | null;
+    ReleasingDecision?: ReleasingDecision;
+    ReleasingApprovedCount?: number | null;
+    ReleasingDecisionReason?: string | null;
+    ReleasingReviewedByUserID?: number | null;
+    ReleasingReviewedAt?: string | null;
     Status: TransferStatus;
     ApprovedByUserID?: number | null;
     ApprovedAt?: string | null;
@@ -69,6 +82,7 @@ export interface PropertyTransfer {
     items?: PropertyTransferItem[];
     items_count?: number;
     requestedBy?: TransferUser | null;
+    releasingReviewedBy?: TransferUser | null;
     approvedBy?: TransferUser | null;
     completedBy?: TransferUser | null;
     fromDepartment?: TransferDepartment | null;
@@ -118,4 +132,10 @@ export interface PropertyTransferCompletePayload {
 export interface PropertyTransferActionResponse {
     message: string;
     transfer: PropertyTransfer;
+}
+
+export interface PropertyTransferReleasingReviewPayload {
+    decision: 'approved' | 'rejected';
+    approved_quantities?: Record<number, number>;
+    reason?: string | null;
 }
