@@ -51,15 +51,6 @@ function InspectionLayoutInner({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        if (!loading && user && user.MFAEnabled === false) {
-            sessionStorage.setItem('mfa_setup_pending', JSON.stringify({
-                userId: user.UserID,
-                userRole: user.Role,
-            }));
-            router.push('/setup-mfa');
-            return;
-        }
-
         if (!loading && user && user.Role.toLowerCase() !== 'inspection officer') {
             const roleRoutes: Record<string, string> = {
                 'admin': '/admin/dashboard',
@@ -81,7 +72,7 @@ function InspectionLayoutInner({ children }: { children: React.ReactNode }) {
         logout();
     };
 
-    if (loading || !user || user.MFAEnabled === false || user.Role.toLowerCase() !== 'inspection officer') {
+    if (loading || !user || user.Role.toLowerCase() !== 'inspection officer') {
         return <DashboardSkeleton />;
     }
 

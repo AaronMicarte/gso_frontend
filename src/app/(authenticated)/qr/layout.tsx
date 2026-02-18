@@ -62,15 +62,6 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        if (!loading && user && user.MFAEnabled === false) {
-            sessionStorage.setItem(
-                'mfa_setup_pending',
-                JSON.stringify({ userId: user.UserID, userRole: user.Role })
-            );
-            router.push('/setup-mfa');
-            return;
-        }
-
         // If a role isn't supported by the authenticated UI, redirect out.
         if (!loading && user && baseRoute === '/') {
             router.push('/');
@@ -86,7 +77,7 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
         logout();
     };
 
-    if (loading || !user || user.MFAEnabled === false || baseRoute === '/') {
+    if (loading || !user || baseRoute === '/') {
         return <DashboardSkeleton />;
     }
 

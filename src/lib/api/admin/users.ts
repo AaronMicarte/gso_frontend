@@ -18,6 +18,10 @@ export async function adminToggleUserActive(userId: number, isActive: boolean): 
     await apiClient.patch(`/admin/users/${userId}/active`, { IsActive: isActive });
 }
 
+export async function adminToggleUserMfa(userId: number, mfaEnabled: boolean): Promise<void> {
+    await apiClient.patch(`/admin/users/${userId}/mfa`, { MFAEnabled: mfaEnabled });
+}
+
 export async function adminResendActivation(userId: number): Promise<{ email_sent: boolean; activation_link: string }> {
     const response = await apiClient.post<{ email_sent: boolean; activation_link: string }>(
         `/admin/users/${userId}/resend-activation`

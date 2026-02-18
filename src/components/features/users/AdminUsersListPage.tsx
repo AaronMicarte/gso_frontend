@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog } from '@/components/ui/Dialog';
-import { Input } from '@/components/ui/Input';
-import { adminGetUsers, adminResendActivation, adminToggleUserActive } from '@/lib/api/admin/users';
+import { adminGetUsers, adminResendActivation, adminToggleUserActive, adminToggleUserMfa } from '@/lib/api/admin/users';
 import type { AdminUserRow } from '@/types/users';
 import Link from 'next/link';
 import { Search, Plus } from 'lucide-react';
@@ -17,6 +16,10 @@ export default function AdminUsersListPage() {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [confirmUser, setConfirmUser] = useState<AdminUserRow | null>(null);
+
+    const [mfaConfirmOpen, setMfaConfirmOpen] = useState(false);
+    const [mfaConfirmLoading, setMfaConfirmLoading] = useState(false);
+    const [mfaConfirmUser, setMfaConfirmUser] = useState<AdminUserRow | null>(null);
 
     async function load() {
         setLoading(true);
@@ -74,6 +77,32 @@ export default function AdminUsersListPage() {
         }
     }
 
+    function openMfaToggleDialog(user: AdminUserRow) {
+        setMfaConfirmUser(user);
+        setMfaConfirmOpen(true);
+    }
+
+    async function onConfirmMfaToggle() {
+        if (!mfaConfirmUser) return;
+
+        setMfaConfirmLoading(true);
+        try {
+            await adminToggleUserMfa(mfaConfirmUser.UserID, !mfaConfirmUser.MFAEnabled);
+            toast.success('MFA updated', {
+                description: `${mfaConfirmUser.Username} MFA is now ${!mfaConfirmUser.MFAEnabled ? 'Enabled' : 'Disabled'}.`,
+            });
+            setMfaConfirmOpen(false);
+            setMfaConfirmUser(null);
+            await load();
+        } catch (e) {
+            toast.error('Failed to update MFA', {
+                description: e instanceof Error ? e.message : 'Unknown error',
+            });
+        } finally {
+            setMfaConfirmLoading(false);
+        }
+    }
+
     async function onResendActivation(user: AdminUserRow) {
         try {
             const res = await adminResendActivation(user.UserID);
@@ -105,7 +134,7 @@ export default function AdminUsersListPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Users</h1>
                         <p className="text-sm text-slate-500">
-                            Create users, resend activation, and manage active status.
+                            Create users, resend activation, and manage active status and MFA.
                         </p>
                     </div>
                     <Link href="/admin/users/create" className="shrink-0">
@@ -148,7 +177,7 @@ export default function AdminUsersListPage() {
                                     <th className="text-left font-semibold px-4 py-3">Role</th>
                                     <th className="text-left font-semibold px-4 py-3">Department</th>
                                     <th className="text-left font-semibold px-4 py-3">Status</th>
-                                    <th className="text-left font-semibold px-4 py-3">Verification</th>
+                                    <th className="text-left font-semibold px-4 py-3">Security</th>
                                     <th className="text-right font-semibold px-4 py-3">Actions</th>
                                 </tr>
                             </thead>
@@ -186,10 +215,26 @@ export default function AdminUsersListPage() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="text-slate-700 text-xs">
-                                                    {u.EmailVerifiedAt ? 'Verified' : 'Not verified'}
+                                                <div className="space-y-2">
+                                                    <div className="text-slate-700 text-xs">{u.EmailVerifiedAt ? 'Verified' : 'Not verified'}</div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-slate-500">MFA</span>
+                                                        <button
+                                                            type="button"
+                                                            role="switch"
+                                                            aria-checked={u.MFAEnabled}
+                                                            aria-label={`Toggle MFA for ${u.Username}`}
+                                                            onClick={() => openMfaToggleDialog(u)}
+                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 ${u.MFAEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+                                                                }`}
+                                                        >
+                                                            <span
+                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${u.MFAEnabled ? 'translate-x-6' : 'translate-x-1'
+                                                                    }`}
+                                                            />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="text-slate-500 text-xs">MFA: {u.MFAEnabled ? 'On' : 'Off'}</div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex justify-end gap-2">
@@ -228,6 +273,19 @@ export default function AdminUsersListPage() {
                     onConfirm={() => void onConfirmToggle()}
                     confirmText={confirmUser?.IsActive ? 'Disable' : 'Enable'}
                     loading={confirmLoading}
+                />
+                <Dialog
+                    title={mfaConfirmUser?.MFAEnabled ? 'Disable MFA?' : 'Enable MFA?'}
+                    description={
+                        mfaConfirmUser
+                            ? `This will ${mfaConfirmUser.MFAEnabled ? 'disable' : 'enable'} MFA for ${mfaConfirmUser.Username}.`
+                            : undefined
+                    }
+                    open={mfaConfirmOpen}
+                    onOpenChange={setMfaConfirmOpen}
+                    onConfirm={() => void onConfirmMfaToggle()}
+                    confirmText={mfaConfirmUser?.MFAEnabled ? 'Disable MFA' : 'Enable MFA'}
+                    loading={mfaConfirmLoading}
                 />
             </div>
         </div>

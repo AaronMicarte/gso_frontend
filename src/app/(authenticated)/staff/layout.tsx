@@ -67,16 +67,6 @@ function StaffLayoutInner({
             return;
         }
 
-        // MFA not enabled - redirect to setup
-        if (!loading && user && user.MFAEnabled === false) {
-            sessionStorage.setItem('mfa_setup_pending', JSON.stringify({
-                userId: user.UserID,
-                userRole: user.Role,
-            }));
-            router.push('/setup-mfa');
-            return;
-        }
-
         // Wrong role - redirect to their dashboard
         if (!loading && user && user.Role.toLowerCase() !== 'gso staff') {
             const roleRoutes: Record<string, string> = {
@@ -99,8 +89,8 @@ function StaffLayoutInner({
         logout();
     };
 
-    // Show skeleton while loading or if wrong role or MFA not enabled
-    if (loading || !user || user.MFAEnabled === false || user.Role.toLowerCase() !== 'gso staff') {
+    // Show skeleton while loading or if wrong role
+    if (loading || !user || user.Role.toLowerCase() !== 'gso staff') {
         return <DashboardSkeleton />;
     }
 

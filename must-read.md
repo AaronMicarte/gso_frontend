@@ -1,6 +1,8 @@
 # GSO IAMS - CRITICAL PROJECT GUIDELINES
 **STRICT ADHERENCE REQUIRED**
 
+PHP IS ON C:\xampp\php\php.exe
+
 ## CORE PRINCIPLES
 - **REAL-WORLD ACCURACY:** Follow real GSO IAMS workflows. No shortcuts.
 - **TYPESCRIPT ONLY:** Zero 'any' types. Use proper interfaces.
