@@ -27,12 +27,12 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
     const [fromEndUsers, setFromEndUsers] = useState<TransferEndUser[]>([]);
     const [toEndUsers, setToEndUsers] = useState<TransferEndUser[]>([]);
     const [availableItems, setAvailableItems] = useState<TransferableItem[]>([]);
-    const [selectedItems, setSelectedItems] = useState<TransferableItem[]>([]);
+    const [selectedGroups, setSelectedGroups] = useState<Array<{ key: string; quantity: number }>>([]);
+    const [availableQuantities, setAvailableQuantities] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(false);
     const [itemLoading, setItemLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [reason, setReason] = useState('');
-    const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
     const [fromEndUserSearch, setFromEndUserSearch] = useState('');
     const [releasingComboboxOpen, setReleasingComboboxOpen] = useState(false);
     const [releasingHighlightedIndex, setReleasingHighlightedIndex] = useState(-1);
@@ -145,37 +145,151 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
         loadAvailableItems();
     }, [loadAvailableItems]);
 
-    const toggleItem = (item: TransferableItem) => {
-        setSelectedItems((prev) => {
-            if (prev.some((entry) => entry.InventoryDetailID === item.InventoryDetailID)) {
-                return prev.filter((entry) => entry.InventoryDetailID !== item.InventoryDetailID);
-            }
-            return [...prev, item];
-        });
+    useEffect(() => {
+        setSelectedGroups([]);
+        setAvailableQuantities({});
+    }, [fromDepartmentId, fromEndUserId]);
+
+    type GroupedAvailableItem = {
+        key: string;
+        items: TransferableItem[];
+        article: string;
+        itemDescription: string;
+        fullSpecs: string;
+        unitName: string;
     };
 
-    const removeSelected = (inventoryDetailId: number) => {
-        setSelectedItems((prev) => prev.filter((entry) => entry.InventoryDetailID !== inventoryDetailId));
-    };
-
-    const isItemSelected = (inventoryDetailId: number) => (
-        selectedItems.some((entry) => entry.InventoryDetailID === inventoryDetailId)
+    const buildItemDescription = (item: TransferableItem) => (
+        item.ItemDescription || item.InventoryDescription || item.AssignedDescription || 'Item'
     );
 
-    const toggleExpanded = (inventoryDetailId: number) => {
-        setExpandedItems((prev) => ({
-            ...prev,
-            [inventoryDetailId]: !prev[inventoryDetailId],
+    const buildFullSpecs = (item: TransferableItem) => (
+        [item.Brand, item.ModelNumber, item.SerialNumber ? `SN: ${item.SerialNumber}` : null]
+            .filter(Boolean)
+            .join(' | ')
+    );
+
+    const buildGroupKey = (item: TransferableItem) => {
+        const serialKey = item.SerialNumber || 'no-serial';
+        const brandKey = item.Brand || 'no-brand';
+        const modelKey = item.ModelNumber || 'no-model';
+        const descKey = buildItemDescription(item);
+        return `${serialKey}||${brandKey}||${modelKey}||${descKey}`;
+    };
+
+    const groupedAvailableItems = useMemo(() => {
+        const groups = new Map<string, GroupedAvailableItem>();
+
+        for (const item of availableItems) {
+            const key = buildGroupKey(item);
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    items: [],
+                    article: item.ArticleName || 'Missing article',
+                    itemDescription: buildItemDescription(item),
+                    fullSpecs: buildFullSpecs(item) || 'Missing full specs',
+                    unitName: item.UnitName || 'unit',
+                });
+            }
+            groups.get(key)!.items.push(item);
+        }
+
+        return Array.from(groups.values()).map((group) => {
+            const sortedItems = [...group.items].sort((a, b) => {
+                const left = a.PropertyNumber || '';
+                const right = b.PropertyNumber || '';
+                return left.localeCompare(right);
+            });
+            return { ...group, items: sortedItems };
+        });
+    }, [availableItems]);
+
+    useEffect(() => {
+        if (groupedAvailableItems.length === 0) {
+            setAvailableQuantities({});
+            setSelectedGroups([]);
+            return;
+        }
+
+        setAvailableQuantities((prev) => {
+            const next: Record<string, number> = {};
+            for (const group of groupedAvailableItems) {
+                const existing = prev[group.key];
+                const maxQty = group.items.length;
+                const clamped = typeof existing === 'number'
+                    ? Math.min(Math.max(existing, 1), maxQty)
+                    : 1;
+                next[group.key] = clamped;
+            }
+            return next;
+        });
+
+        setSelectedGroups((prev) => (
+            prev
+                .filter((entry) => groupedAvailableItems.some((group) => group.key === entry.key))
+                .map((entry) => {
+                    const group = groupedAvailableItems.find((g) => g.key === entry.key);
+                    const maxQty = group ? group.items.length : entry.quantity;
+                    return {
+                        ...entry,
+                        quantity: Math.min(Math.max(entry.quantity, 1), maxQty),
+                    };
+                })
+        ));
+    }, [groupedAvailableItems]);
+
+    const updateAvailableQuantity = (key: string, value: number, maxQty: number) => {
+        const nextValue = Math.min(Math.max(value, 1), maxQty);
+
+        setAvailableQuantities((prev) => ({ ...prev, [key]: nextValue }));
+
+        // If this group is already selected, update its selected quantity live
+        setSelectedGroups((prev) => prev.map((entry) => {
+            if (entry.key !== key) return entry;
+            // clamp to available max
+            const clamped = Math.min(Math.max(nextValue, 1), maxQty);
+            return { ...entry, quantity: clamped };
         }));
     };
 
-    const buildItemSummary = (item: TransferableItem) => {
-        const article = item.ArticleName || 'Item';
-        const itemDescription = item.ItemDescription || item.InventoryDescription || item.AssignedDescription || '';
-        const brandModel = [item.Brand, item.ModelNumber].filter(Boolean).join(' ');
-        const serial = item.SerialNumber ? `SN: ${item.SerialNumber}` : '';
-        const details = [itemDescription, brandModel, serial].filter(Boolean).join(' | ');
-        return details ? `${article} - ${details}` : article;
+    const handleAddGroup = (group: GroupedAvailableItem) => {
+        const desiredQty = availableQuantities[group.key] ?? 1;
+        const maxQty = group.items.length;
+        const nextQty = Math.min(Math.max(desiredQty, 1), maxQty);
+
+        setSelectedGroups((prev) => {
+            const existing = prev.find((entry) => entry.key === group.key);
+            if (existing) {
+                return prev.map((entry) => (
+                    entry.key === group.key ? { ...entry, quantity: nextQty } : entry
+                ));
+            }
+            return [...prev, { key: group.key, quantity: nextQty }];
+        });
+    };
+
+    const handleRemoveGroup = (key: string) => {
+        setSelectedGroups((prev) => prev.filter((entry) => entry.key !== key));
+    };
+
+    const isGroupSelected = (key: string) => selectedGroups.some((entry) => entry.key === key);
+
+    const renderPropertyNumbers = (items: TransferableItem[]) => {
+        if (items.length <= 1) {
+            return items[0]?.PropertyNumber || 'Missing property number';
+        }
+
+        return (
+            <details className="text-sm text-slate-700">
+                <summary className="cursor-pointer text-slate-700">Multiple ({items.length})</summary>
+                <div className="mt-2 space-y-1 text-xs text-slate-500">
+                    {items.map((item) => (
+                        <div key={item.InventoryDetailID}>{item.PropertyNumber || 'Missing property number'}</div>
+                    ))}
+                </div>
+            </details>
+        );
     };
 
     const filteredFromEndUsers = useMemo(() => {
@@ -201,14 +315,31 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
             && !!toDepartmentId
             && !!fromEndUserId
             && !!toEndUserId
-            && selectedItems.length > 0
+            && selectedGroups.length > 0
             && fromDepartmentId !== toDepartmentId
             && !receivingError;
-    }, [fromDepartmentId, toDepartmentId, fromEndUserId, toEndUserId, selectedItems, receivingError]);
+    }, [fromDepartmentId, toDepartmentId, fromEndUserId, toEndUserId, selectedGroups, receivingError]);
 
     const handleSubmit = async () => {
         if (!canSubmit) {
             toast.error('Complete all required fields before submitting');
+            return;
+        }
+
+        const groupedByKey = new Map(groupedAvailableItems.map((group) => [group.key, group]));
+        const inventoryDetailIds: number[] = [];
+
+        for (const entry of selectedGroups) {
+            const group = groupedByKey.get(entry.key);
+            if (!group) continue;
+            const maxQty = group.items.length;
+            const qty = Math.min(Math.max(entry.quantity, 1), maxQty);
+            const selectedItems = group.items.slice(0, qty);
+            inventoryDetailIds.push(...selectedItems.map((item) => item.InventoryDetailID));
+        }
+
+        if (inventoryDetailIds.length === 0) {
+            toast.error('Select at least one item to transfer');
             return;
         }
 
@@ -218,8 +349,8 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
             from_end_user_id: Number(fromEndUserId),
             to_end_user_id: Number(toEndUserId),
             reason: reason.trim() || null,
-            items: selectedItems.map((item) => ({
-                inventory_detail_id: item.InventoryDetailID,
+            items: inventoryDetailIds.map((inventoryDetailId) => ({
+                inventory_detail_id: inventoryDetailId,
                 quantity: 1,
             })),
         };
@@ -356,7 +487,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                                 <div>
                                     <h2 className="text-lg font-semibold text-slate-900">Select Items to Transfer</h2>
-                                    <p className="text-sm text-slate-500">Only items assigned to the borrower are listed</p>
+                                    <p className="text-sm text-slate-500">Only issued items assigned to the releasing custodian are listed</p>
                                 </div>
                                 <div className="relative w-full md:w-64">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -377,49 +508,76 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                     <table className="min-w-full divide-y divide-slate-200">
                                         <thead className="bg-slate-50">
                                             <tr>
-                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Select</th>
+                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Add</th>
                                                 <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
-                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Description</th>
+                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Item Description</th>
                                                 <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">End User</th>
+                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Qty</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200">
-                                            {availableItems.length === 0 ? (
+                                            {groupedAvailableItems.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
-                                                        Select a borrower to view transferable assets.
+                                                    <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                                                        {(!fromDepartmentId || !fromEndUserId)
+                                                            ? 'Select a borrower to view transferable assets.'
+                                                            : 'No eligible items found (issued only, not already in an active transfer).'}
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                availableItems.map((item) => (
-                                                    <tr key={item.InventoryDetailID} className="hover:bg-slate-50">
-                                                        <td className="px-3 py-2">
-                                                            <button
-                                                                onClick={() => toggleItem(item)}
-                                                                className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                                                                aria-label="Toggle item"
-                                                            >
-                                                                <PlusCircle className={`w-5 h-5 ${isItemSelected(item.InventoryDetailID) ? 'text-green-600' : ''}`} />
-                                                            </button>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            {item.PropertyNumber || 'Missing property number'}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleExpanded(item.InventoryDetailID)}
-                                                                className={`text-left w-full ${expandedItems[item.InventoryDetailID] ? 'whitespace-normal' : 'truncate'}`}
-                                                                title={buildItemSummary(item)}
-                                                            >
-                                                                {buildItemSummary(item)}
-                                                            </button>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            {item.EndUserName || 'Missing end user'}
-                                                        </td>
-                                                    </tr>
-                                                ))
+                                                groupedAvailableItems.map((group) => {
+                                                    const qtyAvailable = group.items.length;
+                                                    const qtySelected = availableQuantities[group.key] ?? 1;
+                                                    const groupSelected = isGroupSelected(group.key);
+
+                                                    return (
+                                                        <tr key={group.key} className="hover:bg-slate-50">
+                                                            <td className="px-3 py-2">
+                                                                {groupSelected ? (
+                                                                    <button
+                                                                        onClick={() => handleRemoveGroup(group.key)}
+                                                                        className="text-red-500 hover:text-red-600"
+                                                                        aria-label="Remove group"
+                                                                    >
+                                                                        <Trash2 className="w-5 h-5" />
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => handleAddGroup(group)}
+                                                                        className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                                                                        aria-label="Add group"
+                                                                    >
+                                                                        <PlusCircle className="w-5 h-5" />
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-sm text-slate-700">
+                                                                {renderPropertyNumbers(group.items)}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-sm text-slate-700">
+                                                                {group.itemDescription}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-sm text-slate-700">
+                                                                {group.items[0]?.EndUserName || 'Missing end user'}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-sm text-slate-700">
+                                                                <input
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={qtyAvailable}
+                                                                    value={qtySelected}
+                                                                    onChange={(event) => updateAvailableQuantity(
+                                                                        group.key,
+                                                                        Number(event.target.value || 1),
+                                                                        qtyAvailable
+                                                                    )}
+                                                                    className="w-20 px-2 py-1 border border-slate-300 rounded"
+                                                                />
+                                                                <span className="ml-2 text-xs text-slate-500">/ {qtyAvailable}</span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
                                             )}
                                         </tbody>
                                     </table>
@@ -430,40 +588,62 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
 
                     <div className="space-y-6">
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h2 className="text-lg font-semibold text-slate-900">Selected Items</h2>
+                            <h2 className="text-lg font-semibold text-slate-900">Selected Items for Transfer</h2>
                             <p className="text-sm text-slate-500">PTR requires signed paper copies (4x)</p>
 
-                            <div className="mt-4 space-y-3">
-                                {selectedItems.length === 0 ? (
-                                    <div className="text-sm text-slate-500">No items selected yet.</div>
-                                ) : (
-                                    selectedItems.map((item) => (
-                                        <div key={item.InventoryDetailID} className="border border-slate-200 rounded-lg p-3">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => toggleExpanded(item.InventoryDetailID)}
-                                                        className={`text-sm font-semibold text-slate-900 text-left w-full ${expandedItems[item.InventoryDetailID] ? 'whitespace-normal' : 'truncate'}`}
-                                                        title={buildItemSummary(item)}
-                                                    >
-                                                        {buildItemSummary(item)}
-                                                    </button>
-                                                    <div className="text-xs text-slate-500">
-                                                        Property #: {item.PropertyNumber || 'Missing property number'}
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => removeSelected(item.InventoryDetailID)}
-                                                    className="text-slate-400 hover:text-red-500"
-                                                    aria-label="Remove item"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                            <div className="mt-4 overflow-x-auto">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Qty</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Article</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Item Description</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Full Specs</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Unit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {selectedGroups.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
+                                                    No items selected yet.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            selectedGroups.map((entry) => {
+                                                const group = groupedAvailableItems.find((g) => g.key === entry.key);
+                                                if (!group) return null;
+                                                const maxQty = group.items.length;
+                                                const qty = Math.min(Math.max(entry.quantity, 1), maxQty);
+                                                const selectedItems = group.items.slice(0, qty);
+
+                                                return (
+                                                    <tr key={entry.key}>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            {qty}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            {renderPropertyNumbers(selectedItems)}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            {group.article}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            {group.itemDescription}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            {group.fullSpecs}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                                            {group.unitName}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
