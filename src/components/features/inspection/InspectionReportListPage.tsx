@@ -19,7 +19,7 @@ interface InspectionReportListPageProps {
 export function InspectionReportListPage({ baseRoute, status, title, subtitle }: InspectionReportListPageProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-    const [searchBy, setSearchBy] = useState<'iar' | 'dr'>('iar');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'inspected'>('all');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [isViewOpen, setIsViewOpen] = useState(false);
@@ -28,8 +28,9 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
     const { data } = useInspectionReports({
         page,
         per_page: 10,
-        status,
-        ...(search ? (searchBy === 'iar' ? { iar_number: search } : { dr_number: search }) : {}),
+        // allow initial status prop (from dashboard) but override with filter dropdown when set
+        ...(statusFilter !== 'all' ? { status: statusFilter } : status ? { status } : {}),
+        ...(search ? { query: search } : {}),
         ...(startDate ? { start_date: startDate } : {}),
         ...(endDate ? { end_date: endDate } : {}),
     });
@@ -70,13 +71,14 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
 
                     <div className="flex items-center gap-2 w-56">
                         <select
-                            value={searchBy}
-                            onChange={(e) => { setSearchBy(e.target.value as 'iar' | 'dr'); setPage(1); }}
+                            value={statusFilter}
+                            onChange={(e) => { setStatusFilter(e.target.value as 'all' | 'pending' | 'inspected'); setPage(1); }}
                             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                            title="Search by"
+                            title="Filter by status"
                         >
-                            <option value="iar">IAR Number</option>
-                            <option value="dr">DR Number</option>
+                            <option value="all">All statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="inspected">Inspected</option>
                         </select>
                     </div>
 
@@ -131,7 +133,7 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">{report.inspectedByUser?.FullName || report.inspected_by_user?.FullName || 'N/A'}</td>
                                             <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${report.Status === 'inspected' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                                     <ClipboardCheck className="w-3 h-3" />
                                                     {report.Status === 'inspected' ? 'Inspected' : 'Pending'}
                                                 </span>

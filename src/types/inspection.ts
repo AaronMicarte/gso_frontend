@@ -177,6 +177,10 @@ export interface UpdateInspectionReportPayload {
 
 export interface InspectionReportFilters {
     status?: 'pending' | 'inspected';
+    // generic search string that matches either IAR or DR number
+    query?: string;
+    iar_number?: string;
+    dr_number?: string;
     per_page?: number;
     page?: number;
 }

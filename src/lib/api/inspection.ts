@@ -34,6 +34,9 @@ export const getPendingInspectionReceipts = async (filters?: { per_page?: number
 export const getInspectionReports = async (filters?: InspectionReportFilters): Promise<PagedResponse<InspectionReport>> => {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
+    if (filters?.query) params.append('query', filters.query);
+    if (filters?.iar_number) params.append('iar_number', filters.iar_number);
+    if (filters?.dr_number) params.append('dr_number', filters.dr_number);
     if (filters?.per_page) params.append('per_page', filters.per_page.toString());
     if (filters?.page) params.append('page', filters.page.toString());
     const response = await apiClient.get(`/inspection/reports?${params.toString()}`);
