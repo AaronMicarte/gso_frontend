@@ -107,7 +107,7 @@ export default function AdminReportsCustomPage() {
                 'DateReceived(Asia/Manila)',
                 'ReceivedBy',
                 'Remarks',
-                'InspectionStatus'
+                'Status'
             ];
 
             const lines = [header.join(',')];
@@ -125,7 +125,7 @@ export default function AdminReportsCustomPage() {
                     csvEscape(dateReceived),
                     csvEscape(dr.receivedByUser?.FullName || String(dr.ReceivedBy)),
                     csvEscape(dr.Remarks || ''),
-                    csvEscape((dr.inspection_status || dr.InspectionStatus) === 'inspected' ? 'To be accepted' : 'Pending inspection'),
+                    csvEscape(dr.workflow_status_label || ((dr.inspection_status || dr.InspectionStatus) === 'inspected' ? 'To be accepted' : 'Pending inspection')),
                 ].join(',');
 
                 lines.push(line);

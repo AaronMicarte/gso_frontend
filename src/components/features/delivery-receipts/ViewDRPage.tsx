@@ -29,7 +29,9 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
 
     // Permissions
     const canEdit = user?.UserRoleID === 1 || user?.UserRoleID === 2; // Admin or Staff
-    const inspectionStatus = dr?.inspection_status || dr?.InspectionStatus || 'pending';
+    // prioritise the workflow status set by the backend, fallback to inspection state if missing
+    const workflowStatus = dr?.workflow_status || (dr?.inspection_status || dr?.InspectionStatus || 'pending');
+    const workflowLabel = dr?.workflow_status_label || (workflowStatus === 'to_be_accepted' ? 'To be accepted' : workflowStatus === 'to_be_issued' ? 'To be issued' : workflowStatus === 'issued' ? 'Issued' : workflowStatus === 'acknowledged' ? 'Acknowledged' : (workflowStatus === 'pending_inspection' ? 'Pending inspection' : ''));
 
     useEffect(() => {
         const fetchDR = async () => {
@@ -251,19 +253,9 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                         <span className="font-bold text-slate-900">₱{totalAmount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}</span>
                     </div>
                     <div className="flex items-center justify-between mt-4">
-                        <span className="text-slate-600">IAR Status:</span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${inspectionStatus === 'inspected' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {inspectionStatus === 'inspected' ? (
-                                <>
-                                    <CheckCircle className="w-3 h-3" />
-                                    To be accepted
-                                </>
-                            ) : (
-                                <>
-                                    <AlertCircle className="w-3 h-3" />
-                                    Pending inspection
-                                </>
-                            )}
+                        <span className="text-slate-600">Status:</span>
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${workflowStatus === 'pending_inspection' ? 'bg-amber-100 text-amber-700' : workflowStatus === 'to_be_accepted' ? 'bg-blue-100 text-blue-700' : workflowStatus === 'to_be_issued' ? 'bg-indigo-100 text-indigo-700' : workflowStatus === 'issued' ? 'bg-emerald-100 text-emerald-700' : workflowStatus === 'acknowledged' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
+                            {workflowLabel}
                         </span>
                     </div>
                 </div>

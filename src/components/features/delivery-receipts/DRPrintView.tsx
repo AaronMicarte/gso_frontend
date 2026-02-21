@@ -24,6 +24,16 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
         return sum + (Number.isFinite(total) ? total : 0);
     }, 0);
 
+    // compute workflow status/label similarly to ViewDRPage
+    const workflowStatus = dr.workflow_status || ((dr.inspection_status || dr.InspectionStatus) === 'inspected' ? 'to_be_accepted' : 'pending_inspection');
+    const workflowLabel = dr.workflow_status_label || (
+        workflowStatus === 'to_be_accepted' ? 'To be accepted'
+            : workflowStatus === 'to_be_issued' ? 'To be issued'
+                : workflowStatus === 'issued' ? 'Issued'
+                    : workflowStatus === 'acknowledged' ? 'Acknowledged'
+                        : 'Pending inspection'
+    );
+
     return (
         <div ref={ref} className="print-container bg-white p-8 max-w-4xl mx-auto text-black">
             <style
@@ -173,12 +183,9 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                     <div className="mb-6">Remarks:</div>
                     <div className="border border-black min-h-[96px] p-2 whitespace-pre-line">{dr.Remarks || ''}</div>
                     <div className="mt-3">
-                        <div className="text-[10px]">Inspection Status:</div>
+                        <div className="text-[10px]">Status:</div>
                         <div className="font-semibold">
-                            {dr.workflow_status_label
-                                || ((dr.inspection_status || dr.InspectionStatus) === 'inspected'
-                                    ? 'To be accepted'
-                                    : 'Pending inspection')}
+                            {workflowLabel}
                         </div>
                     </div>
                 </div>
