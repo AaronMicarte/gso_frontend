@@ -6,12 +6,13 @@ import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit, Building2 } from 'lucide-react';
+import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@radix-ui/react-tooltip';
 import * as Dialog from '@radix-ui/react-dialog';
 import { PropertySticker } from './PropertySticker';
+import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 
 export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const params = useParams() as { id?: string };
@@ -420,6 +421,10 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                         unitCost={d.UnitCost}
                                                                     />
                                                                 )}
+                                                                <InventoryHistoryDialog
+                                                                    inventoryDetailId={d.InventoryDetailID}
+                                                                    itemName={getItemName(d)}
+                                                                />
                                                                 <button
                                                                     onClick={() => openEditModal(d.InventoryDetailID, d.Description || '')}
                                                                     className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"

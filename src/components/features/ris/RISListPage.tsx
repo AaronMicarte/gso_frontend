@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Loader2, Search, Eye, Package, RefreshCw } from 'lucide-react';
+import { Search, Eye, Package, RefreshCw } from 'lucide-react';
 import { listRis } from '@/lib/api/ris';
 import type { RisRecord } from '@/types/ris';
 
@@ -101,16 +101,7 @@ export function RISListPage({ baseRoute }: { baseRoute: string }) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
-                                            Loading RIS...
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : items.length === 0 ? (
+                            {items.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
                                         <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInventories, getInventory, postIssuance, postGenerateQr, updateInventoryDetail, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar, getAllInventoryItems, InventoryItemsListResponse } from '@/lib/api/inventory';
+import { getInventories, getInventory, postIssuance, postGenerateQr, updateInventoryDetail, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar, getAllInventoryItems, InventoryItemsListResponse, getInventoryDetailHistory, InventoryHistoryResponse } from '@/lib/api/inventory';
 
 export const useInventories = (options?: { page?: number; per_page?: number; search?: string }) => {
     return useQuery<InventoryListResponse>({
@@ -70,5 +70,13 @@ export const useUpdateInventoryDetail = () => {
             qc.invalidateQueries({ queryKey: ['inventories'] });
             qc.invalidateQueries({ queryKey: ['inventory'] });
         },
+    });
+};
+
+export const useInventoryDetailHistory = (id: number, enabled = true) => {
+    return useQuery<InventoryHistoryResponse>({
+        queryKey: ['inventory-detail-history', id],
+        queryFn: () => getInventoryDetailHistory(id),
+        enabled: !!id && enabled,
     });
 };

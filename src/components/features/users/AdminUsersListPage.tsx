@@ -182,13 +182,7 @@ export default function AdminUsersListPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {loading ? (
-                                    <tr>
-                                        <td className="px-4 py-4 text-slate-600" colSpan={6}>
-                                            Loading...
-                                        </td>
-                                    </tr>
-                                ) : filtered.length === 0 ? (
+                                {filtered.length === 0 ? (
                                     <tr>
                                         <td className="px-4 py-4 text-slate-600" colSpan={6}>
                                             No users found.

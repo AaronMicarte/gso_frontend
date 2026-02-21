@@ -213,16 +213,7 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                             </thead>
 
                             <tbody className="divide-y divide-slate-200">
-                                {query.isLoading ? (
-                                    <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]" />
-                                                Loading properties...
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : filtered.length === 0 ? (
+                                {filtered.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />

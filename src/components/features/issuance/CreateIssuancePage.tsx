@@ -11,7 +11,6 @@ import {
     CheckCircle,
     FileText,
     Loader2,
-    Package,
     Layers,
     Save
 } from 'lucide-react';
@@ -80,9 +79,7 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
 
     const [drOptions, setDrOptions] = useState<DeliveryReceiptOption[]>([]);
     const [selectedDr, setSelectedDr] = useState<DeliveryReceiptOption | null>(null);
-    const [availableInventory, setAvailableInventory] = useState<InventoryItem[]>([]);
     const [selectedInventory, setSelectedInventory] = useState<InventoryItem[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isLoadingInventory, setIsLoadingInventory] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -116,7 +113,6 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
     useEffect(() => {
         if (!watchedDrId) {
             setSelectedDr(null);
-            setAvailableInventory([]);
             setSelectedInventory([]);
             return;
         }
@@ -125,7 +121,6 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
         setSelectedDr(found);
         setSelectedInventory([]);
         loadAvailableInventory(Number(watchedDrId));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [watchedDrId, drOptions]);
 
     useEffect(() => {
@@ -138,15 +133,12 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
 
     const loadDeliveryReceipts = async () => {
         try {
-            setLoading(true);
             const response = await issuanceAPI.getDeliveryReceiptsForIssuance({ per_page: 200 });
             setDrOptions(response.data || []);
         } catch (error) {
             console.error('Failed to load delivery receipts:', error);
             toast.error('Failed to load delivery receipts');
             setDrOptions([]);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -158,14 +150,12 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                 dr_id: drId,
             });
             const items = response.data || [];
-            setAvailableInventory(items);
             setSelectedInventory(items);
         } catch (error: unknown) {
             console.error('Failed to load inventory:', error);
             const maybeAxios = error as { response?: { data?: { error?: string; message?: string } } };
             const serverMessage = maybeAxios?.response?.data?.error || maybeAxios?.response?.data?.message;
             toast.error(serverMessage ? `Failed to load inventory: ${serverMessage}` : 'Failed to load inventory');
-            setAvailableInventory([]);
             setSelectedInventory([]);
         } finally {
             setIsLoadingInventory(false);
@@ -271,21 +261,6 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
 
         return totals;
     }, [groupedInventory.length, selectedInventory]);
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
-                <div className="p-6">
-                    <div className="flex items-center justify-center min-h-[400px]">
-                        <div className="flex items-center gap-3 text-slate-600">
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            Loading delivery receipts...
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>

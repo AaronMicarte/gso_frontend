@@ -44,7 +44,7 @@ export function InspectionQueuePage() {
     const [itemMeta, setItemMeta] = useState<Record<number, ItemMetaState>>({});
     const [originalDetails, setOriginalDetails] = useState<Record<number, OriginalDetail>>({});
 
-    const { data, isLoading } = usePendingInspectionReceipts({ per_page: 50 });
+    const { data } = usePendingInspectionReceipts({ per_page: 50 });
     const createReport = useCreateInspectionReport();
     const updateReport = useUpdateInspectionReport();
     const completeReport = useCompleteInspectionReport();
@@ -393,12 +393,7 @@ export function InspectionQueuePage() {
                             />
                         </div>
 
-                        {isLoading ? (
-                            <div className="flex items-center justify-center py-12 text-slate-500 text-sm">
-                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                Loading pending inspections...
-                            </div>
-                        ) : filtered.length === 0 ? (
+                        {filtered.length === 0 ? (
                             <div className="py-12 text-center text-slate-500 text-sm">
                                 <ClipboardList className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                 No pending inspections

@@ -8,11 +8,15 @@ import { z } from 'zod';
 import { Package, ArrowLeft, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCreateArticle, useUpdateArticle, useArticle } from '@/lib/hooks/masterData';
+import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
+import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { ArticleInput } from '@/types/masterData';
 
 const articleSchema = z.object({
     ArticleName: z.string().min(1, 'Article name is required').max(255, 'Article name is too long'),
     Description: z.string().max(1000, 'Description is too long').optional().or(z.literal('')),
+    PropertyTypeID: z.coerce.number().min(1, 'Property type is required'),
+    DefaultUnitOfMeasureID: z.coerce.number().min(1, 'Default unit is required'),
     IsActive: z.boolean().optional(),
 });
 
@@ -49,15 +53,31 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
         defaultValues: {
             ArticleName: '',
             Description: '',
+            PropertyTypeID: 0,
+            DefaultUnitOfMeasureID: 2,
             IsActive: true,
         }
     });
+
+    const { data: propertyTypesData } = useAllPropertyTypes();
+    const { data: unitsData } = useAllUnitsOfMeasure();
+
+    const propertyTypes = Array.isArray(propertyTypesData) ? propertyTypesData : [];
+
+    type UnitOfMeasureResponse = { id?: number; name?: string; UnitOfMeasureID?: number; UnitName?: string };
+    const units = Array.isArray(unitsData)
+        ? (unitsData as UnitOfMeasureResponse[])
+            .filter(u => u && (u.id ?? u.UnitOfMeasureID))
+            .map(u => ({ id: u.id ?? u.UnitOfMeasureID!, name: u.name ?? u.UnitName! }))
+        : [];
 
     // Populate form when editing
     useEffect(() => {
         if (mode === 'edit' && existingArticle) {
             setValue('ArticleName', existingArticle.name);
             setValue('Description', existingArticle.description || '');
+            setValue('PropertyTypeID', existingArticle.property_type_id);
+            setValue('DefaultUnitOfMeasureID', existingArticle.default_unit_of_measure_id);
             setValue('IsActive', existingArticle.is_active);
         }
     }, [existingArticle, mode, setValue]);
@@ -70,6 +90,8 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
             const payload: ArticleInput = {
                 ArticleName: data.ArticleName.trim(),
                 Description: data.Description?.trim() || undefined,
+                PropertyTypeID: data.PropertyTypeID,
+                DefaultUnitOfMeasureID: data.DefaultUnitOfMeasureID,
                 IsActive: data.IsActive ?? true,
             };
 
@@ -189,6 +211,44 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
                             />
                             {errors.Description && (
                                 <p className="mt-1 text-sm text-red-600">{errors.Description.message}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Property Type <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                {...register('PropertyTypeID', { valueAsNumber: true })}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.PropertyTypeID ? 'border-red-300' : 'border-gray-300'
+                                    }`}
+                            >
+                                <option value={0}>Select property type</option>
+                                {propertyTypes.map((pt) => (
+                                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                ))}
+                            </select>
+                            {errors.PropertyTypeID && (
+                                <p className="mt-1 text-sm text-red-600">{errors.PropertyTypeID.message}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Default Unit of Measure <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                {...register('DefaultUnitOfMeasureID', { valueAsNumber: true })}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.DefaultUnitOfMeasureID ? 'border-red-300' : 'border-gray-300'
+                                    }`}
+                            >
+                                <option value={0}>Select unit</option>
+                                {units.map((unit) => (
+                                    <option key={unit.id} value={unit.id}>{unit.name}</option>
+                                ))}
+                            </select>
+                            {errors.DefaultUnitOfMeasureID && (
+                                <p className="mt-1 text-sm text-red-600">{errors.DefaultUnitOfMeasureID.message}</p>
                             )}
                         </div>
 

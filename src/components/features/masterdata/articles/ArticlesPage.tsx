@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useArticles, useArticle, useCreateArticle, useDeleteArticle, useUpdateArticle } from '@/lib/hooks/masterData';
+import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
+import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { Article, ArticleInput } from '@/types/masterData';
 import { ApiError } from '@/types/api';
 import { FormDialog } from '@/components/ui/FormDialog';
@@ -24,6 +26,8 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
     const [formData, setFormData] = useState<ArticleInput>({
         ArticleName: '',
         Description: '',
+        PropertyTypeID: 0,
+        DefaultUnitOfMeasureID: 2,
         IsActive: true,
     });
     const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
@@ -46,6 +50,20 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         enabled: !!activeArticleId,
     });
 
+    const { data: propertyTypesData } = useAllPropertyTypes();
+    const { data: unitsData } = useAllUnitsOfMeasure();
+
+    const propertyTypes = Array.isArray(propertyTypesData) ? propertyTypesData : [];
+    const propertyTypeMap = new Map(propertyTypes.map((pt) => [pt.id, pt.name]));
+
+    type UnitOfMeasureResponse = { id?: number; name?: string; UnitOfMeasureID?: number; UnitName?: string };
+    const units = Array.isArray(unitsData)
+        ? (unitsData as UnitOfMeasureResponse[])
+            .filter(u => u && (u.id ?? u.UnitOfMeasureID))
+            .map(u => ({ id: u.id ?? u.UnitOfMeasureID!, name: u.name ?? u.UnitName! }))
+        : [];
+    const unitMap = new Map(units.map((unit) => [unit.id, unit.name]));
+
     // Debounce search input
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -65,6 +83,8 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         setFormData({
             ArticleName: '',
             Description: '',
+            PropertyTypeID: 0,
+            DefaultUnitOfMeasureID: 2,
             IsActive: true,
         });
         setFormOpen(true);
@@ -100,6 +120,8 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
             const nextFormData: ArticleInput = {
                 ArticleName: activeArticle.name,
                 Description: activeArticle.description || '',
+                PropertyTypeID: activeArticle.property_type_id,
+                DefaultUnitOfMeasureID: activeArticle.default_unit_of_measure_id,
                 IsActive: activeArticle.is_active,
             };
 
@@ -111,7 +133,7 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         }
     }, [activeArticle, formMode]);
 
-    const handleFormChange = (field: keyof ArticleInput, value: string | boolean) => {
+    const handleFormChange = (field: keyof ArticleInput, value: string | boolean | number) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
         if (formErrors[field as string]) {
             setFormErrors((prev) => {
@@ -133,6 +155,8 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         const mappedErrors: Record<string, string[]> = {};
         if (backendErrors.ArticleName) mappedErrors.ArticleName = backendErrors.ArticleName;
         if (backendErrors.Description) mappedErrors.Description = backendErrors.Description;
+        if (backendErrors.PropertyTypeID) mappedErrors.PropertyTypeID = backendErrors.PropertyTypeID;
+        if (backendErrors.DefaultUnitOfMeasureID) mappedErrors.DefaultUnitOfMeasureID = backendErrors.DefaultUnitOfMeasureID;
         if (backendErrors.IsActive) mappedErrors.IsActive = backendErrors.IsActive;
 
         setFormErrors(mappedErrors);
@@ -149,6 +173,8 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         const payload: ArticleInput = {
             ArticleName: formData.ArticleName.trim(),
             Description: formData.Description?.trim() || undefined,
+            PropertyTypeID: formData.PropertyTypeID,
+            DefaultUnitOfMeasureID: formData.DefaultUnitOfMeasureID,
             IsActive: formData.IsActive ?? true,
         };
 
@@ -276,6 +302,12 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                                 Description
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Property Type
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Default Unit
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Status
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -298,6 +330,12 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                                     <div className="text-sm text-gray-600 max-w-xs truncate">
                                                         {article.description || '-'}
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                    {propertyTypeMap.get(article.property_type_id) || 'Unknown'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                    {unitMap.get(article.default_unit_of_measure_id) || 'Unknown'}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <span
@@ -452,6 +490,42 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                             />
                             {formErrors.Description && (
                                 <p className="mt-1 text-sm text-red-600">{formErrors.Description[0]}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Property Type <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={formData.PropertyTypeID}
+                                onChange={(e) => handleFormChange('PropertyTypeID', Number(e.target.value))}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${formErrors.PropertyTypeID ? 'border-red-300' : 'border-gray-300'}`}
+                            >
+                                <option value={0}>Select property type</option>
+                                {propertyTypes.map((pt) => (
+                                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                ))}
+                            </select>
+                            {formErrors.PropertyTypeID && (
+                                <p className="mt-1 text-sm text-red-600">{formErrors.PropertyTypeID[0]}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Default Unit of Measure <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={formData.DefaultUnitOfMeasureID}
+                                onChange={(e) => handleFormChange('DefaultUnitOfMeasureID', Number(e.target.value))}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${formErrors.DefaultUnitOfMeasureID ? 'border-red-300' : 'border-gray-300'}`}
+                            >
+                                <option value={0}>Select unit</option>
+                                {units.map((unit) => (
+                                    <option key={unit.id} value={unit.id}>{unit.name}</option>
+                                ))}
+                            </select>
+                            {formErrors.DefaultUnitOfMeasureID && (
+                                <p className="mt-1 text-sm text-red-600">{formErrors.DefaultUnitOfMeasureID[0]}</p>
                             )}
                         </div>
                         <div>

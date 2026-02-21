@@ -36,7 +36,7 @@ interface ItemDetailsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     initialValues: Partial<ItemFormValues>;
-    articles: { id: number; name: string }[];
+    articles: { id: number; name: string; property_type_id: number; default_unit_of_measure_id: number }[];
     propertyTypes: { PropertyTypeID: number; PropertyName: string }[];
     units: { id: number; name: string }[];
     onSave: (values: ItemFormValues) => Promise<void> | void;
@@ -62,6 +62,9 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
 
     const quantity = watch('quantity_delivered');
     const unitCost = watch('unit_cost');
+    const selectedArticleId = watch('article_id');
+    const currentPropertyTypeId = watch('property_type_id');
+    const currentUnitId = watch('unit_of_measure_id');
     const totalCost = (quantity || 0) * (unitCost || 0);
 
     // Lock quantity when a serial number is provided
@@ -88,9 +91,14 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
 
     const filteredArticles = articles.filter(a => a.name.toLowerCase().includes(articleQuery.trim().toLowerCase()));
 
-    const selectArticle = (a: { id: number; name: string }) => {
+    const [articleTouched, setArticleTouched] = useState(false);
+
+    const selectArticle = (a: { id: number; name: string; property_type_id: number; default_unit_of_measure_id: number }) => {
         setArticleQuery(a.name);
         setValue('article_id', a.id);
+        setValue('property_type_id', a.property_type_id, { shouldValidate: true, shouldDirty: true });
+        setValue('unit_of_measure_id', a.default_unit_of_measure_id, { shouldValidate: true, shouldDirty: true });
+        setArticleTouched(true);
         setArticleOpen(false);
         setArticleHighlightedIndex(-1);
     };
@@ -154,10 +162,25 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                 setArticleQuery('');
                 setValue('article_id', 0);
             }
+            setArticleTouched(false);
         }
         prevOpenRef.current = open;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, initialValues, articles]);
+
+    useEffect(() => {
+        if (!selectedArticleId) return;
+        const article = articles.find(a => a.id === selectedArticleId);
+        if (!article) return;
+
+        if (articleTouched || !currentPropertyTypeId) {
+            setValue('property_type_id', article.property_type_id, { shouldValidate: true, shouldDirty: true });
+        }
+
+        if (articleTouched || !currentUnitId) {
+            setValue('unit_of_measure_id', article.default_unit_of_measure_id, { shouldValidate: true, shouldDirty: true });
+        }
+    }, [selectedArticleId, articleTouched, currentPropertyTypeId, currentUnitId, articles, setValue]);
 
     const submit = handleSubmit(async (data) => {
         try {
@@ -260,6 +283,7 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                         <label className="text-sm font-semibold text-slate-900">Property Type</label>
                         <select
                             {...register('property_type_id', { valueAsNumber: true })}
+                            disabled
                             className="w-full px-4 py-2.5 bg-white border-2 border-[var(--border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200"
                         >
                             <option value={0}>Select property type...</option>
@@ -267,6 +291,7 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                                 <option key={pt.PropertyTypeID} value={pt.PropertyTypeID}>{pt.PropertyName}</option>
                             ))}
                         </select>
+                        <p className="text-xs text-slate-500">Property type is locked to the selected article.</p>
                         {errors.property_type_id && (
                             <p className="text-sm text-[var(--error)]">{errors.property_type_id.message}</p>
                         )}

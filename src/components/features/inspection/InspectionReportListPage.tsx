@@ -25,7 +25,7 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
 
-    const { data, isLoading } = useInspectionReports({
+    const { data } = useInspectionReports({
         page,
         per_page: 10,
         status,
@@ -113,16 +113,7 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {isLoading ? (
-                                    <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
-                                                Loading inspection reports...
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : data?.data?.length === 0 ? (
+                                {data?.data?.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />

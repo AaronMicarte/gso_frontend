@@ -20,15 +20,12 @@ export const getDeliveryReceipts = async (filters?: DeliveryReceiptFilters): Pro
     if (filters?.page) params.append('page', filters.page.toString());
 
     const response = await apiClient.get(`/admin/procurement/delivery-receipts?${params.toString()}`);
-    // Backend returns { success: true, data: { data: DeliveryReceipt[], meta: { ... } } }
-    // Normalize to return the paginated payload directly so callers can use `result.data.map(...)`
     return response.data.data;
 };
 
 export const getDeliveryReceipt = async (id: number): Promise<DeliveryReceipt> => {
     const response = await apiClient.get(`/admin/procurement/delivery-receipts/${id}`);
     const deliveryReceipt = response.data.data;
-    // Add dr_picture_url from the response if available
     if (response.data.dr_picture_url) {
         deliveryReceipt.dr_picture_url = response.data.dr_picture_url;
     }
@@ -40,7 +37,6 @@ export const createDeliveryReceipt = async (data: FormData): Promise<DeliveryRec
         headers: { 'Content-Type': 'multipart/form-data' }
     });
     const deliveryReceipt = response.data.data;
-    // Add dr_picture_url from the response if available
     if (response.data.dr_picture_url) {
         deliveryReceipt.dr_picture_url = response.data.dr_picture_url;
     }

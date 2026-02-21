@@ -151,110 +151,101 @@ export function TransferListPage({
                     </div>
                 </div>
 
-                {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="flex items-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)]"></div>
-                            <span className="ml-3 text-gray-600">Loading transfers...</span>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-slate-200">
-                                <thead className="bg-slate-50">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">PTR #</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">From</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">To</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Requester</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Items</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+                                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                                {filteredRows.length === 0 ? (
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">PTR #</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">From</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">To</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Requester</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Items</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
-                                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Actions</th>
+                                        <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                                            No transfers found.
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-200">
-                                    {filteredRows.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                                                No transfers found.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        filteredRows.map((transfer) => {
-                                            const status = transfer.Status || 'pending';
-                                            return (
-                                                <tr key={transfer.TransferID} className="hover:bg-slate-50">
-                                                    <td className="px-4 py-3 text-sm font-semibold text-slate-900">
-                                                        {transfer.TransferNumber}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-slate-700">
-                                                        {displayText(transfer.fromDepartment?.DepartmentName, 'Missing department')}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-slate-700">
-                                                        {displayText(transfer.toDepartment?.DepartmentName, 'Missing department')}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-slate-700">
-                                                        {displayText(transfer.requestedBy?.FullName, 'Missing requester')}
-                                                        {transfer.requestedBy?.department?.DepartmentName
-                                                            ? ` - ${transfer.requestedBy.department.DepartmentName}`
-                                                            : ''}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-slate-700">
-                                                        {formatDate(transfer.created_at)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-slate-700">
-                                                        {transfer.items_count ?? transfer.items?.length ?? 0}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig[status].className}`}>
-                                                            {statusConfig[status].label}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-center">
-                                                        <div className="inline-flex items-center justify-center gap-3 text-slate-400">
-                                                            <Link
-                                                                href={`${baseRoute}/${transfer.TransferID}`}
-                                                                className="hover:text-slate-700"
-                                                                aria-label={`View ${transfer.TransferNumber}`}
-                                                            >
-                                                                <Eye className="w-4 h-4" />
-                                                                <span className="sr-only">View</span>
-                                                            </Link>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
-                                <button
-                                    onClick={() => handlePageChange(currentPage - 1)}
-                                    disabled={currentPage <= 1}
-                                    className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
-                                >
-                                    Previous
-                                </button>
-                                <span className="text-sm text-slate-600">
-                                    Page {currentPage} of {totalPages}
-                                </span>
-                                <button
-                                    onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage >= totalPages}
-                                    className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        )}
+                                ) : (
+                                    filteredRows.map((transfer) => {
+                                        const status = transfer.Status || 'pending';
+                                        return (
+                                            <tr key={transfer.TransferID} className="hover:bg-slate-50">
+                                                <td className="px-4 py-3 text-sm font-semibold text-slate-900">
+                                                    {transfer.TransferNumber}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">
+                                                    {displayText(transfer.fromDepartment?.DepartmentName, 'Missing department')}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">
+                                                    {displayText(transfer.toDepartment?.DepartmentName, 'Missing department')}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">
+                                                    {displayText(transfer.requestedBy?.FullName, 'Missing requester')}
+                                                    {transfer.requestedBy?.department?.DepartmentName
+                                                        ? ` - ${transfer.requestedBy.department.DepartmentName}`
+                                                        : ''}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">
+                                                    {formatDate(transfer.created_at)}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">
+                                                    {transfer.items_count ?? transfer.items?.length ?? 0}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig[status].className}`}>
+                                                        {statusConfig[status].label}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-center">
+                                                    <div className="inline-flex items-center justify-center gap-3 text-slate-400">
+                                                        <Link
+                                                            href={`${baseRoute}/${transfer.TransferID}`}
+                                                            className="hover:text-slate-700"
+                                                            aria-label={`View ${transfer.TransferNumber}`}
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                            <span className="sr-only">View</span>
+                                                        </Link>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                )}
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
+                            <button
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage <= 1}
+                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
+                            >
+                                Previous
+                            </button>
+                            <span className="text-sm text-slate-600">
+                                Page {currentPage} of {totalPages}
+                            </span>
+                            <button
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage >= totalPages}
+                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

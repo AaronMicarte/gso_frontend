@@ -104,6 +104,8 @@ export interface Article {
     id: number;
     name: string;
     description?: string | null;
+    property_type_id: number;
+    default_unit_of_measure_id: number;
     is_active: boolean;
     created_at: string;
     updated_at?: string | null;
@@ -114,6 +116,8 @@ export interface Article {
 export interface ArticleInput {
     ArticleName: string;
     Description?: string;
+    PropertyTypeID: number;
+    DefaultUnitOfMeasureID: number;
     IsActive?: boolean;
 }
 

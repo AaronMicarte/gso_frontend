@@ -38,7 +38,6 @@ const drSchema = z.object({
     po_number: z.string().min(1, 'PO number is required'),
     invoice_number: z.string().min(1, 'Invoice number is required'),
     date_received: z.string().min(1, 'Date received is required'),
-    override_past_limit: z.boolean().optional(),
     remarks: z.string().optional(),
     dr_picture: z.custom<FileList>().optional(),
     details: z.array(drItemSchema).min(1, 'At least one item is required'),
@@ -62,9 +61,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     const updateMutation = useUpdateDeliveryReceipt();
     const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
     const [articles, setArticles] = useState<Article[]>([]);
-    const [isLoadingData, setIsLoadingData] = useState(true);
-    const [isLoadingDR, setIsLoadingDR] = useState(true);
-    const [currentPictureUrl, setCurrentPictureUrl] = useState<string | null>(null);
     const [picturePreview, setPicturePreview] = useState<string | null>(null);
 
     // Manila today's date (YYYY-MM-DD) for client-side max date and validation
@@ -92,11 +88,11 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             po_number: '',
             invoice_number: '',
             date_received: manilaToday,
-            override_past_limit: false,
             remarks: '',
             details: [],
         },
     });
+
 
     const [requesters, setRequesters] = useState<{ UserID: number; FullName: string; DepartmentID: number; DepartmentName?: string | null }[]>([]);
     const [requesterQuery, setRequesterQuery] = useState('');
@@ -137,7 +133,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                setIsLoadingData(true);
                 const [propertyTypesData, articlesData, drData] = await Promise.all([
                     getPropertyTypes(),
                     getActiveArticles(),
@@ -160,7 +155,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 setValue('remarks', drData.Remarks || '');
                 // Set current picture URL from API response
                 if (drData.dr_picture_url) {
-                    setCurrentPictureUrl(drData.dr_picture_url);
                     setPicturePreview(drData.dr_picture_url);
                 }
                 setValue('details', drData.details?.map(detail => ({
@@ -179,8 +173,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 toast.error('Failed to load form data');
                 router.push(`${baseRoute}/delivery-receipts`);
             } finally {
-                setIsLoadingData(false);
-                setIsLoadingDR(false);
             }
         };
 
@@ -345,7 +337,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
             toast.error('Date received cannot be in the future.');
             return;
         }
-        if (data.date_received < manilaMin && !data.override_past_limit) {
+        if (data.date_received < manilaMin) {
             toast.error(`Date received is too old. Minimum allowed is ${manilaMin}.`);
             return;
         }
@@ -582,17 +574,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         );
     }
 
-    if (isLoadingData || isLoadingDR) {
-        return (
-            <div className="flex items-center justify-center min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
-                <div className="text-center space-y-3">
-                    <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)] mx-auto" />
-                    <p className="text-slate-600">Loading form data...</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
             <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -806,14 +787,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 <input
                                     {...register('date_received')}
                                     type="date"
-                                    min={manilaMin}
-                                    max={manilaToday}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                    readOnly
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-100 cursor-not-allowed"
                                 />
-                                <label className="inline-flex items-center mt-2 text-sm">
-                                    <input {...register('override_past_limit')} type="checkbox" className="mr-2" />
-                                    <span className="text-slate-600">Allow historic date (admin override)</span>
-                                </label>
                                 {errors.date_received && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <AlertCircle className="w-3 h-3" />

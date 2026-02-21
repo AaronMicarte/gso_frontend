@@ -83,14 +83,6 @@ export function DisposalMethodFormPage({ baseRoute, disposalMethodId }: Disposal
     const isLoading = isEditing && disposalMethodLoading;
     const isSaving = createMutation.isPending || updateMutation.isPending;
 
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-            </div>
-        );
-    }
-
     if (isEditing && !disposalMethod && !isLoading) {
         return (
             <div className="min-h-screen bg-app print:hidden flex items-center justify-center">

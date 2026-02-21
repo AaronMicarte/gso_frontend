@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getInspectionReport } from '@/lib/api/inspection';
@@ -48,13 +48,7 @@ export function InspectionReportDetailPage({ baseRoute, reportId, isModal = fals
         }
     }, [resolvedId, router, baseRoute, isModal, onClose]);
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
-                <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-            </div>
-        );
-    }
+    if (isLoading) return null;
 
     if (!report) return null;
 

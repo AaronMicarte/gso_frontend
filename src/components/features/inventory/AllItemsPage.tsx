@@ -11,6 +11,7 @@ import { useSearchParams } from 'next/navigation';
 import type { InventoryItem } from '@/lib/api/inventory';
 
 import { PropertySticker } from './PropertySticker';
+import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 
 export function AllItemsPage() {
     const searchParams = useSearchParams();
@@ -298,16 +299,7 @@ export function AllItemsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {isLoading ? (
-                                    <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
-                                                Loading items...
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : data?.data?.length === 0 ? (
+                                {data?.data?.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
@@ -382,6 +374,10 @@ export function AllItemsPage() {
                                                             unitCost={item.UnitCost}
                                                         />
                                                     )}
+                                                    <InventoryHistoryDialog
+                                                        inventoryDetailId={item.InventoryDetailID}
+                                                        itemName={getItemName(item)}
+                                                    />
                                                     <button
                                                         onClick={() => openEditModal(item.InventoryDetailID, item.Description || '')}
                                                         className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"

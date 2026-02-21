@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Printer, Loader2, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { ArrowLeft, Printer, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { getRis } from '@/lib/api/ris';
 import type { RisRecord } from '@/types/ris';
 import { format } from 'date-fns';
@@ -54,14 +54,7 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
     }, [ris?.status]);
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
-                <div className="text-center space-y-3">
-                    <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)] mx-auto" />
-                    <p className="text-slate-600">Loading RIS...</p>
-                </div>
-            </div>
-        );
+        return null;
     }
 
     if (!ris) {

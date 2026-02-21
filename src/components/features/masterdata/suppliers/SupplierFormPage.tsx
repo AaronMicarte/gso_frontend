@@ -102,15 +102,7 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
     const isLoading = isEditMode ? isLoadingSupplier : false;
     const isSaving = isEditMode ? updateMutation.isPending : createMutation.isPending;
 
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)]"></div>
-            </div>
-        );
-    }
-
-    if (isEditMode && !supplier) {
+    if (isEditMode && !isLoading && !supplier) {
         return (
             <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
                 <div className="text-center">

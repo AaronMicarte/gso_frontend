@@ -291,14 +291,7 @@ export function IssuanceDocumentsListPage({
 
                 {/* Flat Documents List */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    {loading ? (
-                        <div className="p-8 text-center text-slate-500">
-                            <div className="flex items-center justify-center gap-2 mb-2">
-                                <RefreshCw className="w-4 h-4 animate-spin" />
-                                Loading documents...
-                            </div>
-                        </div>
-                    ) : filteredRows.length === 0 ? (
+                    {filteredRows.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                             <Package className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                             <h3 className="text-lg font-medium text-slate-400 mb-1">No Documents Found</h3>

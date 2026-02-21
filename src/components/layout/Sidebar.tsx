@@ -185,7 +185,6 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                             { label: 'Users', href: `${baseRoute}/users`, icon: Users },
                             { label: 'Roles', href: `${baseRoute}/masterdata/user-roles`, icon: Shield },
                             { label: 'Departments', href: `${baseRoute}/masterdata/departments`, icon: Building2 },
-                            { label: 'Positions', href: `${baseRoute}/masterdata/positions`, icon: Briefcase },
                         ]
                     }
                 ]
@@ -198,10 +197,8 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         icon: FolderTree,
                         children: [
                             { label: 'Articles', href: `${baseRoute}/masterdata/articles`, icon: Package },
-                            { label: 'Categories', href: `${baseRoute}/masterdata/categories`, icon: FolderTree },
                             { label: 'Conditions', href: `${baseRoute}/masterdata/conditions`, icon: Activity },
                             { label: 'Disposal Methods', href: `${baseRoute}/masterdata/disposal-methods`, icon: Trash2 },
-                            { label: 'End Users', href: `${baseRoute}/masterdata/end-users`, icon: Users },
                             { label: 'Property Classifications', href: `${baseRoute}/masterdata/property-classifications`, icon: Tag },
                             { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: Box },
                             { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },

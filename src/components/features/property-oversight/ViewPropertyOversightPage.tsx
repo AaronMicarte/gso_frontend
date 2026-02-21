@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, AlertCircle, Loader2, QrCode, FileText } from 'lucide-react';
+import { ArrowLeft, AlertCircle, QrCode, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -82,23 +82,7 @@ export function ViewPropertyOversightPage({ baseRoute }: ViewPropertyOversightPa
     }
 
     if (query.isLoading) {
-        return (
-            <div
-                className="flex items-center justify-center min-h-screen"
-                style={{
-                    backgroundImage: "url('/assets/images/background/bg.jpg')",
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundAttachment: 'fixed',
-                }}
-            >
-                <div className="text-center space-y-3">
-                    <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)] mx-auto" />
-                    <p className="text-slate-600">Loading property details...</p>
-                </div>
-            </div>
-        );
+        return null;
     }
 
     const data = query.data;

@@ -78,14 +78,6 @@ export function UnitOfMeasureFormPage({ baseRoute, unitId }: UnitOfMeasureFormPa
     const isLoading = isEditing && unitLoading;
     const isSaving = createMutation.isPending || updateMutation.isPending;
 
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-app print:hidden flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-            </div>
-        );
-    }
-
     if (isEditing && !unit && !isLoading) {
         return (
             <div className="min-h-screen bg-app print:hidden flex items-center justify-center">

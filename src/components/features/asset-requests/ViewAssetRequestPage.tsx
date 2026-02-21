@@ -157,14 +157,7 @@ export function ViewAssetRequestPage({ baseRoute, canCancel = false, isAdmin = f
     };
 
     if (loading) {
-        return (
-            <div className="p-6 space-y-6">
-                <div className="animate-pulse">
-                    <div className="h-8 bg-slate-200 rounded w-64 mb-4"></div>
-                    <div className="h-32 bg-slate-200 rounded"></div>
-                </div>
-            </div>
-        );
+        return null;
     }
 
     if (!request) {

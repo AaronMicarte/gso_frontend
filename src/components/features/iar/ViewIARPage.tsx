@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Printer } from 'lucide-react';
+import { ArrowLeft, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getIAR } from '@/lib/api/iar';
@@ -69,11 +69,7 @@ export function ViewIARPage({ baseRoute, iarId, isModal = false, onClose }: View
     const canPrint = !!user && (user.UserRoleID === 1 || user.UserRoleID === 2);
 
     if (isLoading) {
-        return (
-            <div className={`flex items-center justify-center ${isModal ? 'py-10' : 'min-h-screen'} print:hidden`} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
-                <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-            </div>
-        );
+        return null;
     }
 
     if (!iar) {

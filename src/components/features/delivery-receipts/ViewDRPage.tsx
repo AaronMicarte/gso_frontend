@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, AlertCircle, Loader2, CheckCircle, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, AlertCircle, CheckCircle, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
@@ -55,14 +55,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
     }, [resolvedId, router, baseRoute, isModal, onClose]);
 
     if (isLoading) {
-        return (
-            <div className={`flex items-center justify-center ${isModal ? 'py-10' : 'min-h-screen'}`} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
-                <div className="text-center space-y-3">
-                    <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)] mx-auto" />
-                    <p className="text-slate-600">Loading delivery receipt...</p>
-                </div>
-            </div>
-        );
+        return null;
     }
 
     if (!dr) {

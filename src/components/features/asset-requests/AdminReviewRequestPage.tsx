@@ -416,15 +416,7 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
     };
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
-                <div className="p-6 max-w-6xl mx-auto">
-                    <div className="flex items-center justify-center h-64">
-                        <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
-                    </div>
-                </div>
-            </div>
-        );
+        return null;
     }
 
     if (!request) {

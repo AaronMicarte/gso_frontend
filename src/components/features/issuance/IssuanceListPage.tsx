@@ -227,14 +227,7 @@ export function IssuanceListPage({
                 </div>
 
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    {loading ? (
-                        <div className="p-8 text-center text-slate-500">
-                            <div className="flex items-center justify-center gap-2 mb-2">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[var(--primary)]"></div>
-                                Loading delivery receipts...
-                            </div>
-                        </div>
-                    ) : filteredRows.length === 0 ? (
+                    {filteredRows.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                             <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                             <h3 className="text-lg font-medium text-slate-400 mb-1">No DRs Ready for Issuance</h3>

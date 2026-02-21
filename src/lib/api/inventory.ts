@@ -59,6 +59,17 @@ export type InventoryResponse = {
     details?: InventoryDetail[];
     iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string; SupplierName?: string; DateReceived?: string } };
 };
+export type InventoryHistoryActor = { id: number; name: string };
+export type InventoryHistoryItem = {
+    type: string;
+    action: string;
+    title: string;
+    description?: string | null;
+    occurred_at: string;
+    actor?: InventoryHistoryActor | null;
+    meta?: Record<string, unknown> | null;
+};
+export type InventoryHistoryResponse = { inventory_detail_id: number; history: InventoryHistoryItem[] };
 export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: string; details: { IARDetailID: number; QuantityAccepted: number; ItemDescription?: string; VerifiedBrand?: string; VerifiedModel?: string; VerifiedSerial?: string; UnitCost?: number; propertyType?: { PropertyTypeID: number; PropertyName: string } }[]; signatures?: { id: number; role: string; url?: string; created_at: string; user?: { UserID: number; FullName: string } }[] };
 export type InventoryItem = { InventoryDetailID: number; InventoryID: number; PropertyTypeID?: number; ConditionID: number; Brand?: string; ModelNumber?: string; SerialNumber?: string; PropertyNumber?: string; Description?: string; Quantity: number; QuantityAvailable: number; PropertyStatusID: number; UnitOfMeasureID?: number; UnitCost?: number; TotalCost?: number; SourceIARDetailID?: number; SourceDRDetailID?: number; Remarks?: string; CreatedDate: string; UpdatedDate?: string; PropertyName?: string; ClassificationName?: string; DocumentType?: 'ICS' | 'PAR'; InventoryNumber?: string; StatusName?: string; ConditionName?: string; dr_item_description?: string; dr_article_name?: string; dr_brand?: string; dr_model?: string; dr_serial?: string; custodianName?: string; locationDepartment?: string; lastIssuedDate?: string | null; qrCodeData?: string | null };
 export type InventoryItemsListResponse = { data: InventoryItem[]; total: number; per_page: number; current_page: number; last_page: number };
@@ -112,5 +123,10 @@ export const postGenerateQr = async (id: number, force = false): Promise<unknown
 
 export const updateInventoryDetail = async (id: number, data: { Description?: string }): Promise<unknown> => {
     const response: AxiosResponse<unknown> = await apiClient.put(`/admin/inventory/details/${id}`, data);
+    return response.data;
+};
+
+export const getInventoryDetailHistory = async (id: number): Promise<InventoryHistoryResponse> => {
+    const response: AxiosResponse<InventoryHistoryResponse> = await apiClient.get(`/admin/inventory/details/${id}/history`);
     return response.data;
 };
