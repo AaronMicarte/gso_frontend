@@ -148,6 +148,10 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         return custodianName || 'Requester not set';
     };
 
+    const getBorrowedLabel = (borrowerName?: string | null) => {
+        return borrowerName ? `Currently borrowed by ${borrowerName}` : null;
+    };
+
     const getItemName = (detail: {
         dr_article_name?: string;
         PropertyName?: string;
@@ -343,6 +347,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     StatusName?: string;
                                                     custodianName?: string;
                                                     locationDepartment?: string;
+                                                    currentBorrowerName?: string | null;
                                                     dr_article_name?: string;
                                                     qrCode?: { QRCodeData?: string | null } | null;
                                                     qrCodeData?: string | null;
@@ -395,12 +400,19 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             {getStatusBadge(d.PropertyStatusID, d.StatusName)}
                                                         </td>
                                                         <td className="px-6 py-4 text-slate-600">
-                                                            <div className="flex items-center gap-1">
-                                                                <User className="w-3 h-3" />
-                                                                {d.locationDepartment
-                                                                    ? `${getCustodianDisplayName(d.custodianName)} - ${d.locationDepartment}`
-                                                                    : getCustodianDisplayName(d.custodianName)}
-                                                            </div>
+                                                            {getBorrowedLabel(d.currentBorrowerName) ? (
+                                                                <div className="flex items-center gap-1 text-amber-700">
+                                                                    <User className="w-3 h-3" />
+                                                                    {getBorrowedLabel(d.currentBorrowerName)}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1">
+                                                                    <User className="w-3 h-3" />
+                                                                    {d.locationDepartment
+                                                                        ? `${getCustodianDisplayName(d.custodianName)} - ${d.locationDepartment}`
+                                                                        : getCustodianDisplayName(d.custodianName)}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">

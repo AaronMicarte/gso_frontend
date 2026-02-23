@@ -172,6 +172,10 @@ export function AllItemsPage() {
         return custodianName || 'Requester not set';
     };
 
+    const getBorrowedLabel = (borrowerName?: string | null) => {
+        return borrowerName ? `Currently borrowed by ${borrowerName}` : null;
+    };
+
     const getQrCodeData = (item: InventoryItem): string | null => {
         return item.qrCodeData ?? null;
     };
@@ -342,17 +346,26 @@ export function AllItemsPage() {
                                                 {getStatusBadge(item.PropertyStatusID, item.StatusName)}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
-                                                <div className="flex items-center gap-1">
-                                                    <User className="w-3 h-3" />
-                                                    {item.locationDepartment
-                                                        ? `${getCustodianDisplayName(item.custodianName)}`
-                                                        : getCustodianDisplayName(item.custodianName)}
-                                                </div>
-                                                {item.locationDepartment && (
-                                                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                                                        <Building2 className="w-3 h-3" />
-                                                        {item.locationDepartment}
+                                                {getBorrowedLabel(item.currentBorrowerName) ? (
+                                                    <div className="flex items-center gap-1 text-amber-700">
+                                                        <User className="w-3 h-3" />
+                                                        {getBorrowedLabel(item.currentBorrowerName)}
                                                     </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex items-center gap-1">
+                                                            <User className="w-3 h-3" />
+                                                            {item.locationDepartment
+                                                                ? `${getCustodianDisplayName(item.custodianName)}`
+                                                                : getCustodianDisplayName(item.custodianName)}
+                                                        </div>
+                                                        {item.locationDepartment && (
+                                                            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                                <Building2 className="w-3 h-3" />
+                                                                {item.locationDepartment}
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-right">

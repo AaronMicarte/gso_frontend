@@ -13,17 +13,54 @@ const formatManilaDateTime = (value: string) => {
     return format(toZonedTime(date, 'Asia/Manila'), 'MMM dd, yyyy h:mm a');
 };
 
+const formatMetaKey = (key: string) => {
+    return key
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const formatMetaValue = (value: unknown): string => {
+    if (value === null || value === undefined || value === '') return '-';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (typeof value === 'number') return value.toString();
+    if (typeof value === 'string') return value;
+
+    if (Array.isArray(value)) {
+        const parts = value.map((item) => formatMetaValue(item)).filter((item) => item !== '-');
+        return parts.length > 0 ? parts.join(', ') : '-';
+    }
+
+    if (typeof value === 'object') {
+        const entries = Object.entries(value as Record<string, unknown>)
+            .filter(([, val]) => val !== null && val !== undefined && val !== '');
+        if (entries.length === 0) return '-';
+        return entries
+            .map(([key, val]) => `${formatMetaKey(key)}: ${formatMetaValue(val)}`)
+            .join(' | ');
+    }
+
+    return String(value);
+};
+
 const renderMeta = (meta?: Record<string, unknown> | null) => {
     if (!meta) return null;
-    const formatted = JSON.stringify(meta, null, 2);
-    if (!formatted || formatted === '{}') return null;
+    // exclude identifier fields (e.g. "iar_id", "inventory_detail_id") from details
+    const entries = Object.entries(meta)
+        .filter(([, value]) => value !== null && value !== undefined && value !== '')
+        .filter(([key]) => !/\b(id|.*_id)\b/i.test(key));
+    if (entries.length === 0) return null;
 
     return (
         <details className="mt-2 text-xs text-slate-600">
             <summary className="cursor-pointer text-slate-500 hover:text-slate-700">Details</summary>
-            <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-[11px] text-slate-700">
-                {formatted}
-            </pre>
+            <dl className="mt-2 grid gap-2 rounded-lg bg-slate-50 p-3 text-[11px] text-slate-700">
+                {entries.map(([key, value]) => (
+                    <div key={key} className="grid grid-cols-[120px_1fr] gap-2">
+                        <dt className="text-slate-500">{formatMetaKey(key)}</dt>
+                        <dd className="text-slate-800 break-words">{formatMetaValue(value)}</dd>
+                    </div>
+                ))}
+            </dl>
         </details>
     );
 };
@@ -46,7 +83,15 @@ const HistoryItem = ({ item }: { item: InventoryHistoryItem }) => (
 export function InventoryHistoryDialog({ inventoryDetailId, itemName }: { inventoryDetailId: number; itemName: string }) {
     const [open, setOpen] = useState(false);
     const { data, isLoading, isError } = useInventoryDetailHistory(inventoryDetailId, open);
-    const history = data?.history ?? [];
+    const history = (data?.history ?? [])
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => {
+            const timeA = new Date(a.item.occurred_at).getTime();
+            const timeB = new Date(b.item.occurred_at).getTime();
+            if (Number.isNaN(timeA) || Number.isNaN(timeB)) return a.index - b.index;
+            return timeA - timeB || a.index - b.index;
+        })
+        .map(({ item }) => item);
 
     return (
         <Dialog.Root open={open} onOpenChange={setOpen}>
