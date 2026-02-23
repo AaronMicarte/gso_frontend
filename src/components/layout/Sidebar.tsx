@@ -33,7 +33,8 @@ import {
     Settings,
     Shield,
     Plus,
-    FileCheck
+    FileCheck,
+    CalendarClock
 } from 'lucide-react';
 
 // Navigation structure with sections and collapsible groups
@@ -137,6 +138,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         icon: ArrowRightLeft,
                         children: [
                             { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
+                            { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
                             { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
                             { label: 'IIRUP', href: `${baseRoute}/iirup`, icon: FileWarning },
                         ]
@@ -303,6 +305,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 section: 'OPERATIONS',
                 items: [
                     { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
+                    { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
                     { label: 'Job Orders', href: `${baseRoute}/job-orders`, icon: Wrench },
                     { label: 'Physical Count', href: `${baseRoute}/physical-count`, icon: ClipboardList },
                 ]
@@ -362,6 +365,19 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         children: [
                             { label: 'My Requests', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
                             { label: 'Incoming Requests', href: `${baseRoute}/transfer/incoming`, icon: FileClock },
+                        ]
+                    }
+                ]
+            },
+            {
+                section: 'BORROW REQUESTS',
+                items: [
+                    {
+                        label: 'Property Borrowing',
+                        icon: CalendarClock,
+                        children: [
+                            { label: 'My Requests', href: `${baseRoute}/borrow`, icon: CalendarClock },
+                            { label: 'Incoming Requests', href: `${baseRoute}/borrow/incoming`, icon: FileClock },
                         ]
                     }
                 ]

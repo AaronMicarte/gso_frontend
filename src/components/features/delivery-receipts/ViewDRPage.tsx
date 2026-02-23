@@ -29,8 +29,9 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
 
     // Permissions
     const canEdit = user?.UserRoleID === 1 || user?.UserRoleID === 2; // Admin or Staff
+    const inspectionStatus = dr?.inspection_status || dr?.InspectionStatus || 'pending';
     // prioritise the workflow status set by the backend, fallback to inspection state if missing
-    const workflowStatus = dr?.workflow_status || (dr?.inspection_status || dr?.InspectionStatus || 'pending');
+    const workflowStatus = dr?.workflow_status || inspectionStatus;
     const workflowLabel = dr?.workflow_status_label || (workflowStatus === 'to_be_accepted' ? 'To be accepted' : workflowStatus === 'to_be_issued' ? 'To be issued' : workflowStatus === 'issued' ? 'Issued' : workflowStatus === 'acknowledged' ? 'Acknowledged' : (workflowStatus === 'pending_inspection' ? 'Pending inspection' : ''));
 
     useEffect(() => {

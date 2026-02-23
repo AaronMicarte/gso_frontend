@@ -17,7 +17,6 @@ export default function StaffNewSupplierPage() {
         contact_number: '',
         email: '',
         address: '',
-        tin: '',
         is_active: true,
     });
 
@@ -43,7 +42,6 @@ export default function StaffNewSupplierPage() {
                     if (backendErrors.contact_number) mappedErrors.contact_number = backendErrors.contact_number;
                     if (backendErrors.email) mappedErrors.email = backendErrors.email;
                     if (backendErrors.address) mappedErrors.address = backendErrors.address;
-                    if (backendErrors.tin) mappedErrors.tin = backendErrors.tin;
 
                     // Fallback for other field names if backend uses different casing
                     if (backendErrors.SupplierName) mappedErrors.name = backendErrors.SupplierName;
@@ -51,7 +49,6 @@ export default function StaffNewSupplierPage() {
                     if (backendErrors.ContactNumber) mappedErrors.contact_number = backendErrors.ContactNumber;
                     if (backendErrors.Email) mappedErrors.email = backendErrors.Email;
                     if (backendErrors.Address) mappedErrors.address = backendErrors.Address;
-                    if (backendErrors.TIN) mappedErrors.tin = backendErrors.TIN;
 
                     setErrors(mappedErrors);
 
@@ -183,23 +180,6 @@ export default function StaffNewSupplierPage() {
                             )}
                         </div>
 
-                        {/* TIN Field */}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                TIN
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.tin}
-                                onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors ${errors.tin ? 'border-red-300 focus:ring-red-200' : 'border-slate-300'
-                                    }`}
-                                placeholder="Tax Identification Number"
-                            />
-                            {errors.tin && (
-                                <p className="mt-1 text-sm text-red-600">{errors.tin[0]}</p>
-                            )}
-                        </div>
                     </div>
 
                     {/* Form Actions */}
