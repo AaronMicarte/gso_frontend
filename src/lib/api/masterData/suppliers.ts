@@ -47,7 +47,6 @@ export async function createSupplier(data: SupplierInput): Promise<Supplier> {
         ContactPerson: data.contact_person,
         ContactNumber: data.contact_number,
         Email: data.email,
-        TIN: data.tin,
         IsActive: data.is_active ?? true,
     };
     const response = await apiClient.post<ApiResponse<Supplier>>('/admin/master-data/suppliers', payload);
@@ -64,7 +63,6 @@ export async function updateSupplier(id: number, data: SupplierInput): Promise<S
         ContactPerson: data.contact_person,
         ContactNumber: data.contact_number,
         Email: data.email,
-        TIN: data.tin,
         IsActive: data.is_active,
     };
     const response = await apiClient.put<ApiResponse<Supplier>>(`/admin/master-data/suppliers/${id}`, payload);

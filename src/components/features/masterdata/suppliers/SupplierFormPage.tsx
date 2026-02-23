@@ -30,7 +30,6 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
         contact_number: '',
         email: '',
         address: '',
-        tin: '',
         is_active: true,
     });
 
@@ -46,7 +45,6 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
                 contact_number: supplier.contact_number || '',
                 email: supplier.email || '',
                 address: supplier.address || '',
-                tin: supplier.tin || '',
                 is_active: supplier.is_active,
             });
         }
@@ -72,7 +70,6 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
                 if (backendErrors.contact_number) mappedErrors.contact_number = backendErrors.contact_number;
                 if (backendErrors.email) mappedErrors.email = backendErrors.email;
                 if (backendErrors.address) mappedErrors.address = backendErrors.address;
-                if (backendErrors.tin) mappedErrors.tin = backendErrors.tin;
 
                 // Fallback for other field names if backend uses different casing
                 if (backendErrors.SupplierName) mappedErrors.name = backendErrors.SupplierName;
@@ -80,7 +77,6 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
                 if (backendErrors.ContactNumber) mappedErrors.contact_number = backendErrors.ContactNumber;
                 if (backendErrors.Email) mappedErrors.email = backendErrors.Email;
                 if (backendErrors.Address) mappedErrors.address = backendErrors.Address;
-                if (backendErrors.TIN) mappedErrors.tin = backendErrors.TIN;
 
                 setErrors(mappedErrors);
 
@@ -235,24 +231,6 @@ export function SupplierFormPage({ baseRoute, supplierId }: SupplierFormPageProp
                             />
                             {errors.address && (
                                 <p className="mt-1 text-sm text-red-500">{errors.address[0]}</p>
-                            )}
-                        </div>
-
-                        {/* TIN */}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                TIN
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.tin}
-                                onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${errors.tin ? 'border-red-500' : 'border-slate-300'
-                                    }`}
-                                placeholder="Enter Tax Identification Number"
-                            />
-                            {errors.tin && (
-                                <p className="mt-1 text-sm text-red-500">{errors.tin[0]}</p>
                             )}
                         </div>
 

@@ -227,7 +227,6 @@ export interface Supplier {
     contact_person?: string | null;
     contact_number?: string | null;
     email?: string | null;
-    tin?: string | null;
     is_active: boolean;
     created_at: string;
     updated_at?: string | null;
@@ -241,7 +240,6 @@ export interface SupplierInput {
     contact_person?: string;
     contact_number?: string;
     email?: string;
-    tin?: string;
     is_active?: boolean;
 }
 

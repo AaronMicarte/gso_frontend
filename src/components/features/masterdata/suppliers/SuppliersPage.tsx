@@ -28,7 +28,6 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
         contact_number: '',
         email: '',
         address: '',
-        tin: '',
         is_active: true,
     });
     const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
@@ -71,7 +70,6 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
             contact_number: '',
             email: '',
             address: '',
-            tin: '',
             is_active: true,
         });
         setFormOpen(true);
@@ -112,7 +110,6 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
                 contact_number: activeSupplier.contact_number || '',
                 email: activeSupplier.email || '',
                 address: activeSupplier.address || '',
-                tin: activeSupplier.tin || '',
                 is_active: activeSupplier.is_active,
             };
 
@@ -149,13 +146,11 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
         if (backendErrors.contact_number) mappedErrors.contact_number = backendErrors.contact_number;
         if (backendErrors.email) mappedErrors.email = backendErrors.email;
         if (backendErrors.address) mappedErrors.address = backendErrors.address;
-        if (backendErrors.tin) mappedErrors.tin = backendErrors.tin;
         if (backendErrors.SupplierName) mappedErrors.name = backendErrors.SupplierName;
         if (backendErrors.ContactPerson) mappedErrors.contact_person = backendErrors.ContactPerson;
         if (backendErrors.ContactNumber) mappedErrors.contact_number = backendErrors.ContactNumber;
         if (backendErrors.Email) mappedErrors.email = backendErrors.Email;
         if (backendErrors.Address) mappedErrors.address = backendErrors.Address;
-        if (backendErrors.TIN) mappedErrors.tin = backendErrors.TIN;
 
         setFormErrors(mappedErrors);
 
@@ -174,7 +169,6 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
             contact_number: formData.contact_number?.trim() || undefined,
             email: formData.email?.trim() || undefined,
             address: formData.address?.trim() || undefined,
-            tin: formData.tin?.trim() || undefined,
             is_active: formData.is_active ?? true,
         };
 
@@ -315,11 +309,6 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
                                             <span className="text-xs text-slate-500">
                                                 {supplier.contact_number || '-'}
                                             </span>
-                                            {supplier.tin && (
-                                                <span className="text-xs text-slate-500">
-                                                    TIN: {supplier.tin}
-                                                </span>
-                                            )}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {canEdit && (
@@ -364,9 +353,6 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                                 Contact Number
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                                TIN
-                                            </th>
                                             <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                                 Actions
                                             </th>
@@ -391,11 +377,6 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm text-slate-600">
                                                         {supplier.contact_number || '-'}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm text-slate-600">
-                                                        {supplier.tin || '-'}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
@@ -520,17 +501,6 @@ export function SuppliersPage({ baseRoute: _baseRoute, canEdit = true, canDelete
                                     placeholder="Enter email address"
                                 />
                                 {formErrors.email && <p className="mt-1 text-sm text-red-500">{formErrors.email[0]}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">TIN</label>
-                                <input
-                                    type="text"
-                                    value={formData.tin || ''}
-                                    onChange={(e) => handleFormChange('tin', e.target.value)}
-                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent ${formErrors.tin ? 'border-red-500' : 'border-slate-300'}`}
-                                    placeholder="Enter tax identification number"
-                                />
-                                {formErrors.tin && <p className="mt-1 text-sm text-red-500">{formErrors.tin[0]}</p>}
                             </div>
                         </div>
                         <div>
