@@ -35,8 +35,9 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
         search: debouncedSearch || undefined,
         page: currentPage,
         per_page: 15,
-        sort_by: 'id',
-        sort_order: 'desc',
+        // alphabetical A–Z
+        sort_by: 'DepartmentName',
+        sort_order: 'asc',
     });
 
     const deleteMutation = useDeleteDepartment();
@@ -174,6 +175,51 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
 
     const isSaving = createMutation.isPending || updateMutation.isPending;
 
+    const renderPaginationFooter = () => {
+        if (
+            !pagination ||
+            typeof pagination.current_page !== 'number' ||
+            typeof pagination.last_page !== 'number' ||
+            typeof pagination.per_page !== 'number' ||
+            typeof pagination.total !== 'number' ||
+            pagination.last_page <= 1
+        ) {
+            return null;
+        }
+
+        const start = ((pagination.current_page - 1) * pagination.per_page) + 1;
+        const end = Math.min(pagination.current_page * pagination.per_page, pagination.total);
+
+        return (
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
+                <div className="flex items-center justify-between">
+                    <div className="text-sm text-slate-600">
+                        Showing {start} to {end} of {pagination.total} entries
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            disabled={pagination.current_page === 1}
+                            className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Previous
+                        </button>
+                        <span className="text-sm text-slate-600">
+                            Page {pagination.current_page} of {pagination.last_page}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage((prev) => Math.min(pagination.last_page, prev + 1))}
+                            disabled={pagination.current_page === pagination.last_page}
+                            className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
@@ -258,6 +304,7 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
                             <button
                                 onClick={openCreateModal}
                                 className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
+                                aria-label="Create first department"
                             >
                                 Add Department
                             </button>
@@ -407,30 +454,7 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
                             </div>
                         </div>
 
-                        {/* Pagination */}
-                        {pagination && pagination.last_page > 1 && (
-                            <div className="mt-4 lg:mt-0 px-4 py-3 lg:px-6 lg:py-4 bg-white lg:border-t border-slate-200 rounded-lg lg:rounded-none flex flex-col sm:flex-row items-center justify-between gap-3">
-                                <div className="text-sm text-slate-600">
-                                    Page {pagination.current_page} of {pagination.last_page}
-                                </div>
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                    <button
-                                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                                        disabled={pagination.current_page === 1}
-                                        className="flex-1 sm:flex-initial px-4 py-2 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
-                                    >
-                                        Previous
-                                    </button>
-                                    <button
-                                        onClick={() => setCurrentPage((prev) => Math.min(pagination.last_page, prev + 1))}
-                                        disabled={pagination.current_page === pagination.last_page}
-                                        className="flex-1 sm:flex-initial px-4 py-2 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
-                                    >
-                                        Next
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        {renderPaginationFooter()}
                     </>
                 )}
             </div>
