@@ -55,7 +55,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
             const [deptData, receivingEndUsers, releasingEndUsers] = await Promise.all([
                 transferAPI.getDepartments(),
                 user?.DepartmentID ? transferAPI.getEndUsers(user.DepartmentID) : Promise.resolve([]),
-                transferAPI.getEndUsers(),
+                transferAPI.getEndUsers(undefined, { excludeGso: true }),
             ]);
             setDepartments(deptData);
             setToEndUsers(receivingEndUsers);

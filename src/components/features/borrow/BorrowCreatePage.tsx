@@ -77,7 +77,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
             const [deptData, receivingEndUsers, releasingEndUsers, allowedPropertyTypes] = await Promise.all([
                 borrowAPI.getDepartments(),
                 user?.DepartmentID ? borrowAPI.getEndUsers(user.DepartmentID) : Promise.resolve([]),
-                borrowAPI.getEndUsers(),
+                borrowAPI.getEndUsers(undefined, { excludeGso: true }),
                 borrowAPI.getAllowedPropertyTypes(),
             ]);
             setDepartments(deptData);

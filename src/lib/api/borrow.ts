@@ -429,9 +429,17 @@ const borrowAPI = {
         return data;
     },
 
-    getEndUsers: async (departmentId?: number) => {
+    getEndUsers: async (departmentId?: number, options?: { excludeGso?: boolean }) => {
+        const params: Record<string, number | boolean> = {};
+        if (departmentId) {
+            params.department_id = departmentId;
+        }
+        if (options?.excludeGso) {
+            params.exclude_gso = true;
+        }
+
         const { data } = await apiClient.get<BorrowEndUser[]>('/property-borrows/helpers/end-users', {
-            params: departmentId ? { department_id: departmentId } : undefined,
+            params: Object.keys(params).length ? params : undefined,
         });
         return data;
     },
