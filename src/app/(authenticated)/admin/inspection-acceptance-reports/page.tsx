@@ -1,5 +1,5 @@
-import { InspectionReportListPage } from '@/components/features/inspection/InspectionReportListPage';
+import { redirect } from 'next/navigation';
 
 export default function AdminIARListPage() {
-    return <InspectionReportListPage baseRoute="/admin" />;
+    redirect('/admin/delivery-receipts');
 }

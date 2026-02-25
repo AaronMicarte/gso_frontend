@@ -68,12 +68,12 @@ function StaffLayoutInner({
         }
 
         // Wrong role - redirect to their dashboard
-        if (!loading && user && user.Role.toLowerCase() !== 'gso staff') {
+        if (!loading && user && !['gso staff', 'inspection officer'].includes(user.Role.toLowerCase())) {
             const roleRoutes: Record<string, string> = {
                 'admin': '/admin/dashboard',
                 'department head': '/department_head/dashboard',
                 'end user': '/user/dashboard',
-                'inspection officer': '/inspection/inspections',
+                'inspection officer': '/staff/delivery-receipts',
             };
             const correctRoute = roleRoutes[user.Role.toLowerCase()] || '/';
             router.push(correctRoute);
@@ -90,7 +90,7 @@ function StaffLayoutInner({
     };
 
     // Show skeleton while loading or if wrong role
-    if (loading || !user || user.Role.toLowerCase() !== 'gso staff') {
+    if (loading || !user || !['gso staff', 'inspection officer'].includes(user.Role.toLowerCase())) {
         return <DashboardSkeleton />;
     }
 

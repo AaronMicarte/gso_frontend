@@ -25,13 +25,12 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
     }, 0);
 
     // compute workflow status/label similarly to ViewDRPage
-    const workflowStatus = dr.workflow_status || ((dr.inspection_status || dr.InspectionStatus) === 'inspected' ? 'to_be_accepted' : 'pending_inspection');
+    const workflowStatus = dr.workflow_status || ((dr.inspection_status || dr.InspectionStatus) === 'inspected' ? 'to_be_issued' : 'pending_inspection');
     const workflowLabel = dr.workflow_status_label || (
-        workflowStatus === 'to_be_accepted' ? 'To be accepted'
-            : workflowStatus === 'to_be_issued' ? 'To be issued'
-                : workflowStatus === 'issued' ? 'Issued'
-                    : workflowStatus === 'acknowledged' ? 'Acknowledged'
-                        : 'Pending inspection'
+        workflowStatus === 'to_be_issued' ? 'To be issued'
+            : workflowStatus === 'issued' ? 'Issued'
+                : workflowStatus === 'acknowledged' ? 'Acknowledged'
+                    : 'Pending inspection'
     );
 
     return (
@@ -115,6 +114,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                         <th className="border border-black px-1 py-1 w-[60px] text-center">Qty</th>
                         <th className="border border-black px-1 py-1 w-[90px] text-center">Unit Cost</th>
                         <th className="border border-black px-1 py-1 w-[95px] text-center">Total Cost</th>
+                        <th className="border border-black px-1 py-1 w-[120px] text-center">Req / Del</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -139,6 +139,12 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                                     <td className="border border-black px-1 py-1 text-center">{item.QuantityDelivered}</td>
                                     <td className="border border-black px-1 py-1 text-right">{Number.isFinite(unitCost) ? unitCost.toFixed(2) : '0.00'}</td>
                                     <td className="border border-black px-1 py-1 text-right">{Number.isFinite(totalCost) ? totalCost.toFixed(2) : '0.00'}</td>
+                                    <td className="border border-black px-1 py-1 text-[10px]">
+                                        <div><span className="font-bold">R:</span> {item.QuantityRequested ?? item.QuantityDelivered ?? 0} / <span className="font-bold">D:</span> {item.QuantityDelivered ?? 0}</div>
+                                        {item.QuantityRequested !== item.QuantityDelivered && item.ChangeReason ? (
+                                            <div>Reason: {item.ChangeReason}</div>
+                                        ) : null}
+                                    </td>
                                 </tr>
                             );
                         });
@@ -153,13 +159,14 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                                     <td className="border border-black px-1 py-1">&nbsp;</td>
                                     <td className="border border-black px-1 py-1">&nbsp;</td>
                                     <td className="border border-black px-1 py-1">&nbsp;</td>
+                                    <td className="border border-black px-1 py-1">&nbsp;</td>
                                 </tr>
                             );
                         }
 
                         rows.push(
                             <tr key="total">
-                                <td colSpan={5} className="border border-black px-1 py-1 text-right font-bold">TOTAL AMOUNT</td>
+                                <td colSpan={6} className="border border-black px-1 py-1 text-right font-bold">TOTAL AMOUNT</td>
                                 <td className="border border-black px-1 py-1 text-right font-bold">{totalAmount.toFixed(2)}</td>
                             </tr>
                         );
@@ -170,13 +177,19 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
             </table>
 
             <div className="grid grid-cols-2 gap-10 mt-8 text-xs">
-                <div>
-                    <div className="mb-6">Received by:</div>
-                    <div className="border-b border-black h-10" />
-                    <div className="text-[10px] text-center mt-1">Signature over Printed Name</div>
-                    <div className="border-b border-black mt-3 pb-1 text-center">{dr.receivedByUser?.FullName || 'RECEIVED BY'}</div>
-                    <div className="text-[10px] text-center mt-1">Date</div>
-                    <div className="border-b border-black mt-2 pb-1 text-center">{formatManilaDate(dr.DateReceived)}</div>
+                <div className="space-y-2">
+                    <div>
+                        <div className="text-[10px]">Received / Inspected By:</div>
+                        <div className="border-b border-black pb-1 text-center">{dr.receivedByUser?.FullName || 'RECEIVED BY'}</div>
+                    </div>
+                    <div>
+                        <div className="text-[10px]">Date Received:</div>
+                        <div className="border-b border-black pb-1 text-center">{formatManilaDate(dr.DateReceived)}</div>
+                    </div>
+                    <div>
+                        <div className="text-[10px]">Date Inspected:</div>
+                        <div className="border-b border-black pb-1 text-center">{formatManilaDate(dr.DateInspected || dr.DateReceived)}</div>
+                    </div>
                 </div>
 
                 <div>

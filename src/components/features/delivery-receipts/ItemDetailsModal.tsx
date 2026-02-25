@@ -7,26 +7,27 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { toast } from 'sonner';
-import { Package, Hash, Calculator } from 'lucide-react';
+import { Package, Calculator } from 'lucide-react';
 
 const itemSchema = z.object({
     article_id: z.number().int().min(1, 'Article is required'),
     item_description: z.string().max(1000, 'Item description is too long').optional().or(z.literal('')),
-    brand: z.string().optional(),
-    model_number: z.string().optional(),
-    serial_number: z.string().optional(),
     property_type_id: z.number().int().min(1, 'Property type is required'),
     unit_of_measure_id: z.number().int().min(1, 'Unit is required'),
     quantity_delivered: z.number().int().min(1, 'Quantity must be at least 1'),
+    quantity_requested: z.number().int().min(1, 'Quantity must be at least 1'),
+    change_reason: z.string().optional(),
     unit_cost: z.number().min(0),
 }).superRefine((data, ctx) => {
-    const serial = data.serial_number?.trim();
-    if (serial && data.quantity_delivered > 1) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['quantity_delivered'],
-            message: 'Quantity must be 1 when a serial number is provided',
-        });
+    if (data.quantity_delivered !== data.quantity_requested) {
+        const reason = (data.change_reason || '').trim();
+        if (!reason) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['change_reason'],
+                message: 'Change reason is required when delivered differs from requested quantity',
+            });
+        }
     }
 });
 
@@ -49,34 +50,30 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
         defaultValues: {
             article_id: 0,
             item_description: '',
-            brand: '',
-            model_number: '',
-            serial_number: '',
             property_type_id: 0,
             unit_of_measure_id: 1,
             quantity_delivered: 1,
+            quantity_requested: 1,
+            change_reason: '',
             unit_cost: 0,
             ...initialValues,
         }
     });
 
     const quantity = watch('quantity_delivered');
+    const requested = watch('quantity_requested');
     const unitCost = watch('unit_cost');
     const selectedArticleId = watch('article_id');
     const currentPropertyTypeId = watch('property_type_id');
     const currentUnitId = watch('unit_of_measure_id');
     const totalCost = (quantity || 0) * (unitCost || 0);
 
-    // Lock quantity when a serial number is provided
-    const serialNumber = watch('serial_number');
-    const isSerialProvided = Boolean(serialNumber && String(serialNumber).trim().length > 0);
-
-    // If serial number exists, force quantity to 1 and validate
     useEffect(() => {
-        if (isSerialProvided) {
-            setValue('quantity_delivered', 1, { shouldValidate: true, shouldDirty: true });
+        if (quantity === requested) {
+            setValue('change_reason', '', { shouldValidate: true, shouldDirty: true });
         }
-    }, [isSerialProvided, setValue]);
+    }, [quantity, requested, setValue]);
+
 
     // Use ref to track previous open state
     const prevOpenRef = useRef(open);
@@ -148,9 +145,8 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
             reset({
                 ...initialValues,
                 item_description: initialValues.item_description && initialValues.item_description !== '0' ? initialValues.item_description : '',
-                brand: initialValues.brand && initialValues.brand !== '0' ? initialValues.brand : '',
-                model_number: initialValues.model_number && initialValues.model_number !== '0' ? initialValues.model_number : '',
-                serial_number: initialValues.serial_number && initialValues.serial_number !== '0' ? initialValues.serial_number : '',
+                quantity_requested: initialValues.quantity_requested ?? initialValues.quantity_delivered ?? 1,
+                change_reason: initialValues.change_reason ?? '',
             });
 
             // prefill article query from initialValues.article_id when editing
@@ -310,40 +306,18 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                     </div>
                 </div>
 
-                {/* Equipment Details - optional */}
-                <div className="space-y-4">
-                    <div className="border-t border-slate-200 pt-4">
-                        <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                            <Hash className="w-4 h-4 text-[var(--primary)]" />
-                            Equipment Specifications (Optional)
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Input
-                                {...register('brand')}
-                                label="Brand"
-                                placeholder="e.g., Dell, HP"
-                            />
-                            <Input
-                                {...register('model_number')}
-                                label="Model Number"
-                                placeholder="e.g., OptiPlex 7090"
-                            />
-                            <div>
-                                <Input
-                                    {...register('serial_number')}
-                                    label="Serial Number"
-                                    placeholder="e.g., SN123456789"
-                                />
-                                <p className="mt-1 text-xs text-slate-500">
-                                    {isSerialProvided ? 'Serial entered — quantity locked to 1.' : 'If you enter a serial number, quantity will be locked to 1.'}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Quantity & Cost */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-900">Quantity Requested</label>
+                        <Input
+                            {...register('quantity_requested', { valueAsNumber: true })}
+                            type="number"
+                            min={1}
+                            placeholder="Enter quantity"
+                            error={errors.quantity_requested?.message}
+                        />
+                    </div>
                     <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-900">Quantity Delivered</label>
                         <Input
@@ -352,8 +326,6 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                             min={1}
                             placeholder="Enter quantity"
                             error={errors.quantity_delivered?.message}
-                            disabled={isSerialProvided}
-                            className={isSerialProvided ? 'opacity-60' : ''}
                         />
                     </div>
 
@@ -371,6 +343,21 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                         />
                     </div>
                 </div>
+
+                {quantity !== requested && (
+                    <div className="border-t border-slate-200 pt-4 space-y-2">
+                        <label className="text-sm font-semibold text-slate-900">Change Reason</label>
+                        <textarea
+                            {...register('change_reason')}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
+                            placeholder="Reason for differences between requested and delivered"
+                        />
+                        {errors.change_reason && (
+                            <p className="text-sm text-[var(--error)]">{errors.change_reason.message}</p>
+                        )}
+                    </div>
+                )}
 
                 {/* Total Cost Display */}
                 <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">

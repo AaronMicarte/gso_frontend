@@ -1,5 +1,5 @@
-import { InspectionQueuePage } from '@/components/features/inspection/InspectionQueuePage';
+import { redirect } from 'next/navigation';
 
 export default function InspectionQueue() {
-    return <InspectionQueuePage />;
+    redirect('/staff/delivery-receipts');
 }

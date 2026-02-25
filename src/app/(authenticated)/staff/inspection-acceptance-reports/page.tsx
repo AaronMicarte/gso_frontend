@@ -1,5 +1,5 @@
-import { InspectionReportListPage } from '@/components/features/inspection/InspectionReportListPage';
+import { redirect } from 'next/navigation';
 
 export default function StaffIARListPage() {
-    return <InspectionReportListPage baseRoute="/staff" />;
+    redirect('/staff/delivery-receipts');
 }

@@ -13,6 +13,8 @@ export interface DeliveryReceiptDetail {
     PropertyTypeID: number;
     UnitOfMeasureID?: number;
     QuantityDelivered: number;
+    QuantityRequested?: number;
+    ChangeReason?: string | null;
     UnitCost: number;
     TotalCost: number;
     InspectionStatus?: 'pending' | 'inspected';
@@ -48,6 +50,8 @@ export interface DeliveryReceipt {
     InvoiceNumber?: string; // Invoice number from supplier
     DateReceived: string;
     ReceivedBy: number;
+    InspectedBy?: number | null;
+    DateInspected?: string | null;
     Remarks?: string;
     CreatedDate: string;
     dr_picture_url?: string; // URL to the DR picture
@@ -92,6 +96,8 @@ export interface CreateDeliveryReceiptPayload {
         property_type_id: number;
         unit_of_measure_id: number;
         quantity_delivered: number;
+        quantity_requested: number;
+        change_reason?: string;
         unit_cost: number;
     }[];
 }
@@ -115,6 +121,8 @@ export interface UpdateDeliveryReceiptPayload {
         property_type_id: number;
         unit_of_measure_id: number;
         quantity_delivered: number;
+        quantity_requested: number;
+        change_reason?: string;
         unit_cost: number;
     }[];
 }

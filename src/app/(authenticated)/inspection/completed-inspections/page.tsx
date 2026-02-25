@@ -1,12 +1,5 @@
-import { InspectionReportListPage } from '@/components/features/inspection/InspectionReportListPage';
+import { redirect } from 'next/navigation';
 
 export default function CompletedInspectionsPage() {
-    return (
-        <InspectionReportListPage
-            baseRoute="/inspection"
-            status="inspected"
-            title="Completed Inspections"
-            subtitle="Inspections completed and pending acceptance"
-        />
-    );
+    redirect('/staff/delivery-receipts');
 }

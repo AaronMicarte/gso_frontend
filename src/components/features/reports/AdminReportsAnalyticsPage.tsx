@@ -70,7 +70,6 @@ export default function AdminReportsAnalyticsPage() {
                             </div>
                             <ul className="text-sm text-slate-700 space-y-2">
                                 <li>DR: Records delivery receipt entries and item lines.</li>
-                                <li>IAR: Inspection + acceptance with signatures.</li>
                                 <li>PAR/ICS: Issuance documents with acknowledgment signatures.</li>
                             </ul>
                             <div className="mt-4 text-xs text-slate-500">

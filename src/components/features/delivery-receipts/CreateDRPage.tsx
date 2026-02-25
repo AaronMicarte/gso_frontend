@@ -20,13 +20,12 @@ import { formatInTimeZone } from 'date-fns-tz';
 const drItemSchema = z.object({
     article_id: z.number().min(1, 'Article is required'),
     item_description: z.string().max(1000, 'Item description is too long').optional().or(z.literal('')),
-    brand: z.string().optional(),
-    model_number: z.string().optional(),
-    serial_number: z.string().optional(),
     property_type_id: z.number().min(1, 'Property type is required'),
     remarks: z.string().optional(),
     unit_of_measure_id: z.number().min(1, 'Unit of measure is required'),
     quantity_delivered: z.number().min(1, 'Quantity must be at least 1'),
+    quantity_requested: z.number().min(1, 'Quantity must be at least 1'),
+    change_reason: z.string().optional(),
     unit_cost: z.number().min(0, 'Unit cost must be non-negative'),
 });
 
@@ -156,6 +155,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             .filter(u => u && (u.id ?? u.UnitOfMeasureID))
             .map(u => ({ id: u.id ?? u.UnitOfMeasureID!, name: u.name ?? u.UnitName! }))
         : [];
+
 
     const details = watch('details');
     const watchedRequesterId = watch('requested_by_user_id');
@@ -387,12 +387,11 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         const item = details[index];
         append({
             article_id: item?.article_id || 0, item_description: item?.item_description || '',
-            brand: item?.brand || '',
-            model_number: item?.model_number || '',
-            serial_number: item?.serial_number || '',
             property_type_id: item?.property_type_id || 0,
             unit_of_measure_id: item?.unit_of_measure_id || (units.length ? units[0].id : 1),
             quantity_delivered: item?.quantity_delivered || 1,
+            quantity_requested: item?.quantity_requested ?? (item?.quantity_delivered || 1),
+            change_reason: item?.change_reason || '',
             unit_cost: item?.unit_cost || 0,
         });
     };
@@ -675,8 +674,8 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">#</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Article</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
-                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Details</th>
-                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-24">Qty</th>
+                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Property Type</th>
+                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-32">Requested / Delivered</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Total Cost</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Actions</th>
@@ -707,16 +706,19 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
 
 
                                             <td className="py-3 px-3 min-w-[220px]">
-                                                <div className="text-sm text-slate-700 font-medium truncate">
-                                                    {details[index]?.brand || '—'}{details[index]?.model_number ? ` / ${details[index].model_number}` : ''}{details[index]?.serial_number ? ` / ${details[index].serial_number}` : ''}
-                                                </div>
                                                 <div className="text-xs text-slate-500 mt-1 truncate">
                                                     {propertyTypes.find(p => p.PropertyTypeID === details[index]?.property_type_id)?.PropertyName || 'No type'}
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-3 w-28 text-center">
-                                                <div className="text-sm">{details[index]?.quantity_delivered ?? 0}</div>
+                                            <td className="py-3 px-3 w-32 text-center">
+                                                <div className="text-sm">
+                                                    <span className="font-medium">R:</span>{' '}{(details[index]?.quantity_requested ?? details[index]?.quantity_delivered ?? 0)}{' '}
+                                                    <span className="font-medium">D:</span>{' '}{details[index]?.quantity_delivered ?? 0}
+                                                </div>
                                                 <div className="text-xs text-slate-500 mt-1">{units.find(u => u.id === details[index]?.unit_of_measure_id)?.name || ''}</div>
+                                                {details[index]?.quantity_requested !== details[index]?.quantity_delivered && details[index]?.change_reason && (
+                                                    <div className="text-xs text-red-600 mt-1">Reason: {details[index]?.change_reason}</div>
+                                                )}
                                                 {errors.details?.[index]?.quantity_delivered && (
                                                     <p className="mt-1 text-xs text-red-600">
                                                         {errors.details[index]?.quantity_delivered?.message}
@@ -776,7 +778,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                         </div>
 
                         {fields.length === 0 ? (
-                            <div className="p-6 text-center text-sm text-slate-500 italic">add items</div>
+                            <div className="p-6 text-center text-sm text-slate-500 italic">No items added. Click &quot;Add Item&quot; to begin.</div>
                         ) : errors.details && (
                             <p className="mt-4 text-sm text-red-600 flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" />

@@ -5,10 +5,8 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { Loader2, Download } from 'lucide-react';
 import { getDeliveryReceipts } from '@/lib/api/deliveryReceipts';
-import { getIARs } from '@/lib/api/iar';
 import issuanceAPI from '@/lib/api/issuance';
 import { DeliveryReceipt } from '@/types/procurement';
-import { IAR } from '@/types/iar';
 import { AssetIssuance, AssetIssuanceFilters } from '@/types/assetIssuance';
 import { csvEscape, daysAgoManilaYmd, downloadTextFile, todayManilaYmd, safeManilaYmdFromIso, getErrorMessage } from './reportUtils';
 
@@ -26,19 +24,6 @@ async function fetchAllDeliveryReceipts(startDate: string, endDate: string): Pro
     return all;
 }
 
-async function fetchAllIARs(startDate: string, endDate: string): Promise<IAR[]> {
-    const perPage = 50;
-    const first = await getIARs({ start_date: startDate, end_date: endDate, per_page: perPage, page: 1 });
-    const all: IAR[] = [...first.data];
-
-    const lastPage = first.meta?.last_page ?? 1;
-    for (let page = 2; page <= lastPage; page++) {
-        const res = await getIARs({ start_date: startDate, end_date: endDate, per_page: perPage, page });
-        all.push(...res.data);
-    }
-
-    return all;
-}
 
 type GroupedIssuance = {
     RequestID: number;
@@ -73,7 +58,7 @@ function isDateInRange(dateYmd: string, startYmd: string, endYmd: string): boole
     return dateYmd >= startYmd && dateYmd <= endYmd;
 }
 
-type ExportKind = 'dr' | 'iar' | 'issuance' | null;
+type ExportKind = 'dr' | 'issuance' | null;
 
 export default function AdminReportsCustomPage() {
     const [startDate, setStartDate] = useState<string>(() => daysAgoManilaYmd(30));
@@ -125,7 +110,7 @@ export default function AdminReportsCustomPage() {
                     csvEscape(dateReceived),
                     csvEscape(dr.receivedByUser?.FullName || String(dr.ReceivedBy)),
                     csvEscape(dr.Remarks || ''),
-                    csvEscape(dr.workflow_status_label || ((dr.inspection_status || dr.InspectionStatus) === 'inspected' ? 'To be accepted' : 'Pending inspection')),
+                    csvEscape(dr.workflow_status_label || ((dr.inspection_status || dr.InspectionStatus) === 'inspected' ? 'To be issued' : 'Pending inspection')),
                 ].join(',');
 
                 lines.push(line);
@@ -141,70 +126,6 @@ export default function AdminReportsCustomPage() {
         }
     };
 
-    const exportIARSummaryCsv = async () => {
-        if (!isValidRange) {
-            toast.error('Invalid date range');
-            return;
-        }
-
-        try {
-            setExporting('iar');
-            const rows = await fetchAllIARs(startDate, endDate);
-
-            const header = [
-                'IARID',
-                'IARNumber',
-                'DRNumber',
-                'SupplierName',
-                'PONumber',
-                'InvoiceNumber',
-                'DateInspected(Asia/Manila)',
-                'DateAccepted(Asia/Manila)',
-                'InspectedBy',
-                'AcceptedBy',
-                'AcceptedQtyTotal',
-                'RejectedQtyTotal',
-                'AcceptedAmountTotal'
-            ];
-
-            const lines = [header.join(',')];
-
-            for (const iar of rows) {
-                const acceptedQty = (iar.details ?? []).reduce((sum, d) => sum + (d.QuantityAccepted || 0), 0);
-                const rejectedQty = (iar.details ?? []).reduce((sum, d) => sum + (d.QuantityRejected || 0), 0);
-                const acceptedAmount = (iar.details ?? []).reduce((sum, d) => {
-                    const unitCost = d.drDetail?.UnitCost ?? 0;
-                    return sum + (d.QuantityAccepted || 0) * unitCost;
-                }, 0);
-
-                const line = [
-                    String(iar.IARID),
-                    csvEscape(iar.IARNumber),
-                    csvEscape(iar.deliveryReceipt?.DRNumber || ''),
-                    csvEscape(iar.deliveryReceipt?.SupplierName || ''),
-                    csvEscape(iar.deliveryReceipt?.PONumber || ''),
-                    csvEscape(iar.deliveryReceipt?.InvoiceNumber || ''),
-                    csvEscape(safeManilaYmdFromIso(iar.DateInspected)),
-                    csvEscape(safeManilaYmdFromIso(iar.DateAccepted || null)),
-                    csvEscape(iar.inspectedByUser?.FullName || String(iar.InspectedBy)),
-                    csvEscape(iar.acceptedByUser?.FullName || (iar.AcceptedBy ? String(iar.AcceptedBy) : '')),
-                    csvEscape(String(acceptedQty)),
-                    csvEscape(String(rejectedQty)),
-                    csvEscape(String(Math.round(acceptedAmount * 100) / 100)),
-                ].join(',');
-
-                lines.push(line);
-            }
-
-            const filename = `iar_summary_${startDate}_to_${endDate}.csv`;
-            downloadTextFile(filename, lines.join('\n'), 'text/csv;charset=utf-8');
-            toast.success(`Exported ${rows.length} IARs`);
-        } catch (e) {
-            toast.error(getErrorMessage(e) || 'Failed to export IAR summary');
-        } finally {
-            setExporting(null);
-        }
-    };
 
     const exportIssuanceLogCsv = async () => {
         if (!isValidRange) {
@@ -334,22 +255,6 @@ export default function AdminReportsCustomPage() {
                         >
                             {exporting === 'dr' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                             {exporting === 'dr' ? 'Exporting…' : 'Download DR CSV'}
-                        </button>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <h2 className="text-lg font-semibold text-slate-900">Export: IAR Summary (CSV)</h2>
-                    <p className="text-sm text-slate-600 mt-1">Exports IAR headers with totals (accepted/rejected/amount) for the selected date range.</p>
-
-                    <div className="mt-5">
-                        <button
-                            onClick={exportIARSummaryCsv}
-                            disabled={!isValidRange || exporting !== null}
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[var(--primary)] text-white disabled:opacity-60"
-                        >
-                            {exporting === 'iar' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                            {exporting === 'iar' ? 'Exporting…' : 'Download IAR Summary CSV'}
                         </button>
                     </div>
                 </div>

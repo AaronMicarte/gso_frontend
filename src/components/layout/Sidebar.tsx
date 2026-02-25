@@ -54,9 +54,8 @@ interface NavSection {
 // Uses role-specific route prefixes: /admin/ for Admin, /staff/ for GSO Staff, /department_head/ for Department Head
 function getNavSections(user: User, baseRoute: string): NavSection[] {
     const isAdmin = user.UserRoleID === 1;
-    const isGSOStaff = user.UserRoleID === 2;
+    const isGSOStaff = user.UserRoleID === 2 || user.UserRoleID === 6;
     const isDepartmentHead = user.UserRoleID === 4;
-    const isInspectionOfficer = user.UserRoleID === 6;
 
     const sections: NavSection[] = [
         // MAIN - Everyone sees dashboard
@@ -75,14 +74,13 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
     if (isAdmin) {
         sections.push(
             {
-                section: 'DELIVERY & INSPECTION',
+                section: 'DELIVERY',
                 items: [
                     {
-                        label: 'Delivery & Inspection',
+                        label: 'Delivery',
                         icon: Truck,
                         children: [
                             { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
-                            { label: 'Inspection Reports', href: `${baseRoute}/inspection-acceptance-reports`, icon: ClipboardList },
                         ]
                     }
                 ]
@@ -240,28 +238,6 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
         );
     }
 
-    if (isInspectionOfficer) {
-        sections.push({
-            section: 'INSPECTION',
-            items: [
-                {
-                    label: 'Inspection Queue',
-                    href: `${baseRoute}/inspections`,
-                    icon: ClipboardList,
-                },
-                {
-                    label: 'Saved Inspections',
-                    href: `${baseRoute}/saved-inspections`,
-                    icon: FileClock,
-                },
-                {
-                    label: 'Completed Inspections',
-                    href: `${baseRoute}/completed-inspections`,
-                    icon: FileCheck,
-                },
-            ],
-        });
-    }
 
     // 🟡 GSO STAFF (Operational Level)
     if (isGSOStaff) {
@@ -274,14 +250,13 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 ]
             },
             {
-                section: 'DELIVERY & INSPECTION',
+                section: 'DELIVERY',
                 items: [
                     {
-                        label: 'Delivery & Inspection',
+                        label: 'Delivery',
                         icon: Truck,
                         children: [
                             { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
-                            { label: 'Inspection Reports', href: `${baseRoute}/inspection-acceptance-reports`, icon: ClipboardList },
                         ]
                     }
                 ]

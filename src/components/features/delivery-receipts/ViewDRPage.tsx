@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, AlertCircle, CheckCircle, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, AlertCircle, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
@@ -31,8 +31,8 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
     const canEdit = user?.UserRoleID === 1 || user?.UserRoleID === 2; // Admin or Staff
     const inspectionStatus = dr?.inspection_status || dr?.InspectionStatus || 'pending';
     // prioritise the workflow status set by the backend, fallback to inspection state if missing
-    const workflowStatus = dr?.workflow_status || inspectionStatus;
-    const workflowLabel = dr?.workflow_status_label || (workflowStatus === 'to_be_accepted' ? 'To be accepted' : workflowStatus === 'to_be_issued' ? 'To be issued' : workflowStatus === 'issued' ? 'Issued' : workflowStatus === 'acknowledged' ? 'Acknowledged' : (workflowStatus === 'pending_inspection' ? 'Pending inspection' : ''));
+    const workflowStatus = dr?.workflow_status || (inspectionStatus === 'inspected' ? 'to_be_issued' : 'pending_inspection');
+    const workflowLabel = dr?.workflow_status_label || (workflowStatus === 'to_be_issued' ? 'To be issued' : workflowStatus === 'issued' ? 'Issued' : workflowStatus === 'acknowledged' ? 'Acknowledged' : (workflowStatus === 'pending_inspection' ? 'Pending inspection' : ''));
 
     useEffect(() => {
         const fetchDR = async () => {
@@ -185,6 +185,10 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                             <label className="block text-sm font-medium text-slate-700">Received By</label>
                             <p className="mt-1 text-slate-900">{dr.receivedByUser?.FullName || 'Unknown'}</p>
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">Inspected By</label>
+                            <p className="mt-1 text-slate-900">{dr.receivedByUser?.FullName || 'Unknown'}</p>
+                        </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-slate-700">Remarks</label>
                             <p className="mt-1 text-slate-900">{dr.Remarks || 'No remarks'}</p>
@@ -216,6 +220,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-24">Qty</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Total Cost</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Requested / Delivered</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -239,6 +244,15 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                                         </td>
                                         <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.UnitCost)).toFixed(2)}</td>
                                         <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.TotalCost)).toFixed(2)}</td>
+                                        <td className="py-3 px-3 text-sm text-slate-600">
+                                            <div>
+                                                <span className="font-medium">R:</span>{' '}{(item.QuantityRequested ?? item.QuantityDelivered ?? 0)}{' '}
+                                                <span className="font-medium">D:</span>{' '}{item.QuantityDelivered ?? 0}
+                                            </div>
+                                            {item.QuantityRequested !== item.QuantityDelivered && item.ChangeReason && (
+                                                <div className="text-xs text-slate-500 mt-1">Reason: {item.ChangeReason}</div>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -255,7 +269,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                     </div>
                     <div className="flex items-center justify-between mt-4">
                         <span className="text-slate-600">Status:</span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${workflowStatus === 'pending_inspection' ? 'bg-amber-100 text-amber-700' : workflowStatus === 'to_be_accepted' ? 'bg-blue-100 text-blue-700' : workflowStatus === 'to_be_issued' ? 'bg-indigo-100 text-indigo-700' : workflowStatus === 'issued' ? 'bg-emerald-100 text-emerald-700' : workflowStatus === 'acknowledged' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${workflowStatus === 'pending_inspection' ? 'bg-amber-100 text-amber-700' : workflowStatus === 'to_be_issued' ? 'bg-indigo-100 text-indigo-700' : workflowStatus === 'issued' ? 'bg-emerald-100 text-emerald-700' : workflowStatus === 'acknowledged' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
                             {workflowLabel}
                         </span>
                     </div>

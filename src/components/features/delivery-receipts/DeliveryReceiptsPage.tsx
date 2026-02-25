@@ -27,7 +27,6 @@ interface DeliveryReceiptsPageProps {
 
 const workflowBadgeStyles: Record<string, string> = {
     pending_inspection: 'bg-amber-100 text-amber-800',
-    to_be_accepted: 'bg-blue-100 text-blue-800',
     to_be_issued: 'bg-indigo-100 text-indigo-800',
     issued: 'bg-emerald-100 text-emerald-800',
     acknowledged: 'bg-green-100 text-green-800',
@@ -204,11 +203,11 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                             <td className="px-6 py-4">
                                                 {(() => {
                                                     const fallbackStatus = (dr.inspection_status || dr.InspectionStatus) === 'inspected'
-                                                        ? 'to_be_accepted'
+                                                        ? 'to_be_issued'
                                                         : 'pending_inspection';
                                                     const workflowStatus = dr.workflow_status || fallbackStatus;
                                                     const workflowLabel = dr.workflow_status_label
-                                                        || (workflowStatus === 'to_be_accepted' ? 'To be accepted' : 'Pending inspection');
+                                                        || (workflowStatus === 'to_be_issued' ? 'To be issued' : 'Pending inspection');
                                                     const badgeClass = workflowBadgeStyles[workflowStatus] || workflowBadgeStyles.pending_inspection;
                                                     const showCheck = workflowStatus !== 'pending_inspection';
 

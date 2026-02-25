@@ -176,7 +176,7 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
 function QuickActions() {
     const actions = [
         { label: 'New Delivery Receipt', href: '/staff/delivery-receipts/new', icon: FileText, color: 'text-blue-500' },
-        { label: 'View IARs', href: '/staff/inspection-acceptance-reports', icon: FileCheck, color: 'text-green-500' },
+        { label: 'View Issuance Requests', href: '/staff/issuance', icon: FileCheck, color: 'text-green-500' },
         { label: 'View Master Data', href: '/staff/masterdata', icon: Database, color: 'text-amber-500' },
         { label: 'View Delivery Receipts', href: '/staff/delivery-receipts', icon: ClipboardList, color: 'text-purple-500' },
     ];

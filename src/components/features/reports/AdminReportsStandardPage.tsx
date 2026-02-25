@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FileCheck, ClipboardList, Truck, FileText } from 'lucide-react';
+import { FileCheck, Truck, FileText } from 'lucide-react';
 
 export default function AdminReportsStandardPage() {
     return (
@@ -10,7 +10,7 @@ export default function AdminReportsStandardPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Standard Reports</h1>
-                        <p className="text-slate-600 text-sm">Official, printable document outputs (DR → IAR → PAR/ICS)</p>
+                        <p className="text-slate-600 text-sm">Official, printable document outputs (DR → PAR/ICS)</p>
                     </div>
                     <Link href="/admin/reports/analytics" className="text-sm text-[var(--primary)] underline">
                         View Analytics
@@ -28,16 +28,6 @@ export default function AdminReportsStandardPage() {
                                 <div>
                                     <div className="font-semibold text-slate-900">Delivery Receipts (DR)</div>
                                     <div className="text-sm text-slate-600">View DRs and print DR record summary</div>
-                                </div>
-                            </div>
-                        </Link>
-
-                        <Link href="/admin/inspection-acceptance-reports" className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <ClipboardList className="w-5 h-5 text-slate-700" />
-                                <div>
-                                    <div className="font-semibold text-slate-900">Inspection & Acceptance Reports (IAR)</div>
-                                    <div className="text-sm text-slate-600">Inspection + acceptance with signatures</div>
                                 </div>
                             </div>
                         </Link>
