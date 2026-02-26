@@ -30,6 +30,12 @@ export interface DeliveryReceiptDetail {
         UnitOfMeasureID: number;
         UnitName: string;
     };
+    inventoryDetails?: {
+        InventoryDetailID: number;
+        SourceDRDetailID: number;
+        PropertyNumber: string;
+    }[];
+    propertyNumbers?: string[];
 }
 
 export interface DeliveryReceiptStatus {
@@ -40,13 +46,14 @@ export interface DeliveryReceiptStatus {
 export interface DeliveryReceipt {
     DRID: number;
     DRNumber: string;
+    SupplierID?: number | null;
     RequestedBy?: number | null; // FK -> user.UserID
     RequestedByName?: string | null; // convenience field from backend
     DepartmentID?: number | null; // derived from requester user
     DepartmentName?: string | null; // derived from requester user
     PRNumber?: string; // Manual PR number reference
     PONumber?: string; // Manual PO number reference
-    SupplierName: string; // Manual supplier name (required)
+    SupplierName?: string; // Supplier display name
     InvoiceNumber?: string; // Invoice number from supplier
     DateReceived: string;
     ReceivedBy: number;
@@ -80,7 +87,8 @@ export interface DeliveryReceipt {
 
 export interface CreateDeliveryReceiptPayload {
     dr_number: string;
-    supplier_name: string; // Required manual supplier name
+    supplier_id: number;
+    supplier_name?: string;
     requested_by_user_id: number;
     pr_number: string;
     po_number: string;
@@ -104,7 +112,8 @@ export interface CreateDeliveryReceiptPayload {
 
 export interface UpdateDeliveryReceiptPayload {
     dr_number: string;
-    supplier_name: string;
+    supplier_id: number;
+    supplier_name?: string;
     requested_by_user_id: number;
     pr_number: string;
     po_number: string;
@@ -134,6 +143,7 @@ export interface DeliveryReceiptFilters {
     po_number?: string;
     per_page?: number;
     page?: number;
+    supplier_id?: number;
 }
 
 

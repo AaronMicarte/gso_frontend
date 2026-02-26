@@ -31,7 +31,8 @@ const drItemSchema = z.object({
 
 const drSchema = z.object({
     dr_number: z.string().min(1, 'DR number is required'),
-    supplier_name: z.string().min(1, 'Supplier name is required'),
+    supplier_id: z.coerce.number().min(1, 'Supplier is required'),
+    supplier_name: z.string().optional(),
     requested_by_user_id: z.coerce.number().min(1, 'Requested by is required'),
     pr_number: z.string().min(1, 'PR number is required'),
     po_number: z.string().min(1, 'PO number is required'),
@@ -80,6 +81,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         resolver: zodResolver(drSchema),
         defaultValues: {
             dr_number: '',
+            supplier_id: 0,
             supplier_name: '',
             requested_by_user_id: 0,
             pr_number: '',
@@ -237,6 +239,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
 
     const selectSupplier = (supplier: { SupplierID: number; SupplierName: string }) => {
         setSupplierQuery(supplier.SupplierName);
+        setValue('supplier_id', supplier.SupplierID);
         setValue('supplier_name', supplier.SupplierName);
         setSupplierComboboxOpen(false);
         setSupplierHighlightedIndex(-1);
@@ -453,6 +456,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                         onChange={(e) => {
                                             setSupplierQuery(e.target.value);
                                             setValue('supplier_name', e.target.value);
+                                            setValue('supplier_id', 0);
                                             setSupplierComboboxOpen(true);
                                             setSupplierHighlightedIndex(-1);
                                         }}
@@ -484,10 +488,10 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                         </ul>
                                     )}
                                 </div>
-                                {errors.supplier_name && (
+                                {errors.supplier_id && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <AlertCircle className="w-3 h-3" />
-                                        {errors.supplier_name.message}
+                                        {errors.supplier_id.message}
                                     </p>
                                 )}
                             </div>

@@ -66,6 +66,15 @@ function DepartmentHeadLayoutInner({
             return;
         }
 
+        // MFA setup required for some roles
+        if (!loading && user) {
+            const mfaRequiredRoles = ['admin', 'gso staff', 'department head', 'inspection officer'];
+            if (mfaRequiredRoles.includes(user.Role.toLowerCase()) && !user.MFAEnabled) {
+                router.push('/setup-mfa');
+                return;
+            }
+        }
+
         // Wrong role - redirect to their dashboard
         if (!loading && user && user.Role.toLowerCase() !== 'department head') {
             const roleRoutes: Record<string, string> = {

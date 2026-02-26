@@ -3,7 +3,6 @@
 import React from 'react';
 import { DeliveryReceipt } from '@/types/procurement';
 import { formatInTimeZone } from 'date-fns-tz';
-import Image from 'next/image';
 
 interface DRPrintViewProps {
     dr: DeliveryReceipt;
@@ -18,20 +17,10 @@ function formatManilaDate(dateString?: string | null, pattern: string = 'MMM dd,
 
 export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({ dr }, ref) => {
     const details = dr.details ?? [];
-
-    const totalAmount = details.reduce((sum, item) => {
-        const total = typeof item.TotalCost === 'number' ? item.TotalCost : Number(item.TotalCost);
-        return sum + (Number.isFinite(total) ? total : 0);
-    }, 0);
-
-    // compute workflow status/label similarly to ViewDRPage
-    const workflowStatus = dr.workflow_status || ((dr.inspection_status || dr.InspectionStatus) === 'inspected' ? 'to_be_issued' : 'pending_inspection');
-    const workflowLabel = dr.workflow_status_label || (
-        workflowStatus === 'to_be_issued' ? 'To be issued'
-            : workflowStatus === 'issued' ? 'Issued'
-                : workflowStatus === 'acknowledged' ? 'Acknowledged'
-                    : 'Pending inspection'
-    );
+    const rowsNeeded = 11;
+    const inspectedDate = formatManilaDate(dr.DateInspected || dr.DateReceived);
+    const receivedDate = formatManilaDate(dr.DateReceived);
+    const supplierCustodian = dr.requestedByUser?.FullName || dr.RequestedByName || '';
 
     return (
         <div ref={ref} className="print-container bg-white p-8 max-w-4xl mx-auto text-black">
@@ -56,167 +45,149 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                 }}
             />
 
-            <div className="text-center mb-3">
-                <div className="text-sm font-bold">DELIVERY RECEIPT RECORD</div>
-                <div className="text-[11px]">(System-generated summary for DR traceability and reporting)</div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-xs mb-3">
-                <div className="space-y-1">
-                    <div className="flex items-end gap-2">
-                        <div className="whitespace-nowrap">Entity Name :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">CITY GOVERNMENT OF EL SALVADOR</div>
+            <div className="border border-black text-[11px] font-serif">
+                <div className="grid grid-cols-2 border-b border-black">
+                    <div className="p-1.5 space-y-1">
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">Entity Name :</div>
+                            <div className="flex-1 border-b border-black leading-none">CITY GOVERNMENT OF EL SALVADOR</div>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">Supplier :</div>
+                            <div className="flex-1 border-b border-black leading-none">{dr.SupplierName || ''}</div>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">PO No./Date :</div>
+                            <div className="flex-1 border-b border-black leading-none">{dr.PONumber || ''}</div>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">Requisitioning Office/Dept. :</div>
+                            <div className="flex-1 border-b border-black leading-none">{dr.requestedByUser?.department?.DepartmentName || dr.DepartmentName || ''}</div>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">Responsibility Center Code :</div>
+                            <div className="flex-1 border-b border-black leading-none">&nbsp;</div>
+                        </div>
                     </div>
-                    <div className="flex items-end gap-2">
-                        <div className="whitespace-nowrap">Supplier Name :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{dr.SupplierName || 'N/A'}</div>
-                    </div>
-                    <div className="flex items-end gap-2">
-                        <div className="whitespace-nowrap">Requested By :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{dr.requestedByUser?.FullName || dr.RequestedByName || 'N/A'}</div>
-                    </div>
-                    <div className="flex items-end gap-2">
-                        <div className="whitespace-nowrap">Department :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{dr.requestedByUser?.department?.DepartmentName || dr.DepartmentName || 'N/A'}</div>
-                    </div>
-                    <div className="flex items-end gap-2">
-                        <div className="whitespace-nowrap">PR No. :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{dr.PRNumber || 'N/A'}</div>
-                    </div>
-                    <div className="flex items-end gap-2">
-                        <div className="whitespace-nowrap">PO No. :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{dr.PONumber || 'N/A'}</div>
-                    </div>
-                </div>
-
-                <div className="space-y-1">
-                    <div className="flex items-end gap-2 justify-end">
-                        <div className="whitespace-nowrap">DR No. :</div>
-                        <div className="w-52 border-b border-black pb-0.5 text-right">{dr.DRNumber}</div>
-                    </div>
-                    <div className="flex items-end gap-2 justify-end">
-                        <div className="whitespace-nowrap">Invoice No. :</div>
-                        <div className="w-52 border-b border-black pb-0.5 text-right">{dr.InvoiceNumber || 'N/A'}</div>
-                    </div>
-                    <div className="flex items-end gap-2 justify-end">
-                        <div className="whitespace-nowrap">Date Received :</div>
-                        <div className="w-52 border-b border-black pb-0.5 text-right">{formatManilaDate(dr.DateReceived)}</div>
-                    </div>
-                </div>
-            </div>
-
-            <table className="w-full border-collapse border border-black text-[11px]">
-                <thead>
-                    <tr>
-                        <th className="border border-black px-1 py-1 w-[36px] text-center">#</th>
-                        <th className="border border-black px-1 py-1 text-center">Item Description</th>
-                        <th className="border border-black px-1 py-1 w-[60px] text-center">Unit</th>
-                        <th className="border border-black px-1 py-1 w-[60px] text-center">Qty</th>
-                        <th className="border border-black px-1 py-1 w-[90px] text-center">Unit Cost</th>
-                        <th className="border border-black px-1 py-1 w-[95px] text-center">Total Cost</th>
-                        <th className="border border-black px-1 py-1 w-[120px] text-center">Req / Del</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {(() => {
-                        const rowsNeeded = 18;
-                        const rows = details.slice(0, rowsNeeded).map((item, idx) => {
-                            const unitCost = typeof item.UnitCost === 'number' ? item.UnitCost : Number(item.UnitCost);
-                            const totalCost = typeof item.TotalCost === 'number' ? item.TotalCost : Number(item.TotalCost);
-
-                            const descriptionParts = [
-                                item.ItemDescription,
-                                item.Brand ? `Brand: ${item.Brand}` : null,
-                                item.ModelNumber ? `Model: ${item.ModelNumber}` : null,
-                                item.SerialNumber ? `SN: ${item.SerialNumber}` : null
-                            ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
-
-                            return (
-                                <tr key={item.DRDetailID ?? idx}>
-                                    <td className="border border-black px-1 py-1 text-center">{idx + 1}</td>
-                                    <td className="border border-black px-1 py-1 align-top whitespace-pre-line">{descriptionParts.join(' / ')}</td>
-                                    <td className="border border-black px-1 py-1 text-center">{item.unitOfMeasure?.UnitName || 'unit'}</td>
-                                    <td className="border border-black px-1 py-1 text-center">{item.QuantityDelivered}</td>
-                                    <td className="border border-black px-1 py-1 text-right">{Number.isFinite(unitCost) ? unitCost.toFixed(2) : '0.00'}</td>
-                                    <td className="border border-black px-1 py-1 text-right">{Number.isFinite(totalCost) ? totalCost.toFixed(2) : '0.00'}</td>
-                                    <td className="border border-black px-1 py-1 text-[10px]">
-                                        <div><span className="font-bold">R:</span> {item.QuantityRequested ?? item.QuantityDelivered ?? 0} / <span className="font-bold">D:</span> {item.QuantityDelivered ?? 0}</div>
-                                        {item.QuantityRequested !== item.QuantityDelivered && item.ChangeReason ? (
-                                            <div>Reason: {item.ChangeReason}</div>
-                                        ) : null}
-                                    </td>
-                                </tr>
-                            );
-                        });
-
-                        const blanks = Math.max(0, rowsNeeded - rows.length);
-                        for (let i = 0; i < blanks; i++) {
-                            rows.push(
-                                <tr key={`blank-${i}`}>
-                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                </tr>
-                            );
-                        }
-
-                        rows.push(
-                            <tr key="total">
-                                <td colSpan={6} className="border border-black px-1 py-1 text-right font-bold">TOTAL AMOUNT</td>
-                                <td className="border border-black px-1 py-1 text-right font-bold">{totalAmount.toFixed(2)}</td>
-                            </tr>
-                        );
-
-                        return rows;
-                    })()}
-                </tbody>
-            </table>
-
-            <div className="grid grid-cols-2 gap-10 mt-8 text-xs">
-                <div className="space-y-2">
-                    <div>
-                        <div className="text-[10px]">Received / Inspected By:</div>
-                        <div className="border-b border-black pb-1 text-center">{dr.receivedByUser?.FullName || 'RECEIVED BY'}</div>
-                    </div>
-                    <div>
-                        <div className="text-[10px]">Date Received:</div>
-                        <div className="border-b border-black pb-1 text-center">{formatManilaDate(dr.DateReceived)}</div>
-                    </div>
-                    <div>
-                        <div className="text-[10px]">Date Inspected:</div>
-                        <div className="border-b border-black pb-1 text-center">{formatManilaDate(dr.DateInspected || dr.DateReceived)}</div>
-                    </div>
-                </div>
-
-                <div>
-                    <div className="mb-6">Remarks:</div>
-                    <div className="border border-black min-h-[96px] p-2 whitespace-pre-line">{dr.Remarks || ''}</div>
-                    <div className="mt-3">
-                        <div className="text-[10px]">Status:</div>
-                        <div className="font-semibold">
-                            {workflowLabel}
+                    <div className="p-1.5 space-y-1 border-l border-black">
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">Fund Cluster :</div>
+                            <div className="flex-1 border-b border-black leading-none">&nbsp;</div>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">IAR No. :</div>
+                            <div className="flex-1 border-b border-black leading-none">&nbsp;</div>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">Date :</div>
+                            <div className="flex-1 border-b border-black leading-none">{receivedDate}</div>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">Invoice No. :</div>
+                            <div className="flex-1 border-b border-black leading-none">{dr.InvoiceNumber || ''}</div>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <div className="whitespace-nowrap">Date :</div>
+                            <div className="flex-1 border-b border-black leading-none">{receivedDate}</div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {dr.dr_picture_url ? (
-                <div className="mt-6">
-                    <div className="text-xs font-semibold mb-2">Attached DR Photo (reference)</div>
-                    <Image
-                        src={dr.dr_picture_url}
-                        alt="DR photo"
-                        width={900}
-                        height={600}
-                        unoptimized
-                        className="max-h-64 border border-black object-contain"
-                    />
+                <table className="w-full border-collapse">
+                    <thead>
+                        <tr>
+                            <th className="border-b border-black border-r border-black px-1 py-1 text-center w-[120px] italic">Stock<br />Property No.</th>
+                            <th className="border-b border-black border-r border-black px-1 py-1 text-center italic">Description</th>
+                            <th className="border-b border-black border-r border-black px-1 py-1 text-center w-[100px] italic">Unit</th>
+                            <th className="border-b border-black px-1 py-1 text-center w-[100px] italic">Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {Array.from({ length: rowsNeeded }).map((_, idx) => {
+                            const item = details[idx];
+                            const propertyNumbers = (item?.propertyNumbers && item.propertyNumbers.length > 0)
+                                ? item.propertyNumbers
+                                : (item?.inventoryDetails?.map((inv) => inv.PropertyNumber).filter(Boolean) ?? []);
+                            const description = item
+                                ? [
+                                    item.article?.ArticleName,
+                                    item.ItemDescription,
+                                    item.Brand ? `Brand: ${item.Brand}` : null,
+                                    item.ModelNumber ? `Model: ${item.ModelNumber}` : null,
+                                    item.SerialNumber ? `SN: ${item.SerialNumber}` : null,
+                                ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0).join(' / ')
+                                : '';
+
+                            return (
+                                <tr key={`iar-row-${idx}`}>
+                                    <td className="h-8 border-b border-black border-r border-black px-1 py-1 align-top whitespace-pre-line">
+                                        {propertyNumbers.join('\n')}
+                                    </td>
+                                    <td className="h-8 border-b border-black border-r border-black px-1 py-1">{description}</td>
+                                    <td className="h-8 border-b border-black border-r border-black px-1 py-1 text-center">{item?.unitOfMeasure?.UnitName || ''}</td>
+                                    <td className="h-8 border-b border-black px-1 py-1 text-center">{item?.QuantityDelivered ?? ''}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+
+                <div className="grid grid-cols-2 border-t border-black min-h-[220px]">
+                    <div className="border-r border-black">
+                        <div className="text-center italic font-semibold py-1 border-b border-black">INSPECTION</div>
+                        <div className="p-1.5 text-[11px] dr-signature-block h-full flex flex-col">
+                            <div className="flex items-center h-7">
+                                <div>
+                                    <span className="inline-block w-[94px]">Date Inspected :</span>
+                                    <span className="inline-block border-b border-black min-w-[170px]">{inspectedDate}</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col flex-1 justify-start pt-1">
+                                <div className="mb-1">Inspected, verified and found in order as to quantity and specifications</div>
+                                <div className="mb-1">
+                                    <span className="inline-block w-6 h-6 border border-black align-middle" />
+                                </div>
+                            </div>
+                            <div className="pt-0 border-t border-black text-center h-10 flex flex-col justify-start">
+                                <div>Inspection Officer/Inspection Committee</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div className="text-center italic font-semibold py-1 border-b border-black">ACCEPTANCE</div>
+                        <div className="p-1.5 text-[11px] dr-signature-block h-full flex flex-col">
+                            <div className="flex items-center h-7">
+                                <div>
+                                    <span className="inline-block w-[94px]">Date Received :</span>
+                                    <span className="inline-block border-b border-black min-w-[170px]">{receivedDate || '\u00A0'}</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col flex-1 justify-start pt-1">
+                                <div className="mb-1">Complete</div>
+                                <div className="mb-0.5">
+                                    <span className="inline-block w-6 h-6 border border-black align-middle" />
+                                </div>
+                                <div className="mb-1">Partial (pls. specify quantity)</div>
+                                <div className="mb-0.5">
+                                    <span className="inline-block w-6 h-6 border border-black align-middle" />
+                                </div>
+                                <div className="mt-auto text-center">{supplierCustodian || '\u00A0'}</div>
+                            </div>
+                            <div className="pt-0 border-t border-black text-center h-10 flex flex-col justify-start">
+                                <div>Supply and/or Property Custodian</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            ) : null}
+                <style jsx>{`
+                        .dr-signature-block {
+                            min-height: 80px;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: flex-end;
+                        }
+                    `}</style>
+            </div>
         </div>
     );
 });

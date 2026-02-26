@@ -14,6 +14,7 @@ export const getDeliveryReceipts = async (filters?: DeliveryReceiptFilters): Pro
 
     if (filters?.start_date) params.append('start_date', filters.start_date);
     if (filters?.end_date) params.append('end_date', filters.end_date);
+    if (filters?.supplier_id) params.append('supplier_id', String(filters.supplier_id));
     if (filters?.supplier_name) params.append('supplier_name', filters.supplier_name);
     if (filters?.po_number) params.append('po_number', filters.po_number);
     if (filters?.per_page) params.append('per_page', filters.per_page.toString());

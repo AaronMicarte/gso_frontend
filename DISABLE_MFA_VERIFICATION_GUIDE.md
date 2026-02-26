@@ -29,8 +29,36 @@ if (env('MFA_BYPASS_FOR_TESTING', false)) {
    ```env
    MFA_BYPASS_FOR_TESTING=false
    ```
-2. **Remove or comment out the bypass logic** in `AuthController.php` if you want to enforce MFA for all users again.
-3. **Restart the backend server** to apply changes.
+   The backend now defaults to `false` so MFA is enforced unless you explicitly
+   enable the variable while running in `local` environment. For a hard‑stop
+   you may remove the bypass block entirely from `AuthController::login`.
+2. **Restore MFA logic that was temporarily removed**:
+   - The login action will now check whether the user’s role requires MFA.
+     If the user hasn’t enabled MFA yet, the response will include both
+     `mfa_required: true` and `mfa_setup_required: true`, causing the SPA to
+     redirect the user to `/setup-mfa`.
+   - Account activation also returns `mfa_setup_required` for roles that must
+     configure MFA before their first login.
+   These changes are already applied in the current code; see the new
+   comments around the `mfaRequiredRoles` array for details.
+3. **Re-add frontend redirects** to the authenticated layout files so that a
+   logged‑in user who still needs to configure MFA gets bounced to the setup
+   page even if they navigate manually.  Each `(authenticated)` layout now
+   contains a check against the same `mfaRequiredRoles` list.
+4. **Restart the backend server** to apply changes and rebuild/install the
+   frontend if you modified any client files.
+
+---
+
+## 5. Additional Notes
+- The MFA management UI (`MFASetup.tsx`) has been restored with working API
+  calls.  Users can generate secrets, verify codes, view backup codes, and
+  disable MFA from their security settings page.
+- Trusted device support remains intact; users who checked “Trust this device”
+  during verification will see entries under **Security → Trusted Devices**.
+- After re‑enabling MFA, test both the login flow and account activation with
+  a role that requires MFA (e.g. Admin, GSO Staff) to confirm redirections and
+  responses work as expected.
 
 ---
 

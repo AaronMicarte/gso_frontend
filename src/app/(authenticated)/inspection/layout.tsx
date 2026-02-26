@@ -27,6 +27,11 @@ function InspectionLayoutInner({ children }: { children: React.ReactNode }) {
             return;
         }
         if (!loading && user) {
+            const mfaRequiredRoles = ['admin', 'gso staff', 'department head', 'inspection officer'];
+            if (mfaRequiredRoles.includes(user.Role.toLowerCase()) && !user.MFAEnabled) {
+                router.replace('/setup-mfa');
+                return;
+            }
             router.replace('/staff/delivery-receipts');
         }
     }, [loading, user, router]);

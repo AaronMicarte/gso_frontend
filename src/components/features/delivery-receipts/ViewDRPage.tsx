@@ -215,7 +215,9 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                             <thead>
                                 <tr className="border-b border-slate-200">
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">#</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Article</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[160px]">Property Type</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Details</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-24">Qty</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
@@ -227,15 +229,14 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                                 {dr.details?.map((item, index) => (
                                     <tr key={item.DRDetailID}>
                                         <td className="py-3 px-3 text-sm text-slate-600">{index + 1}</td>
+                                        <td className="py-3 px-3 text-sm text-slate-900">{item.article?.ArticleName || '—'}</td>
                                         <td className="py-3 px-3 text-sm text-slate-900">{item.ItemDescription}</td>
+                                        <td className="py-3 px-3 min-w-[160px] text-sm text-slate-600">{item.propertyType?.PropertyName || ''}</td>
                                         <td className="py-3 px-3 min-w-[220px] text-sm text-slate-600">
                                             <div className="text-sm text-slate-700">
                                                 {item.Brand && <span className="mr-2">{`Brand: ${item.Brand}`}</span>}
                                                 {item.ModelNumber && <span className="mr-2">{`Model: ${item.ModelNumber}`}</span>}
                                                 {item.SerialNumber && <span className="mr-2">{`Serial: ${item.SerialNumber}`}</span>}
-                                            </div>
-                                            <div className="text-xs text-slate-500 mt-1">
-                                                {item.propertyType?.PropertyName || 'No type'}
                                             </div>
                                         </td>
                                         <td className="py-3 px-3 w-28 text-center">

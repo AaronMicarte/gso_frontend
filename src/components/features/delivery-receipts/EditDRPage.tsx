@@ -31,7 +31,8 @@ const drItemSchema = z.object({
 
 const drSchema = z.object({
     dr_number: z.string().min(1, 'DR number is required'),
-    supplier_name: z.string().min(1, 'Supplier name is required'),
+    supplier_id: z.coerce.number().min(1, 'Supplier is required'),
+    supplier_name: z.string().optional(),
     requested_by_user_id: z.coerce.number().min(1, 'Requested by is required'),
     pr_number: z.string().min(1, 'PR number is required'),
     po_number: z.string().min(1, 'PO number is required'),
@@ -81,6 +82,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         resolver: zodResolver(drSchema),
         defaultValues: {
             dr_number: '',
+            supplier_id: 0,
             supplier_name: '',
             requested_by_user_id: 0,
             pr_number: '',
@@ -142,8 +144,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
 
                 // Populate form with existing data
                 setValue('dr_number', drData.DRNumber);
+                setValue('supplier_id', (drData.SupplierID ?? 0) as number);
                 setValue('supplier_name', drData.SupplierName || '');
-                setSupplierQuery(drData.SupplierName || ''); // Set supplier query for display
+                setSupplierQuery(drData.SupplierName || '');
                 setValue('requested_by_user_id', (drData.RequestedBy ?? drData.requestedByUser?.UserID ?? 0) as number);
                 setValue('pr_number', drData.PRNumber || '');
                 setValue('po_number', drData.PONumber || '');
@@ -270,6 +273,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
 
     const selectSupplier = (supplier: { SupplierID: number; SupplierName: string }) => {
         setSupplierQuery(supplier.SupplierName);
+        setValue('supplier_id', supplier.SupplierID);
         setValue('supplier_name', supplier.SupplierName);
         setSupplierComboboxOpen(false);
         setSupplierHighlightedIndex(-1);
@@ -630,6 +634,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                         onChange={(e) => {
                                             setSupplierQuery(e.target.value);
                                             setValue('supplier_name', e.target.value);
+                                            setValue('supplier_id', 0);
                                             setSupplierComboboxOpen(true);
                                             setSupplierHighlightedIndex(-1);
                                         }}
@@ -661,10 +666,10 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                         </ul>
                                     )}
                                 </div>
-                                {errors.supplier_name && (
+                                {errors.supplier_id && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <AlertCircle className="w-3 h-3" />
-                                        {errors.supplier_name.message}
+                                        {errors.supplier_id.message}
                                     </p>
                                 )}
                             </div>
@@ -862,6 +867,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 <thead>
                                     <tr className="border-b border-slate-200">
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">#</th>
+                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Article</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Property Type</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-32">Requested / Delivered</th>
@@ -874,6 +880,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                     {fields.map((field, index) => (
                                         <tr key={field.id} className="border-b border-slate-100">
                                             <td className="py-3 px-3 text-sm text-slate-600">{index + 1}</td>
+                                            <td className="py-3 px-3 text-sm text-slate-700">
+                                                {articles.find(a => a.id === details[index]?.article_id)?.name || '—'}
+                                            </td>
                                             <td className="py-3 px-3">
                                                 <div className="text-sm text-slate-700">{details[index]?.item_description || '—'}</div>
                                                 {errors.details?.[index]?.item_description && (

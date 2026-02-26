@@ -62,6 +62,15 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
             return;
         }
 
+        // Redirect to MFA setup if required for the user’s role
+        if (!loading && user) {
+            const mfaRequiredRoles = ['admin', 'gso staff', 'department head', 'inspection officer'];
+            if (mfaRequiredRoles.includes(user.Role.toLowerCase()) && !user.MFAEnabled) {
+                router.push('/setup-mfa');
+                return;
+            }
+        }
+
         // If a role isn't supported by the authenticated UI, redirect out.
         if (!loading && user && baseRoute === '/') {
             router.push('/');

@@ -1,64 +1,204 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, Loader2, Copy, Check, Smartphone } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
+import {
+    getMFAStatus,
+    generateMFASecret,
+    enableMFA,
+    disableMFA,
+} from '@/lib/api/mfa';
+import { MFAStatus as StatusResponse, MFASecretResponse, MFAEnableResponse } from '@/types/mfa';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
-interface MFAStatus {
+interface LocalStatus {
     enabled: boolean;
-    lastUsed?: string;
+    has_backup_codes: boolean;
+    trusted_devices_count: number;
 }
 
+const codeSchema = z.object({
+    code: z.string().regex(/^[0-9]{6}$/, 'Enter a 6-digit code'),
+});
+
+type CodeForm = z.infer<typeof codeSchema>;
+
 export default function MFASetup() {
-    const [status, setStatus] = useState<MFAStatus | null>(null);
+    const [status, setStatus] = useState<LocalStatus | null>(null);
     const [loading, setLoading] = useState(true);
-    const [enabling, setEnabling] = useState(false);
+
+    // Wizard state
+    const [step, setStep] = useState(0); // 0=none,1=scan,2=verify,3=done
+    const [secretData, setSecretData] = useState<MFASecretResponse | null>(null);
+    const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const form = useForm<CodeForm>({
+        resolver: zodResolver(codeSchema),
+        defaultValues: { code: '' },
+    });
 
     useEffect(() => {
-        // Mock loading MFA status - replace with actual API call
-        setTimeout(() => {
-            setStatus({ enabled: false });
-            setLoading(false);
-        }, 1000);
+        fetchStatus();
     }, []);
 
-    const handleEnableMFA = async () => {
-        setEnabling(true);
+    const fetchStatus = async () => {
         try {
-            // Mock enabling MFA - replace with actual API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            setStatus({ enabled: true, lastUsed: new Date().toISOString() });
-            toast.success('Two-Factor Authentication enabled successfully!');
-        } catch (error) {
-            toast.error('Failed to enable MFA. Please try again.');
+            setLoading(true);
+            const res = await getMFAStatus();
+            setStatus(res as unknown as LocalStatus);
+        } catch {
+            toast.error('Failed to load MFA status.');
         } finally {
-            setEnabling(false);
+            setLoading(false);
         }
     };
 
-    const handleDisableMFA = async () => {
-        if (!confirm('Are you sure you want to disable Two-Factor Authentication? This will make your account less secure.')) {
-            return;
-        }
-
-        setEnabling(true);
+    const startEnable = async () => {
         try {
-            // Mock disabling MFA - replace with actual API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            setStatus({ enabled: false });
-            toast.success('Two-Factor Authentication disabled.');
-        } catch (_error) {
-            toast.error('Failed to disable MFA. Please try again.');
+            setLoading(true);
+            const data = await generateMFASecret();
+            setSecretData(data);
+            setStep(1);
+        } catch {
+            toast.error('Could not generate MFA secret.');
         } finally {
-            setEnabling(false);
+            setLoading(false);
         }
     };
 
-    if (loading) {
+    const verifyCode = async (values: CodeForm) => {
+        if (!secretData) return;
+        try {
+            setLoading(true);
+            setError(null);
+            const res = await enableMFA(secretData.secret, values.code);
+            setBackupCodes(res.backup_codes);
+            setStep(3);
+            // Refresh status
+            fetchStatus();
+        } catch (e: any) {
+            setError(e?.response?.data?.error || 'Invalid code.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const finishWizard = () => {
+        setStep(0);
+        setSecretData(null);
+        setBackupCodes(null);
+        form.reset();
+        toast.success('MFA has been enabled.');
+    };
+
+    const handleDisable = async () => {
+        const password = prompt('Enter your password to disable MFA:');
+        if (!password) return;
+        const code = prompt('Enter a 6-digit code from your authenticator app:');
+        if (!code) return;
+
+        try {
+            setLoading(true);
+            await disableMFA({ password, code });
+            toast.success('MFA has been disabled');
+            fetchStatus();
+        } catch (e: any) {
+            toast.error(e?.response?.data?.error || 'Failed to disable MFA');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading && !status) {
         return (
             <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            </div>
+        );
+    }
+
+    // Render wizard if active
+    if (step > 0) {
+        return (
+            <div className="space-y-6">
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                        {error}
+                    </div>
+                )}
+                {step === 1 && secretData && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold mb-4">Scan the QR code</h3>
+                        <div className="flex justify-center mb-4">
+                            <div className="bg-white p-4 rounded-xl">
+                                {secretData.qr_code_url ? (
+                                    <QRCodeSVG value={secretData.qr_code_url} size={180} level="M" />
+                                ) : (
+                                    <div className="w-[180px] h-[180px] bg-red-100 border-2 border-red-300 rounded flex items-center justify-center">
+                                        <div className="text-center text-red-600 p-4">
+                                            <div className="text-sm font-medium mb-2">QR Code Failed</div>
+                                            <div className="text-xs text-gray-600">
+                                                Enter manually:<br />
+                                                <code className="bg-gray-200 px-1 rounded text-xs mt-1 block">{secretData.secret}</code>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <Button onClick={() => setStep(2)} className="w-full">
+                            I&apos;ve scanned the code
+                        </Button>
+                    </div>
+                )}
+                {step === 2 && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold mb-4">Verify code</h3>
+                        <form onSubmit={form.handleSubmit(verifyCode)} className="space-y-4">
+                            <input
+                                {...form.register('code')}
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                placeholder="000000"
+                                className="w-full text-center text-3xl tracking-widest font-mono border rounded p-2"
+                                autoFocus
+                            />
+                            <div className="flex gap-3">
+                                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                                    Back
+                                </Button>
+                                <Button type="submit" isLoading={loading} className="flex-1">
+                                    Verify
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+                {step === 3 && backupCodes && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold mb-4">Backup Codes</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Save these codes somewhere secure. Each one can be used once to access your account if you lose your authenticator.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                            {backupCodes.map((c, i) => (
+                                <code key={i} className="text-center py-2 px-3 bg-gray-100 rounded font-mono">
+                                    {c}
+                                </code>
+                            ))}
+                        </div>
+                        <Button onClick={finishWizard} className="w-full">
+                            Done
+                        </Button>
+                    </div>
+                )}
             </div>
         );
     }
@@ -83,23 +223,19 @@ export default function MFASetup() {
                             }
                         </p>
 
-                        {status?.enabled && status.lastUsed && (
+                        {status?.enabled && (
                             <p className="text-sm text-gray-500 mb-4">
-                                Last used: {new Date(status.lastUsed).toLocaleDateString()}
+                                Trusted devices: {status.trusted_devices_count}
                             </p>
                         )}
 
                         <div className="flex gap-3">
                             {!status?.enabled ? (
-                                <Button
-                                    onClick={handleEnableMFA}
-                                    disabled={enabling}
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                    {enabling ? (
+                                <Button onClick={startEnable} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
+                                    {loading ? (
                                         <>
                                             <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                            Enabling...
+                                            Loading...
                                         </>
                                     ) : (
                                         <>
@@ -110,15 +246,15 @@ export default function MFASetup() {
                                 </Button>
                             ) : (
                                 <Button
-                                    onClick={handleDisableMFA}
-                                    disabled={enabling}
+                                    onClick={handleDisable}
+                                    disabled={loading}
                                     variant="outline"
                                     className="border-red-300 text-red-600 hover:bg-red-50"
                                 >
-                                    {enabling ? (
+                                    {loading ? (
                                         <>
                                             <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                            Disabling...
+                                            Processing...
                                         </>
                                     ) : (
                                         'Disable 2FA'
