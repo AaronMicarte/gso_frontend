@@ -14,7 +14,13 @@ import { getDashboardRoute } from '@/lib/auth';
 import { toast } from 'sonner';
 
 const codeSchema = z.object({
-    code: z.string().min(6, 'Enter at least 6 characters').max(8, 'Code too long'),
+    code: z.string()
+        .min(6, 'Enter at least 6 characters')
+        .max(8, 'Code too long')
+        // ensure numeric only for standard codes
+        .refine((val) => /^\d{6}$/.test(val.replace(/\s/g, '')) || /^[A-Z0-9]{8}$/.test(val.replace(/\s/g, '')), {
+            message: 'Code must be numeric or a valid backup code',
+        }),
     trust_device: z.boolean().optional(),
 });
 
@@ -159,17 +165,20 @@ export default function VerifyMFAPage() {
                             <Input
                                 {...form.register('code', {
                                     onChange: (e) => {
-                                        // Auto-format: remove spaces and non-alphanumeric characters
-                                        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                                        // Auto-format: remove spaces and restrict characters
+                                        let value = e.target.value.toUpperCase();
                                         if (useBackupCode) {
+                                            // allow letters and numbers for backup codes
+                                            value = value.replace(/[^A-Z0-9]/g, '');
                                             // Backup codes are 8 characters
                                             value = value.slice(0, 8);
                                         } else {
-                                            // Format as 'XXX XXX' for 6-digit codes
+                                            // code is all digits, format as 'XXX XXX'
+                                            value = value.replace(/[^0-9]/g, '');
                                             if (value.length > 3) {
                                                 value = value
                                                     .slice(0, 6)
-                                                    .replace(/^(\w{3})(\w{0,3})$/, '$1 $2')
+                                                    .replace(/^(\d{3})(\d{0,3})$/, '$1 $2')
                                                     .trim();
                                             } else {
                                                 value = value.slice(0, 6);
