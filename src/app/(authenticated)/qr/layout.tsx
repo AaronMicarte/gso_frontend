@@ -7,29 +7,33 @@ import { LogoutConfirmModal } from '@/components/ui/LogoutConfirmModal';
 import { Menu, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import { User } from '@/types/auth';
 
 function DashboardSkeleton() {
     return (
-        <div className="min-h-screen bg-slate-900 flex">
-            <div className="w-64 bg-slate-800 p-4 space-y-4">
-                <div className="h-10 bg-slate-700/50 rounded animate-pulse" />
-                <div className="space-y-2">
-                    {[...Array(8)].map((_, i) => (
-                        <div key={i} className="h-10 bg-slate-700/50 rounded animate-pulse" />
-                    ))}
-                </div>
+        <>
+            <div className="h-10 w-48 bg-slate-300/70 rounded animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-32 bg-slate-300/70 rounded-lg animate-pulse" />
+                ))}
             </div>
-            <div className="flex-1 p-6 space-y-6">
-                <div className="h-10 w-48 bg-slate-700/50 rounded animate-pulse" />
-                <div className="grid grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => (
-                        <div key={i} className="h-32 bg-slate-700/50 rounded-lg animate-pulse" />
-                    ))}
-                </div>
-            </div>
-        </div>
+            <div className="h-64 bg-slate-300/70 rounded-lg animate-pulse" />
+        </>
     );
 }
+
+const QR_LOADING_USER: User = {
+    UserID: 0,
+    Username: 'loading',
+    Email: 'loading@local',
+    FullName: 'Loading User',
+    Role: 'Admin',
+    UserRoleID: 1,
+    Department: 'GSO',
+    DepartmentID: 0,
+    MFAEnabled: true,
+};
 
 export default function QrLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -46,15 +50,18 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
+    const effectiveUser = user ?? QR_LOADING_USER;
+
     const baseRoute = useMemo(() => {
-        const role = (user?.Role ?? '').toLowerCase();
+        const role = (effectiveUser.Role ?? '').toLowerCase();
         const mapping: Record<string, string> = {
             'admin': '/admin',
             'gso staff': '/staff',
             'department head': '/department_head',
+            'inspection officer': '/staff',
         };
-        return mapping[role] ?? '/';
-    }, [user?.Role]);
+        return mapping[role] ?? '/admin';
+    }, [effectiveUser.Role]);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -62,7 +69,6 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        // Redirect to MFA setup if required for the user’s role
         if (!loading && user) {
             const mfaRequiredRoles = ['admin', 'gso staff', 'department head', 'inspection officer'];
             if (mfaRequiredRoles.includes(user.Role.toLowerCase()) && !user.MFAEnabled) {
@@ -71,11 +77,14 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
             }
         }
 
-        // If a role isn't supported by the authenticated UI, redirect out.
-        if (!loading && user && baseRoute === '/') {
-            router.push('/');
+        if (!loading && user) {
+            const realRole = user.Role.toLowerCase();
+            const validRoles = ['admin', 'gso staff', 'department head', 'inspection officer'];
+            if (!validRoles.includes(realRole)) {
+                router.push('/');
+            }
         }
-    }, [loading, user, router, baseRoute]);
+    }, [loading, user, router]);
 
     const handleLogout = () => {
         setLogoutModalOpen(true);
@@ -86,8 +95,14 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
         logout();
     };
 
-    if (loading || !user || baseRoute === '/') {
-        return <DashboardSkeleton />;
+    if (!loading && !user) {
+        return (
+            <div className="min-h-screen bg-slate-100">
+                <main className="pt-16 lg:pt-0 p-6 space-y-6">
+                    <DashboardSkeleton />
+                </main>
+            </div>
+        );
     }
 
     return (
@@ -113,9 +128,17 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
                 />
             )}
 
-            <Sidebar user={user} isOpen={mobileMenuOpen} onLogout={handleLogout} baseRoute={baseRoute} />
+            <Sidebar user={effectiveUser} isOpen={mobileMenuOpen} onLogout={handleLogout} baseRoute={baseRoute} />
 
-            <main className="flex-1 lg:ml-64 overflow-auto pt-16 lg:pt-0">{children}</main>
+            <main className="flex-1 lg:ml-64 overflow-auto pt-16 lg:pt-0">
+                {loading ? (
+                    <div className="p-6 space-y-6">
+                        <DashboardSkeleton />
+                    </div>
+                ) : (
+                    children
+                )}
+            </main>
 
             <LogoutConfirmModal
                 isOpen={logoutModalOpen}

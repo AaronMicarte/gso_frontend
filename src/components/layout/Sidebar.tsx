@@ -365,16 +365,8 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         icon: FileText,
                         children: [
                             { label: 'All Issuances', href: `${baseRoute}/issuance`, icon: FileText },
-                            { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
-                            { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
                         ]
                     }
-                ]
-            },
-            {
-                section: 'VERIFICATION',
-                items: [
-                    { label: 'Scan & Verify (QR)', href: `/qr/scan`, icon: QrCode },
                 ]
             },
             {

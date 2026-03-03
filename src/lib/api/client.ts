@@ -36,12 +36,36 @@ apiClient.interceptors.request.use(
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
     (response) => response,
-    (error: AxiosError) => {
+    async (error: AxiosError) => {
         if (error.response) {
+            const status = error.response.status;
             const data = error.response.data as Record<string, unknown>;
 
+            // automatically refresh CSRF token on 419 and retry once
+            if (status === 419) {
+                const config = error.config;
+                if (config) {
+                    // add a temporary __isRetry flag with proper typing
+                    const cfg = config as typeof config & { __isRetry?: boolean };
+                    if (!cfg.__isRetry) {
+                        try {
+                            await getCsrfCookie();
+                            cfg.__isRetry = true;
+                            return apiClient(cfg);
+                        } catch (e) {
+                            // fall through to regular handling
+                        }
+                    }
+                }
+
+                // if we've already retried or cannot refresh, treat as unauthorized
+                if (typeof window !== 'undefined') {
+                    window.location.href = '/';
+                }
+            }
+
             // Handle lockout (429 Too Many Requests)
-            if (error.response.status === 429 && data) {
+            if (status === 429 && data) {
                 return Promise.reject({
                     message: data.message,
                     locked: true,
@@ -51,7 +75,7 @@ apiClient.interceptors.response.use(
             }
 
             // Handle unauthorized (session expired)
-            if (error.response.status === 401) {
+            if (status === 401) {
                 // Session expired or not authenticated
                 // Only redirect if not already on login page
                 if (typeof window !== 'undefined' && window.location.pathname !== '/') {
@@ -60,7 +84,7 @@ apiClient.interceptors.response.use(
             }
 
             // Handle activation required / disabled account (login gating)
-            if (error.response.status === 403 && data) {
+            if (status === 403 && data) {
                 if (data.activation_required === true) {
                     return Promise.reject({
                         message: (data.message as string) || 'Account activation required',
@@ -84,7 +108,7 @@ apiClient.interceptors.response.use(
             }
 
             // Pass through 422 validation errors with full response data
-            if (error.response.status === 422) {
+            if (status === 422) {
                 return Promise.reject(error);
             }
 

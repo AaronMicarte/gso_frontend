@@ -137,6 +137,7 @@ export interface PropertyStatus {
 export interface DeliveryReceipt {
     DRID: number;
     DRNumber: string;
+    IARNumber?: string; // Auto-generated IAR reference
     PONumber?: string; // Manual PO reference (optional)
     DeliveryDate: string;
     SupplierName?: string; // Manual supplier name (optional)

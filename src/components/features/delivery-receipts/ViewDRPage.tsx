@@ -149,6 +149,16 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                             <p className="mt-1 text-slate-900">{dr.DRNumber}</p>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-slate-700">IAR Number</label>
+                            <p className="mt-1 text-slate-900">
+                                {dr.IARNumber ? (
+                                    <span className="font-mono">{dr.IARNumber}</span>
+                                ) : (
+                                    <span className="text-slate-500 italic">Pending generation</span>
+                                )}
+                            </p>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-slate-700">Supplier Name</label>
                             <p className="mt-1 text-slate-900">{dr.SupplierName || 'N/A'}</p>
                         </div>

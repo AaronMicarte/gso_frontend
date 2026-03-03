@@ -20,13 +20,45 @@ const drItemSchema = z.object({
     dr_detail_id: z.number().optional(), // Optional for updates
     article_id: z.number().min(1, 'Article is required'),
     item_description: z.string().max(1000, 'Item description is too long').optional().or(z.literal('')),
+    brand: z.string().max(100, 'Brand is too long').optional().or(z.literal('')),
+    model_number: z.string().max(100, 'Model number is too long').optional().or(z.literal('')),
+    serial_number: z.string().max(100, 'Serial number is too long').optional().or(z.literal('')),
     property_type_id: z.number().min(1, 'Property type is required'),
-    unit_of_measure_id: z.number().min(1, 'Unit of measure is required'),
     remarks: z.string().optional(),
+    unit_of_measure_id: z.number().min(1, 'Unit of measure is required'),
     quantity_delivered: z.number().min(1, 'Quantity must be at least 1'),
     quantity_requested: z.number().min(1, 'Quantity must be at least 1'),
     change_reason: z.string().optional(),
     unit_cost: z.number().min(0, 'Unit cost must be non-negative'),
+}).superRefine((data, ctx) => {
+    if (data.quantity_delivered !== data.quantity_requested) {
+        const reason = (data.change_reason || '').trim();
+        if (!reason) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['change_reason'],
+                message: 'Change reason is required when delivered differs from requested quantity',
+            });
+        }
+    }
+
+    // serial number implies quantity must equal 1
+    if ((data.serial_number || '').trim() !== '' && (data.quantity_delivered !== 1 || data.quantity_requested !== 1)) {
+        if (data.quantity_delivered !== 1) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['quantity_delivered'],
+                message: 'Quantity must be 1 when a serial number is provided',
+            });
+        }
+        if (data.quantity_requested !== 1) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['quantity_requested'],
+                message: 'Quantity must be 1 when a serial number is provided',
+            });
+        }
+    }
 });
 
 const drSchema = z.object({
@@ -163,6 +195,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                     dr_detail_id: detail.DRDetailID, // Include the detail ID for updates
                     article_id: detail.ArticleID || 0,
                     item_description: detail.ItemDescription,
+                    brand: detail.Brand || '',
+                    model_number: detail.ModelNumber || '',
+                    serial_number: detail.SerialNumber || '',
                     property_type_id: detail.PropertyTypeID,
                     unit_of_measure_id: detail.UnitOfMeasureID || 1,
                     quantity_delivered: detail.QuantityDelivered,
@@ -434,6 +469,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         append({
             article_id: item?.article_id || 0,
             item_description: item?.item_description || '',
+            brand: item?.brand || '',
+            model_number: item?.model_number || '',
+            serial_number: item?.serial_number || '',
             property_type_id: item?.property_type_id || 0,
             unit_of_measure_id: item?.unit_of_measure_id || (units.length ? units[0].id : 1),
             quantity_delivered: item?.quantity_delivered || 1,
@@ -869,6 +907,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">#</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Article</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
+                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Brand / Model / SN</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Property Type</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-32">Requested / Delivered</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
@@ -890,6 +929,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                         {errors.details[index]?.item_description?.message}
                                                     </p>
                                                 )}
+                                            </td>
+                                            <td className="py-3 px-3 text-sm text-slate-700">
+                                                {details[index]?.brand || ''}{details[index]?.brand && details[index]?.model_number ? ' / ' : ''}{details[index]?.model_number || ''}{(details[index]?.brand || details[index]?.model_number) && details[index]?.serial_number ? ' / ' : ''}{details[index]?.serial_number || ''}
                                             </td>
                                             <td className="py-3 px-3 min-w-[220px]">
                                                 <div className="text-xs text-slate-500 mt-1">

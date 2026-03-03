@@ -307,8 +307,13 @@ export function CreateIssuancePage({ baseRoute }: CreateIssuancePageProps) {
                                     >
                                         <option value="">Select a DR...</option>
                                         {drOptions.map(dr => (
-                                            <option key={dr.DRID} value={dr.DRID}>
+                                            <option
+                                                key={dr.DRID}
+                                                value={dr.DRID}
+                                                disabled={dr.InspectionStatus !== 'inspected'}
+                                            >
                                                 {dr.DRNumber} - {dr.RequestedBy || 'Requester'} ({dr.DepartmentName || 'Department'})
+                                                {dr.InspectionStatus === 'pending' ? ' (Editing)' : ''}
                                             </option>
                                         ))}
                                     </select>

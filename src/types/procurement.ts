@@ -46,6 +46,7 @@ export interface DeliveryReceiptStatus {
 export interface DeliveryReceipt {
     DRID: number;
     DRNumber: string;
+    IARNumber?: string | null;
     SupplierID?: number | null;
     RequestedBy?: number | null; // FK -> user.UserID
     RequestedByName?: string | null; // convenience field from backend

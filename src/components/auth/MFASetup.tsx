@@ -82,8 +82,9 @@ export default function MFASetup() {
             setStep(3);
             // Refresh status
             fetchStatus();
-        } catch (e: any) {
-            setError(e?.response?.data?.error || 'Invalid code.');
+        } catch (e: unknown) {
+            const err = e as { response?: { data?: { error?: string } } };
+            setError(err?.response?.data?.error || 'Invalid code.');
         } finally {
             setLoading(false);
         }
@@ -108,8 +109,9 @@ export default function MFASetup() {
             await disableMFA({ password, code });
             toast.success('MFA has been disabled');
             fetchStatus();
-        } catch (e: any) {
-            toast.error(e?.response?.data?.error || 'Failed to disable MFA');
+        } catch (e: unknown) {
+            const err = e as { response?: { data?: { error?: string } } };
+            toast.error(err?.response?.data?.error || 'Failed to disable MFA');
         } finally {
             setLoading(false);
         }

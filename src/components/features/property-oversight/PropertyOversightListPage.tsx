@@ -11,7 +11,6 @@ import { useQrProperties } from '@/lib/hooks/useQrProperties';
 import { useAllPropertyStatuses } from '@/lib/hooks/masterData/usePropertyStatuses';
 import { useAllConditions } from '@/lib/hooks/masterData/useConditions';
 import type { QrScanAssignedProperty } from '@/types/qr';
-import { PropertySticker } from '@/components/features/inventory/PropertySticker';
 
 interface PropertyOversightListPageProps {
     baseRoute: string;
@@ -230,9 +229,6 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                         const endUserName = getRequesterName(p);
                                         const deptName = text(p.department?.DepartmentName ?? p.endUser?.department?.DepartmentName, 'Not recorded');
 
-                                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                        const qrValue = p.qrCode?.QRCodeData ?? `${origin}/qr/scan/${p.PropertyID}`;
-
                                         return (
                                             <tr key={p.PropertyID} className="hover:bg-slate-50">
                                                 <td className="px-6 py-4 font-medium text-slate-900 max-w-[520px]">
@@ -263,15 +259,6 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </Link>
-                                                        <PropertySticker
-                                                            propertyNumber={propertyNo}
-                                                            itemName={itemName}
-                                                            category={p.inventoryDetail?.PropertyName || p.inventoryDetail?.ClassificationName || '-'}
-                                                            url={qrValue}
-                                                            custodianName={endUserName}
-                                                            date={p.AssignedDate ? format(toZonedTime(new Date(p.AssignedDate), 'Asia/Manila'), 'MM/dd/yyyy') : '-'}
-                                                            unitCost={p.inventoryDetail?.UnitCost}
-                                                        />
                                                     </div>
                                                 </td>
                                             </tr>

@@ -200,7 +200,7 @@ export function IssuanceListPage({
                             {pageTitle || 'Property Issuance'}
                         </h1>
                         <p className="text-slate-500 text-sm">
-                            {pageDescription || 'Delivery receipts inspected and ready for issuance'}
+                            {pageDescription || 'Delivery receipts pending or inspected and ready for issuance'}
                         </p>
                     </div>
                     <button
@@ -230,26 +230,31 @@ export function IssuanceListPage({
                     {filteredRows.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                             <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                            <h3 className="text-lg font-medium text-slate-400 mb-1">No DRs Ready for Issuance</h3>
+                            <h3 className="text-lg font-medium text-slate-400 mb-1">No delivery receipts available</h3>
                             <p className="text-sm text-slate-400">
-                                {searchTerm ? 'Try adjusting your search terms' : 'No inspected delivery receipts found'}
+                                {searchTerm ? 'Try adjusting your search terms' : 'No delivery receipts found'}
                             </p>
                         </div>
                     ) : (
                         <div className="divide-y divide-slate-200">
                             {filteredRows.map((row) => {
                                 const isAccepted = !!row.IsAccepted;
+                                const issuanceByType = row.issuances_by_document_type ?? {};
+                                const hasAcknowledgedIssuance = Object.values(issuanceByType).some(
+                                    (issuance) => issuance?.Status === 'acknowledged'
+                                );
                                 const itemsByType = row.items_by_document_type ?? {};
+                                // Include types that have either items or existing issuances
                                 const availableTypes = (['PAR', 'ICS'] as const).filter(
-                                    (type) => (itemsByType[type]?.length ?? 0) > 0
+                                    (type) => (itemsByType[type]?.length ?? 0) > 0 || !!issuanceByType[type]
                                 );
                                 const selectedType = docTypeByDr[row.DRID]
                                     ?? availableTypes[0]
                                     ?? 'PAR';
                                 const currentItems = itemsByType[selectedType] ?? [];
                                 const isExpanded = expandedByDr[row.DRID] ?? false;
-                                const issuanceByType = row.issuances_by_document_type ?? {};
-                                const canPrint = row.InspectionStatus === 'inspected' && availableTypes.length > 0;
+
+                                const canPrint = (row.InspectionStatus === 'inspected' || hasAcknowledgedIssuance) && availableTypes.length > 0;
 
                                 return (
                                     <div key={row.DRID} className="p-4 hover:bg-slate-50 transition-colors">
@@ -277,19 +282,32 @@ export function IssuanceListPage({
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${isAccepted ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                    {isAccepted ? (
-                                                        <>
-                                                            <CheckCircle className="w-3.5 h-3.5" />
-                                                            Accepted
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Clock className="w-3.5 h-3.5" />
-                                                            Inspected
-                                                        </>
-                                                    )}
-                                                </span>
+                                                {(() => {
+                                                    let label = 'Inspected';
+                                                    let badgeClass = 'bg-yellow-100 text-yellow-800';
+                                                    let Icon = Clock;
+
+                                                    if (hasAcknowledgedIssuance) {
+                                                        label = 'Acknowledged';
+                                                        badgeClass = 'bg-green-100 text-green-700';
+                                                        Icon = CheckCircle;
+                                                    } else if (isAccepted) {
+                                                        label = 'Accepted';
+                                                        badgeClass = 'bg-emerald-100 text-emerald-700';
+                                                        Icon = CheckCircle;
+                                                    } else if (row.InspectionStatus === 'pending') {
+                                                        label = 'Editing';
+                                                        badgeClass = 'bg-yellow-100 text-yellow-800';
+                                                        Icon = Clock;
+                                                    }
+
+                                                    return (
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${badgeClass}`}>
+                                                            <Icon className="w-3.5 h-3.5" />
+                                                            {label}
+                                                        </span>
+                                                    );
+                                                })()}
                                                 {availableTypes.length > 0 && (
                                                     <button
                                                         type="button"
@@ -304,7 +322,12 @@ export function IssuanceListPage({
                                                 <button
                                                     type="button"
                                                     onClick={() => openConfirm(row)}
-                                                    disabled={!!row.IsAccepted || acknowledgingId === row.DRID}
+                                                    disabled={
+                                                        hasAcknowledgedIssuance ||
+                                                        !!row.IsAccepted ||
+                                                        acknowledgingId === row.DRID ||
+                                                        row.InspectionStatus !== 'inspected'
+                                                    }
                                                     className="inline-flex items-center gap-2 px-3 py-2 bg-[var(--primary)] text-white text-sm rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
                                                 >
                                                     {acknowledgingId === row.DRID ? 'Processing...' : 'Acknowledge'}
@@ -384,32 +407,34 @@ export function IssuanceListPage({
                                     </div>
                                 );
                             })}
-                        </div>
+                        </div >
                     )}
 
-                    {totalPages > 1 && (
-                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
-                            <button
-                                onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage === 1}
-                                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Previous
-                            </button>
-                            <span className="text-sm text-slate-600">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <button
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage === totalPages}
-                                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Next
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
+                    {
+                        totalPages > 1 && (
+                            <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Previous
+                                </button>
+                                <span className="text-sm text-slate-600">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        )
+                    }
+                </div >
+            </div >
 
             <Dialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <Dialog.Portal>
@@ -445,6 +470,6 @@ export function IssuanceListPage({
                     </Dialog.Content>
                 </Dialog.Portal>
             </Dialog.Root>
-        </div>
+        </div >
     );
 }

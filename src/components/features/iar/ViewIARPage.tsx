@@ -263,9 +263,9 @@ export function ViewIARPage({ baseRoute, iarId, isModal = false, onClose }: View
                                                         <div className="text-sm text-slate-600">
                                                             {(detail.VerifiedBrand || detail.VerifiedModel || detail.VerifiedSerial) ? (
                                                                 <>
-                                                                    {detail.VerifiedBrand && <div>Brand: {detail.VerifiedBrand}</div>}
-                                                                    {detail.VerifiedModel && <div>Model: {detail.VerifiedModel}</div>}
-                                                                    {detail.VerifiedSerial && <div>Serial: {detail.VerifiedSerial}</div>}
+                                                                    {detail.VerifiedBrand && <div key="verified-brand">Brand: {detail.VerifiedBrand}</div>}
+                                                                    {detail.VerifiedModel && <div key="verified-model">Model: {detail.VerifiedModel}</div>}
+                                                                    {detail.VerifiedSerial && <div key="verified-serial">Serial: {detail.VerifiedSerial}</div>}
                                                                 </>
                                                             ) : (
                                                                 <div className="text-slate-400">Not provided</div>

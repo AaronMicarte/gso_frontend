@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '@/types/auth';
 import { getUser } from '@/lib/auth';
 
@@ -16,7 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         try {
             const userData = await getUser();
             setUser(userData);
@@ -25,11 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         refreshUser();
-    }, []);
+    }, [refreshUser]);
 
     return (
         <AuthContext.Provider value={{ user, isLoading, refreshUser }}>

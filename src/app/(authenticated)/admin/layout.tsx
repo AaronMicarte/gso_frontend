@@ -7,34 +7,34 @@ import { Menu, X } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
 import { LogoutConfirmModal } from '@/components/ui/LogoutConfirmModal';
 import { AuthProvider } from '@/lib/providers/AuthProvider';
-
-
+import { User } from '@/types/auth';
 
 // Skeleton loader while checking auth
 function DashboardSkeleton() {
     return (
-        <div className="min-h-screen bg-slate-900 flex">
-            {/* Sidebar skeleton */}
-            <div className="w-64 bg-slate-800 p-4 space-y-4">
-                <div className="h-10 bg-slate-700/50 rounded animate-pulse" />
-                <div className="space-y-2">
-                    {[...Array(8)].map((_, i) => (
-                        <div key={i} className="h-10 bg-slate-700/50 rounded animate-pulse" />
-                    ))}
-                </div>
+        <>
+            <div className="h-10 w-48 bg-slate-300/70 rounded animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-32 bg-slate-300/70 rounded-lg animate-pulse" />
+                ))}
             </div>
-            {/* Main content skeleton */}
-            <div className="flex-1 p-6 space-y-6">
-                <div className="h-10 w-48 bg-slate-700/50 rounded animate-pulse" />
-                <div className="grid grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => (
-                        <div key={i} className="h-32 bg-slate-700/50 rounded-lg animate-pulse" />
-                    ))}
-                </div>
-            </div>
-        </div>
+            <div className="h-64 bg-slate-300/70 rounded-lg animate-pulse" />
+        </>
     );
 }
+
+const ADMIN_LOADING_USER: User = {
+    UserID: 0,
+    Username: 'loading',
+    Email: 'loading@local',
+    FullName: 'Loading User',
+    Role: 'Admin',
+    UserRoleID: 1,
+    Department: 'GSO',
+    DepartmentID: 0,
+    MFAEnabled: true,
+};
 
 export default function AdminLayout({
     children,
@@ -98,10 +98,31 @@ function AdminLayoutInner({
         logout();
     };
 
-    // Show skeleton while loading or if wrong role
-    if (loading || !user || user.Role.toLowerCase() !== 'admin') {
-        return <DashboardSkeleton />;
+    if (!loading && !user) {
+        return (
+            <div className="min-h-screen bg-slate-100">
+                <main className="pt-16 lg:pt-0 p-6 space-y-6">
+                    <DashboardSkeleton />
+                </main>
+            </div>
+        );
     }
+
+    const effectiveUser = user ?? ADMIN_LOADING_USER;
+    const isAuthorizedRole = effectiveUser.Role.toLowerCase() === 'admin';
+
+    // Show skeleton while redirecting if wrong role
+    if (!loading && !isAuthorizedRole) {
+        return (
+            <div className="min-h-screen bg-slate-100">
+                <main className="pt-16 lg:pt-0 p-6 space-y-6">
+                    <DashboardSkeleton />
+                </main>
+            </div>
+        );
+    }
+
+    // If we have a valid user, show the real sidebar even during loading
 
     return (
         <div className="min-h-screen bg-slate-100 flex">
@@ -130,15 +151,21 @@ function AdminLayoutInner({
 
             {/* Sidebar Component */}
             <Sidebar
-                user={user}
+                user={effectiveUser}
                 isOpen={mobileMenuOpen}
                 onLogout={handleLogout}
                 baseRoute="/admin"
             />
 
-            {/* Main Content - Offset by sidebar width */}
+            {/* Main Content - Show skeleton while loading, otherwise show children */}
             <main className="flex-1 lg:ml-64 overflow-auto pt-16 lg:pt-0">
-                {children}
+                {loading ? (
+                    <div className="p-6 space-y-6">
+                        <DashboardSkeleton />
+                    </div>
+                ) : (
+                    children
+                )}
             </main>
 
             <LogoutConfirmModal

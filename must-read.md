@@ -30,6 +30,8 @@ NOTE: Vehicles and infrastructure property types (motor vehicles, buildings/stru
 - **DATABASE:** Added `deleted_at` to `deliveryreceipt` tables to support SoftDeletes.
 - **TYPES:** Updated `DashboardStats` to reflect the new simplified workflow.
 - **ISSUANCE UI:** On successful issuance submission, show a simple Sonner success toast like **"Issuance created"**.
+- **DR FORM:** Added optional Brand / Model / SN fields for line items; serial numbers require quantities=1 on both frontend and backend.
+- **IAR AUTO-CREATION:** Delivery receipts now auto-generate an IAR record when saved so issuance workflows always have a reference number.
 
 ## TECH STACK
 - **Frontend:** Next.js, Tailwind CSS, Lucide Icons, Sonner, Radix UI.
