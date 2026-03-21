@@ -3,6 +3,7 @@
 import React from 'react';
 import { DeliveryReceipt } from '@/types/procurement';
 import { formatInTimeZone } from 'date-fns-tz';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 interface DRPrintViewProps {
     dr: DeliveryReceipt;
@@ -16,10 +17,13 @@ function formatManilaDate(dateString?: string | null, pattern: string = 'MMM dd,
 }
 
 export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({ dr }, ref) => {
+    const { user } = useAuth();
     const details = dr.details ?? [];
     const rowsNeeded = 11;
     const inspectedDate = formatManilaDate(dr.DateInspected || dr.DateReceived);
     const receivedDate = formatManilaDate(dr.DateReceived);
+    const iarNumber = typeof dr.IARNumber === 'string' ? dr.IARNumber : '';
+    const inspectionOfficerName = user?.FullName || dr.receivedByUser?.FullName || '';
     const supplierCustodian = dr.requestedByUser?.FullName || dr.RequestedByName || '';
 
     return (
@@ -76,7 +80,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                         </div>
                         <div className="flex items-end gap-1">
                             <div className="whitespace-nowrap">IAR No. :</div>
-                            <div className="flex-1 border-b border-black leading-none">&nbsp;</div>
+                            <div className="flex-1 border-b border-black leading-none">{iarNumber || '\u00A0'}</div>
                         </div>
                         <div className="flex items-end gap-1">
                             <div className="whitespace-nowrap">Date :</div>
@@ -147,6 +151,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                                 <div className="mb-1">
                                     <span className="inline-block w-6 h-6 border border-black align-middle" />
                                 </div>
+                                <div className="mt-auto text-center">{inspectionOfficerName || '\u00A0'}</div>
                             </div>
                             <div className="pt-0 border-t border-black text-center h-10 flex flex-col justify-start">
                                 <div>Inspection Officer/Inspection Committee</div>
@@ -159,7 +164,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                             <div className="flex items-center h-7">
                                 <div>
                                     <span className="inline-block w-[94px]">Date Received :</span>
-                                    <span className="inline-block border-b border-black min-w-[170px]">{receivedDate || '\u00A0'}</span>
+                                    <span className="inline-block border-b border-black min-w-[170px]">{'\u00A0'}</span>
                                 </div>
                             </div>
                             <div className="flex flex-col flex-1 justify-start pt-1">

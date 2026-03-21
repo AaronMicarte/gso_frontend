@@ -53,6 +53,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const transferId = params?.id ? parseInt(params.id as string) : null;
 
     const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
+    const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
     const canApprove = isPrivilegedUser;
     const canReleasingReview = user?.UserRoleID === 4
         && transfer?.Status === 'pending'
@@ -66,10 +67,12 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         && !!transfer?.BorrowerSignedAt
         && !transfer?.BorrowingSignedAt
         && Number(user?.DepartmentID ?? 0) === Number(transfer?.ToDepartmentID ?? 0);
-    const canCompleteTransfer = isPrivilegedUser
-        && transfer?.Status === 'approved'
-        && !!transfer?.BorrowerSignedAt
-        && !!transfer?.BorrowingSignedAt;
+    const canCompleteTransfer = false;
+    const isReleasingDepartmentViewer = user?.UserRoleID === 4
+        && !isPrivilegedUser
+        && Number(user?.DepartmentID ?? 0) === Number(transfer?.FromDepartmentID ?? 0);
+
+    const canPrint = (transfer?.Status === 'approved' || transfer?.Status === 'completed') && !isDepartmentHead;
 
     const groupedRequestedItems = useMemo(() => {
         const groups = new Map<string, {
@@ -205,10 +208,6 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         }
 
         if (releasingDecision === 'approved') {
-            if (approvedCount < 1) {
-                toast.error('Approved quantity must be at least 1');
-                return;
-            }
             if (approvedCount > requestedCount) {
                 toast.error('Approved quantity cannot exceed requested quantity');
                 return;
@@ -286,7 +285,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         try {
             setIsProcessing(true);
             await transferAPI.signReceiving(transfer.TransferID);
-            toast.success('Receiving signature confirmed');
+            toast.success('Receiving signature confirmed and transfer completed');
             await loadTransfer();
         } catch (error: unknown) {
             const maybeAxios = error as { response?: { data?: { message?: string } } };
@@ -338,12 +337,10 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
         return {
             title: 'Confirm Receiving Signature',
-            description: 'Confirm that the receiving department has received the item(s).',
-            confirmText: 'Confirm Received',
+            description: 'Confirm that the receiving department has received the item(s). This will complete the transfer automatically.',
+            confirmText: 'Confirm Received & Complete',
         };
     };
-
-    const canPrint = transfer?.Status === 'approved' || transfer?.Status === 'completed';
 
     const formatDisplayDate = (dateValue?: string | null) => {
         if (!dateValue) return '';
@@ -773,22 +770,27 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
                                 <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
                             </div>
-                            <div>
-                                <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
-                                <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
-                            </div>
-                            <div>
-                                <div className="text-xs text-slate-500 uppercase">GSO Releasing Signed</div>
-                                <div className="text-sm font-medium text-slate-800 mt-1">{borrowerSignedDisplay()}</div>
-                            </div>
-                            <div>
-                                <div className="text-xs text-slate-500 uppercase">Receiving Department Signed</div>
-                                <div className="text-sm font-medium text-slate-800 mt-1">{borrowingSignedDisplay()}</div>
-                            </div>
-                            <div className="md:col-span-2">
-                                <div className="text-xs text-slate-500 uppercase">Completed At</div>
-                                <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
-                            </div>
+
+                            {!isReleasingDepartmentViewer && (
+                                <>
+                                    <div>
+                                        <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
+                                        <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-500 uppercase">GSO Releasing Signed</div>
+                                        <div className="text-sm font-medium text-slate-800 mt-1">{borrowerSignedDisplay()}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-500 uppercase">Receiving Department Signed</div>
+                                        <div className="text-sm font-medium text-slate-800 mt-1">{borrowingSignedDisplay()}</div>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <div className="text-xs text-slate-500 uppercase">Completed At</div>
+                                        <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
+                                    </div>
+                                </>
+                            )}
 
                             {transfer.ReleasingDecisionReason && (
                                 <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
@@ -843,7 +845,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                             {[
                                                 item.inventoryDetail?.Brand,
                                                 item.inventoryDetail?.ModelNumber,
-                                                item.inventoryDetail?.SerialNumber ? `SN: ${item.inventoryDetail.SerialNumber}` : null,
+                                                (item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber)
+                                                    ? `SN: ${item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber}`
+                                                    : null,
                                             ].filter(Boolean).join(' | ') || 'Missing full specs'}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">

@@ -65,8 +65,15 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         && borrow?.Status === 'pending'
         && (borrow?.ReleasingDecision ?? 'pending') === 'pending'
         && Number(user?.DepartmentID ?? 0) === Number(borrow?.FromDepartmentID ?? 0);
+    const canConfirmBorrowDelivered = user?.UserRoleID === 4
+        && Number(user?.DepartmentID ?? 0) === Number(borrow?.ToDepartmentID ?? 0)
+        && (borrow?.Status === 'borrowed' || borrow?.Status === 'partially_returned' || borrow?.Status === 'returned');
     const canReturnBorrow = isPrivilegedUser
         && (borrow?.Status === 'borrowed' || borrow?.Status === 'partially_returned');
+    const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
+    const isReleasingDepartmentViewer = user?.UserRoleID === 4
+        && !isPrivilegedUser
+        && Number(user?.DepartmentID ?? 0) === Number(borrow?.FromDepartmentID ?? 0);
 
     const addConditionRow = (borrowItemId: number) => {
         setReturnRowsByItem((prev) => {
@@ -293,10 +300,6 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         }
 
         if (releasingDecision === 'approved') {
-            if (approvedCount < 1) {
-                toast.error('Approved quantity must be at least 1');
-                return;
-            }
             if (approvedCount > requestedCount) {
                 toast.error('Approved quantity cannot exceed requested quantity');
                 return;
@@ -454,10 +457,11 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
 
     const statusBadge: BorrowStatusBadge = isOverdue() ? 'overdue' : (borrow?.Status ?? 'pending');
 
-    const canPrint = borrow?.Status === 'approved'
+    const canPrint = (borrow?.Status === 'approved'
         || borrow?.Status === 'borrowed'
         || borrow?.Status === 'partially_returned'
-        || borrow?.Status === 'returned';
+        || borrow?.Status === 'returned')
+        && !isDepartmentHead;
 
     if (loading) {
         return (
@@ -599,70 +603,76 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                         {formatDisplayDateTime(borrow.ReleasingReviewedAt) || 'Pending review'}
                                     </div>
                                 </div>
-                                <div className="rounded-lg border border-slate-200 p-3">
-                                    <div className="text-xs text-slate-500 uppercase">GSO Approval</div>
-                                    <div className="text-sm font-semibold text-slate-900 mt-1">
-                                        {borrow.ApprovedAt ? formatDisplayDateTime(borrow.ApprovedAt) : 'Pending approval'}
-                                    </div>
-                                </div>
-                                <div className="rounded-lg border border-slate-200 p-3">
-                                    <div className="text-xs text-slate-500 uppercase">Borrowed At</div>
-                                    <div className="text-sm font-semibold text-slate-900 mt-1">
-                                        {borrow.BorrowedAt ? formatDisplayDateTime(borrow.BorrowedAt) : 'Not yet borrowed'}
-                                    </div>
-                                </div>
-                                <div className="rounded-lg border border-slate-200 p-3">
-                                    <div className="text-xs text-slate-500 uppercase">Returned At</div>
-                                    <div className="text-sm font-semibold text-slate-900 mt-1">
-                                        {lastReturnAt ? formatDisplayDateTime(lastReturnAt) : 'Not returned'}
-                                    </div>
-                                </div>
+                                {!isReleasingDepartmentViewer && (
+                                    <>
+                                        <div className="rounded-lg border border-slate-200 p-3">
+                                            <div className="text-xs text-slate-500 uppercase">GSO Approval</div>
+                                            <div className="text-sm font-semibold text-slate-900 mt-1">
+                                                {borrow.ApprovedAt ? formatDisplayDateTime(borrow.ApprovedAt) : 'Pending approval'}
+                                            </div>
+                                        </div>
+                                        <div className="rounded-lg border border-slate-200 p-3">
+                                            <div className="text-xs text-slate-500 uppercase">Borrow Delivered At</div>
+                                            <div className="text-sm font-semibold text-slate-900 mt-1">
+                                                {borrow.BorrowedAt ? formatDisplayDateTime(borrow.BorrowedAt) : 'Not yet delivered'}
+                                            </div>
+                                        </div>
+                                        <div className="rounded-lg border border-slate-200 p-3">
+                                            <div className="text-xs text-slate-500 uppercase">Returned At</div>
+                                            <div className="text-sm font-semibold text-slate-900 mt-1">
+                                                {lastReturnAt ? formatDisplayDateTime(lastReturnAt) : 'Not returned'}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-slate-900">Return History</h2>
-                                <span className="text-sm text-slate-500">{totalReturned} of {totalBorrowed} returned</span>
-                            </div>
-                            {(borrow.returns ?? []).length === 0 ? (
-                                <div className="text-sm text-slate-500">No returns recorded yet.</div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {(borrow.returns ?? []).map((returnRecord) => (
-                                        <div key={returnRecord.ReturnID} className="rounded-lg border border-slate-200 p-4">
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <div className="text-sm font-semibold text-slate-900">
-                                                    {returnRecord.ReturnNumber || `Return #${returnRecord.ReturnID}`}
-                                                </div>
-                                                <div className="text-xs text-slate-500">
-                                                    {formatDisplayDateTime(returnRecord.ReturnedAt || returnRecord.created_at) || 'Missing return date'}
-                                                </div>
-                                            </div>
-                                            <div className="text-xs text-slate-500 mt-1">
-                                                Returned by {displayText(returnRecord.returnedBy?.FullName, 'Unknown user')}
-                                            </div>
-                                            {returnRecord.Notes && (
-                                                <div className="text-xs text-slate-600 mt-2">Notes: {returnRecord.Notes}</div>
-                                            )}
-                                            <div className="mt-3 space-y-2">
-                                                {(returnRecord.items ?? []).map((item) => (
-                                                    <div key={item.ReturnItemID} className="flex items-center justify-between text-xs text-slate-700">
-                                                        <div>
-                                                            {displayText(item.inventoryDetail?.Description, 'Unspecified item')}
-                                                            {item.condition?.ConditionName
-                                                                ? ` · ${item.condition.ConditionName}`
-                                                                : ''}
-                                                        </div>
-                                                        <div className="font-semibold">Qty: {item.QuantityReturned}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
+                        {!isReleasingDepartmentViewer && (
+                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold text-slate-900">Return History</h2>
+                                    <span className="text-sm text-slate-500">{totalReturned} of {totalBorrowed} returned</span>
                                 </div>
-                            )}
-                        </div>
+                                {(borrow.returns ?? []).length === 0 ? (
+                                    <div className="text-sm text-slate-500">No returns recorded yet.</div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {(borrow.returns ?? []).map((returnRecord) => (
+                                            <div key={returnRecord.ReturnID} className="rounded-lg border border-slate-200 p-4">
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <div className="text-sm font-semibold text-slate-900">
+                                                        {returnRecord.ReturnNumber || `Return #${returnRecord.ReturnID}`}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">
+                                                        {formatDisplayDateTime(returnRecord.ReturnedAt || returnRecord.created_at) || 'Missing return date'}
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-slate-500 mt-1">
+                                                    Returned by {displayText(returnRecord.returnedBy?.FullName, 'Unknown user')}
+                                                </div>
+                                                {returnRecord.Notes && (
+                                                    <div className="text-xs text-slate-600 mt-2">Notes: {returnRecord.Notes}</div>
+                                                )}
+                                                <div className="mt-3 space-y-2">
+                                                    {(returnRecord.items ?? []).map((item) => (
+                                                        <div key={item.ReturnItemID} className="flex items-center justify-between text-xs text-slate-700">
+                                                            <div>
+                                                                {displayText(item.inventoryDetail?.Description, 'Unspecified item')}
+                                                                {item.condition?.ConditionName
+                                                                    ? ` · ${item.condition.ConditionName}`
+                                                                    : ''}
+                                                            </div>
+                                                            <div className="font-semibold">Qty: {item.QuantityReturned}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-6">
@@ -686,7 +696,17 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                     onClick={() => setPendingConfirmAction('approve')}
                                     className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700"
                                 >
-                                    Approve Borrow
+                                    Approve
+                                </button>
+                            )}
+
+                            {canConfirmBorrowDelivered && (
+                                <button
+                                    type="button"
+                                    onClick={() => toast.info('Borrow delivery is tracked by the Borrowed At timestamp. No extra signing action is required in this module.')}
+                                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-4 py-2 text-blue-700 text-sm hover:bg-blue-50"
+                                >
+                                    Confirm Borrow Delivered
                                 </button>
                             )}
 
@@ -796,7 +816,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                 </div>
                             )}
 
-                            {!canReleasingReview && !canApprove && !canReject && !canReturnBorrow && (
+                            {!canReleasingReview && !canApprove && !canReject && !canReturnBorrow && !canConfirmBorrowDelivered && (
                                 <div className="text-sm text-slate-500">No actions available for your role.</div>
                             )}
                         </div>
@@ -804,9 +824,13 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
                             <h2 className="text-lg font-semibold text-slate-900">Borrow Summary</h2>
                             <div className="text-sm text-slate-600">Requested on: {formatDisplayDateTime(borrow.created_at) || 'Unknown'}</div>
-                            <div className="text-sm text-slate-600">Borrowed at: {formatDisplayDateTime(borrow.BorrowedAt) || 'Not yet borrowed'}</div>
-                            <div className="text-sm text-slate-600">Returned at: {formatDisplayDateTime(lastReturnAt) || 'Not yet returned'}</div>
-                            <div className="text-sm text-slate-600">Returned items: {totalReturned} of {totalBorrowed}</div>
+                            {!isReleasingDepartmentViewer && (
+                                <>
+                                    <div className="text-sm text-slate-600">Borrowed at: {formatDisplayDateTime(borrow.BorrowedAt) || 'Not yet borrowed'}</div>
+                                    <div className="text-sm text-slate-600">Returned at: {formatDisplayDateTime(lastReturnAt) || 'Not yet returned'}</div>
+                                    <div className="text-sm text-slate-600">Returned items: {totalReturned} of {totalBorrowed}</div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

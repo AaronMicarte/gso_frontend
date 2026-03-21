@@ -57,16 +57,10 @@ export default function DepartmentHeadBorrowPrintPage() {
 
     return (
         <div className="min-h-screen bg-slate-100 py-6">
-            <div className="no-print max-w-4xl mx-auto px-4 mb-4 flex items-center justify-between">
+            <div className="no-print max-w-4xl mx-auto px-4 mb-4 flex items-center justify-start">
                 <Link href={`/department_head/borrow/${borrow.BorrowID}`} className="text-sm text-[var(--primary)] underline">
                     Back to borrow
                 </Link>
-                <button
-                    onClick={() => window.print()}
-                    className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)]"
-                >
-                    Print
-                </button>
             </div>
 
             <BorrowPrintView borrow={borrow} />

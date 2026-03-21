@@ -128,7 +128,7 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                             const description = ensureText(inv?.Description, 'Missing description');
                             const unitName = ensureText(inv?.unitOfMeasure?.UnitName, 'Missing unit');
                             const propertyNo = ensureText(inv?.PropertyNumber, 'Missing property number');
-                            const serial = ensureText(inv?.SerialNumber, 'Missing serial');
+                            const serial = ensureText(inv?.SerialNumber || inv?.drDetail?.SerialNumber, 'Missing serial');
 
                             return (
                                 <tr key={item.TransferItemID ?? idx}>

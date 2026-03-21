@@ -34,7 +34,8 @@ interface DeliveryReceiptForIssuance {
 }
 
 interface IarIssuedItem {
-    IARDetailID: number;
+    IARDetailID?: number;
+    DRDetailID?: number;
     ItemDescription?: string | null;
     Brand?: string | null;
     ModelNumber?: string | null;
@@ -379,9 +380,9 @@ export function IssuanceListPage({
                                                             )}
                                                         </div>
                                                         <div className="space-y-2">
-                                                            {currentItems.map((item) => (
+                                                            {currentItems.map((item, index) => (
                                                                 <div
-                                                                    key={item.IARDetailID}
+                                                                    key={item.DRDetailID ?? item.IARDetailID ?? `${row.DRID}-${selectedType}-${index}`}
                                                                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-slate-700"
                                                                 >
                                                                     <div>
