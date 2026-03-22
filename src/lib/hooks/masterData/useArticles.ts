@@ -10,7 +10,7 @@ import {
     restoreArticle,
     ArticleFilters,
 } from '@/lib/api/masterData/articles';
-import { Article, ArticleInput } from '@/types/masterData';
+import { ArticleInput } from '@/types/masterData';
 import { ApiError } from '@/types/api';
 import { toast } from 'sonner';
 
@@ -67,6 +67,7 @@ export function useCreateArticle() {
         mutationFn: createArticle,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: articleKeys.all });
+            toast.success('Article created successfully');
         },
         onError: (error: ApiError) => {
             console.error('Failed to create article:', error);
@@ -87,6 +88,7 @@ export function useUpdateArticle() {
             queryClient.invalidateQueries({
                 queryKey: articleKeys.detail(variables.id)
             });
+            toast.success('Article updated successfully');
         },
         onError: (error: ApiError) => {
             console.error('Failed to update article:', error);
@@ -103,6 +105,7 @@ export function useDeleteArticle() {
         mutationFn: deleteArticle,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: articleKeys.all });
+            toast.success('Article deleted successfully');
         },
         onError: (error: ApiError) => {
             console.error('Failed to delete article:', error);

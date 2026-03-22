@@ -104,6 +104,8 @@ export interface Article {
     id: number;
     name: string;
     description?: string | null;
+    image_path?: string | null;
+    image_url?: string | null;
     property_type_id: number;
     default_unit_of_measure_id: number;
     is_active: boolean;
@@ -116,6 +118,8 @@ export interface Article {
 export interface ArticleInput {
     ArticleName: string;
     Description?: string;
+    ArticleImage?: File | null;
+    RemoveImage?: boolean;
     PropertyTypeID: number;
     DefaultUnitOfMeasureID: number;
     IsActive?: boolean;

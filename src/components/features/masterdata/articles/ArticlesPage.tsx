@@ -8,7 +8,8 @@ import { Article, ArticleInput } from '@/types/masterData';
 import { ApiError } from '@/types/api';
 import { FormDialog } from '@/components/ui/FormDialog';
 import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
-import { Plus, Search, Edit, Trash2, Package, RefreshCw, Save, Loader2 } from 'lucide-react';
+import { ArticlePreviewModal } from '@/components/ui/ArticlePreviewModal';
+import { Plus, Search, Edit, Trash2, Package, RefreshCw, Save, Loader2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ArticlesPageProps {
@@ -30,8 +31,15 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         DefaultUnitOfMeasureID: 2,
         IsActive: true,
     });
+    const [selectedImage, setSelectedImage] = useState<File | null>(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+    const [removeImage, setRemoveImage] = useState(false);
     const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
     const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+
+    const [viewingArticle, setViewingArticle] = useState<Article | null>(null);
+    const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+    const [viewImageUrl, setViewImageUrl] = useState<string | null>(null);
 
     // Use React Query for cached data fetching
     const { data, isLoading, error, refetch } = useArticles({
@@ -76,6 +84,20 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         };
     }, [searchTerm]);
 
+    // Allow closing the details modal with Escape key
+    useEffect(() => {
+        if (!viewingArticle) return;
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setViewingArticle(null);
+            }
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [viewingArticle]);
+
     const openCreateModal = () => {
         setFormMode('create');
         setActiveArticleId(null);
@@ -85,8 +107,11 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
             Description: '',
             PropertyTypeID: 0,
             DefaultUnitOfMeasureID: 2,
-            IsActive: true,
+            IsActive: true, // new articles are always active by default
         });
+        setSelectedImage(null);
+        setImagePreviewUrl(null);
+        setRemoveImage(false);
         setFormOpen(true);
     };
 
@@ -127,6 +152,9 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
 
             const timer = setTimeout(() => {
                 setFormData(nextFormData);
+                setSelectedImage(null);
+                setImagePreviewUrl(activeArticle.image_url || null);
+                setRemoveImage(false);
             }, 0);
 
             return () => clearTimeout(timer);
@@ -144,6 +172,35 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         }
     };
 
+    const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] || null;
+        setSelectedImage(file);
+
+        if (file) {
+            const preview = URL.createObjectURL(file);
+            setImagePreviewUrl(preview);
+            setRemoveImage(false);
+        }
+
+        if (formErrors.ArticleImage) {
+            setFormErrors((prev) => {
+                const nextErrors = { ...prev };
+                delete nextErrors.ArticleImage;
+                return nextErrors;
+            });
+        }
+    };
+
+    const handleRemoveImageToggle = (checked: boolean) => {
+        setRemoveImage(checked);
+        if (checked) {
+            setSelectedImage(null);
+            setImagePreviewUrl(null);
+        } else if (formMode === 'edit') {
+            setImagePreviewUrl(activeArticle?.image_url || null);
+        }
+    };
+
     const handleFormError = (error: unknown) => {
         const apiError = error as ApiError;
         const backendErrors = apiError?.response?.data?.errors;
@@ -158,6 +215,7 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         if (backendErrors.PropertyTypeID) mappedErrors.PropertyTypeID = backendErrors.PropertyTypeID;
         if (backendErrors.DefaultUnitOfMeasureID) mappedErrors.DefaultUnitOfMeasureID = backendErrors.DefaultUnitOfMeasureID;
         if (backendErrors.IsActive) mappedErrors.IsActive = backendErrors.IsActive;
+        if (backendErrors.ArticleImage) mappedErrors.ArticleImage = backendErrors.ArticleImage;
 
         setFormErrors(mappedErrors);
 
@@ -176,6 +234,8 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
             PropertyTypeID: formData.PropertyTypeID,
             DefaultUnitOfMeasureID: formData.DefaultUnitOfMeasureID,
             IsActive: formData.IsActive ?? true,
+            ArticleImage: selectedImage,
+            RemoveImage: removeImage,
         };
 
         if (formMode === 'create') {
@@ -296,6 +356,9 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                     <thead className="bg-gray-50">
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Image
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Article Name
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -321,6 +384,33 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                     <tbody className="bg-white">
                                         {data?.data?.map((article) => (
                                             <tr key={article.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="relative h-10 w-10">
+                                                        {article.image_url ? (
+                                                            <>
+                                                                <img
+                                                                    src={article.image_url}
+                                                                    alt={article.name}
+                                                                    className="h-10 w-10 rounded-md object-cover border border-gray-200"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        setViewImageUrl(article.image_url as string);
+                                                                        setIsImageModalOpen(true);
+                                                                    }}
+                                                                    title="View image"
+                                                                    className="absolute inset-0 flex items-center justify-center bg-black/25 text-white opacity-0 hover:opacity-100 rounded-md transition-opacity"
+                                                                >
+                                                                    <Eye size={14} />
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <div className="h-10 w-10 rounded-md bg-gray-100 border border-gray-200" />
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="font-medium text-gray-900">
                                                         {article.name}
@@ -357,6 +447,13 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => setViewingArticle(article)}
+                                                            className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                                            title="View article"
+                                                        >
+                                                            <Eye size={16} />
+                                                        </button>
                                                         <button
                                                             onClick={() => openEditModal(article)}
                                                             className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
@@ -494,6 +591,41 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Article Image
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                                onChange={handleImageChange}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            {imagePreviewUrl && (
+                                <div className="mt-3">
+                                    <img
+                                        src={imagePreviewUrl}
+                                        alt="Article preview"
+                                        className="h-24 w-24 rounded-lg object-cover border border-gray-200"
+                                    />
+                                </div>
+                            )}
+                            {formMode === 'edit' && (activeArticle?.image_url || selectedImage) && (
+                                <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={removeImage}
+                                        onChange={(e) => handleRemoveImageToggle(e.target.checked)}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    Remove current image
+                                </label>
+                            )}
+                            <p className="mt-1 text-xs text-gray-500">Supported: JPG, PNG, GIF, WEBP. Max size: 2MB.</p>
+                            {formErrors.ArticleImage && (
+                                <p className="mt-1 text-sm text-red-600">{formErrors.ArticleImage[0]}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Property Type <span className="text-red-500">*</span>
                             </label>
                             <select
@@ -528,20 +660,6 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                 <p className="mt-1 text-sm text-red-600">{formErrors.DefaultUnitOfMeasureID[0]}</p>
                             )}
                         </div>
-                        <div>
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={!!formData.IsActive}
-                                    onChange={(e) => handleFormChange('IsActive', e.target.checked)}
-                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-sm font-medium text-gray-700">Active</span>
-                            </label>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Inactive articles will not be available for selection in delivery receipts
-                            </p>
-                        </div>
                         <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-gray-200">
                             <button
                                 type="button"
@@ -562,6 +680,76 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                     </form>
                 )}
             </FormDialog>
+            <ArticlePreviewModal
+                open={isImageModalOpen && Boolean(viewImageUrl)}
+                onClose={() => setIsImageModalOpen(false)}
+                imageUrl={viewImageUrl || ''}
+                alt="Article"
+            />
+
+            {viewingArticle && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={() => setViewingArticle(null)}
+                >
+                    <div
+                        onClick={(event) => event.stopPropagation()}
+                        className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setViewingArticle(null)}
+                            className="absolute top-3 right-3 text-gray-500 hover:text-gray-900 bg-white rounded-full p-1 shadow"
+                            aria-label="Close article details"
+                        >
+                            ✕
+                        </button>
+                        <div className="p-6 space-y-5">
+                            <h2 className="text-2xl font-bold text-slate-900">Article Details</h2>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                {viewingArticle.image_url && (
+                                    <div className="h-40 w-full overflow-hidden rounded-lg border border-gray-200">
+                                        <img
+                                            src={viewingArticle.image_url}
+                                            alt={viewingArticle.name}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+                                )}
+                                <div className={`space-y-3 ${viewingArticle.image_url ? 'md:col-span-2' : 'md:col-span-3'}`}>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase tracking-wide">Name</p>
+                                        <p className="text-lg font-semibold text-gray-900">{viewingArticle.name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase tracking-wide">Description</p>
+                                        <p className="text-sm text-gray-700">{viewingArticle.description || '-'}</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Property Type</p>
+                                            <p className="text-sm font-medium text-gray-900">{propertyTypeMap.get(viewingArticle.property_type_id) || 'Unknown'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Default Unit</p>
+                                            <p className="text-sm font-medium text-gray-900">{unitMap.get(viewingArticle.default_unit_of_measure_id) || 'Unknown'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
+                                            <p className="text-sm font-medium text-gray-900">{viewingArticle.is_active ? 'Active' : 'Inactive'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Created</p>
+                                            <p className="text-sm font-medium text-gray-900">{new Date(viewingArticle.created_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <ConfirmDialog
                 open={!!deleteTarget}
                 onOpenChange={(open) => {

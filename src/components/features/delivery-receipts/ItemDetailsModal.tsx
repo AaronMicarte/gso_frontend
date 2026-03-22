@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
+import { ArticlePreviewModal } from '@/components/ui/ArticlePreviewModal';
 import { toast } from 'sonner';
 import { Package, Calculator } from 'lucide-react';
 
@@ -57,7 +58,7 @@ interface ItemDetailsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     initialValues: Partial<ItemFormValues>;
-    articles: { id: number; name: string; property_type_id: number; default_unit_of_measure_id: number }[];
+    articles: { id: number; name: string; property_type_id: number; default_unit_of_measure_id: number; image_url?: string | null }[];
     propertyTypes: { PropertyTypeID: number; PropertyName: string }[];
     units: { id: number; name: string }[];
     onSave: (values: ItemFormValues) => Promise<void> | void;
@@ -91,6 +92,18 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
     const currentUnitId = watch('unit_of_measure_id');
     const serialNumber = watch('serial_number');
     const totalCost = (quantity || 0) * (unitCost || 0);
+
+    const selectedArticle = articles.find((a) => a.id === selectedArticleId) || null;
+    const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
+    const [articleModalUrl, setArticleModalUrl] = useState<string | null>(null);
+
+    const resolveArticleImageUrl = (article: { image_url?: string | null; image_path?: string | null }): string | null => {
+        const raw = article.image_url || article.image_path || '';
+        if (!raw) return null;
+        if (raw.startsWith('http') || raw.startsWith('//') || raw.startsWith('/')) return raw;
+        if (raw.startsWith('data:')) return raw;
+        return `/${raw}`;
+    };
 
     // if user types or picks a serial, enforce both quantities to 1
     useEffect(() => {
@@ -274,18 +287,30 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                                 {filteredArticles.length === 0 ? (
                                     <li className="px-3 py-2 text-sm text-slate-500">No articles found</li>
                                 ) : (
-                                    filteredArticles.map((a, idx) => (
-                                        <li
-                                            key={a.id}
-                                            role="option"
-                                            aria-selected={articleHighlightedIndex === idx}
-                                            onMouseDown={(e) => { e.preventDefault(); selectArticle(a); }}
-                                            onMouseEnter={() => setArticleHighlightedIndex(idx)}
-                                            className={`px-3 py-2 text-sm cursor-pointer ${articleHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
-                                        >
-                                            {a.name}
-                                        </li>
-                                    ))
+                                    filteredArticles.map((a, idx) => {
+                                        const imgUrl = resolveArticleImageUrl(a);
+                                        return (
+                                            <li
+                                                key={a.id}
+                                                role="option"
+                                                aria-selected={articleHighlightedIndex === idx}
+                                                onMouseDown={(e) => { e.preventDefault(); selectArticle(a); }}
+                                                onMouseEnter={() => setArticleHighlightedIndex(idx)}
+                                                className={`px-3 py-2 text-sm cursor-pointer ${articleHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-6 w-6 overflow-hidden rounded-sm border border-slate-200 bg-slate-100">
+                                                        {imgUrl ? (
+                                                            <img src={imgUrl} alt={a.name} className="h-full w-full object-cover" />
+                                                        ) : (
+                                                            <span className="flex h-full w-full items-center justify-center text-[0.65rem] text-slate-400">N/A</span>
+                                                        )}
+                                                    </div>
+                                                    <span>{a.name}</span>
+                                                </div>
+                                            </li>
+                                        );
+                                    })
                                 )}
                             </ul>
                         )}
@@ -294,6 +319,64 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                     {errors.article_id && (
                         <p className="text-sm text-red-600">{errors.article_id.message}</p>
                     )}
+
+                    {selectedArticle ? (
+                        <>
+                            <div
+                                className="mt-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 cursor-pointer hover:bg-slate-100"
+                                onClick={() => {
+                                    const imgUrl = resolveArticleImageUrl(selectedArticle);
+                                    if (imgUrl) {
+                                        setArticleModalUrl(imgUrl);
+                                        setIsArticleModalOpen(true);
+                                    }
+                                }}
+                            >
+                                <div className="h-16 w-16 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
+                                    {resolveArticleImageUrl(selectedArticle) ? (
+                                        <img
+                                            src={resolveArticleImageUrl(selectedArticle) ?? ''}
+                                            alt={selectedArticle.name}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-900">{selectedArticle.name}</p>
+                                    <p className="text-xs text-slate-600">{resolveArticleImageUrl(selectedArticle) ? 'Click to enlarge' : 'No image available'}</p>
+                                </div>
+                            </div>
+
+                            <ArticlePreviewModal
+                                open={isArticleModalOpen && Boolean(articleModalUrl)}
+                                onClose={() => setIsArticleModalOpen(false)}
+                                imageUrl={articleModalUrl || ''}
+                                alt={selectedArticle.name}
+                            />
+
+                            {isArticleModalOpen && articleModalUrl && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setIsArticleModalOpen(false)}>
+                                    <div className="relative max-h-[90vh] w-full max-w-xl overflow-hidden rounded-xl bg-black" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsArticleModalOpen(false)}
+                                            className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-1 text-sm text-slate-700 hover:bg-white"
+                                            aria-label="Close image preview"
+                                        >
+                                            ✕
+                                        </button>
+                                        <img
+                                            src={articleModalUrl}
+                                            alt="Article enlarged"
+                                            className="h-[calc(90vh-2rem)] w-full object-contain bg-black"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : null}
                 </div>
 
                 {/* Item Description */}

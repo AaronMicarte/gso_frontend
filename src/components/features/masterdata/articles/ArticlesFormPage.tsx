@@ -15,6 +15,8 @@ import { ArticleInput } from '@/types/masterData';
 const articleSchema = z.object({
     ArticleName: z.string().min(1, 'Article name is required').max(255, 'Article name is too long'),
     Description: z.string().max(1000, 'Description is too long').optional().or(z.literal('')),
+    ArticleImage: z.custom<FileList>().optional(),
+    RemoveImage: z.boolean().optional(),
     PropertyTypeID: z.coerce.number().min(1, 'Property type is required'),
     DefaultUnitOfMeasureID: z.coerce.number().min(1, 'Default unit is required'),
     IsActive: z.boolean().optional(),
@@ -33,6 +35,7 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
     const articleId = searchParams.get('id');
 
     const [isLoading, setIsLoading] = useState(false);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
     // React Query hooks
     const createMutation = useCreateArticle();
@@ -48,16 +51,22 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
         handleSubmit,
         formState: { errors, isDirty },
         setValue
+        ,
+        watch
     } = useForm<ArticleFormData>({
         resolver: zodResolver(articleSchema),
         defaultValues: {
             ArticleName: '',
             Description: '',
+            RemoveImage: false,
             PropertyTypeID: 0,
             DefaultUnitOfMeasureID: 2,
             IsActive: true,
         }
     });
+
+    const selectedImage = watch('ArticleImage');
+    const removeImage = watch('RemoveImage');
 
     const { data: propertyTypesData } = useAllPropertyTypes();
     const { data: unitsData } = useAllUnitsOfMeasure();
@@ -76,11 +85,30 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
         if (mode === 'edit' && existingArticle) {
             setValue('ArticleName', existingArticle.name);
             setValue('Description', existingArticle.description || '');
+            setValue('RemoveImage', false);
             setValue('PropertyTypeID', existingArticle.property_type_id);
             setValue('DefaultUnitOfMeasureID', existingArticle.default_unit_of_measure_id);
             setValue('IsActive', existingArticle.is_active);
+            setImagePreviewUrl(existingArticle.image_url || null);
         }
     }, [existingArticle, mode, setValue]);
+
+    useEffect(() => {
+        const file = selectedImage?.[0];
+        if (!file) {
+            if (!removeImage && mode === 'edit' && existingArticle?.image_url) {
+                setImagePreviewUrl(existingArticle.image_url);
+            } else if (removeImage) {
+                setImagePreviewUrl(null);
+            }
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        setImagePreviewUrl(previewUrl);
+
+        return () => URL.revokeObjectURL(previewUrl);
+    }, [selectedImage, removeImage, existingArticle, mode]);
 
     const onSubmit = async (data: ArticleFormData) => {
         if (isLoading) return;
@@ -90,6 +118,8 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
             const payload: ArticleInput = {
                 ArticleName: data.ArticleName.trim(),
                 Description: data.Description?.trim() || undefined,
+                RemoveImage: data.RemoveImage ?? false,
+                ArticleImage: data.RemoveImage ? null : (data.ArticleImage?.[0] || null),
                 PropertyTypeID: data.PropertyTypeID,
                 DefaultUnitOfMeasureID: data.DefaultUnitOfMeasureID,
                 IsActive: data.IsActive ?? true,
@@ -211,6 +241,41 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
                             />
                             {errors.Description && (
                                 <p className="mt-1 text-sm text-red-600">{errors.Description.message}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Article Image
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                                {...register('ArticleImage')}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            {imagePreviewUrl && (
+                                <div className="mt-3">
+                                    <img
+                                        src={imagePreviewUrl}
+                                        alt="Article preview"
+                                        className="h-24 w-24 rounded-lg object-cover border border-gray-200"
+                                    />
+                                </div>
+                            )}
+                            {mode === 'edit' && existingArticle?.image_url && (
+                                <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        {...register('RemoveImage')}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    Remove current image
+                                </label>
+                            )}
+                            <p className="mt-1 text-xs text-gray-500">Supported: JPG, PNG, GIF, WEBP. Max size: 2MB.</p>
+                            {errors.ArticleImage && (
+                                <p className="mt-1 text-sm text-red-600">Invalid image file</p>
                             )}
                         </div>
 

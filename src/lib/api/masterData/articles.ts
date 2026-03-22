@@ -2,6 +2,33 @@ import apiClient from '../client';
 import { Article, ArticleInput } from '@/types/masterData';
 import { ApiResponse, PaginatedResponse } from '@/types/masterData';
 
+function buildArticleFormData(data: ArticleInput, includeMethodOverride = false): FormData {
+    const formData = new FormData();
+
+    formData.append('ArticleName', data.ArticleName);
+    formData.append('PropertyTypeID', String(data.PropertyTypeID));
+    formData.append('DefaultUnitOfMeasureID', String(data.DefaultUnitOfMeasureID));
+    formData.append('IsActive', data.IsActive ? '1' : '0');
+
+    if (data.Description !== undefined) {
+        formData.append('Description', data.Description);
+    }
+
+    if (data.RemoveImage !== undefined) {
+        formData.append('RemoveImage', data.RemoveImage ? '1' : '0');
+    }
+
+    if (data.ArticleImage) {
+        formData.append('ArticleImage', data.ArticleImage);
+    }
+
+    if (includeMethodOverride) {
+        formData.append('_method', 'PUT');
+    }
+
+    return formData;
+}
+
 export interface ArticleFilters {
     search?: string;
     is_active?: boolean;
@@ -46,7 +73,10 @@ export async function getArticle(id: number): Promise<Article> {
 }
 
 export async function createArticle(data: ArticleInput): Promise<Article> {
-    const response = await apiClient.post<ApiResponse<Article>>('/admin/master-data/articles', data);
+    const formData = buildArticleFormData(data);
+    const response = await apiClient.post<ApiResponse<Article>>('/admin/master-data/articles', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
     if (!response.data.data) {
         throw new Error('Failed to create article');
     }
@@ -54,7 +84,10 @@ export async function createArticle(data: ArticleInput): Promise<Article> {
 }
 
 export async function updateArticle(id: number, data: ArticleInput): Promise<Article> {
-    const response = await apiClient.put<ApiResponse<Article>>(`/admin/master-data/articles/${id}`, data);
+    const formData = buildArticleFormData(data, true);
+    const response = await apiClient.post<ApiResponse<Article>>(`/admin/master-data/articles/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
     if (!response.data.data) {
         throw new Error('Failed to update article');
     }
