@@ -70,14 +70,6 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
         }
 
         if (!loading && user) {
-            const mfaRequiredRoles = ['admin', 'gso staff', 'department head', 'inspection officer'];
-            if (mfaRequiredRoles.includes(user.Role.toLowerCase()) && !user.MFAEnabled) {
-                router.push('/setup-mfa');
-                return;
-            }
-        }
-
-        if (!loading && user) {
             const realRole = user.Role.toLowerCase();
             const validRoles = ['admin', 'gso staff', 'department head', 'inspection officer'];
             if (!validRoles.includes(realRole)) {

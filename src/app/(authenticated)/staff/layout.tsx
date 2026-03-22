@@ -59,14 +59,6 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        if (!loading && user) {
-            const mfaRequiredRoles = ['admin', 'gso staff', 'department head', 'inspection officer'];
-            if (mfaRequiredRoles.includes(user.Role.toLowerCase()) && !user.MFAEnabled) {
-                router.push('/setup-mfa');
-                return;
-            }
-        }
-
         if (!loading && user && !['gso staff', 'inspection officer'].includes(user.Role.toLowerCase())) {
             const roleRoutes: Record<string, string> = {
                 'admin': '/admin/dashboard',
