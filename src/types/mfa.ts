@@ -28,6 +28,7 @@ export interface MFAEnableResponse {
 export interface MFAVerifyRequest {
     user_id: number;
     code: string;
+    turnstile_token: string;
     trust_device?: boolean;
     device_name?: string;
 }

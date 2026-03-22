@@ -109,6 +109,12 @@ apiClient.interceptors.response.use(
 
             // Pass through 422 validation errors with full response data
             if (status === 422) {
+                if (data?.turnstile_failed === true) {
+                    return Promise.reject({
+                        message: (data.message as string) || 'Captcha verification failed. Please try again.',
+                        turnstile_failed: true,
+                    });
+                }
                 return Promise.reject(error);
             }
 

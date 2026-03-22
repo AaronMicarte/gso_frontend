@@ -82,8 +82,16 @@ export async function disableMFA(data: MFADisableRequest): Promise<{ message: st
  * Verify MFA code during login (public endpoint).
  */
 export async function verifyMFACode(data: MFAVerifyRequest): Promise<MFAVerifySuccessResponse> {
-    const response = await apiClient.post<MFAVerifySuccessResponse>('/mfa/verify', data);
-    return response.data;
+    try {
+        const response = await apiClient.post<MFAVerifySuccessResponse>('/mfa/verify', data);
+        return response.data;
+    } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'message' in error) {
+            throw new Error(String((error as { message?: string }).message));
+        }
+
+        throw error;
+    }
 }
 
 /**

@@ -1,6 +1,7 @@
 export interface LoginCredentials {
   username: string;
   password: string;
+  turnstile_token: string;
 }
 
 export interface User {
@@ -60,4 +61,5 @@ export interface LoginError {
   attempts_remaining?: number;
   activation_required?: boolean;
   account_disabled?: boolean;
+  turnstile_failed?: boolean;
 }

@@ -7,6 +7,7 @@ import { AxiosError } from 'axios';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { activateAccount } from '@/lib/api/authActivation';
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 
 export default function ActivateAccountPage() {
     const router = useRouter();
@@ -15,6 +16,8 @@ export default function ActivateAccountPage() {
 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    const [captchaRefreshKey, setCaptchaRefreshKey] = useState(0);
     const [loading, setLoading] = useState(false);
 
     const passwordChecks = useMemo(() => {
@@ -48,8 +51,8 @@ export default function ActivateAccountPage() {
     }, [password, confirmPassword]);
 
     const canSubmit = useMemo(() => {
-        return token.length > 0 && passwordChecks.isStrong && password === confirmPassword;
-    }, [token, passwordChecks.isStrong, password, confirmPassword]);
+        return token.length > 0 && passwordChecks.isStrong && password === confirmPassword && !!captchaToken;
+    }, [token, passwordChecks.isStrong, password, confirmPassword, captchaToken]);
 
     function describeValidationError(err: unknown): string {
         if (!(err instanceof AxiosError)) return 'Invalid or expired activation link.';
@@ -84,6 +87,7 @@ export default function ActivateAccountPage() {
                 token,
                 password,
                 password_confirmation: confirmPassword,
+                turnstile_token: captchaToken!,
             });
 
             toast.success('Account activated', {
@@ -111,6 +115,8 @@ export default function ActivateAccountPage() {
             });
         } finally {
             setLoading(false);
+            setCaptchaRefreshKey((prev) => prev + 1);
+            setCaptchaToken(null);
         }
     }
 
@@ -167,6 +173,13 @@ export default function ActivateAccountPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     error={confirmPasswordError}
+                />
+
+                <TurnstileWidget
+                    onTokenChange={setCaptchaToken}
+                    theme="light"
+                    refreshKey={captchaRefreshKey}
+                    className="pt-2"
                 />
 
                 <div className="pt-2">

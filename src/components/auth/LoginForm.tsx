@@ -9,6 +9,7 @@ import { login, getDashboardRoute } from '@/lib/auth';
 import { LoginError } from '@/types/auth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 import { toast } from 'sonner';
 
 // Zod schema for login validation
@@ -32,6 +33,8 @@ interface ActivationState {
 
 export function LoginForm() {
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaRefreshKey, setCaptchaRefreshKey] = useState(0);
   const [lockout, setLockout] = useState<LockoutState | null>(null);
   const [activation, setActivation] = useState<ActivationState | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -87,12 +90,22 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     if (lockout?.locked) return;
 
+    if (!captchaToken) {
+      toast.error('Captcha Required', {
+        description: 'Please complete the captcha before logging in.',
+      });
+      return;
+    }
+
     setLoading(true);
     toast.dismiss(); // Clear previous toasts
     setActivation(null);
 
     try {
-      const response = await login(data);
+      const response = await login({
+        ...data,
+        turnstile_token: captchaToken,
+      });
 
       // Check if MFA is required (either setup or verification)
       if (response.mfa_required && response.user_id) {
@@ -156,6 +169,10 @@ export function LoginForm() {
         toast.error('Account Disabled', {
           description: error.message || 'Please contact your GSO Admin.'
         });
+      } else if (error.turnstile_failed) {
+        toast.error('Captcha Failed', {
+          description: error.message || 'Captcha verification failed. Please try again.',
+        });
       } else {
         toast.error('Login Failed', {
           description: error.message || 'Invalid credentials. Please try again.'
@@ -163,6 +180,8 @@ export function LoginForm() {
       }
     } finally {
       setLoading(false);
+      setCaptchaRefreshKey((prev) => prev + 1);
+      setCaptchaToken(null);
     }
   };
 
@@ -210,8 +229,14 @@ export function LoginForm() {
         dark
         {...register('password')}
       />
+      <TurnstileWidget
+        onTokenChange={setCaptchaToken}
+        theme="dark"
+        refreshKey={captchaRefreshKey}
+        className="pt-2"
+      />
       <div className="pt-2">
-        <Button type="submit" disabled={loading || lockout?.locked}>
+        <Button type="submit" disabled={loading || lockout?.locked || !captchaToken}>
           {loading ? 'Authenticating...' : 'Login'}
         </Button>
       </div>

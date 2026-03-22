@@ -11,6 +11,7 @@ export async function activateAccount(payload: {
     token: string;
     password: string;
     password_confirmation: string;
+    turnstile_token: string;
 }): Promise<ActivateAccountResponse> {
     // Keep consistent with other auth flows (Sanctum expects CSRF cookie for stateful requests)
     await getCsrfCookie();

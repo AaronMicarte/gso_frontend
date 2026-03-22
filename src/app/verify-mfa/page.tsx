@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { Shield, Loader2, AlertTriangle, Smartphone, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 import { verifyMFACode } from '@/lib/api/mfa';
 import { getDashboardRoute } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -36,6 +37,8 @@ export default function VerifyMFAPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    const [captchaRefreshKey, setCaptchaRefreshKey] = useState(0);
     const [useBackupCode, setUseBackupCode] = useState(false);
     const [pending, setPending] = useState<PendingMFA | null>(null);
 
@@ -55,6 +58,10 @@ export default function VerifyMFAPage() {
 
     const handleSubmit = async (data: CodeFormData) => {
         if (!pending) return;
+        if (!captchaToken) {
+            setError('Please complete the captcha before verification.');
+            return;
+        }
 
         try {
             setLoading(true);
@@ -63,6 +70,7 @@ export default function VerifyMFAPage() {
             const response = await verifyMFACode({
                 user_id: pending.userId,
                 code: data.code.toUpperCase().replace(/\s/g, ''),
+                turnstile_token: captchaToken,
                 trust_device: data.trust_device,
             });
 
@@ -76,6 +84,8 @@ export default function VerifyMFAPage() {
             form.setValue('code', '');
         } finally {
             setLoading(false);
+            setCaptchaRefreshKey((prev) => prev + 1);
+            setCaptchaToken(null);
         }
     };
 
@@ -213,7 +223,14 @@ export default function VerifyMFAPage() {
                             </div>
                         </label>
 
-                        <Button type="submit" size="lg" isLoading={loading} className="w-full">
+                        <TurnstileWidget
+                            onTokenChange={setCaptchaToken}
+                            theme="dark"
+                            refreshKey={captchaRefreshKey}
+                            className="pt-1"
+                        />
+
+                        <Button type="submit" size="lg" isLoading={loading} className="w-full" disabled={!captchaToken}>
                             Verify & Continue
                         </Button>
                     </form>
