@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { isTurnstileEnabled } from '@/lib/turnstile';
 
 declare global {
     interface Window {
@@ -47,9 +48,14 @@ export function TurnstileWidget({
     const containerRef = useRef<HTMLDivElement | null>(null);
     const widgetIdRef = useRef<string | null>(null);
 
+    const enabled = useMemo(() => isTurnstileEnabled(), []);
     const siteKey = useMemo(() => process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '', []);
 
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+
         if (typeof window === 'undefined') {
             return;
         }
@@ -89,10 +95,14 @@ export function TurnstileWidget({
             script.removeEventListener('load', handleLoad);
             script.removeEventListener('error', handleError);
         };
-    }, []);
+    }, [enabled]);
 
     useEffect(() => {
         onTokenChange(null);
+
+        if (!enabled) {
+            return;
+        }
 
         if (!ready || !containerRef.current || !window.turnstile || !siteKey) {
             return;
@@ -117,7 +127,11 @@ export function TurnstileWidget({
                 widgetIdRef.current = null;
             }
         };
-    }, [ready, siteKey, theme, refreshKey, onTokenChange]);
+    }, [enabled, ready, siteKey, theme, refreshKey, onTokenChange]);
+
+    if (!enabled) {
+        return null;
+    }
 
     if (!siteKey) {
         return (

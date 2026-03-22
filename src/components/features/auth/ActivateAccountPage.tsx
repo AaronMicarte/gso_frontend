@@ -8,8 +8,10 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { activateAccount } from '@/lib/api/authActivation';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
+import { isTurnstileEnabled } from '@/lib/turnstile';
 
 export default function ActivateAccountPage() {
+    const turnstileEnabled = isTurnstileEnabled();
     const router = useRouter();
     const params = useSearchParams();
     const token = params.get('token') ?? '';
@@ -51,8 +53,8 @@ export default function ActivateAccountPage() {
     }, [password, confirmPassword]);
 
     const canSubmit = useMemo(() => {
-        return token.length > 0 && passwordChecks.isStrong && password === confirmPassword && !!captchaToken;
-    }, [token, passwordChecks.isStrong, password, confirmPassword, captchaToken]);
+        return token.length > 0 && passwordChecks.isStrong && password === confirmPassword && (!turnstileEnabled || !!captchaToken);
+    }, [token, passwordChecks.isStrong, password, confirmPassword, captchaToken, turnstileEnabled]);
 
     function describeValidationError(err: unknown): string {
         if (!(err instanceof AxiosError)) return 'Invalid or expired activation link.';
@@ -87,7 +89,7 @@ export default function ActivateAccountPage() {
                 token,
                 password,
                 password_confirmation: confirmPassword,
-                turnstile_token: captchaToken!,
+                turnstile_token: turnstileEnabled ? (captchaToken ?? '') : '',
             });
 
             toast.success('Account activated', {

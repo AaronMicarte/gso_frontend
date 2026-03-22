@@ -10,6 +10,7 @@ import { LoginError } from '@/types/auth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
+import { isTurnstileEnabled } from '@/lib/turnstile';
 import { toast } from 'sonner';
 
 // Zod schema for login validation
@@ -32,6 +33,7 @@ interface ActivationState {
 }
 
 export function LoginForm() {
+  const turnstileEnabled = isTurnstileEnabled();
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaRefreshKey, setCaptchaRefreshKey] = useState(0);
@@ -90,7 +92,7 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     if (lockout?.locked) return;
 
-    if (!captchaToken) {
+    if (turnstileEnabled && !captchaToken) {
       toast.error('Captcha Required', {
         description: 'Please complete the captcha before logging in.',
       });
@@ -104,7 +106,7 @@ export function LoginForm() {
     try {
       const response = await login({
         ...data,
-        turnstile_token: captchaToken,
+        turnstile_token: turnstileEnabled ? (captchaToken ?? '') : '',
       });
 
       // Check if MFA is required (either setup or verification)
@@ -236,7 +238,7 @@ export function LoginForm() {
         className="pt-2"
       />
       <div className="pt-2">
-        <Button type="submit" disabled={loading || lockout?.locked || !captchaToken}>
+        <Button type="submit" disabled={loading || lockout?.locked || (turnstileEnabled && !captchaToken)}>
           {loading ? 'Authenticating...' : 'Login'}
         </Button>
       </div>

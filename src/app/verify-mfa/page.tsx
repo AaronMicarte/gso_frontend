@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 import { verifyMFACode } from '@/lib/api/mfa';
 import { getDashboardRoute } from '@/lib/auth';
+import { isTurnstileEnabled } from '@/lib/turnstile';
 import { toast } from 'sonner';
 
 const codeSchema = z.object({
@@ -34,6 +35,7 @@ interface PendingMFA {
 }
 
 export default function VerifyMFAPage() {
+    const turnstileEnabled = isTurnstileEnabled();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export default function VerifyMFAPage() {
 
     const handleSubmit = async (data: CodeFormData) => {
         if (!pending) return;
-        if (!captchaToken) {
+        if (turnstileEnabled && !captchaToken) {
             setError('Please complete the captcha before verification.');
             return;
         }
@@ -70,7 +72,7 @@ export default function VerifyMFAPage() {
             const response = await verifyMFACode({
                 user_id: pending.userId,
                 code: data.code.toUpperCase().replace(/\s/g, ''),
-                turnstile_token: captchaToken,
+                turnstile_token: turnstileEnabled ? (captchaToken ?? '') : '',
                 trust_device: data.trust_device,
             });
 
@@ -230,7 +232,13 @@ export default function VerifyMFAPage() {
                             className="pt-1"
                         />
 
-                        <Button type="submit" size="lg" isLoading={loading} className="w-full" disabled={!captchaToken}>
+                        <Button
+                            type="submit"
+                            size="lg"
+                            isLoading={loading}
+                            className="w-full"
+                            disabled={turnstileEnabled && !captchaToken}
+                        >
                             Verify & Continue
                         </Button>
                     </form>

@@ -21,7 +21,6 @@ import {
     Box,
     Ruler,
     Truck,
-    Briefcase,
     Users,
     Package,
     Wrench,
@@ -228,6 +227,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         label: 'Security & Audit',
                         icon: ShieldCheck,
                         children: [
+                            { label: 'Security Center', href: `${baseRoute}/security`, icon: Shield },
                             { label: 'Login Audit', href: `${baseRoute}/security/login-audit`, icon: ShieldCheck },
                             { label: 'Activity Logs', href: `${baseRoute}/security/activity-logs`, icon: FileClock },
                             { label: 'System Settings', href: `${baseRoute}/settings`, icon: Settings },
@@ -317,6 +317,12 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                         ]
                     }
                 ]
+            },
+            {
+                section: 'ACCOUNT',
+                items: [
+                    { label: 'Settings', href: `${baseRoute}/settings`, icon: Settings },
+                ]
             }
         );
     }
@@ -374,6 +380,12 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                 items: [
                     // Keep reports minimal until role-specific reporting is implemented.
                     { label: 'Issuance Documents', href: `${baseRoute}/issuance`, icon: FileBarChart },
+                ]
+            },
+            {
+                section: 'ACCOUNT',
+                items: [
+                    { label: 'Settings', href: `${baseRoute}/settings`, icon: Settings },
                 ]
             }
         );
