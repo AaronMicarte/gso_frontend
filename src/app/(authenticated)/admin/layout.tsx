@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
+import { NotificationBootstrap } from '@/components/layout/NotificationBootstrap';
 import { LogoutConfirmModal } from '@/components/ui/LogoutConfirmModal';
 import { AuthProvider } from '@/lib/providers/AuthProvider';
 import { User } from '@/types/auth';
@@ -117,6 +118,7 @@ function AdminLayoutInner({
 
     return (
         <div className="min-h-screen bg-slate-100 flex">
+            {user ? <NotificationBootstrap user={user} /> : null}
             {/* Mobile Header */}
             <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-slate-800 border-b border-slate-700 z-50 flex items-center justify-between px-4">
                 <div>

@@ -33,7 +33,8 @@ import {
     Shield,
     Plus,
     FileCheck,
-    CalendarClock
+    CalendarClock,
+    Bell
 } from 'lucide-react';
 
 // Navigation structure with sections and collapsible groups
@@ -57,13 +58,18 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
     const isDepartmentHead = user.UserRoleID === 4;
 
     const sections: NavSection[] = [
-        // MAIN - Everyone sees dashboard
+        // MAIN - Everyone sees dashboard + notifications
         {
             items: [
                 {
                     label: 'Dashboard',
                     href: `${baseRoute}/dashboard`,
                     icon: LayoutDashboard
+                },
+                {
+                    label: 'Notifications',
+                    href: `${baseRoute}/notifications`,
+                    icon: Bell,
                 },
             ],
         },

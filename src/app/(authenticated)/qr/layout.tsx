@@ -2,6 +2,7 @@
 
 import { AuthProvider } from '@/lib/providers/AuthProvider';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { NotificationBootstrap } from '@/components/layout/NotificationBootstrap';
 import Sidebar from '@/components/layout/Sidebar';
 import { LogoutConfirmModal } from '@/components/ui/LogoutConfirmModal';
 import { Menu, X } from 'lucide-react';
@@ -99,6 +100,7 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="min-h-screen bg-slate-100 flex">
+            {user ? <NotificationBootstrap user={user} /> : null}
             <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-slate-800 border-b border-slate-700 z-50 flex items-center justify-between px-4">
                 <div>
                     <h1 className="text-lg font-bold text-[var(--primary)]">IAMS-GSO</h1>
