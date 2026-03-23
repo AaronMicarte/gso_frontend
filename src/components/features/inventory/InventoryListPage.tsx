@@ -151,7 +151,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                             <td className="px-6 py-4 text-slate-600">
                                                 <div>
                                                     <div className="text-xs text-slate-500">
-                                                        {inv.TotalItems} item{inv.TotalItems > 1 ? 's' : ''} • ₱{inv.TotalValue.toFixed(2)}
+                                                        {inv.TotalItems} item{inv.TotalItems > 1 ? 's' : ''} • ₱{inv.TotalValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
                                                     {inv.iar && (
                                                         <div className="text-xs text-slate-400 mt-1">

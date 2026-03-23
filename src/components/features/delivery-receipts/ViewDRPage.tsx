@@ -253,8 +253,8 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                                             <div className="text-sm">{item.QuantityDelivered}</div>
                                             <div className="text-xs text-slate-500 mt-1">{item.unitOfMeasure?.UnitName || 'N/A'}</div>
                                         </td>
-                                        <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.UnitCost)).toFixed(2)}</td>
-                                        <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.TotalCost)).toFixed(2)}</td>
+                                        <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.UnitCost)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                        <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.TotalCost)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                         <td className="py-3 px-3 text-sm text-slate-600">
                                             <div>
                                                 <span className="font-medium">R:</span>{' '}{(item.QuantityRequested ?? item.QuantityDelivered ?? 0)}{' '}
@@ -276,7 +276,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                     <h2 className="text-lg font-semibold text-slate-900 mb-4">Summary</h2>
                     <div className="flex items-center justify-between text-lg">
                         <span className="text-slate-600">Total Amount:</span>
-                        <span className="font-bold text-slate-900">₱{totalAmount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}</span>
+                        <span className="font-bold text-slate-900">₱{totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex items-center justify-between mt-4">
                         <span className="text-slate-600">Status:</span>

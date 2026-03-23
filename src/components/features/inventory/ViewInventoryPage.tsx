@@ -393,7 +393,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         </td>
                                                         <td className="px-6 py-4 text-slate-600">
                                                             <div>
-                                                                <div className="font-medium">{d.Quantity} @ ₱{Number(d.UnitCost || 0).toFixed(2)}</div>
+                                                                <div className="font-medium">{d.Quantity} @ ₱{Number(d.UnitCost || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">

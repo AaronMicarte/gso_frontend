@@ -516,7 +516,7 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                             <span className="text-sm font-semibold text-slate-900">Total Cost</span>
                         </div>
                         <span className="text-lg font-bold text-[var(--primary)]">
-                            ₱{totalCost.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}
+                            ₱{totalCost.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                     </div>
                 </div>

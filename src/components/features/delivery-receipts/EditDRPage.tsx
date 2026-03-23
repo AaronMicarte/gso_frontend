@@ -954,7 +954,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                 )}
                                             </td>
                                             <td className="py-3 px-3 text-right">
-                                                <div className="text-sm">₱{(details[index]?.unit_cost ?? 0).toFixed(2)}</div>
+                                                <div className="text-sm">₱{(details[index]?.unit_cost ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                                 {errors.details?.[index]?.unit_cost && (
                                                     <p className="mt-1 text-xs text-red-600">
                                                         {errors.details[index]?.unit_cost?.message}
@@ -962,7 +962,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                 )}
                                             </td>
                                             <td className="py-3 px-3 text-sm font-medium text-slate-700">
-                                                ₱{((details[index]?.quantity_delivered || 0) * (details[index]?.unit_cost || 0)).toFixed(2)}
+                                                ₱{((details[index]?.quantity_delivered || 0) * (details[index]?.unit_cost || 0)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             <td className="py-3 px-3 flex items-center gap-2">
                                                 {(errors.details?.[index]?.property_type_id || errors.details?.[index]?.unit_of_measure_id || errors.details?.[index]?.quantity_delivered || errors.details?.[index]?.item_description) && (
@@ -1034,7 +1034,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                         <div className="flex items-center justify-between text-lg">
                             <span className="text-slate-600">Total Amount:</span>
                             <span className="font-bold text-slate-900">
-                                ₱{totalAmount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}
+                                ₱{totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                         </div>
                     </div>
