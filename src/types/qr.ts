@@ -46,6 +46,10 @@ export interface QrScanInventoryDetail {
     drDetail?: {
         DRDetailID: number;
         ItemDescription?: string | null;
+        article?: {
+            ArticleID: number;
+            ArticleName: string;
+        } | null;
     } | null;
     PropertyName?: string | null;
     ClassificationName?: string | null;

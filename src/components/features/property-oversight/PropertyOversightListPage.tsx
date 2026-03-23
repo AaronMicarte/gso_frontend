@@ -68,6 +68,26 @@ function getDocumentType(p: QrScanAssignedProperty): DocumentTypeFilter {
     return 'ALL';
 }
 
+function getArticleName(p: QrScanAssignedProperty): string {
+    return text(
+        p.inventoryDetail?.drDetail?.article?.ArticleName
+        ?? p.inventoryDetail?.drDetail?.ItemDescription
+        ?? p.inventoryDetail?.PropertyName
+        ?? p.inventoryDetail?.Description
+        ?? p.Description,
+        'Item not recorded'
+    );
+}
+
+function getItemDescription(p: QrScanAssignedProperty): string {
+    return text(
+        p.inventoryDetail?.drDetail?.ItemDescription
+        ?? p.inventoryDetail?.Description
+        ?? p.Description,
+        'No description'
+    );
+}
+
 export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPageProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
@@ -211,7 +231,8 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                         <table className="w-full text-sm text-left">
                             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                 <tr>
-                                    <th className="px-6 py-4">Property Card</th>
+                                    <th className="px-6 py-4">Article</th>
+                                    <th className="px-6 py-4">Description</th>
                                     <th className="px-6 py-4">Property No.</th>
                                     <th className="px-6 py-4">End User</th>
                                     <th className="px-6 py-4">Status</th>
@@ -224,29 +245,31 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                             <tbody className="divide-y divide-slate-200">
                                 {filtered.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
+                                        <td colSpan={8} className="px-6 py-10 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                             No properties found
                                         </td>
                                     </tr>
                                 ) : (
                                     filtered.map((p) => {
-                                        const card = text(p.PropertyCardNumber, 'Not recorded');
                                         const itemName = getItemName(p);
-                                        const title = `${card} · ${itemName}`;
+                                        const title = itemName;
 
+                                        const article = getArticleName(p);
+                                        const description = getItemDescription(p);
                                         const propertyNo = text(p.inventoryDetail?.PropertyNumber, 'Not recorded');
                                         const endUserName = getRequesterName(p);
                                         const deptName = text(p.department?.DepartmentName ?? p.endUser?.department?.DepartmentName, 'Not recorded');
 
                                         return (
                                             <tr key={p.PropertyID} className="hover:bg-slate-50">
-                                                <td className="px-6 py-4 font-medium text-slate-900 max-w-[520px]">
-                                                    <div className="truncate" title={title}>{title}</div>
+                                                <td className="px-6 py-4 font-medium text-slate-900 max-w-[400px]">
+                                                    <div className="truncate" title={article}>{article}</div>
                                                     <div className="text-xs text-slate-500 mt-1">
                                                         Dept: {deptName}
                                                     </div>
                                                 </td>
+                                                <td className="px-6 py-4 text-slate-700 truncate" title={description}>{description}</td>
                                                 <td className="px-6 py-4 text-slate-700">{propertyNo}</td>
                                                 <td className="px-6 py-4 text-slate-700">{endUserName}</td>
                                                 <td className="px-6 py-4">
