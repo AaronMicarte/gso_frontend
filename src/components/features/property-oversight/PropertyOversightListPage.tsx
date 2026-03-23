@@ -94,6 +94,16 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
     const totalPages = data?.last_page ?? 1;
     const currentPage = data?.current_page ?? page;
 
+    useEffect(() => {
+        setPage(1);
+    }, [docType, status, condition]);
+
+    useEffect(() => {
+        if (page > totalPages) {
+            setPage(totalPages);
+        }
+    }, [page, totalPages]);
+
     const { data: allStatuses } = useAllPropertyStatuses();
     const { data: allConditions } = useAllConditions();
 
@@ -270,24 +280,26 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                     </div>
 
                     {totalPages > 1 && (
-                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
-                            <button
-                                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                disabled={!canGoPrev}
-                                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                type="button"
-                            >
-                                Previous
-                            </button>
-                            <span className="text-sm text-slate-600">Page {currentPage} of {totalPages}</span>
-                            <button
-                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                disabled={!canGoNext}
-                                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                type="button"
-                            >
-                                Next
-                            </button>
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <span className="text-sm text-slate-600">Page {currentPage} of {totalPages} | {data?.total ?? 0} total assets</span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    disabled={!canGoPrev}
+                                    className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    type="button"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={!canGoNext}
+                                    className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    type="button"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
