@@ -104,13 +104,23 @@ export function LoginForm() {
     setActivation(null);
 
     try {
+      const trustedDeviceToken = typeof window !== 'undefined'
+        ? localStorage.getItem('trusted_device_token') ?? undefined
+        : undefined;
+
       const response = await login({
         ...data,
         turnstile_token: turnstileEnabled ? (captchaToken ?? '') : '',
+        device_token: trustedDeviceToken,
       });
 
       // Check if MFA is required (either setup or verification)
       if (response.mfa_required && response.user_id) {
+        // Device token was not accepted by backend; remove stale fallback token.
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('trusted_device_token');
+        }
+
         const isSetupRequired = response.mfa_setup_required === true;
 
         // If MFA setup required, redirect to dedicated setup page

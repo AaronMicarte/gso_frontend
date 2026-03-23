@@ -46,7 +46,7 @@ export default function VerifyMFAPage() {
 
     const form = useForm<CodeFormData>({
         resolver: zodResolver(codeSchema),
-        defaultValues: { code: '', trust_device: true },
+        defaultValues: { code: '', trust_device: false },
     });
 
     useEffect(() => {
@@ -75,6 +75,10 @@ export default function VerifyMFAPage() {
                 turnstile_token: turnstileEnabled ? (captchaToken ?? '') : '',
                 trust_device: data.trust_device,
             });
+
+            if (response.device_token && typeof window !== 'undefined') {
+                localStorage.setItem('trusted_device_token', response.device_token);
+            }
 
             sessionStorage.removeItem('mfa_verify_pending');
             toast.success('Login successful!', {

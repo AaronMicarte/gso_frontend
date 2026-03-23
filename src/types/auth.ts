@@ -2,6 +2,7 @@ export interface LoginCredentials {
   username: string;
   password: string;
   turnstile_token: string;
+  device_token?: string;
 }
 
 export interface User {

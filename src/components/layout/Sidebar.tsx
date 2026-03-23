@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { User } from '@/types/auth';
+import { listNotifications } from '@/lib/api/notifications';
 import {
     LayoutDashboard,
     LogOut,
@@ -43,6 +44,7 @@ interface NavItem {
     href?: string;
     icon: LucideIcon;
     children?: NavItem[];
+    badge?: number;
 }
 
 interface NavSection {
@@ -52,7 +54,7 @@ interface NavSection {
 
 // Function to get navigation sections based on user role
 // Uses role-specific route prefixes: /admin/ for Admin, /staff/ for GSO Staff, /department_head/ for Department Head
-function getNavSections(user: User, baseRoute: string): NavSection[] {
+function getNavSections(user: User, baseRoute: string, unreadCount: number): NavSection[] {
     const isAdmin = user.UserRoleID === 1;
     const isGSOStaff = user.UserRoleID === 2 || user.UserRoleID === 6;
     const isDepartmentHead = user.UserRoleID === 4;
@@ -70,6 +72,7 @@ function getNavSections(user: User, baseRoute: string): NavSection[] {
                     label: 'Notifications',
                     href: `${baseRoute}/notifications`,
                     icon: Bell,
+                    badge: unreadCount,
                 },
             ],
         },
@@ -482,13 +485,20 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
     return (
         <a
             href={item.href}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${isActive
+            className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-colors ${isActive
                 ? 'bg-[var(--primary)] text-white'
                 : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 }`}
         >
-            <Icon className="w-5 h-5" />
-            <span className="text-sm font-medium">{item.label}</span>
+            <div className="flex items-center gap-3">
+                <Icon className="w-5 h-5" />
+                <span className="text-sm font-medium">{item.label}</span>
+            </div>
+            {item.badge && item.badge > 0 ? (
+                <span className="flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold h-5 min-w-[1.25rem] px-1">
+                    {item.badge}
+                </span>
+            ) : null}
         </a>
     );
 }
@@ -502,6 +512,31 @@ interface SidebarProps {
 
 export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarProps) {
     const pathname = usePathname();
+    const [unreadCount, setUnreadCount] = useState<number>(0);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchUnread = async () => {
+            try {
+                const notifications = await listNotifications(100);
+                if (!isMounted) return;
+
+                const unread = notifications.filter((n) => n.read_at === null).length;
+                setUnreadCount(unread);
+            } catch (error) {
+                console.warn('Failed to load unread count', error);
+            }
+        };
+
+        void fetchUnread();
+        const interval = setInterval(fetchUnread, 30000); // refresh every 30s
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, []);
 
     return (
         <aside className={`w-64 bg-white text-slate-900 flex flex-col fixed h-screen z-40 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'
@@ -512,7 +547,7 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
 
             {/* Navigation - Scrollable content area */}
             <nav className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin">
-                {getNavSections(user, baseRoute).map((section, sectionIndex) => (
+                {getNavSections(user, baseRoute, unreadCount).map((section, sectionIndex) => (
                     <div key={sectionIndex} className="mb-4">
                         {section.section && (
                             <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
