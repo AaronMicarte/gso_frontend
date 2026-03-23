@@ -96,9 +96,9 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
 
     // Manila today's date (YYYY-MM-DD) for client-side max date and validation
     const manilaToday = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
-    // Manila minimum allowed date (5 years back)
+    // Manila minimum allowed date (1 year back)
     const manilaMinDate = new Date();
-    manilaMinDate.setFullYear(manilaMinDate.getFullYear() - 5);
+    manilaMinDate.setFullYear(manilaMinDate.getFullYear() - 1);
     const manilaMin = formatInTimeZone(manilaMinDate, 'Asia/Manila', 'yyyy-MM-dd');
 
     const {
@@ -646,9 +646,9 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                 <input
                                     {...register('date_received')}
                                     type="date"
-                                    value={manilaToday}
-                                    readOnly
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-100 cursor-not-allowed"
+                                    min={manilaMin}
+                                    max={manilaToday}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                                 />
                                 {errors.date_received && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
