@@ -1,8 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, RefreshCw, Search, Package } from 'lucide-react';
+import { Eye, RefreshCw, Search, Package, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -95,6 +94,19 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
     const [docType, setDocType] = useState<DocumentTypeFilter>('ALL');
     const [status, setStatus] = useState<number | 'ALL'>('ALL');
     const [condition, setCondition] = useState<number | 'ALL'>('ALL');
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedProperty, setSelectedProperty] = useState<QrScanAssignedProperty | null>(null);
+
+    const openPropertyModal = (property: QrScanAssignedProperty) => {
+        setSelectedProperty(property);
+        setIsModalOpen(true);
+    };
+
+    const closePropertyModal = () => {
+        setIsModalOpen(false);
+        setSelectedProperty(null);
+    };
 
     const query = useQrProperties({
         page,
@@ -284,13 +296,14 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                                 <td className="px-6 py-4 text-slate-700">{formatPHDate(p.AssignedDate)}</td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <Link
-                                                            href={`${baseRoute}/properties/${p.PropertyID}`}
+                                                        <button
+                                                            onClick={() => openPropertyModal(p)}
                                                             className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
                                                             title="View property oversight"
+                                                            type="button"
                                                         >
                                                             <Eye className="w-4 h-4" />
-                                                        </Link>
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -325,6 +338,79 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                         </div>
                     )}
                 </div>
+
+                {isModalOpen && selectedProperty && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="fixed inset-0 bg-black/50" onClick={closePropertyModal} />
+                        <div className="relative z-10 w-full max-w-lg bg-white rounded-xl shadow-xl p-6">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-900">Property Details</h2>
+                                    <p className="text-sm text-slate-500">Keep only key oversight fields for quick review.</p>
+                                </div>
+                                <button
+                                    onClick={closePropertyModal}
+                                    className="p-2 text-slate-500 hover:text-slate-700 rounded-full transition-colors"
+                                    type="button"
+                                    aria-label="Close property modal"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 gap-3">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">Article</span>
+                                    <span className="text-sm text-slate-900">{getArticleName(selectedProperty)}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">Brand</span>
+                                    <span className="text-sm text-slate-900">{text(selectedProperty.inventoryDetail?.Brand, 'Not recorded')}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">Model</span>
+                                    <span className="text-sm text-slate-900">{text(selectedProperty.inventoryDetail?.ModelNumber, 'Not recorded')}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">Serial Number</span>
+                                    <span className="text-sm text-slate-900">{text(selectedProperty.inventoryDetail?.SerialNumber, 'Not recorded')}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">Property No.</span>
+                                    <span className="text-sm text-slate-900">{text(selectedProperty.inventoryDetail?.PropertyNumber, 'Not recorded')}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">End User / Department</span>
+                                    <span className="text-sm text-slate-900">
+                                        {`${getRequesterName(selectedProperty)} / ${text(selectedProperty.department?.DepartmentName ?? selectedProperty.endUser?.department?.DepartmentName, 'Not recorded')}`}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">Status</span>
+                                    <span className="text-sm text-slate-900">{getStatusName(selectedProperty)}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">Condition</span>
+                                    <span className="text-sm text-slate-900">{getConditionName(selectedProperty)}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <span className="text-sm text-slate-500">Assigned</span>
+                                    <span className="text-sm text-slate-900">{formatPHDate(selectedProperty.AssignedDate)}</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 text-right">
+                                <button
+                                    onClick={closePropertyModal}
+                                    className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                                    type="button"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
