@@ -1,19 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import serviceApi from '@/lib/api/assetServices';
 import {
-    AssetServiceBudgetStatus,
     AssetServiceHandlingDecision,
-    AssetServiceReportSource,
-    AssetServiceStatus,
     ServiceHelperDepartment,
-    ServiceHelperEndUser,
-    ServiceHelperVendor,
+    ServiceHelperProvider,
     ServiceInventoryItem,
 } from '@/types/assetService';
 
@@ -26,49 +22,84 @@ interface ServiceDetailFormState {
     localId: string;
     service_record_detail_id?: number;
     inventory_detail_id: number | '';
+    inventory_query: string;
     problem_description: string;
     handling_decision: AssetServiceHandlingDecision | '';
-    budget_status: AssetServiceBudgetStatus;
-    status: AssetServiceStatus;
-    assigned_vendor_id: number | '';
-    estimated_cost: string;
-    actual_cost: string;
-    warranty_covered: boolean;
-    warranty_outcome: string;
-    completion_notes: string;
-    verification_notes: string;
+    assigned_provider_key: string;
 }
 
-const STATUS_OPTIONS: AssetServiceStatus[] = [
-    'pending',
-    'under_review',
-    'work_approved',
-    'repair_in_progress',
-    'verification',
-    'closed',
-    'unrepairable',
-];
-
-const REPORT_SOURCES: AssetServiceReportSource[] = ['cce_user', 'inventory_check', 'audit', 'other'];
-const BUDGET_OPTIONS: AssetServiceBudgetStatus[] = ['pending_check', 'warranty_covered', 'budget_available', 'budget_unavailable'];
-const HANDLING_OPTIONS: AssetServiceHandlingDecision[] = ['warranty_claim', 'vendor_repair', 'replacement_evaluation'];
+const HANDLING_OPTIONS: AssetServiceHandlingDecision[] = ['warranty_claim', 'vendor_repair'];
 
 function makeEmptyDetailState(): ServiceDetailFormState {
     return {
         localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         inventory_detail_id: '',
+        inventory_query: '',
         problem_description: '',
         handling_decision: '',
-        budget_status: 'pending_check',
-        status: 'pending',
-        assigned_vendor_id: '',
-        estimated_cost: '',
-        actual_cost: '',
-        warranty_covered: false,
-        warranty_outcome: '',
-        completion_notes: '',
-        verification_notes: '',
+        assigned_provider_key: '',
     };
+}
+
+function splitProviderKey(providerKey: string): { assigned_vendor_id: number | null; assigned_supplier_id: number | null } {
+    if (!providerKey) {
+        return { assigned_vendor_id: null, assigned_supplier_id: null };
+    }
+
+    const [providerType, providerIdStr] = providerKey.split(':');
+    const providerId = Number(providerIdStr);
+
+    if (!providerType || Number.isNaN(providerId) || providerId <= 0) {
+        return { assigned_vendor_id: null, assigned_supplier_id: null };
+    }
+
+    if (providerType === 'vendor') {
+        return { assigned_vendor_id: providerId, assigned_supplier_id: null };
+    }
+
+    if (providerType === 'supplier') {
+        return { assigned_vendor_id: null, assigned_supplier_id: providerId };
+    }
+
+    return { assigned_vendor_id: null, assigned_supplier_id: null };
+}
+
+function makeProviderKey(providerType?: 'vendor' | 'supplier' | null, providerId?: number | null): string {
+    if (!providerType || !providerId) {
+        return '';
+    }
+
+    return `${providerType}:${providerId}`;
+}
+
+function inventoryLabel(item: ServiceInventoryItem): string {
+    const property = item.PropertyNumber || `ID ${item.InventoryDetailID}`;
+    const article = item.dr_article_name || item.Description || 'No article';
+    const model = item.ModelNumber || 'No model';
+    const brand = item.Brand || 'No brand';
+    const serial = item.SerialNumber || 'No serial';
+    const supplier = item.SupplierName || 'No supplier';
+
+    return `${property} - ${article} - ${model} - ${brand} - ${serial} - ${supplier}`;
+}
+
+function findAutoProviderKey(item: ServiceInventoryItem | undefined, providers: ServiceHelperProvider[]): string {
+    if (!item?.SupplierID) {
+        return '';
+    }
+
+    const matchedSupplier = providers.find((provider) => provider.ProviderType === 'supplier' && provider.ProviderID === item.SupplierID);
+    return matchedSupplier ? `supplier:${matchedSupplier.ProviderID}` : '';
+}
+
+function departmentOptionLabel(department: ServiceHelperDepartment, departmentHeadName?: string): string {
+    const departmentRef = department.DepartmentCode || department.DepartmentName;
+
+    if (departmentHeadName) {
+        return `${departmentHeadName} - ${departmentRef}`;
+    }
+
+    return departmentRef;
 }
 
 export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordFormPageProps) {
@@ -77,33 +108,35 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
 
     const [loading, setLoading] = useState(false);
 
-    const [vendors, setVendors] = useState<ServiceHelperVendor[]>([]);
+    const [providers, setProviders] = useState<ServiceHelperProvider[]>([]);
     const [departments, setDepartments] = useState<ServiceHelperDepartment[]>([]);
-    const [endUsers, setEndUsers] = useState<ServiceHelperEndUser[]>([]);
+    const [departmentHeadsByDepartment, setDepartmentHeadsByDepartment] = useState<Record<number, string>>({});
     const [inventory, setInventory] = useState<ServiceInventoryItem[]>([]);
-
-    const [inventorySearch, setInventorySearch] = useState('');
+    const [openInventoryForDetail, setOpenInventoryForDetail] = useState<string | null>(null);
 
     const [dateReported, setDateReported] = useState(() => new Date().toISOString().split('T')[0]);
-    const [reportSource, setReportSource] = useState<AssetServiceReportSource>('other');
-    const [submittedByName, setSubmittedByName] = useState('');
-    const [submittedByEndUserId, setSubmittedByEndUserId] = useState<number | ''>('');
     const [reportingDepartmentId, setReportingDepartmentId] = useState<number | ''>('');
-    const [status, setStatus] = useState<AssetServiceStatus>('pending');
     const [recordNotes, setRecordNotes] = useState('');
     const [details, setDetails] = useState<ServiceDetailFormState[]>([makeEmptyDetailState()]);
 
     useEffect(() => {
         const loadHelpers = async () => {
             try {
-                const [v, d, inv] = await Promise.all([
-                    serviceApi.getVendors(),
+                const [providerRows, departmentRows, departmentHeadRows] = await Promise.all([
+                    serviceApi.getProviders(),
                     serviceApi.getDepartments(),
-                    serviceApi.getInventory(),
+                    serviceApi.getDepartmentHeads(),
                 ]);
-                setVendors(v);
-                setDepartments(d);
-                setInventory(inv);
+                setProviders(providerRows);
+                setDepartments(departmentRows);
+
+                const headMap: Record<number, string> = {};
+                for (const head of departmentHeadRows) {
+                    if (head.DepartmentID && !headMap[head.DepartmentID]) {
+                        headMap[head.DepartmentID] = head.FullName;
+                    }
+                }
+                setDepartmentHeadsByDepartment(headMap);
             } catch {
                 toast.error('Failed to load form helpers');
             }
@@ -115,14 +148,14 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
     useEffect(() => {
         const run = async () => {
             if (!reportingDepartmentId) {
-                setEndUsers([]);
+                setInventory([]);
                 return;
             }
             try {
-                const rows = await serviceApi.getEndUsers(Number(reportingDepartmentId));
-                setEndUsers(rows);
+                const items = await serviceApi.getInventory(undefined, Number(reportingDepartmentId));
+                setInventory(items);
             } catch {
-                toast.error('Failed to load end users');
+                toast.error('Failed to load inventory items');
             }
         };
 
@@ -137,28 +170,17 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                 const data = await serviceApi.getById(recordId);
 
                 setDateReported(data.DateReported || '');
-                setReportSource(data.ReportSource);
-                setSubmittedByName(data.SubmittedByName || '');
-                setSubmittedByEndUserId(data.SubmittedByEndUserID || '');
                 setReportingDepartmentId(data.ReportingDepartmentID || '');
-                setStatus(data.Status);
                 setRecordNotes(data.RecordNotes || '');
 
                 const mappedDetails: ServiceDetailFormState[] = (data.details || []).map((detail): ServiceDetailFormState => ({
                     localId: `${detail.ServiceRecordDetailID}-${Math.random().toString(36).slice(2, 8)}`,
                     service_record_detail_id: detail.ServiceRecordDetailID,
                     inventory_detail_id: detail.InventoryDetailID ? Number(detail.InventoryDetailID) : '',
+                    inventory_query: `${detail.PropertyNumber || `ID ${detail.InventoryDetailID}`} - ${detail.ItemDescription || 'No description'}`,
                     problem_description: detail.ProblemDescription || '',
                     handling_decision: (detail.HandlingDecision as AssetServiceHandlingDecision) || '',
-                    budget_status: detail.BudgetStatus || 'pending_check',
-                    status: detail.Status || data.Status,
-                    assigned_vendor_id: detail.AssignedVendorID ? Number(detail.AssignedVendorID) : '',
-                    estimated_cost: detail.EstimatedCost != null ? String(detail.EstimatedCost) : '',
-                    actual_cost: detail.ActualCost != null ? String(detail.ActualCost) : '',
-                    warranty_covered: !!detail.WarrantyCovered,
-                    warranty_outcome: detail.WarrantyOutcome || '',
-                    completion_notes: detail.CompletionNotes || '',
-                    verification_notes: detail.VerificationNotes || '',
+                    assigned_provider_key: makeProviderKey(detail.assigned_provider_type, detail.assigned_provider_id),
                 }));
 
                 setDetails(mappedDetails.length > 0 ? mappedDetails : [makeEmptyDetailState()]);
@@ -172,24 +194,79 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
         run();
     }, [isEditMode, recordId]);
 
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            try {
-                const rows = await serviceApi.getInventory(inventorySearch || undefined);
-                setInventory(rows);
-            } catch {
-                // no-op
-            }
-        }, 250);
-
-        return () => clearTimeout(timer);
-    }, [inventorySearch]);
-
     const updateDetailField = <K extends keyof ServiceDetailFormState>(localId: string, key: K, value: ServiceDetailFormState[K]) => {
         setDetails((prev) => prev.map((detail) => (detail.localId === localId ? { ...detail, [key]: value } : detail)));
     };
 
+    const selectInventoryForDetail = (localId: string, inventoryIdValue: string) => {
+        const inventoryId = inventoryIdValue ? Number(inventoryIdValue) : '';
+        const selectedInventory = inventory.find((item) => item.InventoryDetailID === Number(inventoryId));
+        const otherSelectedInventoryIds = new Set(details
+            .filter((d) => d.localId !== localId)
+            .map((d) => Number(d.inventory_detail_id))
+            .filter((id) => id > 0)
+        );
+
+        if (selectedInventory && otherSelectedInventoryIds.has(selectedInventory.InventoryDetailID)) {
+            toast.error('This inventory item is already selected in another detail');
+            return;
+        }
+
+        setDetails((prev) => prev.map((detail) => {
+            if (detail.localId !== localId) {
+                return detail;
+            }
+
+            const autoProvider = findAutoProviderKey(selectedInventory, providers);
+            return {
+                ...detail,
+                inventory_detail_id: inventoryId,
+                inventory_query: selectedInventory ? inventoryLabel(selectedInventory) : '',
+                assigned_provider_key: autoProvider || detail.assigned_provider_key,
+            };
+        }));
+
+        setOpenInventoryForDetail(null);
+    };
+
+    const updateInventoryQueryForDetail = (localId: string, query: string) => {
+        setDetails((prev) => prev.map((detail) => {
+            if (detail.localId !== localId) {
+                return detail;
+            }
+
+            const selectedInventory = inventory.find((item) => item.InventoryDetailID === Number(detail.inventory_detail_id));
+            const selectedLabel = selectedInventory ? inventoryLabel(selectedInventory) : '';
+
+            return {
+                ...detail,
+                inventory_query: query,
+                inventory_detail_id: selectedLabel && query !== selectedLabel ? '' : detail.inventory_detail_id,
+            };
+        }));
+    };
+
+    const canEditDetails = Boolean(reportingDepartmentId);
+
+    const updateHandlingDecision = (localId: string, value: AssetServiceHandlingDecision | '') => {
+        setDetails((prev) => prev.map((detail) => {
+            if (detail.localId !== localId) {
+                return detail;
+            }
+
+            return {
+                ...detail,
+                handling_decision: value,
+            };
+        }));
+    };
+
     const addDetail = () => {
+        if (!canEditDetails) {
+            toast.error('Please select the reporting department first');
+            return;
+        }
+
         setDetails((prev) => [...prev, makeEmptyDetailState()]);
     };
 
@@ -202,8 +279,21 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
         });
     };
 
+    const minDate = useMemo(() => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - 1);
+        return d.toISOString().split('T')[0];
+    }, []);
+
+    const maxDate = useMemo(() => new Date().toISOString().split('T')[0], []);
+
     const onSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
+
+        if (!reportingDepartmentId) {
+            toast.error('Reporting department is required');
+            return;
+        }
 
         if (details.length === 0) {
             toast.error('At least one service detail is required');
@@ -216,29 +306,39 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
             return;
         }
 
+        for (const detail of details) {
+            if (!detail.handling_decision) {
+                toast.error('Handling decision is required for each detail');
+                return;
+            }
+
+            if (!detail.assigned_provider_key) {
+                toast.error('Service vendor or supplier is required for each detail');
+                return;
+            }
+        }
+
         const payload = {
             date_reported: dateReported,
-            report_source: reportSource,
-            submitted_by_name: submittedByName || undefined,
-            submitted_by_end_user_id: submittedByEndUserId ? Number(submittedByEndUserId) : null,
-            reporting_department_id: reportingDepartmentId ? Number(reportingDepartmentId) : null,
-            status,
+            report_source: 'other' as const,
+            reporting_department_id: Number(reportingDepartmentId),
             record_notes: recordNotes || undefined,
-            details: details.map((detail) => ({
-                service_record_detail_id: detail.service_record_detail_id,
-                inventory_detail_id: Number(detail.inventory_detail_id),
-                problem_description: detail.problem_description,
-                handling_decision: detail.handling_decision || undefined,
-                budget_status: detail.budget_status,
-                status: detail.status,
-                assigned_vendor_id: detail.assigned_vendor_id ? Number(detail.assigned_vendor_id) : null,
-                estimated_cost: detail.estimated_cost ? Number(detail.estimated_cost) : null,
-                actual_cost: detail.actual_cost ? Number(detail.actual_cost) : null,
-                warranty_covered: detail.warranty_covered,
-                warranty_outcome: detail.warranty_outcome || undefined,
-                completion_notes: detail.completion_notes || undefined,
-                verification_notes: detail.verification_notes || undefined,
-            })),
+            details: details.map((detail) => {
+                const provider = splitProviderKey(detail.assigned_provider_key);
+                const isWarrantyClaim = detail.handling_decision === 'warranty_claim';
+
+                return {
+                    service_record_detail_id: detail.service_record_detail_id,
+                    inventory_detail_id: Number(detail.inventory_detail_id),
+                    problem_description: detail.problem_description,
+                    handling_decision: detail.handling_decision || undefined,
+                    budget_status: isWarrantyClaim ? ('warranty_covered' as const) : ('budget_available' as const),
+                    status: 'pending' as const,
+                    assigned_vendor_id: provider.assigned_vendor_id,
+                    assigned_supplier_id: provider.assigned_supplier_id,
+                    actual_cost: null,
+                };
+            }),
         };
 
         try {
@@ -261,8 +361,8 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
     };
 
     return (
-        <div className="min-h-screen bg-app print:hidden">
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="min-h-screen print:hidden relative bg-app bg-fixed bg-center bg-cover">
+            <div className="sticky top-0 z-10">
                 <div className="px-4 sm:px-6 py-4">
                     <div className="flex items-center gap-4">
                         <button
@@ -282,88 +382,104 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                 </div>
             </div>
 
-            <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-                <form onSubmit={onSubmit} className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 space-y-6">
+            <div className="p-4 sm:p-6 lg:p-10 max-w-[1700px] mx-auto w-full">
+                <form onSubmit={onSubmit} className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 sm:p-8 space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Date Reported</label>
-                            <input type="date" value={dateReported} onChange={(e) => setDateReported(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg" required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Report Source</label>
-                            <select value={reportSource} onChange={(e) => setReportSource(e.target.value as AssetServiceReportSource)} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                                {REPORT_SOURCES.map((source) => (
-                                    <option key={source} value={source}>{source.replaceAll('_', ' ')}</option>
-                                ))}
-                            </select>
+                            <input
+                                type="date"
+                                value={dateReported}
+                                min={minDate}
+                                max={maxDate}
+                                onChange={(e) => setDateReported(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                required
+                            />
+                            <p className="text-xs text-slate-500 mt-1">Only dates within the last 1 year are allowed.</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Record Status</label>
-                            <select value={status} onChange={(e) => setStatus(e.target.value as AssetServiceStatus)} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                                {STATUS_OPTIONS.map((s) => (
-                                    <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
-                                ))}
-                            </select>
+                            <input
+                                value="Pending"
+                                readOnly
+                                className="w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-lg text-slate-700"
+                            />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Reporting Department</label>
-                            <select value={reportingDepartmentId} onChange={(e) => setReportingDepartmentId(e.target.value ? Number(e.target.value) : '')} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            <select
+                                value={reportingDepartmentId}
+                                onChange={(e) => setReportingDepartmentId(e.target.value ? Number(e.target.value) : '')}
+                                className="w-full px-3 py-2 border border-slate-300 bg-white rounded-lg text-slate-700"
+                                required
+                            >
                                 <option value="">Select department</option>
                                 {departments.map((department) => (
-                                    <option key={department.DepartmentID} value={department.DepartmentID}>{department.DepartmentName}</option>
+                                    <option key={department.DepartmentID} value={department.DepartmentID}>
+                                        {departmentOptionLabel(department, departmentHeadsByDepartment[department.DepartmentID])}
+                                    </option>
                                 ))}
                             </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Submitted by (Name)</label>
-                            <input value={submittedByName} onChange={(e) => setSubmittedByName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Submitted by (End User)</label>
-                            <select value={submittedByEndUserId} onChange={(e) => setSubmittedByEndUserId(e.target.value ? Number(e.target.value) : '')} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                                <option value="">Select end user</option>
-                                {endUsers.map((endUser) => (
-                                    <option key={endUser.EndUserID} value={endUser.EndUserID}>{endUser.FullName}</option>
-                                ))}
-                            </select>
+                            <p className="text-xs text-slate-500 mt-1">Select where the report belongs.</p>
+                            {!reportingDepartmentId && (
+                                <p className="text-sm text-red-600 mt-2">Please select the reporting department before filling service details.</p>
+                            )}
                         </div>
                     </div>
 
-                    <div className="border-t border-slate-200 pt-6">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-3">
-                            <h2 className="text-lg font-semibold text-slate-800">Service Details</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-[minmax(280px,1fr)_auto] gap-2">
-                                <input
-                                    value={inventorySearch}
-                                    onChange={(e) => setInventorySearch(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                    placeholder="Search inventory list for all detail rows"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={addDetail}
-                                    className="inline-flex items-center justify-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Add Detail Row
-                                </button>
-                            </div>
+                    <div className="border-t border-slate-200 pt-8">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-semibold text-slate-800">Service Details</h2>
+                            <button
+                                type="button"
+                                onClick={addDetail}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 bg-white/90 hover:bg-slate-50"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Add Detail Row
+                            </button>
                         </div>
 
-                        <div className="space-y-4">
+                        <div className="space-y-5 relative">
+                            {!canEditDetails && (
+                                <button
+                                    type="button"
+                                    onClick={() => toast.error('Select a reporting department first')}
+                                    className="absolute inset-0 z-30 w-full h-full bg-transparent"
+                                />
+                            )}
                             {details.map((detail, index) => {
                                 const selectedInventory = inventory.find((item) => item.InventoryDetailID === Number(detail.inventory_detail_id));
+                                const otherSelectedInventoryIds = new Set(
+                                    details
+                                        .filter((d) => d.localId !== detail.localId)
+                                        .map((d) => Number(d.inventory_detail_id))
+                                        .filter((id) => id > 0)
+                                );
+                                const inventoryQuery = detail.inventory_query.trim().toLowerCase();
+                                const filteredInventory = (inventoryQuery
+                                    ? inventory.filter((item) => inventoryLabel(item).toLowerCase().includes(inventoryQuery))
+                                    : inventory
+                                ).filter((item) => !otherSelectedInventoryIds.has(item.InventoryDetailID));
+
                                 return (
-                                    <div key={detail.localId} className="rounded-lg border border-slate-200 p-4">
+                                    <div key={detail.localId} className="rounded-xl border border-slate-200 p-5 sm:p-6 bg-white shadow-sm">
                                         <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-sm font-semibold text-slate-700">Detail #{index + 1}</h3>
+                                            <h3 className="text-sm font-semibold tracking-wide text-slate-700 uppercase">Detail #{index + 1}</h3>
                                             <button
                                                 type="button"
-                                                onClick={() => removeDetail(detail.localId)}
-                                                disabled={details.length <= 1}
+                                                onClick={() => {
+                                                    if (!canEditDetails) {
+                                                        toast.error('Please select the reporting department first');
+                                                        return;
+                                                    }
+                                                    removeDetail(detail.localId);
+                                                }}
+                                                disabled={details.length <= 1 || !canEditDetails}
                                                 className="inline-flex items-center gap-2 px-2.5 py-1.5 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 disabled:opacity-40"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -371,153 +487,121 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                             </button>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-slate-700 mb-2">Inventory Item</label>
-                                                <select
-                                                    value={detail.inventory_detail_id}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'inventory_detail_id', e.target.value ? Number(e.target.value) : '')}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                    required
-                                                >
-                                                    <option value="">Select item</option>
-                                                    {inventory.map((item) => (
-                                                        <option key={item.InventoryDetailID} value={item.InventoryDetailID}>
-                                                            {(item.PropertyNumber || 'No Property #')} - {item.Description || item.Brand || 'No Description'}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <div className="relative">
+                                                    <input
+                                                        value={detail.inventory_query}
+                                                        onChange={(e) => updateInventoryQueryForDetail(detail.localId, e.target.value)}
+                                                        onFocus={() => {
+                                                            if (!canEditDetails) {
+                                                                toast.error('Please select the reporting department first');
+                                                                return;
+                                                            }
+                                                            setOpenInventoryForDetail(detail.localId);
+                                                        }}
+                                                        onBlur={() => {
+                                                            window.setTimeout(() => {
+                                                                setOpenInventoryForDetail((current) => (current === detail.localId ? null : current));
+                                                            }, 120);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                                        placeholder="Search inventory item"
+                                                        disabled={!canEditDetails}
+                                                    />
+                                                    {openInventoryForDetail === detail.localId && (
+                                                        <ul className="absolute z-30 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                                                            {filteredInventory.length === 0 ? (
+                                                                <li className="px-3 py-2 text-sm text-slate-500">No matching inventory item</li>
+                                                            ) : (
+                                                                filteredInventory.map((item) => {
+                                                                    const duplicate = otherSelectedInventoryIds.has(item.InventoryDetailID);
+                                                                    return (
+                                                                        <li
+                                                                            key={item.InventoryDetailID}
+                                                                            role="option"
+                                                                            aria-selected={Number(detail.inventory_detail_id) === item.InventoryDetailID}
+                                                                            onMouseDown={(event) => {
+                                                                                event.preventDefault();
+                                                                                if (duplicate) {
+                                                                                    toast.error('This inventory item is already selected in another detail');
+                                                                                    return;
+                                                                                }
+                                                                                selectInventoryForDetail(detail.localId, String(item.InventoryDetailID));
+                                                                            }}
+                                                                            className={`px-3 py-2 text-sm ${duplicate ? 'text-slate-400 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-100'}`}
+                                                                        >
+                                                                            {inventoryLabel(item)}
+                                                                            {duplicate && ' (already selected)'}
+                                                                        </li>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </ul>
+                                                    )}
+                                                </div>
                                                 {selectedInventory && (
                                                     <p className="text-xs text-slate-500 mt-2">
-                                                        Selected: {selectedInventory.PropertyNumber || 'No Property #'} | {selectedInventory.Description || 'No Description'}
+                                                        Selected: {inventoryLabel(selectedInventory)}
                                                     </p>
                                                 )}
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Problem Description</label>
-                                                <textarea
-                                                    value={detail.problem_description}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'problem_description', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                    rows={3}
-                                                    required
-                                                />
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-2">Handling Decision</label>
+                                                    <select
+                                                        value={detail.handling_decision}
+                                                        onChange={(e) => updateHandlingDecision(detail.localId, e.target.value as AssetServiceHandlingDecision | '')}
+                                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                                        disabled={!canEditDetails}
+                                                        required
+                                                    >
+                                                        <option value="">Select decision</option>
+                                                        {HANDLING_OPTIONS.map((option) => (
+                                                            <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-2">Service Vendor / Supplier</label>
+                                                    <select
+                                                        value={detail.assigned_provider_key}
+                                                        onChange={(e) => updateDetailField(detail.localId, 'assigned_provider_key', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                                        disabled={!canEditDetails || !detail.handling_decision}
+                                                    >
+                                                        <option value="">Select vendor or supplier</option>
+                                                        {providers.map((provider) => (
+                                                            <option key={`${provider.ProviderType}:${provider.ProviderID}`} value={`${provider.ProviderType}:${provider.ProviderID}`}>
+                                                                {provider.ProviderName} ({provider.ProviderType})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="text-xs text-slate-500 mt-1">Auto-defaults to inventory supplier when available.</p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-2">Detail Status</label>
+                                                    <input
+                                                        value="pending"
+                                                        readOnly
+                                                        className="w-full px-3 py-2 border border-slate-300 bg-slate-100 text-slate-800 rounded-lg"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Handling Decision</label>
-                                                <select
-                                                    value={detail.handling_decision}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'handling_decision', e.target.value as AssetServiceHandlingDecision | '')}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                >
-                                                    <option value="">Select decision</option>
-                                                    {HANDLING_OPTIONS.map((option) => (
-                                                        <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Budget Status</label>
-                                                <select
-                                                    value={detail.budget_status}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'budget_status', e.target.value as AssetServiceBudgetStatus)}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                >
-                                                    {BUDGET_OPTIONS.map((option) => (
-                                                        <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Detail Status</label>
-                                                <select
-                                                    value={detail.status}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'status', e.target.value as AssetServiceStatus)}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                >
-                                                    {STATUS_OPTIONS.map((option) => (
-                                                        <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Vendor</label>
-                                                <select
-                                                    value={detail.assigned_vendor_id}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'assigned_vendor_id', e.target.value ? Number(e.target.value) : '')}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                >
-                                                    <option value="">Select vendor</option>
-                                                    {vendors.map((vendor) => (
-                                                        <option key={vendor.VendorID} value={vendor.VendorID}>{vendor.VendorName}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Estimated Cost</label>
-                                                <input
-                                                    value={detail.estimated_cost}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'estimated_cost', e.target.value)}
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Actual Cost</label>
-                                                <input
-                                                    value={detail.actual_cost}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'actual_cost', e.target.value)}
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-4 flex items-center gap-2">
-                                            <input
-                                                id={`warranty-covered-${detail.localId}`}
-                                                type="checkbox"
-                                                checked={detail.warranty_covered}
-                                                onChange={(e) => updateDetailField(detail.localId, 'warranty_covered', e.target.checked)}
+                                        <div className="mt-4">
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">Problem Description</label>
+                                            <textarea
+                                                value={detail.problem_description}
+                                                onChange={(e) => updateDetailField(detail.localId, 'problem_description', e.target.value)}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                                rows={3}
+                                                disabled={!canEditDetails}
+                                                required
                                             />
-                                            <label htmlFor={`warranty-covered-${detail.localId}`} className="text-sm font-medium text-slate-700">Warranty covered</label>
-                                        </div>
-
-                                        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Warranty Outcome</label>
-                                                <input
-                                                    value={detail.warranty_outcome}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'warranty_outcome', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Completion Notes</label>
-                                                <input
-                                                    value={detail.completion_notes}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'completion_notes', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Verification Notes</label>
-                                                <input
-                                                    value={detail.verification_notes}
-                                                    onChange={(e) => updateDetailField(detail.localId, 'verification_notes', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                                />
-                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -525,9 +609,23 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                         </div>
                     </div>
 
-                    <div>
+                    <div className="relative">
+                        {!canEditDetails && (
+                            <button
+                                type="button"
+                                onClick={() => toast.error('Select a reporting department first')}
+                                className="absolute inset-0 z-30 w-full h-full bg-transparent"
+                            />
+                        )}
+
                         <label className="block text-sm font-medium text-slate-700 mb-2">Record Notes</label>
-                        <textarea value={recordNotes} onChange={(e) => setRecordNotes(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={3} />
+                        <textarea
+                            value={recordNotes}
+                            onChange={(e) => setRecordNotes(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                            rows={3}
+                            disabled={!canEditDetails}
+                        />
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2">
@@ -542,3 +640,5 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
         </div>
     );
 }
+
+export default ServiceRecordFormPage;

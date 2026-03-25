@@ -5,7 +5,7 @@ import {
     AssetServiceRecordUpdatePayload,
     ServiceHelperDepartment,
     ServiceHelperEndUser,
-    ServiceHelperVendor,
+    ServiceHelperProvider,
     ServiceInventoryItem,
     ServiceRecordsResponse,
 } from '@/types/assetService';
@@ -51,7 +51,7 @@ const serviceApi = {
         return response.data?.data || [];
     },
 
-    async getVendors(): Promise<ServiceHelperVendor[]> {
+    async getProviders(): Promise<ServiceHelperProvider[]> {
         const response = await apiClient.get('/asset-services/helpers/vendors');
         return response.data?.data || [];
     },
@@ -68,9 +68,17 @@ const serviceApi = {
         return response.data?.data || [];
     },
 
-    async getInventory(search?: string): Promise<ServiceInventoryItem[]> {
+    async getDepartmentHeads(departmentId?: number): Promise<ServiceHelperEndUser[]> {
+        const params = new URLSearchParams();
+        if (departmentId) params.append('department_id', String(departmentId));
+        const response = await apiClient.get(`/asset-services/helpers/department-heads?${params.toString()}`);
+        return response.data?.data || [];
+    },
+
+    async getInventory(search?: string, departmentId?: number): Promise<ServiceInventoryItem[]> {
         const params = new URLSearchParams();
         if (search) params.append('search', search);
+        if (departmentId) params.append('department_id', String(departmentId));
         const response = await apiClient.get(`/asset-services/helpers/inventory?${params.toString()}`);
         return response.data?.data || [];
     },

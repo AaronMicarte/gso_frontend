@@ -8,12 +8,13 @@ export type AssetServiceStatus =
     | 'unrepairable';
 
 export type AssetServiceReportSource = 'cce_user' | 'inventory_check' | 'audit' | 'other';
-export type AssetServiceHandlingDecision = 'warranty_claim' | 'vendor_repair' | 'replacement_evaluation';
+export type AssetServiceHandlingDecision = 'warranty_claim' | 'vendor_repair';
 export type AssetServiceBudgetStatus = 'pending_check' | 'warranty_covered' | 'budget_available' | 'budget_unavailable';
 
-export interface ServiceHelperVendor {
-    VendorID: number;
-    VendorName: string;
+export interface ServiceHelperProvider {
+    ProviderType: 'vendor' | 'supplier';
+    ProviderID: number;
+    ProviderName: string;
     ContactPerson?: string | null;
     ContactNumber?: string | null;
     Email?: string | null;
@@ -29,6 +30,7 @@ export interface ServiceHelperEndUser {
     EndUserID: number;
     DepartmentID: number;
     FullName: string;
+    DepartmentName?: string | null;
 }
 
 export interface ServiceInventoryItem {
@@ -52,6 +54,9 @@ export interface ServiceInventoryItem {
         InventoryNumber?: string | null;
         DateReceived?: string | null;
     } | null;
+    SupplierID?: number | null;
+    SupplierName?: string | null;
+    dr_article_name?: string | null;
 }
 
 export interface AssetServiceRecordDetail {
@@ -65,17 +70,20 @@ export interface AssetServiceRecordDetail {
     BudgetStatus: AssetServiceBudgetStatus;
     Status: AssetServiceStatus;
     AssignedVendorID?: number | null;
+    AssignedSupplierID?: number | null;
+    assigned_provider_type?: 'vendor' | 'supplier' | null;
+    assigned_provider_id?: number | null;
+    assigned_provider_name?: string | null;
     EstimatedCost?: number | null;
     ActualCost?: number | null;
-    WarrantyCovered: boolean;
-    WarrantyOutcome?: string | null;
-    CompletionNotes?: string | null;
-    VerificationNotes?: string | null;
+    WarrantyClaimNumber?: string | null;
+    RepairOrderNumber?: string | null;
     InvoiceAttachment?: string | null;
     invoice_url?: string | null;
     SupportingAttachments?: string[] | null;
     supporting_attachment_urls?: string[] | null;
-    vendor?: ServiceHelperVendor | null;
+    vendor?: { VendorID: number; VendorName: string } | null;
+    supplier?: { SupplierID: number; SupplierName: string } | null;
     inventoryDetail?: ServiceInventoryItem | null;
     created_at?: string | null;
     updated_at?: string | null;
@@ -117,12 +125,11 @@ export interface AssetServiceRecordCreatePayload {
         budget_status?: AssetServiceBudgetStatus;
         status?: AssetServiceStatus;
         assigned_vendor_id?: number | null;
+        assigned_supplier_id?: number | null;
         estimated_cost?: number | null;
         actual_cost?: number | null;
-        warranty_covered?: boolean;
-        warranty_outcome?: string;
-        completion_notes?: string;
-        verification_notes?: string;
+        warranty_claim_number?: string;
+        repair_order_number?: string;
         invoice_attachment?: string;
         supporting_attachments?: string[];
     }>;
@@ -144,12 +151,11 @@ export interface AssetServiceRecordUpdatePayload {
         budget_status?: AssetServiceBudgetStatus;
         status?: AssetServiceStatus;
         assigned_vendor_id?: number | null;
+        assigned_supplier_id?: number | null;
         estimated_cost?: number | null;
         actual_cost?: number | null;
-        warranty_covered?: boolean;
-        warranty_outcome?: string;
-        completion_notes?: string;
-        verification_notes?: string;
+        warranty_claim_number?: string;
+        repair_order_number?: string;
         invoice_attachment?: string;
         supporting_attachments?: string[];
     }>;

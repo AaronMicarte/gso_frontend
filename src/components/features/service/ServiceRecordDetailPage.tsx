@@ -65,10 +65,7 @@ export function ServiceRecordDetailPage({ baseRoute, recordId, canEdit = false }
                 <h2 className="text-lg font-semibold text-slate-800 mb-3">Header</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                     <div><span className="text-slate-500">Status:</span> {record.Status.replaceAll('_', ' ')}</div>
-                    <div><span className="text-slate-500">Report Source:</span> {record.ReportSource.replaceAll('_', ' ')}</div>
-                    <div><span className="text-slate-500">Department:</span> {record.reportingDepartment?.DepartmentName || '-'}</div>
-                    <div><span className="text-slate-500">Submitted By:</span> {record.SubmittedByName || '-'}</div>
-                    <div><span className="text-slate-500">End User:</span> {record.submittedByEndUser?.FullName || '-'}</div>
+                    <div><span className="text-slate-500">Reporting Department:</span> {record.reportingDepartment?.DepartmentName || '-'}</div>
                 </div>
                 {record.RecordNotes && <p className="mt-3 text-sm text-slate-700">{record.RecordNotes}</p>}
             </div>
@@ -82,14 +79,10 @@ export function ServiceRecordDetailPage({ baseRoute, recordId, canEdit = false }
                             <div><span className="text-slate-500">Item:</span> {detail.ItemDescription || '-'}</div>
                             <div><span className="text-slate-500">Status:</span> {detail.Status.replaceAll('_', ' ')}</div>
                             <div><span className="text-slate-500">Budget:</span> {detail.BudgetStatus.replaceAll('_', ' ')}</div>
-                            <div><span className="text-slate-500">Vendor:</span> {detail.vendor?.VendorName || '-'}</div>
-                            <div><span className="text-slate-500">Warranty:</span> {detail.WarrantyCovered ? 'Covered' : 'Not covered'}</div>
-                            <div><span className="text-slate-500">Estimated:</span> {detail.EstimatedCost ?? '-'}</div>
-                            <div><span className="text-slate-500">Actual:</span> {detail.ActualCost ?? '-'}</div>
+                            <div><span className="text-slate-500">Provider:</span> {detail.assigned_provider_name || '-'}</div>
+                            <div><span className="text-slate-500">Handling:</span> {detail.HandlingDecision?.replaceAll('_', ' ') || '-'}</div>
                         </div>
                         <p className="mt-3 text-sm text-slate-700"><span className="text-slate-500">Issue:</span> {detail.ProblemDescription}</p>
-                        {detail.CompletionNotes && <p className="mt-2 text-sm text-slate-700"><span className="text-slate-500">Completion:</span> {detail.CompletionNotes}</p>}
-                        {detail.VerificationNotes && <p className="mt-2 text-sm text-slate-700"><span className="text-slate-500">Verification:</span> {detail.VerificationNotes}</p>}
                         {detail.invoice_url && (
                             <a href={detail.invoice_url} target="_blank" rel="noreferrer" className="inline-block mt-2 text-sm text-blue-600 hover:underline">
                                 View Invoice
@@ -101,3 +94,5 @@ export function ServiceRecordDetailPage({ baseRoute, recordId, canEdit = false }
         </div>
     );
 }
+
+export default ServiceRecordDetailPage;
