@@ -126,8 +126,8 @@ export default function AdminUsersListPage() {
 
     return (
         <div
-            className="min-h-screen bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}
+            className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}
         >
             <div className="p-4 sm:p-6 lg:p-8 space-y-6">
                 <div className="flex items-center justify-between gap-4">

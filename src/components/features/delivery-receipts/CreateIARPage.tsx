@@ -380,7 +380,7 @@ export function CreateIARPage({ baseRoute }: CreateIARPageProps) {
                 }}
             />
 
-            <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+            <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
                 <div className="p-6 max-w-6xl mx-auto space-y-6">
                     <div className="flex items-center gap-4">
                         <button

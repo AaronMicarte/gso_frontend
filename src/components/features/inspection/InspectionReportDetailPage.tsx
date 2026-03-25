@@ -56,7 +56,7 @@ export function InspectionReportDetailPage({ baseRoute, reportId, isModal = fals
     const receipt = report.deliveryReceipt || report.delivery_receipt;
 
     return (
-        <div className={isModal ? 'print:hidden' : 'min-h-screen bg-cover bg-center bg-no-repeat print:hidden'} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+        <div className={isModal ? 'print:hidden' : 'min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden'} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="p-6 max-w-6xl mx-auto space-y-6">
                 <div className="flex items-center gap-4">
                     {isModal ? (

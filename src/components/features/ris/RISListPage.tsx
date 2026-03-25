@@ -43,7 +43,7 @@ export function RISListPage({ baseRoute }: { baseRoute: string }) {
     }, []);
 
     return (
-        <div className="p-6 space-y-4 min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+        <div className="p-6 space-y-4 min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <div className="text-xl font-bold text-slate-900">Requisition and Issue Slips</div>

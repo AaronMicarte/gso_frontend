@@ -361,7 +361,7 @@ export function InspectionQueuePage() {
     };
 
     return (
-        <div className="min-h-screen bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+        <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="p-6 space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>

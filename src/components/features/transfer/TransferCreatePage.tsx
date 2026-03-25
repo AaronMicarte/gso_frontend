@@ -370,7 +370,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
     };
 
     return (
-        <div className="min-h-screen bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+        <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="p-6 space-y-6">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Create Transfer Request</h1>

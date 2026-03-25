@@ -63,8 +63,7 @@ export function ViewPropertyOversightPage({ baseRoute }: ViewPropertyOversightPa
             <div
                 className="flex items-center justify-center min-h-screen"
                 style={{
-                    backgroundImage: "url('/assets/images/background/bg.jpg')",
-                    backgroundSize: 'cover',
+                    backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
                     backgroundAttachment: 'fixed',
@@ -91,8 +90,7 @@ export function ViewPropertyOversightPage({ baseRoute }: ViewPropertyOversightPa
             <div
                 className="flex items-center justify-center min-h-screen"
                 style={{
-                    backgroundImage: "url('/assets/images/background/bg.jpg')",
-                    backgroundSize: 'cover',
+                    backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
                     backgroundAttachment: 'fixed',
@@ -130,7 +128,7 @@ export function ViewPropertyOversightPage({ baseRoute }: ViewPropertyOversightPa
     const conditionName = text(p.condition?.ConditionName, 'Not recorded');
 
     return (
-        <div className="min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+        <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="p-6 max-w-6xl mx-auto space-y-6">
                 <div className="flex items-center gap-4">
                     <button

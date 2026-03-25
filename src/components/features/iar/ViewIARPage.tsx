@@ -100,7 +100,7 @@ export function ViewIARPage({ baseRoute, iarId, isModal = false, onClose }: View
 
     return (
         <>
-            <div className={`${isModal ? '' : 'min-h-screen bg-cover bg-center bg-no-repeat'} print:hidden`} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+            <div className={`${isModal ? '' : 'min-h-screen bg-fixed bg-cover bg-center bg-no-repeat'} print:hidden`} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
                 <div className="p-6 space-y-6 print:hidden">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">

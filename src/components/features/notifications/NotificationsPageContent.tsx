@@ -67,8 +67,8 @@ export function NotificationsPageContent() {
 
     return (
         <main
-            className="min-h-screen bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}
+            className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}
         >
             <div className="max-w-[1700px] mx-auto p-4 sm:p-6 lg:p-8">
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

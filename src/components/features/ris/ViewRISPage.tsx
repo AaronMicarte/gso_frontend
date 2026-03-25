@@ -59,7 +59,7 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
 
     if (!ris) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+            <div className="flex items-center justify-center min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
                 <div className="text-center space-y-3">
                     <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
                     <p className="text-slate-600">RIS not found</p>
@@ -70,7 +70,7 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
     }
 
     return (
-        <div className="p-6 space-y-4 min-h-screen bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}>
+        <div className="p-6 space-y-4 min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900">
