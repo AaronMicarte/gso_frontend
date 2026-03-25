@@ -154,6 +154,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             {
                 section: 'MAINTENANCE',
                 items: [
+                    { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
                     { label: 'Job Orders', href: `${baseRoute}/job-orders`, icon: Wrench }
                 ]
             },
@@ -210,6 +211,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                             { label: 'Property Classifications', href: `${baseRoute}/masterdata/property-classifications`, icon: Tag },
                             { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: Box },
                             { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
+                            { label: 'Repair Vendors', href: `${baseRoute}/masterdata/vendors`, icon: Wrench },
                             { label: 'Units of Measure', href: `${baseRoute}/masterdata/units-of-measure`, icon: Ruler },
                         ]
                     }
@@ -237,6 +239,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                         icon: ShieldCheck,
                         children: [
                             { label: 'Security Center', href: `${baseRoute}/security`, icon: Shield },
+                            { label: 'Turnstile', href: `${baseRoute}/security/turnstile`, icon: ShieldCheck },
                             { label: 'Login Audit', href: `${baseRoute}/security/login-audit`, icon: ShieldCheck },
                             { label: 'Activity Logs', href: `${baseRoute}/security/activity-logs`, icon: FileClock },
                             { label: 'System Settings', href: `${baseRoute}/settings`, icon: Settings },
@@ -290,6 +293,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                 items: [
                     { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
                     { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
+                    { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
                     { label: 'Job Orders', href: `${baseRoute}/job-orders`, icon: Wrench },
                     { label: 'Physical Count', href: `${baseRoute}/physical-count`, icon: ClipboardList },
                 ]
@@ -323,6 +327,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                         children: [
                             { label: 'End Users', href: `${baseRoute}/masterdata/end-users`, icon: Users },
                             { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
+                            { label: 'Repair Vendors', href: `${baseRoute}/masterdata/vendors`, icon: Wrench },
                         ]
                     }
                 ]
@@ -344,6 +349,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                 items: [
                     { label: 'Property Oversight', href: `${baseRoute}/properties`, icon: Building2 },
                     { label: 'Received Items', href: `${baseRoute}/received-items`, icon: Package },
+                    { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
                 ]
             },
             {

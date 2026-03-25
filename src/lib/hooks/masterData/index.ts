@@ -11,5 +11,6 @@ export * from './usePropertyClassifications';
 export * from './usePropertyStatuses';
 export * from './usePropertyTypes';
 export * from './useSuppliers';
+export * from './useVendors';
 export * from './useUnitsOfMeasure';
 export * from './useUserRoles';

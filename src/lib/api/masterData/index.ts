@@ -11,5 +11,6 @@ export * from './propertyClassifications';
 export * from './propertyStatuses';
 export * from './propertyTypes';
 export * from './suppliers';
+export * from './vendors';
 export * from './unitsOfMeasure';
 export * from './userRoles';

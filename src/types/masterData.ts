@@ -248,6 +248,33 @@ export interface SupplierInput {
 }
 
 // ============================================
+// REPAIR VENDORS
+// ============================================
+
+export interface Vendor {
+    id: number;
+    name: string;
+    address?: string | null;
+    contact_person?: string | null;
+    contact_number?: string | null;
+    email?: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+    is_deleted?: boolean;
+}
+
+export interface VendorInput {
+    name: string;
+    address?: string;
+    contact_person?: string;
+    contact_number?: string;
+    email?: string;
+    is_active?: boolean;
+}
+
+// ============================================
 // POSITIONS
 // ============================================
 

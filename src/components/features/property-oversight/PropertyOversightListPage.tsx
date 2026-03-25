@@ -114,16 +114,6 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
     const totalPages = data?.last_page ?? 1;
     const currentPage = data?.current_page ?? page;
 
-    useEffect(() => {
-        setPage(1);
-    }, [docType, status, condition]);
-
-    useEffect(() => {
-        if (page > totalPages) {
-            setPage(totalPages);
-        }
-    }, [page, totalPages]);
-
     const { data: allStatuses } = useAllPropertyStatuses();
     const { data: allConditions } = useAllConditions();
 
@@ -193,7 +183,10 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                     <div className="flex flex-col sm:flex-row gap-3">
                         <select
                             value={docType}
-                            onChange={(e) => setDocType(e.target.value as DocumentTypeFilter)}
+                            onChange={(e) => {
+                                setDocType(e.target.value as DocumentTypeFilter);
+                                setPage(1);
+                            }}
                             className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                         >
                             <option value="ALL">All Documents</option>
@@ -203,7 +196,10 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
 
                         <select
                             value={status}
-                            onChange={(e) => setStatus(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                            onChange={(e) => {
+                                setStatus(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value));
+                                setPage(1);
+                            }}
                             className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                         >
                             <option value="ALL">All Status</option>
@@ -214,7 +210,10 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
 
                         <select
                             value={condition}
-                            onChange={(e) => setCondition(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                            onChange={(e) => {
+                                setCondition(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value));
+                                setPage(1);
+                            }}
                             className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                         >
                             <option value="ALL">All Condition</option>
