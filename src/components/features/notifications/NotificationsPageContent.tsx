@@ -66,7 +66,10 @@ export function NotificationsPageContent() {
     };
 
     return (
-        <main>
+        <main
+            className="min-h-screen bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/assets/images/background/bg.jpg')" }}
+        >
             <div className="max-w-[1700px] mx-auto p-4 sm:p-6 lg:p-8">
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-200">
@@ -129,9 +132,11 @@ export function NotificationsPageContent() {
                                             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                                                 <div className="min-w-0">
                                                     <div className="mb-1 flex flex-wrap items-center gap-2">
-                                                        {notification.payload?.link ? (
+                                                        {notification.payload?.link &&
+                                                            (typeof notification.payload.link === 'string' ||
+                                                                (typeof notification.payload.link === 'object' && notification.payload.link !== null)) ? (
                                                             <Link
-                                                                href={notification.payload.link as string}
+                                                                href={notification.payload.link}
                                                                 className="cursor-pointer text-base font-semibold text-[var(--primary)] hover:underline"
                                                             >
                                                                 {notification.title}
