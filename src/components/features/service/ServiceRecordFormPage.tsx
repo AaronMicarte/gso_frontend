@@ -92,16 +92,6 @@ function findAutoProviderKey(item: ServiceInventoryItem | undefined, providers: 
     return matchedSupplier ? `supplier:${matchedSupplier.ProviderID}` : '';
 }
 
-function departmentOptionLabel(department: ServiceHelperDepartment, departmentHeadName?: string): string {
-    const departmentRef = department.DepartmentCode || department.DepartmentName;
-
-    if (departmentHeadName) {
-        return `${departmentHeadName} - ${departmentRef}`;
-    }
-
-    return departmentRef;
-}
-
 export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordFormPageProps) {
     const router = useRouter();
     const isEditMode = !!recordId;
@@ -110,33 +100,23 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
 
     const [providers, setProviders] = useState<ServiceHelperProvider[]>([]);
     const [departments, setDepartments] = useState<ServiceHelperDepartment[]>([]);
-    const [departmentHeadsByDepartment, setDepartmentHeadsByDepartment] = useState<Record<number, string>>({});
     const [inventory, setInventory] = useState<ServiceInventoryItem[]>([]);
     const [openInventoryForDetail, setOpenInventoryForDetail] = useState<string | null>(null);
 
     const [dateReported, setDateReported] = useState(() => new Date().toISOString().split('T')[0]);
-    const [reportingDepartmentId, setReportingDepartmentId] = useState<number | ''>('');
+    const [reportSourceId, setReportSourceId] = useState<number | ''>('');
     const [recordNotes, setRecordNotes] = useState('');
     const [details, setDetails] = useState<ServiceDetailFormState[]>([makeEmptyDetailState()]);
 
     useEffect(() => {
         const loadHelpers = async () => {
             try {
-                const [providerRows, departmentRows, departmentHeadRows] = await Promise.all([
+                const [providerRows, departmentRows] = await Promise.all([
                     serviceApi.getProviders(),
                     serviceApi.getDepartments(),
-                    serviceApi.getDepartmentHeads(),
                 ]);
                 setProviders(providerRows);
                 setDepartments(departmentRows);
-
-                const headMap: Record<number, string> = {};
-                for (const head of departmentHeadRows) {
-                    if (head.DepartmentID && !headMap[head.DepartmentID]) {
-                        headMap[head.DepartmentID] = head.FullName;
-                    }
-                }
-                setDepartmentHeadsByDepartment(headMap);
             } catch {
                 toast.error('Failed to load form helpers');
             }
@@ -147,12 +127,12 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
 
     useEffect(() => {
         const run = async () => {
-            if (!reportingDepartmentId) {
+            if (!reportSourceId) {
                 setInventory([]);
                 return;
             }
             try {
-                const items = await serviceApi.getInventory(undefined, Number(reportingDepartmentId));
+                const items = await serviceApi.getInventory(undefined, Number(reportSourceId));
                 setInventory(items);
             } catch {
                 toast.error('Failed to load inventory items');
@@ -160,7 +140,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
         };
 
         run();
-    }, [reportingDepartmentId]);
+    }, [reportSourceId]);
 
     useEffect(() => {
         const run = async () => {
@@ -170,7 +150,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                 const data = await serviceApi.getById(recordId);
 
                 setDateReported(data.DateReported || '');
-                setReportingDepartmentId(data.ReportingDepartmentID || '');
+                setReportSourceId(data.ReportSource || '');
                 setRecordNotes(data.RecordNotes || '');
 
                 const mappedDetails: ServiceDetailFormState[] = (data.details || []).map((detail): ServiceDetailFormState => ({
@@ -246,7 +226,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
         }));
     };
 
-    const canEditDetails = Boolean(reportingDepartmentId);
+    const canEditDetails = Boolean(reportSourceId);
 
     const updateHandlingDecision = (localId: string, value: AssetServiceHandlingDecision | '') => {
         setDetails((prev) => prev.map((detail) => {
@@ -263,7 +243,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
 
     const addDetail = () => {
         if (!canEditDetails) {
-            toast.error('Please select the reporting department first');
+            toast.error('Please select the report source department first');
             return;
         }
 
@@ -290,8 +270,8 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
     const onSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
 
-        if (!reportingDepartmentId) {
-            toast.error('Reporting department is required');
+        if (!reportSourceId) {
+            toast.error('Report source department is required');
             return;
         }
 
@@ -320,8 +300,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
 
         const payload = {
             date_reported: dateReported,
-            report_source: 'other' as const,
-            reporting_department_id: Number(reportingDepartmentId),
+            report_source_id: Number(reportSourceId),
             record_notes: recordNotes || undefined,
             details: details.map((detail) => {
                 const provider = splitProviderKey(detail.assigned_provider_key);
@@ -410,23 +389,23 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
 
                     <div className="grid grid-cols-1 gap-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Reporting Department</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Report Source Department</label>
                             <select
-                                value={reportingDepartmentId}
-                                onChange={(e) => setReportingDepartmentId(e.target.value ? Number(e.target.value) : '')}
+                                value={reportSourceId}
+                                onChange={(e) => setReportSourceId(e.target.value ? Number(e.target.value) : '')}
                                 className="w-full px-3 py-2 border border-slate-300 bg-white rounded-lg text-slate-700"
                                 required
                             >
                                 <option value="">Select department</option>
                                 {departments.map((department) => (
                                     <option key={department.DepartmentID} value={department.DepartmentID}>
-                                        {departmentOptionLabel(department, departmentHeadsByDepartment[department.DepartmentID])}
+                                        {department.DepartmentCode || department.DepartmentName}
                                     </option>
                                 ))}
                             </select>
-                            <p className="text-xs text-slate-500 mt-1">Select where the report belongs.</p>
-                            {!reportingDepartmentId && (
-                                <p className="text-sm text-red-600 mt-2">Please select the reporting department before filling service details.</p>
+                            <p className="text-xs text-slate-500 mt-1">Select which department the report came from.</p>
+                            {!reportSourceId && (
+                                <p className="text-sm text-red-600 mt-2">Please select the report source department before filling service details.</p>
                             )}
                         </div>
                     </div>
@@ -448,7 +427,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                             {!canEditDetails && (
                                 <button
                                     type="button"
-                                    onClick={() => toast.error('Select a reporting department first')}
+                                    onClick={() => toast.error('Select a report source department first')}
                                     className="absolute inset-0 z-30 w-full h-full bg-transparent"
                                 />
                             )}
@@ -474,7 +453,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                                 type="button"
                                                 onClick={() => {
                                                     if (!canEditDetails) {
-                                                        toast.error('Please select the reporting department first');
+                                                        toast.error('Please select the report source department first');
                                                         return;
                                                     }
                                                     removeDetail(detail.localId);
@@ -496,7 +475,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                                         onChange={(e) => updateInventoryQueryForDetail(detail.localId, e.target.value)}
                                                         onFocus={() => {
                                                             if (!canEditDetails) {
-                                                                toast.error('Please select the reporting department first');
+                                                                toast.error('Please select the report source department first');
                                                                 return;
                                                             }
                                                             setOpenInventoryForDetail(detail.localId);
@@ -613,7 +592,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                         {!canEditDetails && (
                             <button
                                 type="button"
-                                onClick={() => toast.error('Select a reporting department first')}
+                                onClick={() => toast.error('Select a report source department first')}
                                 className="absolute inset-0 z-30 w-full h-full bg-transparent"
                             />
                         )}

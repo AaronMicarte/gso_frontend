@@ -411,15 +411,15 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                 {isModalOpen && selectedProperty && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                         <div className="fixed inset-0 bg-black/50" onClick={closePropertyModal} />
-                        <div className="relative z-10 w-full max-w-lg bg-white rounded-xl shadow-xl p-6">
-                            <div className="flex items-start justify-between gap-4">
+                        <div className="relative z-10 w-full max-w-2xl bg-white rounded-xl shadow-xl p-6">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
                                 <div>
                                     <h2 className="text-xl font-bold text-slate-900">Property Details</h2>
-                                    <p className="text-sm text-slate-500">Keep only key oversight fields for quick review.</p>
+                                    <p className="text-sm text-slate-500">Key oversight fields for quick review.</p>
                                 </div>
                                 <button
                                     onClick={closePropertyModal}
-                                    className="p-2 text-slate-500 hover:text-slate-700 rounded-full transition-colors"
+                                    className="text-slate-500 hover:text-slate-700 rounded-full p-2 transition-colors"
                                     type="button"
                                     aria-label="Close property modal"
                                 >
@@ -427,45 +427,48 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                 </button>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-1 gap-3">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">Article</span>
-                                    <span className="text-sm text-slate-900">{getArticleName(selectedProperty)}</span>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                                <div className="space-y-2">
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide">Article</p>
+                                    <p className="text-base font-semibold text-slate-800">{getArticleName(selectedProperty)}</p>
+
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide">Description</p>
+                                    <p className="text-base text-slate-700">{getItemDescription(selectedProperty)}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">Brand</span>
-                                    <span className="text-sm text-slate-900">{text(selectedProperty.inventoryDetail?.Brand, 'Not recorded')}</span>
+
+                                <div className="space-y-2">
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide">Property No.</p>
+                                    <p className="text-base font-semibold text-slate-800">{text(selectedProperty.inventoryDetail?.PropertyNumber, 'Not recorded')}</p>
+
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide">Assigned</p>
+                                    <p className="text-base text-slate-700">{formatPHDate(selectedProperty.AssignedDate)}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">Model</span>
-                                    <span className="text-sm text-slate-900">{text(selectedProperty.inventoryDetail?.ModelNumber, 'Not recorded')}</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-slate-700">
+                                <div className="space-y-1">
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide">Brand</p>
+                                    <p className="font-medium text-slate-800">{text(selectedProperty.inventoryDetail?.Brand, 'Not recorded')}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">Serial Number</span>
-                                    <span className="text-sm text-slate-900">{text(selectedProperty.inventoryDetail?.SerialNumber, 'Not recorded')}</span>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide">Model</p>
+                                    <p className="font-medium text-slate-800">{text(selectedProperty.inventoryDetail?.ModelNumber, 'Not recorded')}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">Property No.</span>
-                                    <span className="text-sm text-slate-900">{text(selectedProperty.inventoryDetail?.PropertyNumber, 'Not recorded')}</span>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide">Serial Number</p>
+                                    <p className="font-medium text-slate-800">{text(selectedProperty.inventoryDetail?.SerialNumber, 'Not recorded')}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">End User / Department</span>
-                                    <span className="text-sm text-slate-900">
-                                        {`${getRequesterName(selectedProperty)} / ${text(selectedProperty.department?.DepartmentName ?? selectedProperty.endUser?.department?.DepartmentName, 'Not recorded')}`}
-                                    </span>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide">Condition</p>
+                                    <p className="font-medium text-slate-800">{getConditionName(selectedProperty)}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">Status</span>
-                                    <span className="text-sm text-slate-900">{getStatusName(selectedProperty)}</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">Condition</span>
-                                    <span className="text-sm text-slate-900">{getConditionName(selectedProperty)}</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <span className="text-sm text-slate-500">Assigned</span>
-                                    <span className="text-sm text-slate-900">{formatPHDate(selectedProperty.AssignedDate)}</span>
-                                </div>
+                            </div>
+
+                            <div className="mt-4 border-t border-slate-200 pt-4 text-sm text-slate-700">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide">End User / Department</p>
+                                <p className="font-medium text-slate-800">
+                                    {`${getRequesterName(selectedProperty)} / ${text(selectedProperty.department?.DepartmentName ?? selectedProperty.endUser?.department?.DepartmentName, 'Not recorded')}`}
+                                </p>
                             </div>
 
                             <div className="mt-6 text-right">

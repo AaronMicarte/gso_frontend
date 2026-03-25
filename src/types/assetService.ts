@@ -7,7 +7,6 @@ export type AssetServiceStatus =
     | 'closed'
     | 'unrepairable';
 
-export type AssetServiceReportSource = 'cce_user' | 'inventory_check' | 'audit' | 'other';
 export type AssetServiceHandlingDecision = 'warranty_claim' | 'vendor_repair';
 export type AssetServiceBudgetStatus = 'pending_check' | 'warranty_covered' | 'budget_available' | 'budget_unavailable';
 
@@ -36,6 +35,7 @@ export interface ServiceHelperEndUser {
 export interface ServiceInventoryItem {
     InventoryDetailID: number;
     PropertyNumber?: string | null;
+    PropertyName?: string | null;
     Description?: string | null;
     Brand?: string | null;
     ModelNumber?: string | null;
@@ -57,6 +57,19 @@ export interface ServiceInventoryItem {
     SupplierID?: number | null;
     SupplierName?: string | null;
     dr_article_name?: string | null;
+    drDetail?: {
+        DRDetailID?: number | null;
+        DRID?: number | null;
+        ArticleID?: number | null;
+        ItemDescription?: string | null;
+        Brand?: string | null;
+        ModelNumber?: string | null;
+        SerialNumber?: string | null;
+        article?: {
+            ArticleID?: number | null;
+            ArticleName?: string | null;
+        } | null;
+    } | null;
 }
 
 export interface AssetServiceRecordDetail {
@@ -93,17 +106,15 @@ export interface AssetServiceRecord {
     ServiceRecordID: number;
     ServiceNumber: string;
     DateReported: string;
-    ReportSource: AssetServiceReportSource;
-    SubmittedByName?: string | null;
-    SubmittedByEndUserID?: number | null;
-    ReportingDepartmentID?: number | null;
+    ReportSource: number;
     Status: AssetServiceStatus;
     RecordNotes?: string | null;
     CreatedByUserID: number;
     UpdatedByUserID?: number | null;
     details: AssetServiceRecordDetail[];
     reportingDepartment?: ServiceHelperDepartment | null;
-    submittedByEndUser?: ServiceHelperEndUser | null;
+    reportingDepartmentHead?: string | null;
+    reportingDepartmentLabel?: string | null;
     createdBy?: { UserID: number; FullName: string } | null;
     updatedBy?: { UserID: number; FullName: string } | null;
     created_at?: string | null;
@@ -112,10 +123,7 @@ export interface AssetServiceRecord {
 
 export interface AssetServiceRecordCreatePayload {
     date_reported: string;
-    report_source: AssetServiceReportSource;
-    submitted_by_name?: string;
-    submitted_by_end_user_id?: number | null;
-    reporting_department_id?: number | null;
+    report_source_id: number;
     status?: AssetServiceStatus;
     record_notes?: string;
     details: Array<{
@@ -137,10 +145,7 @@ export interface AssetServiceRecordCreatePayload {
 
 export interface AssetServiceRecordUpdatePayload {
     date_reported?: string;
-    report_source?: AssetServiceReportSource;
-    submitted_by_name?: string;
-    submitted_by_end_user_id?: number | null;
-    reporting_department_id?: number | null;
+    report_source_id?: number;
     status?: AssetServiceStatus;
     record_notes?: string;
     details?: Array<{

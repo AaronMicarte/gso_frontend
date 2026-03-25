@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Eye, Plus, RefreshCw, Search, Wrench } from 'lucide-react';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
+
+import { Dialog } from '@/components/ui/Dialog';
 
 import serviceApi from '@/lib/api/assetServices';
 import { AssetServiceRecord, AssetServiceStatus } from '@/types/assetService';
@@ -20,6 +24,54 @@ const statusClasses: Record<AssetServiceStatus, string> = {
 
 const statusLabel = (status: AssetServiceStatus) => status.replaceAll('_', ' ');
 
+const formatDateReported = (dateString?: string | null): string => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return dateString;
+    const zonedDate = toZonedTime(date, 'Asia/Manila');
+    return format(zonedDate, 'MMMM d, yyyy');
+};
+
+const formatReportingDepartment = (record: AssetServiceRecord): string => {
+    const head = record.reportingDepartmentHead?.trim();
+    const dept = record.reportingDepartmentLabel?.trim()
+        || record.reportingDepartment?.DepartmentCode?.trim()
+        || record.reportingDepartment?.DepartmentName?.trim();
+
+    if (head && dept) return `${head} - ${dept}`;
+    if (dept) return dept;
+    if (head) return head;
+    return '-';
+};
+
+const getArticleLabel = (recordDetail: AssetServiceRecord['details'][number]): string => {
+    return recordDetail.inventoryDetail?.drDetail?.article?.ArticleName?.trim()
+        || recordDetail.inventoryDetail?.drDetail?.ItemDescription?.trim()
+        || recordDetail.inventoryDetail?.PropertyName?.trim()
+        || recordDetail.inventoryDetail?.Description?.trim()
+        || recordDetail.ItemDescription?.trim()
+        || '-';
+};
+
+const getItemDescription = (recordDetail: AssetServiceRecord['details'][number]): string => {
+    return recordDetail.inventoryDetail?.drDetail?.ItemDescription?.trim()
+        || recordDetail.inventoryDetail?.Description?.trim()
+        || recordDetail.ItemDescription?.trim()
+        || '-';
+};
+
+const getBrand = (recordDetail: AssetServiceRecord['details'][number]): string => {
+    return recordDetail.inventoryDetail?.Brand?.trim() || 'Not recorded';
+};
+
+const getModel = (recordDetail: AssetServiceRecord['details'][number]): string => {
+    return recordDetail.inventoryDetail?.ModelNumber?.trim() || 'Not recorded';
+};
+
+const getSerial = (recordDetail: AssetServiceRecord['details'][number]): string => {
+    return recordDetail.inventoryDetail?.SerialNumber?.trim() || 'Not recorded';
+};
+
 interface ServiceRecordsPageProps {
     baseRoute: string;
     title: string;
@@ -34,6 +86,10 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
     const [status, setStatus] = useState<'all' | AssetServiceStatus>('all');
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+
+    const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
+    const [selectedRecord, setSelectedRecord] = useState<AssetServiceRecord | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     const load = useCallback(async (targetPage = 1) => {
         try {
@@ -57,6 +113,24 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
     useEffect(() => {
         load(1);
     }, [load]);
+
+    useEffect(() => {
+        if (selectedRecordId === null) {
+            setSelectedRecord(null);
+            return;
+        }
+
+        const fetchRecord = async () => {
+            try {
+                const record = await serviceApi.getById(selectedRecordId);
+                setSelectedRecord(record);
+            } catch {
+                toast.error('Failed to load selected service record');
+            }
+        };
+
+        fetchRecord();
+    }, [selectedRecordId]);
 
     const filteredRows = useMemo(() => rows, [rows]);
 
@@ -148,8 +222,8 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                                     filteredRows.map((row) => (
                                         <tr key={row.ServiceRecordID} className="hover:bg-slate-50">
                                             <td className="px-4 py-3 text-sm font-semibold text-slate-900">{row.ServiceNumber}</td>
-                                            <td className="px-4 py-3 text-sm text-slate-700">{row.DateReported}</td>
-                                            <td className="px-4 py-3 text-sm text-slate-700">{row.reportingDepartment?.DepartmentName || '-'}</td>
+                                            <td className="px-4 py-3 text-sm text-slate-700">{formatDateReported(row.DateReported)}</td>
+                                            <td className="px-4 py-3 text-sm text-slate-700">{formatReportingDepartment(row)}</td>
                                             <td className="px-4 py-3 text-sm text-slate-700">{row.details?.length || 0}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusClasses[row.Status]}`}>
@@ -157,9 +231,16 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-center">
-                                                <Link href={`${baseRoute}/${row.ServiceRecordID}`} className="inline-flex text-slate-500 hover:text-slate-800">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedRecord(row);
+                                                        setSelectedRecordId(row.ServiceRecordID);
+                                                        setIsDetailModalOpen(true);
+                                                    }}
+                                                    className="inline-flex text-slate-500 hover:text-slate-800"
+                                                >
                                                     <Eye className="w-4 h-4" />
-                                                </Link>
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
@@ -189,6 +270,91 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                     )}
                 </div>
             </div>
+
+            <Dialog
+                title={selectedRecord ? `${selectedRecord.ServiceNumber} Details` : 'Service Record Details'}
+                description={selectedRecord ? `Reported on ${formatDateReported(selectedRecord.DateReported)}` : ''}
+                open={isDetailModalOpen}
+                onOpenChange={(open) => {
+                    setIsDetailModalOpen(open);
+                    if (!open) {
+                        setSelectedRecordId(null);
+                        setSelectedRecord(null);
+                    }
+                }}
+                onConfirm={() => {
+                    setIsDetailModalOpen(false);
+                    setSelectedRecordId(null);
+                    setSelectedRecord(null);
+                }}
+                hideConfirm
+                cancelText="Close"
+                contentClassName="max-w-[1200px] w-[min(98vw,1200px)] max-h-[90vh]"
+            >
+                {selectedRecord ? (
+                    <div className="space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                            <div><span className="font-semibold text-slate-800">Service #:</span> {selectedRecord.ServiceNumber}</div>
+                            <div><span className="font-semibold text-slate-800">Date Reported:</span> {formatDateReported(selectedRecord.DateReported)}</div>
+                            <div><span className="font-semibold text-slate-800">Reporting Department:</span> {formatReportingDepartment(selectedRecord)}</div>
+                            <div><span className="font-semibold text-slate-800">Status:</span> {selectedRecord.Status.replaceAll('_', ' ')}</div>
+                            {selectedRecord.RecordNotes && <div><span className="font-medium">Notes:</span> {selectedRecord.RecordNotes}</div>}
+                        </div>
+                        <div className="space-y-3 max-h-[58vh] overflow-y-auto pr-1">
+                            {selectedRecord.details.map((detail) => (
+                                <div key={detail.ServiceRecordDetailID} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                    <div className="flex flex-col md:flex-row md:items-baseline justify-between gap-2 mb-3">
+                                        <h3 className="text-sm font-semibold text-slate-900">Item #{detail.ServiceRecordDetailID}</h3>
+                                        <p className="text-xs text-slate-500">Property No: {detail.PropertyNumber || '-'}</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 text-sm text-slate-700">
+                                        <div className="space-y-1">
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide">Article</p>
+                                            <p className="font-medium text-slate-800">{getArticleLabel(detail)}</p>
+
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Brand</p>
+                                            <p className="font-medium text-slate-800">{getBrand(detail)}</p>
+
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Status</p>
+                                            <p className="font-medium text-slate-800">{detail.Status.replaceAll('_', ' ')}</p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide">Description</p>
+                                            <p className="font-medium text-slate-800">{getItemDescription(detail)}</p>
+
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Model</p>
+                                            <p className="font-medium text-slate-800">{getModel(detail)}</p>
+
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Budget</p>
+                                            <p className="font-medium text-slate-800">{detail.BudgetStatus.replaceAll('_', ' ')}</p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide">Serial</p>
+                                            <p className="font-medium text-slate-800">{getSerial(detail)}</p>
+
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Provider</p>
+                                            <p className="font-medium text-slate-800">{detail.assigned_provider_name || '-'}</p>
+
+                                            <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Handling</p>
+                                            <p className="font-medium text-slate-800">{detail.HandlingDecision?.replaceAll('_', ' ') || '-'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 border-t border-slate-100 pt-3">
+                                        <p className="text-slate-500 text-xs uppercase tracking-wide">Issue</p>
+                                        <p className="text-sm text-slate-700 mt-1">{detail.ProblemDescription}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-4 text-center text-slate-600">No service record selected.</div>
+                )}
+            </Dialog>
         </div>
     );
 }

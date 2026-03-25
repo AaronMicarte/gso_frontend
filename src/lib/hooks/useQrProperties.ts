@@ -16,7 +16,7 @@ export function useUpdatePropertyCondition() {
         mutationFn: ({ propertyId, conditionId }: { propertyId: number; conditionId: number }) =>
             updatePropertyCondition(propertyId, conditionId),
         onSuccess: () => {
-            queryClient.invalidateQueries(['qr-properties']);
+            queryClient.invalidateQueries({ queryKey: ['qr-properties'] });
         },
     });
 }

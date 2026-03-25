@@ -2,6 +2,7 @@ import apiClient from './client';
 import {
     AssetServiceRecord,
     AssetServiceRecordCreatePayload,
+    AssetServiceRecordDetail,
     AssetServiceRecordUpdatePayload,
     ServiceHelperDepartment,
     ServiceHelperEndUser,
@@ -18,6 +19,63 @@ interface ServiceFilters {
     department_id?: number;
 }
 
+interface RawServiceInventoryItem extends ServiceInventoryItem {
+    propertyType?: ServiceInventoryItem['propertyType'] | null;
+    property_type?: ServiceInventoryItem['propertyType'] | null;
+    inventory?: ServiceInventoryItem['inventory'] | null;
+    drDetail?: ServiceInventoryItem['drDetail'] | null;
+    dr_detail?: ServiceInventoryItem['drDetail'] | null;
+}
+
+interface RawServiceRecordDetail extends Omit<AssetServiceRecordDetail, 'inventoryDetail'> {
+    inventoryDetail?: RawServiceInventoryItem | null;
+    inventory_detail?: RawServiceInventoryItem | null;
+}
+
+interface RawServiceRecord extends Omit<AssetServiceRecord, 'details' | 'reportingDepartment' | 'createdBy' | 'updatedBy' | 'reportingDepartmentHead' | 'reportingDepartmentLabel'> {
+    details?: RawServiceRecordDetail[];
+    reportingDepartment?: ServiceHelperDepartment | null;
+    reporting_department?: ServiceHelperDepartment | null;
+    createdBy?: { UserID: number; FullName: string } | null;
+    created_by?: { UserID: number; FullName: string } | null;
+    updatedBy?: { UserID: number; FullName: string } | null;
+    updated_by?: { UserID: number; FullName: string } | null;
+    reportingDepartmentHead?: string | null;
+    reporting_department_head?: string | null;
+    reportingDepartmentLabel?: string | null;
+    reporting_department_label?: string | null;
+}
+
+const normalizeInventoryDetail = (detail?: RawServiceInventoryItem | null): ServiceInventoryItem | null => {
+    if (!detail) return null;
+    return {
+        ...detail,
+        propertyType: detail.propertyType ?? detail.property_type ?? null,
+        inventory: detail.inventory ?? null,
+        drDetail: detail.drDetail ?? detail.dr_detail ?? null,
+    };
+};
+
+const normalizeServiceDetail = (detail: RawServiceRecordDetail): AssetServiceRecordDetail => ({
+    ...detail,
+    inventoryDetail: normalizeInventoryDetail(detail.inventoryDetail ?? detail.inventory_detail),
+});
+
+const normalizeServiceRecord = (record: RawServiceRecord): AssetServiceRecord => ({
+    ...record,
+    details: (record.details ?? []).map(normalizeServiceDetail),
+    reportingDepartment: record.reportingDepartment ?? record.reporting_department ?? null,
+    createdBy: record.createdBy ?? record.created_by ?? null,
+    updatedBy: record.updatedBy ?? record.updated_by ?? null,
+    reportingDepartmentHead: record.reportingDepartmentHead ?? record.reporting_department_head ?? null,
+    reportingDepartmentLabel: record.reportingDepartmentLabel ?? record.reporting_department_label ?? null,
+});
+
+const normalizeServiceRecordsResponse = (response: ServiceRecordsResponse) => ({
+    ...response,
+    data: (response.data ?? []).map((record) => normalizeServiceRecord(record as RawServiceRecord)),
+});
+
 const serviceApi = {
     async getAll(filters?: ServiceFilters): Promise<ServiceRecordsResponse> {
         const params = new URLSearchParams();
@@ -28,12 +86,12 @@ const serviceApi = {
         if (filters?.department_id) params.append('department_id', String(filters.department_id));
 
         const response = await apiClient.get(`/asset-services?${params.toString()}`);
-        return response.data;
+        return normalizeServiceRecordsResponse(response.data);
     },
 
     async getById(id: number): Promise<AssetServiceRecord> {
         const response = await apiClient.get(`/asset-services/${id}`);
-        return response.data;
+        return normalizeServiceRecord(response.data as RawServiceRecord);
     },
 
     async create(payload: AssetServiceRecordCreatePayload): Promise<{ message: string; record: AssetServiceRecord }> {

@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Edit } from 'lucide-react';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
 
 import serviceApi from '@/lib/api/assetServices';
@@ -13,6 +15,26 @@ interface ServiceRecordDetailPageProps {
     recordId: number;
     canEdit?: boolean;
 }
+
+const formatDateReported = (dateString?: string | null): string => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return dateString;
+    const zonedDate = toZonedTime(date, 'Asia/Manila');
+    return format(zonedDate, 'MMMM d, yyyy');
+};
+
+const formatReportingDepartment = (record: AssetServiceRecord): string => {
+    const head = record.reportingDepartmentHead?.trim();
+    const dept = record.reportingDepartmentLabel?.trim()
+        || record.reportingDepartment?.DepartmentCode?.trim()
+        || record.reportingDepartment?.DepartmentName?.trim();
+
+    if (head && dept) return `${head} - ${dept}`;
+    if (dept) return dept;
+    if (head) return head;
+    return '-';
+};
 
 export function ServiceRecordDetailPage({ baseRoute, recordId, canEdit = false }: ServiceRecordDetailPageProps) {
     const [record, setRecord] = useState<AssetServiceRecord | null>(null);
@@ -51,7 +73,7 @@ export function ServiceRecordDetailPage({ baseRoute, recordId, canEdit = false }
                         Back to service records
                     </Link>
                     <h1 className="text-2xl font-bold text-slate-900">{record.ServiceNumber}</h1>
-                    <p className="text-sm text-slate-500">Reported on {record.DateReported}</p>
+                    <p className="text-sm text-slate-500">Reported on {formatDateReported(record.DateReported)}</p>
                 </div>
                 {canEdit && (
                     <Link href={`${baseRoute}/${record.ServiceRecordID}/edit`} className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)]">
@@ -65,7 +87,7 @@ export function ServiceRecordDetailPage({ baseRoute, recordId, canEdit = false }
                 <h2 className="text-lg font-semibold text-slate-800 mb-3">Header</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                     <div><span className="text-slate-500">Status:</span> {record.Status.replaceAll('_', ' ')}</div>
-                    <div><span className="text-slate-500">Reporting Department:</span> {record.reportingDepartment?.DepartmentName || '-'}</div>
+                    <div><span className="text-slate-500">Reporting Department:</span> {formatReportingDepartment(record)}</div>
                 </div>
                 {record.RecordNotes && <p className="mt-3 text-sm text-slate-700">{record.RecordNotes}</p>}
             </div>

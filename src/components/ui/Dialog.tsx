@@ -10,6 +10,7 @@ export interface DialogProps extends React.ComponentPropsWithoutRef<typeof Dialo
     confirmText?: string;
     cancelText?: string;
     loading?: boolean;
+    hideConfirm?: boolean;
     children?: React.ReactNode;
     // Optional class to override content container size/styling for wide dialogs
     contentClassName?: string;
@@ -24,6 +25,7 @@ export function Dialog({
     confirmText = "Confirm",
     cancelText = "Cancel",
     loading = false,
+    hideConfirm = false,
     children,
     ...props
 }: DialogProps) {
@@ -31,7 +33,7 @@ export function Dialog({
         <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props}>
             <DialogPrimitive.Portal>
                 <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 z-40" />
-                <DialogPrimitive.Content className={`fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 ${props.contentClassName || ''}`}>
+                <DialogPrimitive.Content className={`fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full p-6 space-y-4 ${props.contentClassName || 'max-w-md'}`}>
                     <DialogPrimitive.Title className="text-lg font-bold text-slate-900">{title}</DialogPrimitive.Title>
                     {description && <DialogPrimitive.Description className="text-slate-600 text-sm">{description}</DialogPrimitive.Description>}
                     {children}
@@ -44,13 +46,15 @@ export function Dialog({
                                 {cancelText}
                             </button>
                         </DialogPrimitive.Close>
-                        <button
-                            className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-colors font-medium text-sm disabled:opacity-60"
-                            onClick={onConfirm}
-                            disabled={loading}
-                        >
-                            {loading ? "Processing..." : confirmText}
-                        </button>
+                        {!hideConfirm && (
+                            <button
+                                className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-colors font-medium text-sm disabled:opacity-60"
+                                onClick={onConfirm}
+                                disabled={loading}
+                            >
+                                {loading ? "Processing..." : confirmText}
+                            </button>
+                        )}
                     </div>
                 </DialogPrimitive.Content>
             </DialogPrimitive.Portal>
