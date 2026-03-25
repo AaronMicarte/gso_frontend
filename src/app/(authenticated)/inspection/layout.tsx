@@ -5,19 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { AuthProvider } from '@/lib/providers/AuthProvider';
 
-function DashboardSkeleton() {
-    return <div className="min-h-screen bg-slate-100" />;
-}
-
-export default function InspectionLayout({ children }: { children: React.ReactNode }) {
+export default function InspectionLayout({ children: _children }: { children: React.ReactNode }) {
     return (
         <AuthProvider>
-            <InspectionLayoutInner>{children}</InspectionLayoutInner>
+            <InspectionLayoutInner />
         </AuthProvider>
     );
 }
 
-function InspectionLayoutInner({ children }: { children: React.ReactNode }) {
+function InspectionLayoutInner() {
     const { user, loading } = useAuth();
     const router = useRouter();
 
@@ -31,8 +27,5 @@ function InspectionLayoutInner({ children }: { children: React.ReactNode }) {
         }
     }, [loading, user, router]);
 
-    if (loading || !user) {
-        return <DashboardSkeleton />;
-    }
-    return <DashboardSkeleton />;
+    return null;
 }

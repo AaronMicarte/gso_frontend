@@ -10,20 +10,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { User } from '@/types/auth';
 
-function DashboardSkeleton() {
-    return (
-        <>
-            <div className="h-10 w-48 bg-slate-300/70 rounded animate-pulse" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                {[...Array(4)].map((_, i) => (
-                    <div key={i} className="h-32 bg-slate-300/70 rounded-lg animate-pulse" />
-                ))}
-            </div>
-            <div className="h-64 bg-slate-300/70 rounded-lg animate-pulse" />
-        </>
-    );
-}
-
 const QR_LOADING_USER: User = {
     UserID: 0,
     Username: 'loading',
@@ -89,13 +75,7 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
     };
 
     if (!loading && !user) {
-        return (
-            <div className="min-h-screen bg-slate-100">
-                <main className="pt-16 lg:pt-0 p-6 space-y-6">
-                    <DashboardSkeleton />
-                </main>
-            </div>
-        );
+        return null;
     }
 
     return (
@@ -125,13 +105,7 @@ function QrLayoutInner({ children }: { children: React.ReactNode }) {
             <Sidebar user={effectiveUser} isOpen={mobileMenuOpen} onLogout={handleLogout} baseRoute={baseRoute} />
 
             <main className="flex-1 lg:ml-64 overflow-auto pt-16 lg:pt-0">
-                {loading ? (
-                    <div className="p-6 space-y-6">
-                        <DashboardSkeleton />
-                    </div>
-                ) : (
-                    children
-                )}
+                {children}
             </main>
 
             <LogoutConfirmModal
