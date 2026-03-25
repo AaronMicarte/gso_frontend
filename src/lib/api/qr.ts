@@ -81,3 +81,8 @@ export async function scanProperty(propertyId: number) {
     const res = await apiClient.get<QrScanResponse>(`/qr/scan/${propertyId}`);
     return res.data;
 }
+
+export async function updatePropertyCondition(propertyId: number, conditionId: number) {
+    const res = await apiClient.put(`/qr/properties/${propertyId}`, { condition_id: conditionId });
+    return res.data;
+}

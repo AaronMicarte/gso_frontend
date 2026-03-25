@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, RefreshCw, Search, Package, X } from 'lucide-react';
+import { Eye, RefreshCw, Search, Package, X, Edit3, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
-import { useQrProperties } from '@/lib/hooks/useQrProperties';
+import { useQrProperties, useUpdatePropertyCondition } from '@/lib/hooks/useQrProperties';
 import { useAllPropertyStatuses } from '@/lib/hooks/masterData/usePropertyStatuses';
 import { useAllConditions } from '@/lib/hooks/masterData/useConditions';
 import type { QrScanAssignedProperty } from '@/types/qr';
@@ -98,8 +98,15 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<QrScanAssignedProperty | null>(null);
 
+    const [editingConditionPropertyId, setEditingConditionPropertyId] = useState<number | null>(null);
+    const [editingConditionId, setEditingConditionId] = useState<number | ''>('');
+
+    const updatePropertyCondition = useUpdatePropertyCondition();
+
     const openPropertyModal = (property: QrScanAssignedProperty) => {
         setSelectedProperty(property);
+        setEditingConditionPropertyId(null);
+        setEditingConditionId('');
         setIsModalOpen(true);
     };
 
@@ -153,6 +160,23 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
 
     const canGoPrev = currentPage > 1;
     const canGoNext = currentPage < totalPages;
+
+    const handleSaveRowCondition = async (property: QrScanAssignedProperty) => {
+        if (!editingConditionId) {
+            toast.error('Choose a condition before saving.');
+            return;
+        }
+
+        try {
+            await updatePropertyCondition.mutateAsync({ propertyId: property.PropertyID, conditionId: Number(editingConditionId) });
+            toast.success('Condition updated successfully.');
+            setEditingConditionPropertyId(null);
+            setEditingConditionId('');
+        } catch (error) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            toast.error(message || 'Failed to update condition');
+        }
+    };
 
     return (
         <div
@@ -289,9 +313,54 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
-                                                        {getConditionName(p)}
-                                                    </span>
+                                                    {editingConditionPropertyId === p.PropertyID ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <select
+                                                                value={editingConditionId}
+                                                                onChange={(e) => setEditingConditionId(e.target.value ? Number(e.target.value) : '')}
+                                                                className="px-2 py-1 border border-slate-300 rounded-lg text-sm"
+                                                            >
+                                                                <option value="">Select</option>
+                                                                {conditionOptions.map((c) => (
+                                                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                                                ))}
+                                                            </select>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSaveRowCondition(p)}
+                                                                disabled={updatePropertyCondition.isPending || !editingConditionId}
+                                                                className="text-green-600 hover:text-green-800"
+                                                                title="Save condition"
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setEditingConditionPropertyId(null); setEditingConditionId(''); }}
+                                                                className="text-slate-400 hover:text-slate-700"
+                                                                title="Cancel"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                                                                {getConditionName(p)}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setEditingConditionPropertyId(p.PropertyID);
+                                                                    setEditingConditionId(p.ConditionID || p.condition?.ConditionID || '');
+                                                                }}
+                                                                className="p-1 text-slate-400 hover:text-slate-700"
+                                                                title="Edit condition"
+                                                            >
+                                                                <Edit3 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-700">{formatPHDate(p.AssignedDate)}</td>
                                                 <td className="px-6 py-4 text-right">
