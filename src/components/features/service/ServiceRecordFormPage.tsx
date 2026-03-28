@@ -9,6 +9,7 @@ import serviceApi from '@/lib/api/assetServices';
 import {
     AssetServiceHandlingDecision,
     ServiceHelperDepartment,
+    ServiceHelperEndUser,
     ServiceHelperProvider,
     ServiceInventoryItem,
 } from '@/types/assetService';
@@ -28,7 +29,7 @@ interface ServiceDetailFormState {
     assigned_provider_key: string;
 }
 
-const HANDLING_OPTIONS: AssetServiceHandlingDecision[] = ['warranty_claim', 'vendor_repair'];
+const HANDLING_OPTIONS: AssetServiceHandlingDecision[] = ['warranty', 'no_warranty'];
 
 function makeEmptyDetailState(): ServiceDetailFormState {
     return {
@@ -100,6 +101,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
 
     const [providers, setProviders] = useState<ServiceHelperProvider[]>([]);
     const [departments, setDepartments] = useState<ServiceHelperDepartment[]>([]);
+    const [departmentHeads, setDepartmentHeads] = useState<ServiceHelperEndUser[]>([]);
     const [inventory, setInventory] = useState<ServiceInventoryItem[]>([]);
     const [openInventoryForDetail, setOpenInventoryForDetail] = useState<string | null>(null);
 
@@ -111,12 +113,14 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
     useEffect(() => {
         const loadHelpers = async () => {
             try {
-                const [providerRows, departmentRows] = await Promise.all([
+                const [providerRows, departmentRows, departmentHeadRows] = await Promise.all([
                     serviceApi.getProviders(),
                     serviceApi.getDepartments(),
+                    serviceApi.getDepartmentHeads(),
                 ]);
                 setProviders(providerRows);
                 setDepartments(departmentRows);
+                setDepartmentHeads(departmentHeadRows);
             } catch {
                 toast.error('Failed to load form helpers');
             }
@@ -304,7 +308,7 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
             record_notes: recordNotes || undefined,
             details: details.map((detail) => {
                 const provider = splitProviderKey(detail.assigned_provider_key);
-                const isWarrantyClaim = detail.handling_decision === 'warranty_claim';
+                const isWarrantyClaim = detail.handling_decision === 'warranty';
 
                 return {
                     service_record_detail_id: detail.service_record_detail_id,
@@ -397,13 +401,28 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                 required
                             >
                                 <option value="">Select department</option>
-                                {departments.map((department) => (
-                                    <option key={department.DepartmentID} value={department.DepartmentID}>
-                                        {department.DepartmentCode || department.DepartmentName}
-                                    </option>
-                                ))}
+                                {departments.map((department) => {
+                                    const head = departmentHeads.find((user) => user.DepartmentID === department.DepartmentID);
+                                    return (
+                                        <option key={department.DepartmentID} value={department.DepartmentID}>
+                                            {head ? `${head.FullName} - ${department.DepartmentName || department.DepartmentCode}` : (department.DepartmentName || department.DepartmentCode)}
+                                        </option>
+                                    );
+                                })}
                             </select>
                             <p className="text-xs text-slate-500 mt-1">Select which department the report came from.</p>
+                            {reportSourceId && (
+                                <p className="text-sm text-slate-700 mt-2">
+                                    {(() => {
+                                        const selectedDept = departments.find((d) => d.DepartmentID === reportSourceId);
+                                        const head = departmentHeads.find((user) => user.DepartmentID === reportSourceId);
+                                        if (head && selectedDept) {
+                                            return `Selected: ${head.FullName} - ${selectedDept.DepartmentName || selectedDept.DepartmentCode}`;
+                                        }
+                                        return selectedDept ? `Selected: ${selectedDept.DepartmentName || selectedDept.DepartmentCode}` : '';
+                                    })()}
+                                </p>
+                            )}
                             {!reportSourceId && (
                                 <p className="text-sm text-red-600 mt-2">Please select the report source department before filling service details.</p>
                             )}

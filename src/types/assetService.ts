@@ -6,7 +6,7 @@ export type AssetServiceStatus =
     | 'fixed'
     | 'unrepairable';
 
-export type AssetServiceHandlingDecision = 'warranty_claim' | 'vendor_repair';
+export type AssetServiceHandlingDecision = 'warranty' | 'no_warranty';
 export type AssetServiceBudgetStatus = 'pending_check' | 'warranty_covered' | 'budget_available' | 'budget_unavailable';
 
 export interface ServiceHelperProvider {
