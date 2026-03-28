@@ -88,6 +88,7 @@ export function ServiceRecordDetailPage({ baseRoute, recordId, canEdit = false }
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                     <div><span className="text-slate-500">Status:</span> {record.Status.replaceAll('_', ' ')}</div>
                     <div><span className="text-slate-500">Reporting Department:</span> {formatReportingDepartment(record)}</div>
+                    <div><span className="text-slate-500">Final notes:</span> {record.FinalNotes ? record.FinalNotes : '-'}</div>
                 </div>
                 {record.RecordNotes && <p className="mt-3 text-sm text-slate-700">{record.RecordNotes}</p>}
             </div>

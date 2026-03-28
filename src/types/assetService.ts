@@ -1,10 +1,9 @@
 export type AssetServiceStatus =
     | 'pending'
-    | 'under_review'
     | 'work_approved'
     | 'repair_in_progress'
     | 'verification'
-    | 'closed'
+    | 'fixed'
     | 'unrepairable';
 
 export type AssetServiceHandlingDecision = 'warranty_claim' | 'vendor_repair';
@@ -111,6 +110,7 @@ export interface AssetServiceRecord {
     RecordNotes?: string | null;
     CreatedByUserID: number;
     UpdatedByUserID?: number | null;
+    FinalNotes?: string | null;
     details: AssetServiceRecordDetail[];
     reportingDepartment?: ServiceHelperDepartment | null;
     reportingDepartmentHead?: string | null;
@@ -148,6 +148,7 @@ export interface AssetServiceRecordUpdatePayload {
     report_source_id?: number;
     status?: AssetServiceStatus;
     record_notes?: string;
+    final_notes?: string;
     details?: Array<{
         service_record_detail_id?: number;
         inventory_detail_id: number;
