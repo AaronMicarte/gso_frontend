@@ -111,20 +111,20 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             {
                 section: 'ISSUANCE & ASSIGNMENT',
                 items: [
-                    {
-                        label: 'Asset Requests',
-                        icon: FileText,
-                        children: [
-                            { label: 'All Requests', href: `${baseRoute}/asset-requests`, icon: FileText },
-                        ]
-                    },
-                    {
-                        label: 'RIS (Requisition)',
-                        icon: FileText,
-                        children: [
-                            { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
-                        ]
-                    },
+                    // {
+                    //     label: 'Asset Requests',
+                    //     icon: FileText,
+                    //     children: [
+                    //         { label: 'All Requests', href: `${baseRoute}/asset-requests`, icon: FileText },
+                    //     ]
+                    // },
+                    // {
+                    //     label: 'RIS (Requisition)',
+                    //     icon: FileText,
+                    //     children: [
+                    //         { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
+                    //     ]
+                    // },
                     {
                         label: 'Property Issuance',
                         icon: FileText,
