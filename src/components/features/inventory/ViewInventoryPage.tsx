@@ -313,9 +313,9 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                 <th className="px-6 py-4">Property Type</th>
                                                 <th className="px-6 py-4">Description</th>
                                                 <th className="px-6 py-4">Quantity & Unit Cost</th>
-                                                <th className="px-6 py-4">Status</th>
+                                                <th className="px-6 py-4">Status / Condition</th>
                                                 <th className="px-6 py-4">Custodian</th>
-                                                <th className="px-6 py-4 text-right">Actions</th>
+                                                <th className="px-6 py-4 text-center">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200">
@@ -343,6 +343,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     UnitCost: number;
                                                     TotalCost: number;
                                                     ConditionID?: number;
+                                                    ConditionName?: string;
                                                     PropertyStatusID?: number;
                                                     StatusName?: string;
                                                     custodianName?: string;
@@ -396,8 +397,22 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 <div className="font-medium">{d.Quantity} @ ₱{Number(d.UnitCost || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-4">
-                                                            {getStatusBadge(d.PropertyStatusID, d.StatusName)}
+                                                        <td className="px-6 py-4 space-y-1">
+                                                            <div>{getStatusBadge(d.PropertyStatusID, d.StatusName)}</div>
+                                                            {d.ConditionName ? (
+                                                                <div
+                                                                    className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
+                                                                    style={{
+                                                                        backgroundColor: d.ConditionName.toLowerCase().includes('unserviceable') ? '#fef2f2' : d.ConditionName.toLowerCase().includes('under repair') ? '#fffbeb' : '#ecfdf5',
+                                                                        color: d.ConditionName.toLowerCase().includes('unserviceable') ? '#b91c1c' : d.ConditionName.toLowerCase().includes('under repair') ? '#92400e' : '#065f46',
+                                                                        border: '1px solid ' + (d.ConditionName.toLowerCase().includes('unserviceable') ? '#fecaca' : d.ConditionName.toLowerCase().includes('under repair') ? '#fde68a' : '#bbf7d0'),
+                                                                    }}
+                                                                >
+                                                                    <span className="uppercase tracking-wider">{d.ConditionName}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-xs text-slate-500">Unknown</span>
+                                                            )}
                                                         </td>
                                                         <td className="px-6 py-4 text-slate-600">
                                                             {getBorrowedLabel(d.currentBorrowerName) ? (

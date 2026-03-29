@@ -297,7 +297,7 @@ export function AllItemsPage() {
                                     <th className="px-6 py-4">Description</th>
                                     <th className="px-6 py-4">Property Type</th>
                                     <th className="px-6 py-4">Inventory Number</th>
-                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4">Status / Condition</th>
                                     <th className="px-6 py-4">Custodian</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
@@ -342,8 +342,22 @@ export function AllItemsPage() {
                                             <td className="px-6 py-4 text-slate-600">
                                                 <div className="font-medium">{item.InventoryNumber || 'N/A'}</div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                {getStatusBadge(item.PropertyStatusID, item.StatusName)}
+                                            <td className="px-6 py-4 space-y-1">
+                                                <div>{getStatusBadge(item.PropertyStatusID, item.StatusName)}</div>
+                                                {item.ConditionName ? (
+                                                    <div
+                                                        className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
+                                                        style={{
+                                                            backgroundColor: item.ConditionName.toLowerCase().includes('unserviceable') ? '#fef2f2' : item.ConditionName.toLowerCase().includes('under repair') ? '#fffbeb' : '#ecfdf5',
+                                                            color: item.ConditionName.toLowerCase().includes('unserviceable') ? '#b91c1c' : item.ConditionName.toLowerCase().includes('under repair') ? '#92400e' : '#065f46',
+                                                            border: '1px solid ' + (item.ConditionName.toLowerCase().includes('unserviceable') ? '#fecaca' : item.ConditionName.toLowerCase().includes('under repair') ? '#fde68a' : '#bbf7d0'),
+                                                        }}
+                                                    >
+                                                        <span className="uppercase tracking-wider">{item.ConditionName}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-slate-500">Unknown</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
                                                 {getBorrowedLabel(item.currentBorrowerName) ? (

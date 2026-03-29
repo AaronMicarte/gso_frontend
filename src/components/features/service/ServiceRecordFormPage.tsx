@@ -230,6 +230,23 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
         }));
     };
 
+    const sortedInventory = useMemo(() => {
+        const priority = (item?: ServiceInventoryItem) => {
+            const condition = item?.condition?.ConditionName?.toLowerCase() ?? '';
+            if (condition.includes('unserviceable')) return 0;
+            if (condition.includes('under repair')) return 1;
+            if (condition.includes('serviceable')) return 2;
+            return 3;
+        };
+
+        return [...inventory].sort((a, b) => {
+            const pa = priority(a);
+            const pb = priority(b);
+            if (pa !== pb) return pa - pb;
+            return Number(b.InventoryDetailID) - Number(a.InventoryDetailID);
+        });
+    }, [inventory]);
+
     const canEditDetails = Boolean(reportSourceId);
 
     const updateHandlingDecision = (localId: string, value: AssetServiceHandlingDecision | '') => {
@@ -460,8 +477,8 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                 );
                                 const inventoryQuery = detail.inventory_query.trim().toLowerCase();
                                 const filteredInventory = (inventoryQuery
-                                    ? inventory.filter((item) => inventoryLabel(item).toLowerCase().includes(inventoryQuery))
-                                    : inventory
+                                    ? sortedInventory.filter((item) => inventoryLabel(item).toLowerCase().includes(inventoryQuery))
+                                    : sortedInventory
                                 ).filter((item) => !otherSelectedInventoryIds.has(item.InventoryDetailID));
 
                                 return (
@@ -515,6 +532,15 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                                             ) : (
                                                                 filteredInventory.map((item) => {
                                                                     const duplicate = otherSelectedInventoryIds.has(item.InventoryDetailID);
+                                                                    const conditionName = (item.condition?.ConditionName ?? '').trim().toLowerCase();
+                                                                    const isUnserviceable = conditionName.includes('unserviceable');
+                                                                    const isUnderRepair = conditionName.includes('under repair');
+                                                                    const isServiceable = conditionName.includes('serviceable');
+
+                                                                    const conditionStyle = isUnserviceable
+                                                                        ? { backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca' }
+                                                                        : { backgroundColor: '#ffffff', color: '#0f172a', borderColor: '#cbd5e1' };
+
                                                                     return (
                                                                         <li
                                                                             key={item.InventoryDetailID}
@@ -528,10 +554,12 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                                                                 }
                                                                                 selectInventoryForDetail(detail.localId, String(item.InventoryDetailID));
                                                                             }}
-                                                                            className={`px-3 py-2 text-sm ${duplicate ? 'text-slate-400 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-100'}`}
+                                                                            className={`px-3 py-2 text-sm ${duplicate ? 'text-slate-400 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-100'} font-semibold border`}
+                                                                            style={{ ...conditionStyle, cursor: duplicate ? 'not-allowed' : 'pointer' }}
                                                                         >
                                                                             {inventoryLabel(item)}
-                                                                            {duplicate && ' (already selected)'}
+                                                                            {isUnserviceable && <span className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-rose-100 text-rose-700">Unserviceable</span>}
+                                                                            {duplicate && <span className="ml-2 text-xs text-slate-400">(already selected)</span>}
                                                                         </li>
                                                                     );
                                                                 })

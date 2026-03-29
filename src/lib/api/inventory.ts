@@ -41,6 +41,7 @@ export type InventoryDetail = {
     UnitCost: number;
     TotalCost: number;
     ConditionID?: number;
+    ConditionName?: string;
     PropertyStatusID?: number;
     PropertyTypeID?: number;
     StatusName?: string;

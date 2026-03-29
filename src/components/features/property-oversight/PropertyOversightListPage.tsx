@@ -141,8 +141,15 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
         return (allStatuses ?? []).filter(s => (s.name ?? '').trim().toLowerCase() !== 'available').map((s) => ({ id: s.id, name: s.name }));
     }, [allStatuses]);
 
-    const conditionOptions = useMemo(() => {
+    const allConditionOptions = useMemo(() => {
         return (allConditions ?? []).map((c) => ({ id: c.id, name: c.name }));
+    }, [allConditions]);
+
+    const editableConditionOptions = useMemo(() => {
+        const allowed = new Set(['serviceable', 'unserviceable']);
+        return (allConditions ?? [])
+            .filter((c) => allowed.has((c.name ?? '').trim().toLowerCase()))
+            .map((c) => ({ id: c.id, name: c.name }));
     }, [allConditions]);
 
     const filtered = useMemo(() => {
@@ -253,7 +260,7 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                             className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                         >
                             <option value="ALL">All Condition</option>
-                            {conditionOptions.map((c) => (
+                            {allConditionOptions.map((c) => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
                         </select>
@@ -321,7 +328,7 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                                                 className="px-2 py-1 border border-slate-300 rounded-lg text-sm"
                                                             >
                                                                 <option value="">Select</option>
-                                                                {conditionOptions.map((c) => (
+                                                                {editableConditionOptions.map((c) => (
                                                                     <option key={c.id} value={c.id}>{c.name}</option>
                                                                 ))}
                                                             </select>
