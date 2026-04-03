@@ -64,8 +64,10 @@ export function AllItemsPage() {
 
     const filteredDetails = useMemo(() => {
         if (!data?.data) return [];
-        if (!search) return data?.data || [];
-        return (data?.data || []).filter(item =>
+
+        const source = !search
+            ? (data.data || [])
+            : (data.data || []).filter(item =>
             item.dr_article_name?.toLowerCase().includes(search.toLowerCase()) ||
             item.Description?.toLowerCase().includes(search.toLowerCase()) ||
             item.PropertyName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -74,6 +76,13 @@ export function AllItemsPage() {
             item.SerialNumber?.toLowerCase().includes(search.toLowerCase()) ||
             item.InventoryNumber?.toLowerCase().includes(search.toLowerCase())
         );
+
+        return [...source].sort((a, b) => {
+            const aTime = a.CreatedDate ? new Date(a.CreatedDate).getTime() : 0;
+            const bTime = b.CreatedDate ? new Date(b.CreatedDate).getTime() : 0;
+            if (aTime !== bTime) return bTime - aTime;
+            return b.InventoryDetailID - a.InventoryDetailID;
+        });
     }, [data?.data, search]);
 
     const toggleDescriptionExpansion = (inventoryDetailId: number) => {

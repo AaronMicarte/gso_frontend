@@ -26,7 +26,7 @@ interface TransferDetailPageProps {
     baseRoute: string;
 }
 
-type PendingConfirmAction = 'approve' | 'signReleasing' | 'signReceiving' | null;
+type PendingConfirmAction = 'approve' | null;
 
 function displaySafeText(value: string | null | undefined, fallback: string) {
     const text = value?.trim();
@@ -54,20 +54,14 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
     const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
     const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
-    const canApprove = isPrivilegedUser;
+    const canApprove = isPrivilegedUser && transfer?.Status === 'pending';
     const canReleasingReview = user?.UserRoleID === 4
-        && transfer?.Status === 'pending'
+        && transfer?.Status === 'approved'
         && (transfer?.ReleasingDecision ?? 'pending') === 'pending'
         && Number(user?.DepartmentID ?? 0) === Number(transfer?.FromDepartmentID ?? 0);
-    const canSignReleasing = isPrivilegedUser
+    const canCompleteTransfer = isPrivilegedUser
         && transfer?.Status === 'approved'
-        && !transfer?.BorrowerSignedAt;
-    const canSignReceiving = user?.UserRoleID === 4
-        && transfer?.Status === 'approved'
-        && !!transfer?.BorrowerSignedAt
-        && !transfer?.BorrowingSignedAt
-        && Number(user?.DepartmentID ?? 0) === Number(transfer?.ToDepartmentID ?? 0);
-    const canCompleteTransfer = false;
+        && transfer?.ReleasingDecision === 'approved';
     const isReleasingDepartmentViewer = user?.UserRoleID === 4
         && !isPrivilegedUser
         && Number(user?.DepartmentID ?? 0) === Number(transfer?.FromDepartmentID ?? 0);
@@ -150,7 +144,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         try {
             setIsProcessing(true);
             await transferAPI.approve(transfer.TransferID);
-            toast.success('Transfer approved. PTR is ready to print.');
+            toast.success('Transfer approved by GSO. Releasing custody can now review.');
             await loadTransfer();
         } catch {
             toast.error('Failed to approve transfer');
@@ -262,57 +256,12 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         }
     };
 
-    const handleSignReleasing = async () => {
-        if (!transfer) return;
-
-        try {
-            setIsProcessing(true);
-            await transferAPI.signReleasing(transfer.TransferID);
-            toast.success('GSO releasing signature confirmed');
-            await loadTransfer();
-        } catch (error: unknown) {
-            const maybeAxios = error as { response?: { data?: { message?: string } } };
-            const message = maybeAxios?.response?.data?.message;
-            toast.error(message || 'Failed to confirm releasing signature');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleSignReceiving = async () => {
-        if (!transfer) return;
-
-        try {
-            setIsProcessing(true);
-            await transferAPI.signReceiving(transfer.TransferID);
-            toast.success('Receiving signature confirmed and transfer completed');
-            await loadTransfer();
-        } catch (error: unknown) {
-            const maybeAxios = error as { response?: { data?: { message?: string } } };
-            const message = maybeAxios?.response?.data?.message;
-            toast.error(message || 'Failed to confirm receiving signature');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
     const handleConfirmAction = async () => {
         if (!pendingConfirmAction) return;
 
         if (pendingConfirmAction === 'approve') {
             await handleApprove();
             setPendingConfirmAction(null);
-            return;
-        }
-
-        if (pendingConfirmAction === 'signReleasing') {
-            await handleSignReleasing();
-            setPendingConfirmAction(null);
-            return;
-        }
-
-        if (pendingConfirmAction === 'signReceiving') {
-            await handleSignReceiving();
             setPendingConfirmAction(null);
             return;
         }
@@ -327,18 +276,10 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
             };
         }
 
-        if (pendingConfirmAction === 'signReleasing') {
-            return {
-                title: 'Confirm GSO Release Signature',
-                description: 'Confirm that GSO has released the item(s) for this transfer.',
-                confirmText: 'Confirm Release',
-            };
-        }
-
         return {
-            title: 'Confirm Receiving Signature',
-            description: 'Confirm that the receiving department has received the item(s). This will complete the transfer automatically.',
-            confirmText: 'Confirm Received & Complete',
+            title: 'Confirm Action',
+            description: 'Proceed with this action?',
+            confirmText: 'Confirm',
         };
     };
 
@@ -354,10 +295,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
     const approvalDisplay = () => {
         if (!transfer) return '';
-        if (transfer.Status === 'pending' && (transfer.ReleasingDecision ?? 'pending') === 'pending') {
-            return 'Pending releasing review';
-        }
-        if (transfer.Status === 'pending' && transfer.ReleasingDecision === 'approved') {
+        if (transfer.Status === 'pending') {
             return 'Pending GSO/Admin approval';
         }
         if (transfer.Status === 'rejected') {
@@ -403,7 +341,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         if (transfer.Status === 'completed') {
             return formatDisplayDate(transfer.CompletedAt) || 'Completed (date missing)';
         }
-        if (transfer.Status === 'approved') return 'Awaiting completion';
+        if (transfer.Status === 'approved' && transfer.ReleasingDecision !== 'approved') return 'Awaiting releasing custody review';
+        if (transfer.Status === 'approved') return 'Awaiting final GSO completion';
         if (transfer.Status === 'rejected') return 'Not applicable';
         return 'Pending approval';
     };
@@ -570,7 +509,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                             </Dialog.Root>
                         )}
 
-                        {canApprove && transfer.Status === 'pending' && transfer.ReleasingDecision === 'approved' && (
+                        {canApprove && (
                             <button
                                 onClick={() => setPendingConfirmAction('approve')}
                                 disabled={isProcessing}
@@ -580,7 +519,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 Approve
                             </button>
                         )}
-                        {canApprove && transfer.Status === 'pending' && transfer.ReleasingDecision === 'approved' && (
+                        {isPrivilegedUser && transfer.Status === 'pending' && (
                             <Dialog.Root open={rejectOpen} onOpenChange={setRejectOpen}>
                                 <Dialog.Trigger asChild>
                                     <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
@@ -617,26 +556,6 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </Dialog.Portal>
                             </Dialog.Root>
                         )}
-                        {canSignReleasing && (
-                            <button
-                                onClick={() => setPendingConfirmAction('signReleasing')}
-                                disabled={isProcessing}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-                            >
-                                <CheckCircle className="w-4 h-4" />
-                                Confirm Release (GSO)
-                            </button>
-                        )}
-                        {canSignReceiving && (
-                            <button
-                                onClick={() => setPendingConfirmAction('signReceiving')}
-                                disabled={isProcessing}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                            >
-                                <CheckCircle className="w-4 h-4" />
-                                Confirm Received
-                            </button>
-                        )}
                         {canCompleteTransfer && (
                             <Dialog.Root open={completeOpen} onOpenChange={setCompleteOpen}>
                                 <Dialog.Trigger asChild>
@@ -650,7 +569,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                     <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
                                         <Dialog.Title className="text-lg font-semibold text-slate-900">Complete Transfer</Dialog.Title>
                                         <Dialog.Description className="text-sm text-slate-500 mt-1">
-                                            Both signatures are already confirmed. Finalize this transfer and update inventory ownership.
+                                            Releasing custody has accepted this request. Finalize the transfer and update inventory ownership.
                                         </Dialog.Description>
 
                                         <div className="grid gap-4 mt-4">
@@ -681,19 +600,14 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </Dialog.Portal>
                             </Dialog.Root>
                         )}
-                        {canApprove && transfer.Status === 'pending' && transfer.ReleasingDecision !== 'approved' && (
+                        {isPrivilegedUser && transfer.Status === 'approved' && (transfer.ReleasingDecision ?? 'pending') === 'pending' && (
                             <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                Waiting for releasing custody review before GSO/Admin action.
+                                Waiting for releasing custody review before final GSO action.
                             </div>
                         )}
-                        {isPrivilegedUser && transfer.Status === 'approved' && !transfer.BorrowerSignedAt && (
-                            <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                                Complete the GSO release confirmation first.
-                            </div>
-                        )}
-                        {isPrivilegedUser && transfer.Status === 'approved' && transfer.BorrowerSignedAt && !transfer.BorrowingSignedAt && (
+                        {isPrivilegedUser && transfer.Status === 'approved' && transfer.ReleasingDecision === 'approved' && (
                             <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                                Waiting for receiving department confirmation before completion.
+                                Ready for final GSO completion.
                             </div>
                         )}
                     </div>
@@ -759,7 +673,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                         <div className="flex items-start justify-between gap-3 mb-4">
-                            <div className="text-sm font-semibold text-slate-900">Approval & Signing</div>
+                            <div className="text-sm font-semibold text-slate-900">Workflow Timeline</div>
                             <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${releasingDecisionBadgeClass(transfer.ReleasingDecision)}`}>
                                 {releasingDecisionLabel(transfer.ReleasingDecision)}
                             </span>
@@ -778,15 +692,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                         <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
                                     </div>
                                     <div>
-                                        <div className="text-xs text-slate-500 uppercase">GSO Releasing Signed</div>
-                                        <div className="text-sm font-medium text-slate-800 mt-1">{borrowerSignedDisplay()}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-slate-500 uppercase">Receiving Department Signed</div>
-                                        <div className="text-sm font-medium text-slate-800 mt-1">{borrowingSignedDisplay()}</div>
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <div className="text-xs text-slate-500 uppercase">Completed At</div>
+                                        <div className="text-xs text-slate-500 uppercase">GSO Finalized At</div>
                                         <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
                                     </div>
                                 </>

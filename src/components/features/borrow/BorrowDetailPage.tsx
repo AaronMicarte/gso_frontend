@@ -59,10 +59,12 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
     const borrowId = params?.id ? parseInt(params.id as string) : null;
 
     const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
-    const canApprove = isPrivilegedUser && borrow?.Status === 'pending' && borrow?.ReleasingDecision === 'approved';
-    const canReject = isPrivilegedUser && borrow?.Status === 'pending';
+    const canApprove = isPrivilegedUser
+        && (borrow?.Status === 'pending'
+            || (borrow?.Status === 'approved' && borrow?.ReleasingDecision === 'approved'));
+    const canReject = isPrivilegedUser && (borrow?.Status === 'pending' || borrow?.Status === 'approved');
     const canReleasingReview = user?.UserRoleID === 4
-        && borrow?.Status === 'pending'
+        && borrow?.Status === 'approved'
         && (borrow?.ReleasingDecision ?? 'pending') === 'pending'
         && Number(user?.DepartmentID ?? 0) === Number(borrow?.FromDepartmentID ?? 0);
     const canConfirmBorrowDelivered = user?.UserRoleID === 4
@@ -239,10 +241,13 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
 
     const handleApprove = async () => {
         if (!borrow) return;
+        const isFinalAction = borrow.Status === 'approved';
         try {
             setIsProcessing(true);
             await borrowAPI.approve(borrow.BorrowID);
-            toast.success('Borrow approved. Release can proceed.');
+            toast.success(isFinalAction
+                ? 'Borrow finalized and marked as borrowed.'
+                : 'Borrow approved by GSO. Releasing custody can now review.');
             await loadBorrow();
         } catch {
             toast.error('Failed to approve borrow');
@@ -404,10 +409,13 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
 
     const confirmDialogConfig = () => {
         if (pendingConfirmAction === 'approve') {
+            const isFinalAction = borrow?.Status === 'approved';
             return {
-                title: 'Confirm GSO Approval',
-                description: 'Approve this borrow request for release?',
-                confirmText: 'Confirm Approval',
+                title: isFinalAction ? 'Confirm Final GSO Action' : 'Confirm GSO Approval',
+                description: isFinalAction
+                    ? 'Finalize this request and mark items as borrowed?'
+                    : 'Approve this borrow request so releasing custody can review?',
+                confirmText: isFinalAction ? 'Finalize Borrow' : 'Confirm Approval',
             };
         }
 
@@ -696,7 +704,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                     onClick={() => setPendingConfirmAction('approve')}
                                     className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700"
                                 >
-                                    Approve
+                                    {borrow.Status === 'approved' ? 'Finalize Borrow' : 'Approve (GSO)'}
                                 </button>
                             )}
 
