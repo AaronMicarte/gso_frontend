@@ -9,6 +9,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import type { InventoryItem } from '@/lib/api/inventory';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 import { PropertySticker } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
@@ -303,7 +304,9 @@ export function AllItemsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {data?.data?.length === 0 ? (
+                                {isLoading ? (
+                                    <TableSkeletonRows columns={7} rows={10} />
+                                ) : data?.data?.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />

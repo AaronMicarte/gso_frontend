@@ -7,6 +7,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
 
 import departmentHeadAPI, { DepartmentReceivedDr, DepartmentReceivedItem } from '@/lib/api/departmentHead';
+import { CardListSkeleton } from '@/components/ui/ListSkeletons';
 
 interface ReceivedItemsPageProps {
     baseRoute: string;
@@ -175,12 +176,7 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
 
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     {loading ? (
-                        <div className="p-8 text-center text-slate-500">
-                            <div className="flex items-center justify-center gap-2 mb-2">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[var(--primary)]"></div>
-                                Loading received items...
-                            </div>
-                        </div>
+                        <CardListSkeleton cards={4} />
                     ) : filteredRows.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                             <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />

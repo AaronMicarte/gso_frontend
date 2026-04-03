@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { useInspectionReports } from '@/lib/hooks/useInspection';
 import { ViewIARPage } from '@/components/features/iar/ViewIARPage';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 interface InspectionReportListPageProps {
     baseRoute: string;
@@ -25,7 +26,7 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
 
-    const { data } = useInspectionReports({
+    const { data, isLoading } = useInspectionReports({
         page,
         per_page: 10,
         // allow initial status prop (from dashboard) but override with filter dropdown when set
@@ -115,7 +116,9 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {data?.data?.length === 0 ? (
+                                {isLoading ? (
+                                    <TableSkeletonRows columns={7} rows={10} />
+                                ) : data?.data?.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />

@@ -17,6 +17,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
 import { toast } from 'sonner';
 import { ViewIARPage } from './ViewIARPage';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 interface IARListPageProps {
     baseRoute: string;
@@ -139,17 +140,10 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
                             </thead>
                             <tbody className="divide-y divide-slate-200">
                                 {isLoading ? (
-                                    <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
-                                                Loading IARs...
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <TableSkeletonRows columns={8} rows={10} />
                                 ) : data?.data?.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                                        <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                             No inspection reports found
                                         </td>

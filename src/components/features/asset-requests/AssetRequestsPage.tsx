@@ -18,6 +18,7 @@ import { AssetRequest, AssetRequestFilters } from '@/types/assetIssuance';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -181,14 +182,7 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
                             </thead>
                             <tbody className="divide-y divide-slate-200">
                                 {loading ? (
-                                    <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
-                                                Loading asset requests...
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <TableSkeletonRows columns={7} rows={10} />
                                 ) : filteredRequests.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import borrowAPI from '@/lib/api/borrow';
 import { PropertyBorrow, BorrowStatus } from '@/types/propertyBorrow';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 type BorrowStatusBadge = BorrowStatus | 'overdue';
 
@@ -183,7 +184,9 @@ export function BorrowListPage({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {filteredRows.length === 0 ? (
+                                {loading ? (
+                                    <TableSkeletonRows columns={8} rows={10} cellClassName="px-4 py-3" />
+                                ) : filteredRows.length === 0 ? (
                                     <tr>
                                         <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                                             No borrow requests found.

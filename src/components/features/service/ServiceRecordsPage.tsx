@@ -8,6 +8,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
 
 import { Dialog } from '@/components/ui/Dialog';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 import serviceApi from '@/lib/api/assetServices';
 import { AssetServiceRecord, AssetServiceStatus } from '@/types/assetService';
@@ -417,9 +418,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                             </thead>
                             <tbody className="divide-y divide-slate-200">
                                 {loading ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-4 py-10 text-center text-slate-500">Loading...</td>
-                                    </tr>
+                                    <TableSkeletonRows columns={6} rows={10} cellClassName="px-4 py-3" />
                                 ) : filteredRows.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="px-4 py-10 text-center text-slate-500">

@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
 import { ViewDRPage } from './ViewDRPage';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 interface DeliveryReceiptsPageProps {
     baseRoute: string;
@@ -159,14 +160,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                             </thead>
                             <tbody className="divide-y divide-slate-200">
                                 {isLoading ? (
-                                    <tr>
-                                        <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)]"></div>
-                                                Loading delivery receipts...
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <TableSkeletonRows columns={8} rows={10} />
                                 ) : tableRows.length === 0 ? (
                                     <tr>
                                         <td colSpan={8} className="px-6 py-8 text-center text-slate-500">

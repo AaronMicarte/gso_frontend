@@ -6,6 +6,7 @@ import { useInventories, useAllInventoryItems } from '@/lib/hooks/useInventory';
 import { Package, Eye, User, AlertTriangle, CheckCircle, Archive, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
     const [page, setPage] = useState(1);
@@ -13,7 +14,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
     const [sortBy, setSortBy] = useState<'date' | 'inventory_number'>('date');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-    const { data } = useInventories({ page, per_page: 10, search, sort_by: sortBy, sort_dir: sortDir });
+    const { data, isLoading } = useInventories({ page, per_page: 10, search, sort_by: sortBy, sort_dir: sortDir });
 
     // Summary stats should reflect actual per-item status (same logic as AllItemsPage)
     // Use per_page=1 to avoid loading large datasets; we only need the totals.
@@ -155,7 +156,9 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {data?.data?.length === 0 ? (
+                                {isLoading ? (
+                                    <TableSkeletonRows columns={7} rows={10} />
+                                ) : data?.data?.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />

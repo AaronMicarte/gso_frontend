@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import transferAPI from '@/lib/api/transfer';
 import { PropertyTransfer, TransferStatus } from '@/types/propertyTransfer';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 const statusConfig: Record<TransferStatus, { label: string; className: string }> = {
     pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800' },
@@ -167,7 +168,9 @@ export function TransferListPage({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {filteredRows.length === 0 ? (
+                                {loading ? (
+                                    <TableSkeletonRows columns={8} rows={10} cellClassName="px-4 py-3" />
+                                ) : filteredRows.length === 0 ? (
                                     <tr>
                                         <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                                             No transfers found.
