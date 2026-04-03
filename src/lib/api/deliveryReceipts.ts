@@ -20,6 +20,7 @@ export const getDeliveryReceipts = async (filters?: DeliveryReceiptFilters): Pro
     if (filters?.po_number) params.append('po_number', filters.po_number);
     if (filters?.per_page) params.append('per_page', filters.per_page.toString());
     if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.status) params.append('status', filters.status);
 
     const response = await apiClient.get(`/admin/procurement/delivery-receipts?${params.toString()}`);
     const payload = response.data?.data;

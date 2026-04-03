@@ -27,7 +27,6 @@ interface DeliveryReceiptsPageProps {
 }
 
 const workflowBadgeStyles: Record<string, string> = {
-    pending_inspection: 'bg-amber-100 text-amber-800',
     to_be_issued: 'bg-indigo-100 text-indigo-800',
     issued: 'bg-emerald-100 text-emerald-800',
     acknowledged: 'bg-green-100 text-green-800',
@@ -36,6 +35,7 @@ const workflowBadgeStyles: Record<string, string> = {
 export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryReceiptsPageProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'to_be_issued' | 'acknowledged'>('all');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [isViewOpen, setIsViewOpen] = useState(false);
@@ -47,6 +47,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
         page,
         per_page: 10,
         ...(search ? { query: search } : {}),
+        ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
         ...(startDate ? { start_date: startDate } : {}),
         ...(endDate ? { end_date: endDate } : {}),
     });
@@ -125,6 +126,16 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => { setStatusFilter(e.target.value as 'all' | 'to_be_issued' | 'acknowledged'); setPage(1); }}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                            title="Status"
+                        >
+                            <option value="all">All issuance statuses</option>
+                            <option value="to_be_issued">To be issued</option>
+                            <option value="acknowledged">Acknowledged</option>
+                        </select>
                         <input
                             type="date"
                             value={startDate}
@@ -195,14 +206,12 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                             </td>
                                             <td className="px-6 py-4">
                                                 {(() => {
-                                                    const fallbackStatus = (dr.inspection_status || dr.InspectionStatus) === 'inspected'
-                                                        ? 'to_be_issued'
-                                                        : 'pending_inspection';
+                                                    const fallbackStatus = 'to_be_issued';
                                                     const workflowStatus = dr.workflow_status || fallbackStatus;
                                                     const workflowLabel = dr.workflow_status_label
-                                                        || (workflowStatus === 'to_be_issued' ? 'To be issued' : 'Pending inspection');
-                                                    const badgeClass = workflowBadgeStyles[workflowStatus] || workflowBadgeStyles.pending_inspection;
-                                                    const showCheck = workflowStatus !== 'pending_inspection';
+                                                        || 'To be issued';
+                                                    const badgeClass = workflowBadgeStyles[workflowStatus] || workflowBadgeStyles.to_be_issued;
+                                                    const showCheck = true;
 
                                                     return (
                                                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>

@@ -146,6 +146,7 @@ export interface DeliveryReceiptFilters {
     per_page?: number;
     page?: number;
     supplier_id?: number;
+    status?: 'to_be_issued' | 'acknowledged';
 }
 
 

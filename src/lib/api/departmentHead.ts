@@ -9,7 +9,7 @@ export interface DepartmentReceivedItem {
     QuantityDelivered: number;
     QuantityAccepted: number;
     DocumentType: 'PAR' | 'ICS' | string | null;
-    status: 'pending' | 'inspected' | 'accepted' | 'to_be_issued' | 'issued' | 'acknowledged';
+    status: 'to_be_issued' | 'acknowledged';
     status_label: string;
 }
 

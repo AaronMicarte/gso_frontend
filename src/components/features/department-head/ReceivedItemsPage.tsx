@@ -16,12 +16,8 @@ interface ReceivedItemsPageProps {
 type ItemStatusKey = DepartmentReceivedItem['status'] | 'all';
 
 const statusConfig: Record<ItemStatusKey, { label: string; color: string }> = {
-    all: { label: 'All Status', color: 'bg-slate-100 text-slate-700' },
-    pending: { label: 'Pending', color: 'bg-slate-100 text-slate-700' },
-    inspected: { label: 'Inspected', color: 'bg-yellow-100 text-yellow-800' },
-    accepted: { label: 'Accepted', color: 'bg-emerald-100 text-emerald-700' },
+    all: { label: 'All Statuses', color: 'bg-slate-100 text-slate-700' },
     to_be_issued: { label: 'To be issued', color: 'bg-blue-100 text-blue-700' },
-    issued: { label: 'Issued', color: 'bg-indigo-100 text-indigo-700' },
     acknowledged: { label: 'Acknowledged', color: 'bg-green-100 text-green-700' },
 };
 
@@ -51,11 +47,11 @@ function buildMeta(item: DepartmentReceivedItem): string {
 }
 
 function resolveSummaryStatus(items: DepartmentReceivedItem[]): ItemStatusKey {
-    const priority: ItemStatusKey[] = ['acknowledged', 'issued', 'to_be_issued', 'accepted', 'inspected', 'pending'];
+    const priority: ItemStatusKey[] = ['acknowledged', 'to_be_issued'];
     for (const key of priority) {
         if (items.some((item) => item.status === key)) return key;
     }
-    return 'pending';
+    return 'to_be_issued';
 }
 
 export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
@@ -115,11 +111,7 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
             return acc;
         }, {
             all: items.length,
-            pending: 0,
-            inspected: 0,
-            accepted: 0,
             to_be_issued: 0,
-            issued: 0,
             acknowledged: 0,
         });
     };
@@ -191,8 +183,8 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
                                 const isExpanded = expandedByDr[row.DRID] ?? false;
                                 const statusCounts = countByStatus(row.items);
                                 const summaryStatus = resolveSummaryStatus(row.items);
-                                const summaryLabel = row.IARNumber ? statusConfig[summaryStatus].label : 'Pending inspection';
-                                const summaryColor = row.IARNumber ? statusConfig[summaryStatus].color : statusConfig.pending.color;
+                                const summaryLabel = statusConfig[summaryStatus].label;
+                                const summaryColor = statusConfig[summaryStatus].color;
                                 return (
                                     <div key={row.DRID} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
                                         <div className="p-4 sm:p-5">
@@ -204,11 +196,7 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
                                                     <div className="space-y-1">
                                                         <div className="flex flex-wrap items-center gap-2">
                                                             <h3 className="text-lg font-semibold text-slate-900">{row.DRNumber}</h3>
-                                                            {row.IARNumber ? (
-                                                                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">IAR {row.IARNumber}</span>
-                                                            ) : (
-                                                                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Pending inspection</span>
-                                                            )}
+                                                            {row.IARNumber && <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">IAR {row.IARNumber}</span>}
                                                         </div>
                                                         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
                                                             <span className="font-medium text-slate-700">{row.RequestedBy || 'Requester N/A'}</span>
@@ -219,7 +207,7 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
                                                 </div>
 
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    {(['pending', 'inspected', 'accepted', 'to_be_issued', 'issued', 'acknowledged'] as ItemStatusKey[])
+                                                    {(['to_be_issued', 'acknowledged'] as ItemStatusKey[])
                                                         .filter((key) => statusCounts[key] > 0)
                                                         .slice(0, 4)
                                                         .map((key) => (
