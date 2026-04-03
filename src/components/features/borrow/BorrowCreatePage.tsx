@@ -97,13 +97,38 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
 
         try {
             setItemLoading(true);
-            const data = await borrowAPI.getAvailableItems({
+            const firstPage = await borrowAPI.getAvailableItems({
                 search: searchTerm || undefined,
                 from_department_id: Number(fromDepartmentId),
                 from_end_user_id: Number(fromEndUserId),
-                per_page: 20,
+                per_page: 100,
+                page: 1,
             });
-            setAvailableItems(data.data || []);
+
+            const allItems: BorrowableItem[] = [...(firstPage.data || [])];
+            const lastPage = Math.max(1, Number(firstPage.last_page || 1));
+
+            if (lastPage > 1) {
+                const pagePromises: Array<Promise<{ data: BorrowableItem[] }>> = [];
+                for (let page = 2; page <= lastPage; page++) {
+                    pagePromises.push(
+                        borrowAPI.getAvailableItems({
+                            search: searchTerm || undefined,
+                            from_department_id: Number(fromDepartmentId),
+                            from_end_user_id: Number(fromEndUserId),
+                            per_page: 100,
+                            page,
+                        })
+                    );
+                }
+
+                const pages = await Promise.all(pagePromises);
+                for (const pageData of pages) {
+                    allItems.push(...(pageData.data || []));
+                }
+            }
+
+            setAvailableItems(allItems);
         } catch {
             toast.error('Failed to load borrowable items');
         } finally {

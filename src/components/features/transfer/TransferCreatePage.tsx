@@ -73,13 +73,38 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
 
         try {
             setItemLoading(true);
-            const data = await transferAPI.getAvailableItems({
+            const firstPage = await transferAPI.getAvailableItems({
                 search: searchTerm || undefined,
                 from_department_id: Number(fromDepartmentId),
                 from_end_user_id: Number(fromEndUserId),
-                per_page: 20,
+                per_page: 100,
+                page: 1,
             });
-            setAvailableItems(data.data || []);
+
+            const allItems: TransferableItem[] = [...(firstPage.data || [])];
+            const lastPage = Math.max(1, Number(firstPage.last_page || 1));
+
+            if (lastPage > 1) {
+                const pagePromises: Array<Promise<{ data: TransferableItem[] }>> = [];
+                for (let page = 2; page <= lastPage; page++) {
+                    pagePromises.push(
+                        transferAPI.getAvailableItems({
+                            search: searchTerm || undefined,
+                            from_department_id: Number(fromDepartmentId),
+                            from_end_user_id: Number(fromEndUserId),
+                            per_page: 100,
+                            page,
+                        })
+                    );
+                }
+
+                const pages = await Promise.all(pagePromises);
+                for (const pageData of pages) {
+                    allItems.push(...(pageData.data || []));
+                }
+            }
+
+            setAvailableItems(allItems);
         } catch {
             toast.error('Failed to load transfer items');
         } finally {
