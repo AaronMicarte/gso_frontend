@@ -76,11 +76,13 @@ export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: strin
 export type InventoryItem = { InventoryDetailID: number; InventoryID: number; PropertyTypeID?: number; ConditionID: number; Brand?: string; ModelNumber?: string; SerialNumber?: string; PropertyNumber?: string; Description?: string; Quantity: number; QuantityAvailable: number; PropertyStatusID: number; UnitOfMeasureID?: number; UnitCost?: number; TotalCost?: number; SourceIARDetailID?: number; SourceDRDetailID?: number; Remarks?: string; CreatedDate: string; UpdatedDate?: string; PropertyName?: string; ClassificationName?: string; DocumentType?: 'ICS' | 'PAR'; InventoryNumber?: string; StatusName?: string; ConditionName?: string; dr_item_description?: string; dr_article_name?: string; dr_brand?: string; dr_model?: string; dr_serial?: string; custodianName?: string; locationDepartment?: string; lastIssuedDate?: string | null; currentBorrowerName?: string | null; qrCodeData?: string | null };
 export type InventoryItemsListResponse = { data: InventoryItem[]; total: number; per_page: number; current_page: number; last_page: number };
 
-export const getInventories = async (params?: { page?: number; per_page?: number; search?: string }): Promise<InventoryListResponse> => {
+export const getInventories = async (params?: { page?: number; per_page?: number; search?: string; sort_by?: 'date' | 'inventory_number'; sort_dir?: 'asc' | 'desc' }): Promise<InventoryListResponse> => {
     const qs = new URLSearchParams();
     if (params?.page) qs.append('page', String(params.page));
     if (params?.per_page) qs.append('per_page', String(params.per_page));
     if (params?.search) qs.append('search', params.search);
+    if (params?.sort_by) qs.append('sort_by', params.sort_by);
+    if (params?.sort_dir) qs.append('sort_dir', params.sort_dir);
 
     const response: AxiosResponse<InventoryListResponse> = await apiClient.get(`/admin/inventory?${qs.toString()}`);
     return response.data;

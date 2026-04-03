@@ -10,8 +10,10 @@ import { toZonedTime } from 'date-fns-tz';
 export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [sortBy, setSortBy] = useState<'date' | 'inventory_number'>('date');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-    const { data } = useInventories({ page, per_page: 10, search });
+    const { data } = useInventories({ page, per_page: 10, search, sort_by: sortBy, sort_dir: sortDir });
 
     // Summary stats should reflect actual per-item status (same logic as AllItemsPage)
     // Use per_page=1 to avoid loading large datasets; we only need the totals.
@@ -49,7 +51,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                         <h1 className="text-2xl font-bold text-slate-900">Property Accountability Ledger</h1>
                         <p className="text-slate-500 text-sm">Official record of all government property under GSO custody</p>
                     </div>
-                    <div className="flex gap-2 items-center">
+                    <div className="flex flex-wrap gap-2 items-center">
                         <input
                             type="text"
                             placeholder="Search inventories..."
@@ -57,6 +59,24 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                             onChange={(e) => setSearch(e.target.value)}
                             className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                         />
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-slate-600">Sort:</label>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as 'date' | 'inventory_number')}
+                                className="px-2 py-1 border border-slate-300 rounded-lg text-sm"
+                            >
+                                <option value="date">Acquisition date</option>
+                                <option value="inventory_number">Inventory number</option>
+                            </select>
+                            <button
+                                onClick={() => setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                                className="px-2 py-1 border border-slate-300 rounded-lg text-sm bg-white hover:bg-slate-50"
+                                title="Toggle sort direction"
+                            >
+                                {sortDir === 'desc' ? 'Latest first' : 'Oldest first'}
+                            </button>
+                        </div>
                         <Link
                             href={`${baseRoute}/inventory/reports`}
                             className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"

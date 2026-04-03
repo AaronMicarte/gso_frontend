@@ -45,21 +45,12 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
     const { data, isLoading, refetch } = useDeliveryReceipts({
         page,
         per_page: 10,
+        ...(search ? { query: search } : {}),
         ...(startDate ? { start_date: startDate } : {}),
         ...(endDate ? { end_date: endDate } : {}),
-        // If the user entered text that looks like a supplier name, forward it server-side for better results
-        ...(search && /[a-zA-Z]/.test(search) ? { supplier_name: search } : {}),
     });
 
-    const filteredData = (data?.data || []).filter((dr) => {
-        if (!search) return true;
-        const q = search.toLowerCase();
-        return (
-            String(dr.DRNumber || '').toLowerCase().includes(q) ||
-            String(dr.PONumber || '').toLowerCase().includes(q) ||
-            String(dr.SupplierName || '').toLowerCase().includes(q)
-        );
-    });
+    const tableRows = data?.data || [];
 
     const handleRefresh = () => {
         refetch();
@@ -176,7 +167,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                             </div>
                                         </td>
                                     </tr>
-                                ) : filteredData.length === 0 ? (
+                                ) : tableRows.length === 0 ? (
                                     <tr>
                                         <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
@@ -184,7 +175,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredData.map((dr) => (
+                                    tableRows.map((dr) => (
                                         <tr key={dr.DRID} className="hover:bg-slate-50">
                                             <td className="px-6 py-4 font-medium text-slate-900">
                                                 {dr.DRNumber}
@@ -266,26 +257,33 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                         </table>
                     </div>
 
-                    {/* Pagination - Simplified for now */}
+                    {/* Pagination */}
                     {data?.meta && data.meta.last_page > 1 && (
-                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50"
-                            >
-                                Previous
-                            </button>
-                            <span className="text-sm text-slate-600">
-                                Page {data.meta.current_page} of {data.meta.last_page}
-                            </span>
-                            <button
-                                onClick={() => setPage(p => Math.min(data.meta.last_page, p + 1))}
-                                disabled={page === data.meta.last_page}
-                                className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50"
-                            >
-                                Next
-                            </button>
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm text-slate-500">
+                                    Showing {((data.meta.current_page - 1) * data.meta.per_page) + 1} to {Math.min(data.meta.current_page * data.meta.per_page, data.meta.total)} of {data.meta.total} entries
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setPage(Math.max(1, page - 1))}
+                                        disabled={page === 1}
+                                        className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Previous
+                                    </button>
+                                    <span className="text-sm text-slate-600">
+                                        Page {data.meta.current_page} of {data.meta.last_page}
+                                    </span>
+                                    <button
+                                        onClick={() => setPage(Math.min(data.meta.last_page, page + 1))}
+                                        disabled={page === data.meta.last_page}
+                                        className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>

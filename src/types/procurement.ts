@@ -138,6 +138,7 @@ export interface UpdateDeliveryReceiptPayload {
 }
 
 export interface DeliveryReceiptFilters {
+    query?: string;
     start_date?: string;
     end_date?: string;
     supplier_name?: string;

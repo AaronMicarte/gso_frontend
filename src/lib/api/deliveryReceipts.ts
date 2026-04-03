@@ -12,6 +12,7 @@ export const getDeliveryReceipts = async (filters?: DeliveryReceiptFilters): Pro
 }> => {
     const params = new URLSearchParams();
 
+    if (filters?.query) params.append('query', filters.query);
     if (filters?.start_date) params.append('start_date', filters.start_date);
     if (filters?.end_date) params.append('end_date', filters.end_date);
     if (filters?.supplier_id) params.append('supplier_id', String(filters.supplier_id));
@@ -21,7 +22,28 @@ export const getDeliveryReceipts = async (filters?: DeliveryReceiptFilters): Pro
     if (filters?.page) params.append('page', filters.page.toString());
 
     const response = await apiClient.get(`/admin/procurement/delivery-receipts?${params.toString()}`);
-    return response.data.data;
+    const payload = response.data?.data;
+
+    // Backend returns a Laravel paginator object where pagination fields live at root,
+    // while UI expects { data, meta }. Normalize both shapes defensively.
+    const rows: DeliveryReceipt[] = Array.isArray(payload)
+        ? payload
+        : (payload?.data ?? []);
+
+    const currentPage = Number(payload?.current_page ?? payload?.meta?.current_page ?? filters?.page ?? 1);
+    const perPage = Number(payload?.per_page ?? payload?.meta?.per_page ?? filters?.per_page ?? rows.length ?? 0);
+    const total = Number(payload?.total ?? payload?.meta?.total ?? rows.length);
+    const lastPage = Number(payload?.last_page ?? payload?.meta?.last_page ?? 1);
+
+    return {
+        data: rows,
+        meta: {
+            total,
+            per_page: perPage,
+            current_page: currentPage,
+            last_page: lastPage,
+        },
+    };
 };
 
 export const getDeliveryReceipt = async (id: number): Promise<DeliveryReceipt> => {
