@@ -39,6 +39,32 @@ export interface CreateUserResponse {
     };
 }
 
+export interface UpdateUserInput {
+    Username: string;
+    Email: string;
+    FullName?: string;
+    UserRoleID: number;
+    DepartmentID: number;
+    IsActive: boolean;
+    ResetPasswordToDefault?: boolean;
+}
+
+export interface UpdateUserResponse {
+    message: string;
+    password_reset_required: boolean;
+    mfa_reset_required: boolean;
+    user: {
+        UserID: number;
+        Username: string;
+        Email: string;
+        FullName: string | null;
+        IsActive: boolean;
+        MFAEnabled: boolean;
+        UserRoleID: number;
+        DepartmentID: number;
+    };
+}
+
 export interface ActivationRequiredError {
     message: string;
     activation_required: true;

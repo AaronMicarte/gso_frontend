@@ -14,6 +14,10 @@ type UserSettingsPrefs = {
     browserAlerts?: boolean;
 };
 
+function getPushTokenSessionKey(userId: number): string {
+    return `gso_fcm_registered_v1_${userId}`;
+}
+
 function getSettingsKey(userId: number): string {
     return `gso_settings_v1_${userId}`;
 }
@@ -53,8 +57,14 @@ export function NotificationBootstrap({ user }: NotificationBootstrapProps) {
             try {
                 const token = await getFcmToken(vapidKey);
                 if (token) {
-                    await registerPushToken(token, navigator.userAgent.slice(0, 120));
-                    console.info('[FCM] Push token registered successfully for user', user.UserID);
+                    const sessionKey = getPushTokenSessionKey(user.UserID);
+                    const alreadyRegisteredToken = sessionStorage.getItem(sessionKey);
+
+                    if (alreadyRegisteredToken !== token) {
+                        await registerPushToken(token, navigator.userAgent.slice(0, 120));
+                        sessionStorage.setItem(sessionKey, token);
+                        console.info('[FCM] Push token registered successfully for user', user.UserID);
+                    }
                 }
 
                 unsubscribeForeground = await subscribeForegroundMessages((payload) => {

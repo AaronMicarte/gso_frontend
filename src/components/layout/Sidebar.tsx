@@ -531,7 +531,13 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
                 const unread = notifications.filter((n) => n.read_at === null).length;
                 setUnreadCount(unread);
             } catch (error) {
-                console.warn('Failed to load unread count', error);
+                const message = error instanceof Error ? error.message : String(error);
+                const isExpectedAuthError = /unauthenticated|unauthorized/i.test(message);
+                const isNetworkFlap = /network error|err_network_changed/i.test(message);
+
+                if (!isExpectedAuthError && !isNetworkFlap) {
+                    console.warn('Failed to load unread count', error);
+                }
             }
         };
 

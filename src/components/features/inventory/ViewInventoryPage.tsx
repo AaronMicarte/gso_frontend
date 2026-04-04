@@ -348,6 +348,9 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     StatusName?: string;
                                                     custodianName?: string;
                                                     locationDepartment?: string;
+                                                    currentDepartmentHead?: string | null;
+                                                    departmentHeadVacant?: boolean;
+                                                    accountabilityLabel?: string | null;
                                                     currentBorrowerName?: string | null;
                                                     dr_article_name?: string;
                                                     qrCode?: { QRCodeData?: string | null } | null;
@@ -424,8 +427,8 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 <div className="flex items-center gap-1">
                                                                     <User className="w-3 h-3" />
                                                                     {d.locationDepartment
-                                                                        ? `${getCustodianDisplayName(d.custodianName)} - ${d.locationDepartment}`
-                                                                        : getCustodianDisplayName(d.custodianName)}
+                                                                        ? `${d.accountabilityLabel || getCustodianDisplayName(d.custodianName)} - ${d.locationDepartment}`
+                                                                        : (d.accountabilityLabel || getCustodianDisplayName(d.custodianName))}
                                                                 </div>
                                                             )}
                                                         </td>
@@ -443,7 +446,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                             if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
                                                                             return `${origin}/admin/inventory/${d.InventoryID}?detail=${d.InventoryDetailID}`;
                                                                         })()}
-                                                                        custodianName={getCustodianDisplayName(d.custodianName)}
+                                                                        custodianName={d.accountabilityLabel || getCustodianDisplayName(d.custodianName)}
                                                                         date={data?.DateAcquired ? format(new Date(data.DateAcquired), 'MM/dd/yyyy') : '-'}
                                                                         unitCost={d.UnitCost}
                                                                     />

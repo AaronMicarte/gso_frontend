@@ -60,6 +60,8 @@ export function QrScanDetailPage() {
         ?? 'Department not recorded';
     const statusName = property.propertyStatus?.StatusName ?? 'Status not recorded';
     const conditionName = property.condition?.ConditionName ?? 'Condition not recorded';
+    const accountability = property.accountabilityLabel
+        ?? (property.departmentHeadVacant ? 'No current department head' : 'Not recorded');
 
     const latest = data.latest_issuance_detail;
     const issuance = latest?.issuance;
@@ -100,6 +102,13 @@ export function QrScanDetailPage() {
                                 <div className="w-28 text-lg">Department:</div>
                                 <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
                                     {deptName}
+                                </div>
+                            </div>
+
+                            <div className="flex items-end gap-4">
+                                <div className="w-28 text-lg">Accountable:</div>
+                                <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
+                                    {accountability}
                                 </div>
                             </div>
 

@@ -23,10 +23,12 @@ export interface User {
 
 export interface AuthResponse {
   message: string;
+  must_change_password?: boolean;
   mfa_required?: boolean;
   mfa_setup_required?: boolean;
   user_id?: number;
-  user: User;
+  username?: string;
+  user?: User;
   // NOTE: No token - using httpOnly session cookie for security
 }
 
@@ -63,4 +65,11 @@ export interface LoginError {
   activation_required?: boolean;
   account_disabled?: boolean;
   turnstile_failed?: boolean;
+}
+
+export interface ChangeTemporaryPasswordPayload {
+  username: string;
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
 }

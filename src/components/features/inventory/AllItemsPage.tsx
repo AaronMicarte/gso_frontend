@@ -3,7 +3,7 @@
 import { useAllInventoryItems, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
 import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
@@ -62,20 +62,20 @@ export function AllItemsPage() {
         toast.success('Items refreshed');
     };
 
-    const filteredDetails = useMemo(() => {
+    const filteredDetails = (() => {
         if (!data?.data) return [];
 
         const source = !search
             ? (data.data || [])
             : (data.data || []).filter(item =>
-            item.dr_article_name?.toLowerCase().includes(search.toLowerCase()) ||
-            item.Description?.toLowerCase().includes(search.toLowerCase()) ||
-            item.PropertyName?.toLowerCase().includes(search.toLowerCase()) ||
-            item.Brand?.toLowerCase().includes(search.toLowerCase()) ||
-            item.ModelNumber?.toLowerCase().includes(search.toLowerCase()) ||
-            item.SerialNumber?.toLowerCase().includes(search.toLowerCase()) ||
-            item.InventoryNumber?.toLowerCase().includes(search.toLowerCase())
-        );
+                item.dr_article_name?.toLowerCase().includes(search.toLowerCase()) ||
+                item.Description?.toLowerCase().includes(search.toLowerCase()) ||
+                item.PropertyName?.toLowerCase().includes(search.toLowerCase()) ||
+                item.Brand?.toLowerCase().includes(search.toLowerCase()) ||
+                item.ModelNumber?.toLowerCase().includes(search.toLowerCase()) ||
+                item.SerialNumber?.toLowerCase().includes(search.toLowerCase()) ||
+                item.InventoryNumber?.toLowerCase().includes(search.toLowerCase())
+            );
 
         return [...source].sort((a, b) => {
             const aTime = a.CreatedDate ? new Date(a.CreatedDate).getTime() : 0;
@@ -83,7 +83,7 @@ export function AllItemsPage() {
             if (aTime !== bTime) return bTime - aTime;
             return b.InventoryDetailID - a.InventoryDetailID;
         });
-    }, [data?.data, search]);
+    })();
 
     const toggleDescriptionExpansion = (inventoryDetailId: number) => {
         setExpandedDescriptions(prev => {

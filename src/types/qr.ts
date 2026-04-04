@@ -102,6 +102,12 @@ export interface QrScanAssignedProperty {
     requester?: string | null;
     // the document type (PAR or ICS) from the latest issuance
     documentType?: string | null;
+    // current department head for the accountable department (null when vacant)
+    currentDepartmentHead?: string | null;
+    // true when the accountable department has no active department head
+    departmentHeadVacant?: boolean;
+    // display-friendly accountability label from backend
+    accountabilityLabel?: string | null;
 }
 
 export interface QrScanResponse {

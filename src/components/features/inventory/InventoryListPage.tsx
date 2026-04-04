@@ -146,7 +146,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                         </td>
                                     </tr>
                                 ) : (
-                                    data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; Description?: string; TotalItems: number; TotalValue: number; details?: InventoryRowDetail[]; PrimaryStatus?: 'Available' | 'Assigned'; CurrentCustodianName?: string; CurrentLocation?: string; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } } }) => (
+                                    data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; Description?: string; TotalItems: number; TotalValue: number; details?: InventoryRowDetail[]; PrimaryStatus?: 'Available' | 'Assigned'; CurrentCustodianName?: string; CurrentLocation?: string; CurrentDepartmentHead?: string | null; DepartmentHeadVacant?: boolean; AccountabilityLabel?: string | null; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } } }) => (
                                         <tr key={inv.InventoryID} className="hover:bg-slate-50">
                                             <td className="px-6 py-4 font-medium text-slate-900">
                                                 {inv.InventoryNumber}
@@ -185,7 +185,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                             <td className="px-6 py-4 text-slate-600">
                                                 <div className="flex items-center gap-1">
                                                     <User className="w-3 h-3" />
-                                                    {inv.CurrentCustodianName || 'Requester not set'}
+                                                    {inv.AccountabilityLabel || inv.CurrentCustodianName || 'Requester not set'}
                                                 </div>
                                                 {inv.CurrentLocation && (
                                                     <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">

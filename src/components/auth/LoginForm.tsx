@@ -114,6 +114,13 @@ export function LoginForm() {
         device_token: trustedDeviceToken,
       });
 
+      if (response.must_change_password) {
+        const usernameToUse = response.username || data.username;
+        const query = new URLSearchParams({ username: usernameToUse });
+        router.push(`/change-temporary-password?${query.toString()}`);
+        return;
+      }
+
       // Check if MFA is required (either setup or verification)
       if (response.mfa_required && response.user_id) {
         // Device token was not accepted by backend; remove stale fallback token.
@@ -146,11 +153,11 @@ export function LoginForm() {
       // No MFA required - login successful
       setLockout(null);
       toast.success('Login successful!', {
-        description: `Welcome back, ${response.user.FullName || response.user.Username}!`
+        description: `Welcome back, ${response.user?.FullName || response.user?.Username || 'User'}!`
       });
 
       // Redirect based on user role
-      const dashboardRoute = getDashboardRoute(response.user.Role, response.user.UserRoleID);
+      const dashboardRoute = getDashboardRoute(response.user?.Role, response.user?.UserRoleID);
       router.push(dashboardRoute);
     } catch (err: unknown) {
       const error = err as LoginError;

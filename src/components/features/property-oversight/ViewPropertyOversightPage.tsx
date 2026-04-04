@@ -118,6 +118,10 @@ export function ViewPropertyOversightPage({ baseRoute }: ViewPropertyOversightPa
 
     const deptName = text(p.department?.DepartmentName ?? p.endUser?.department?.DepartmentName, 'Not recorded');
     const endUser = getRequesterName(p);
+    const accountability = text(
+        p.accountabilityLabel ?? (p.departmentHeadVacant ? 'No current department head' : p.currentDepartmentHead),
+        'Not recorded'
+    );
 
     const propertyNo = text(p.inventoryDetail?.PropertyNumber, 'Not recorded');
     const brand = text(p.inventoryDetail?.Brand, 'Not recorded');
@@ -179,6 +183,10 @@ export function ViewPropertyOversightPage({ baseRoute }: ViewPropertyOversightPa
                         <div>
                             <label className="block text-sm font-medium text-slate-700">End User</label>
                             <p className="mt-1 text-slate-900">{endUser}</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">Department Accountability</label>
+                            <p className="mt-1 text-slate-900">{accountability}</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Status</label>

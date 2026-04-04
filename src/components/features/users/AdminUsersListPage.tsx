@@ -178,7 +178,7 @@ export default function AdminUsersListPage() {
                                     <th className="text-left font-semibold px-4 py-3">Department</th>
                                     <th className="text-left font-semibold px-4 py-3">Status</th>
                                     <th className="text-left font-semibold px-4 py-3">Security</th>
-                                    <th className="text-right font-semibold px-4 py-3">Actions</th>
+                                    <th className="text-center font-semibold px-4 py-3">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -240,6 +240,11 @@ export default function AdminUsersListPage() {
                                                             Resend Activation
                                                         </button>
                                                     )}
+                                                    <Link href={`/admin/users/${u.UserID}/edit`}>
+                                                        <button className="px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs">
+                                                            Edit
+                                                        </button>
+                                                    </Link>
                                                     <button
                                                         className="px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs"
                                                         onClick={() => openToggleDialog(u)}

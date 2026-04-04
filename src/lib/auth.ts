@@ -1,5 +1,5 @@
 import apiClient, { getCsrfCookie } from '@/lib/api/client';
-import { LoginCredentials, AuthResponse, User } from '@/types/auth';
+import { ChangeTemporaryPasswordPayload, LoginCredentials, AuthResponse, User } from '@/types/auth';
 
 /**
  * Login using session-based authentication
@@ -26,6 +26,11 @@ export async function getUser(): Promise<User> {
  */
 export async function logout(): Promise<void> {
   await apiClient.post('/logout');
+}
+
+export async function changeTemporaryPassword(payload: ChangeTemporaryPasswordPayload): Promise<void> {
+  await getCsrfCookie();
+  await apiClient.post('../auth/change-temporary-password', payload);
 }
 
 /**

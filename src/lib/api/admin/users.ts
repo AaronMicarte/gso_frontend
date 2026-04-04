@@ -1,5 +1,5 @@
 import apiClient from '@/lib/api/client';
-import type { AdminUserRow, CreateUserInput, CreateUserResponse } from '@/types/users';
+import type { AdminUserRow, CreateUserInput, CreateUserResponse, UpdateUserInput, UpdateUserResponse } from '@/types/users';
 
 export async function adminGetUsers(search?: string): Promise<AdminUserRow[]> {
     const params = new URLSearchParams();
@@ -11,6 +11,16 @@ export async function adminGetUsers(search?: string): Promise<AdminUserRow[]> {
 
 export async function adminCreateUser(payload: CreateUserInput): Promise<CreateUserResponse> {
     const response = await apiClient.post<CreateUserResponse>('/admin/users', payload);
+    return response.data;
+}
+
+export async function adminGetUser(userId: number): Promise<AdminUserRow> {
+    const response = await apiClient.get<{ data: AdminUserRow }>(`/admin/users/${userId}`);
+    return response.data.data;
+}
+
+export async function adminUpdateUser(userId: number, payload: UpdateUserInput): Promise<UpdateUserResponse> {
+    const response = await apiClient.patch<UpdateUserResponse>(`/admin/users/${userId}`, payload);
     return response.data;
 }
 
