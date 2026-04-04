@@ -13,6 +13,7 @@ import { Classification, ClassificationInput } from '@/types/masterData';
 import { ApiError } from '@/types/api';
 import { FormDialog } from '@/components/ui/FormDialog';
 import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 import { Plus, Search, Edit, Trash2, Tag, RefreshCw, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -245,11 +246,13 @@ export function ClassificationsPage({ baseRoute: _baseRoute }: ClassificationsPa
 
                 {/* Loading State */}
                 {isLoading ? (
-                    <div className="bg-white rounded-lg p-8">
-                        <div className="space-y-4">
-                            {[...Array(5)].map((_, i) => (
-                                <div key={`skeleton-${i}`} className="h-16 bg-slate-100 rounded animate-pulse" />
-                            ))}
+                    <div className="bg-white rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <tbody className="divide-y divide-slate-200">
+                                    <TableSkeletonRows columns={5} rows={10} />
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 ) : classifications.length === 0 ? (

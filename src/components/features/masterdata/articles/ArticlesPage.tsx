@@ -9,6 +9,7 @@ import { ApiError } from '@/types/api';
 import { FormDialog } from '@/components/ui/FormDialog';
 import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
 import { ArticlePreviewModal } from '@/components/ui/ArticlePreviewModal';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 import { Plus, Search, Edit, Trash2, Package, RefreshCw, Save, Loader2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -345,9 +346,12 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                 {/* Articles Table */}
                 <div className="bg-white rounded-lg overflow-hidden">
                     {isLoading ? (
-                        <div className="flex items-center justify-center p-8">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <span className="ml-2 text-gray-600">Loading articles...</span>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <tbody className="bg-white">
+                                    <TableSkeletonRows columns={8} rows={10} />
+                                </tbody>
+                            </table>
                         </div>
                     ) : (
                         <>

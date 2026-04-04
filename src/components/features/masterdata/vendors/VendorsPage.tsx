@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
 import { FormDialog } from '@/components/ui/FormDialog';
+import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 import { useCreateVendor, useDeleteVendor, useUpdateVendor, useVendor, useVendors } from '@/lib/hooks/masterData/useVendors';
 import { ApiError } from '@/types/api';
 import { Vendor, VendorInput } from '@/types/masterData';
@@ -209,11 +210,13 @@ export function VendorsPage({ canEdit = true, canDelete = true }: VendorsPagePro
                 )}
 
                 {isLoading ? (
-                    <div className="bg-white rounded-lg p-8">
-                        <div className="space-y-4">
-                            {[...Array(5)].map((_, i) => (
-                                <div key={`vendor-skeleton-${i}`} className="h-16 bg-slate-100 rounded animate-pulse" />
-                            ))}
+                    <div className="bg-white rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <tbody className="divide-y divide-slate-200">
+                                    <TableSkeletonRows columns={5} rows={10} />
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 ) : vendors.length === 0 ? (
