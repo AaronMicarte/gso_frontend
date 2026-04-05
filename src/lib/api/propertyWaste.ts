@@ -26,6 +26,72 @@ type RawPropertyWasteItem = {
         ConditionID: number;
         ConditionName: string;
     } | null;
+    inventoryDetail?: {
+        InventoryDetailID: number;
+        PropertyNumber?: string | null;
+        Description?: string | null;
+        Brand?: string | null;
+        ModelNumber?: string | null;
+        SerialNumber?: string | null;
+        SourceDRDetailID?: number | null;
+        drDetail?: {
+            DRDetailID: number;
+            ArticleID?: number | null;
+            ItemDescription?: string | null;
+            Brand?: string | null;
+            ModelNumber?: string | null;
+            SerialNumber?: string | null;
+            article?: {
+                ArticleID: number;
+                ArticleName?: string | null;
+            } | null;
+        } | null;
+        dr_detail?: {
+            DRDetailID: number;
+            ArticleID?: number | null;
+            ItemDescription?: string | null;
+            Brand?: string | null;
+            ModelNumber?: string | null;
+            SerialNumber?: string | null;
+            article?: {
+                ArticleID: number;
+                ArticleName?: string | null;
+            } | null;
+        } | null;
+    } | null;
+    inventory_detail?: {
+        InventoryDetailID: number;
+        PropertyNumber?: string | null;
+        Description?: string | null;
+        Brand?: string | null;
+        ModelNumber?: string | null;
+        SerialNumber?: string | null;
+        SourceDRDetailID?: number | null;
+        drDetail?: {
+            DRDetailID: number;
+            ArticleID?: number | null;
+            ItemDescription?: string | null;
+            Brand?: string | null;
+            ModelNumber?: string | null;
+            SerialNumber?: string | null;
+            article?: {
+                ArticleID: number;
+                ArticleName?: string | null;
+            } | null;
+        } | null;
+        dr_detail?: {
+            DRDetailID: number;
+            ArticleID?: number | null;
+            ItemDescription?: string | null;
+            Brand?: string | null;
+            ModelNumber?: string | null;
+            SerialNumber?: string | null;
+            article?: {
+                ArticleID: number;
+                ArticleName?: string | null;
+            } | null;
+        } | null;
+    } | null;
 };
 
 type RawPropertyWasteReport = Omit<PropertyWasteReport, 'items' | 'sourceServiceRecord'> & {
@@ -34,10 +100,26 @@ type RawPropertyWasteReport = Omit<PropertyWasteReport, 'items' | 'sourceService
     source_service_record?: PropertyWasteReport['sourceServiceRecord'];
 };
 
-const normalizeItem = (item: RawPropertyWasteItem) => ({
-    ...item,
-    disposalMethod: item.disposalMethod ?? item.disposal_method ?? null,
-});
+const normalizeItem = (item: RawPropertyWasteItem) => {
+    const rawInventory = item.inventoryDetail ?? item.inventory_detail ?? null;
+    const rawDrDetail = rawInventory?.drDetail ?? rawInventory?.dr_detail ?? null;
+
+    return {
+        ...item,
+        disposalMethod: item.disposalMethod ?? item.disposal_method ?? null,
+        inventoryDetail: rawInventory
+            ? {
+                ...rawInventory,
+                drDetail: rawDrDetail
+                    ? {
+                        ...rawDrDetail,
+                        article: rawDrDetail.article ?? null,
+                    }
+                    : null,
+            }
+            : null,
+    };
+};
 
 const normalizeReport = (report: RawPropertyWasteReport): PropertyWasteReport => ({
     ...report,

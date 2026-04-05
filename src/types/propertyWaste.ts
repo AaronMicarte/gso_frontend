@@ -24,6 +24,27 @@ export interface PropertyWasteItem {
         ConditionID: number;
         ConditionName: string;
     } | null;
+    inventoryDetail?: {
+        InventoryDetailID: number;
+        PropertyNumber?: string | null;
+        Description?: string | null;
+        Brand?: string | null;
+        ModelNumber?: string | null;
+        SerialNumber?: string | null;
+        SourceDRDetailID?: number | null;
+        drDetail?: {
+            DRDetailID: number;
+            ArticleID?: number | null;
+            ItemDescription?: string | null;
+            Brand?: string | null;
+            ModelNumber?: string | null;
+            SerialNumber?: string | null;
+            article?: {
+                ArticleID: number;
+                ArticleName?: string | null;
+            } | null;
+        } | null;
+    } | null;
 }
 
 export interface PropertyWasteReport {
