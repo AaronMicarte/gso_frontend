@@ -93,6 +93,12 @@ function findAutoProviderKey(item: ServiceInventoryItem | undefined, providers: 
     return matchedSupplier ? `supplier:${matchedSupplier.ProviderID}` : '';
 }
 
+function isInventoryExcludedFromService(item: ServiceInventoryItem): boolean {
+    const propertyStatusName = (item.propertyStatus?.StatusName ?? '').trim().toLowerCase();
+
+    return propertyStatusName.includes('for disposal');
+}
+
 export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordFormPageProps) {
     const router = useRouter();
     const isEditMode = !!recordId;
@@ -479,7 +485,8 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                 const filteredInventory = (inventoryQuery
                                     ? sortedInventory.filter((item) => inventoryLabel(item).toLowerCase().includes(inventoryQuery))
                                     : sortedInventory
-                                ).filter((item) => !otherSelectedInventoryIds.has(item.InventoryDetailID));
+                                ).filter((item) => !otherSelectedInventoryIds.has(item.InventoryDetailID))
+                                    .filter((item) => !isInventoryExcludedFromService(item));
 
                                 return (
                                     <div key={detail.localId} className="rounded-xl border border-slate-200 p-5 sm:p-6 bg-white shadow-sm">
@@ -534,8 +541,6 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                                                     const duplicate = otherSelectedInventoryIds.has(item.InventoryDetailID);
                                                                     const conditionName = (item.condition?.ConditionName ?? '').trim().toLowerCase();
                                                                     const isUnserviceable = conditionName.includes('unserviceable');
-                                                                    const isUnderRepair = conditionName.includes('under repair');
-                                                                    const isServiceable = conditionName.includes('serviceable');
 
                                                                     const conditionStyle = isUnserviceable
                                                                         ? { backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca' }
@@ -558,7 +563,11 @@ export function ServiceRecordFormPage({ baseRoute, recordId }: ServiceRecordForm
                                                                             style={{ ...conditionStyle, cursor: duplicate ? 'not-allowed' : 'pointer' }}
                                                                         >
                                                                             {inventoryLabel(item)}
-                                                                            {isUnserviceable && <span className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-rose-100 text-rose-700">Unserviceable</span>}
+                                                                            {isUnserviceable && (
+                                                                                <span className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-rose-100 text-rose-700">
+                                                                                    Unserviceable
+                                                                                </span>
+                                                                            )}
                                                                             {duplicate && <span className="ml-2 text-xs text-slate-400">(already selected)</span>}
                                                                         </li>
                                                                     );

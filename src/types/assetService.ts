@@ -48,6 +48,10 @@ export interface ServiceInventoryItem {
         ConditionID?: number | null;
         ConditionName?: string | null;
     } | null;
+    propertyStatus?: {
+        PropertyStatusID?: number | null;
+        StatusName?: string | null;
+    } | null;
     inventory?: {
         InventoryID?: number | null;
         InventoryNumber?: string | null;
