@@ -4,7 +4,7 @@ export type AssetServiceStatus =
     | 'repair_in_progress'
     | 'verification'
     | 'fixed'
-    | 'unrepairable';
+    | 'unserviceable';
 
 export type AssetServiceHandlingDecision = 'warranty' | 'no_warranty';
 export type AssetServiceBudgetStatus = 'pending_check' | 'warranty_covered' | 'budget_available' | 'budget_unavailable';

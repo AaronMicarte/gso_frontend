@@ -57,6 +57,10 @@ function getConditionName(p: QrScanAssignedProperty): string {
     return text(p.condition?.ConditionName, 'Not recorded');
 }
 
+function isUnserviceableCondition(name: string): boolean {
+    return name.trim().toLowerCase().includes('unserviceable');
+}
+
 function getDocumentType(p: QrScanAssignedProperty): DocumentTypeFilter {
     if (p.documentType === 'PAR') return 'PAR';
     if (p.documentType === 'ICS') return 'ICS';
@@ -352,7 +356,7 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center gap-2">
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isUnserviceableCondition(getConditionName(p)) ? 'bg-rose-100 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
                                                                 {getConditionName(p)}
                                                             </span>
                                                             <button

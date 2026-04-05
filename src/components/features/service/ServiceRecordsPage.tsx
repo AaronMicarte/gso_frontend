@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Eye, Plus, RefreshCw, Search, Wrench, CheckCircle2, Hammer, ShieldCheck, Clock, ListChecks, Hammer as HammerAlt, ShieldCheck as ShieldAlt, Eye as EyeAlt } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Eye, Plus, RefreshCw, Search, Wrench, CheckCircle2, Hammer, ShieldCheck, Clock, ListChecks, Hammer as HammerAlt, ShieldCheck as ShieldAlt, Eye as EyeAlt, ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ const statusClasses: Record<AssetServiceStatus, string> = {
     repair_in_progress: 'bg-violet-100 text-violet-800',
     verification: 'bg-cyan-100 text-cyan-800',
     fixed: 'bg-emerald-100 text-emerald-800',
-    unrepairable: 'bg-rose-100 text-rose-800',
+    unserviceable: 'bg-rose-100 text-rose-800',
 };
 
 const statusLabel = (status: AssetServiceStatus) => status.replaceAll('_', ' ');
@@ -30,7 +30,7 @@ const statusTransitionMap: Record<AssetServiceStatus, { next: AssetServiceStatus
     repair_in_progress: { next: 'verification', label: 'Verify repairs', icon: ShieldCheck },
     verification: { next: null, label: 'Review items', icon: Clock },
     fixed: { next: null, label: 'Fixed', icon: Clock },
-    unrepairable: { next: null, label: 'Unrepairable', icon: Clock },
+    unserviceable: { next: null, label: 'Unserviceable', icon: Clock },
 };
 
 const getNextStatusFor = (status: AssetServiceStatus): AssetServiceStatus | null => statusTransitionMap[status]?.next ?? null;
@@ -97,6 +97,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
     const [status, setStatus] = useState<'all' | AssetServiceStatus>('all');
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+    const [expandedRecords, setExpandedRecords] = useState<Record<number, boolean>>({});
 
     const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
     const [selectedRecord, setSelectedRecord] = useState<AssetServiceRecord | null>(null);
@@ -109,7 +110,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
     const [reviewModalOpen, setReviewModalOpen] = useState(false);
     const [reviewRecord, setReviewRecord] = useState<AssetServiceRecord | null>(null);
     const [reviewLoading, setReviewLoading] = useState(false);
-    const [detailReviewStatus, setDetailReviewStatus] = useState<Record<number, 'fixed' | 'unrepairable' | 'repair_in_progress'>>({});
+    const [detailReviewStatus, setDetailReviewStatus] = useState<Record<number, 'fixed' | 'unserviceable' | 'repair_in_progress'>>({});
     const [headerFinalNote, setHeaderFinalNote] = useState('');
 
     const load = useCallback(async (targetPage = 1) => {
@@ -162,7 +163,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
     };
 
     const beginVerificationReview = async (record: AssetServiceRecord) => {
-        const statusMap: Record<number, 'fixed' | 'unrepairable' | 'repair_in_progress'> = {};
+        const statusMap: Record<number, 'fixed' | 'unserviceable' | 'repair_in_progress'> = {};
         (record.details ?? []).forEach((item) => {
             statusMap[item.ServiceRecordDetailID] = 'fixed';
         });
@@ -178,7 +179,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
             const refreshed = await serviceApi.getById(record.ServiceRecordID);
             setReviewRecord(refreshed);
 
-            const refreshedStatusMap: Record<number, 'fixed' | 'unrepairable' | 'repair_in_progress'> = {};
+            const refreshedStatusMap: Record<number, 'fixed' | 'unserviceable' | 'repair_in_progress'> = {};
             (refreshed.details ?? []).forEach((item) => {
                 refreshedStatusMap[item.ServiceRecordDetailID] = detailReviewStatus[item.ServiceRecordDetailID] ?? 'fixed';
             });
@@ -275,7 +276,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
     };
 
     const statusCounts = useMemo(() => {
-        const initial = { pending: 0, work_approved: 0, repair_in_progress: 0, verification: 0, fixed: 0, unrepairable: 0 } as Record<AssetServiceStatus, number>;
+        const initial = { pending: 0, work_approved: 0, repair_in_progress: 0, verification: 0, fixed: 0, unserviceable: 0 } as Record<AssetServiceStatus, number>;
         return rows.reduce((acc, row) => {
             if (row.Status in acc) {
                 acc[row.Status] += 1;
@@ -289,12 +290,12 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
             (acc, row) => {
                 (row.details ?? []).forEach((detail) => {
                     if (detail.Status === 'fixed') acc.fixed += 1;
-                    if (detail.Status === 'unrepairable') acc.unrepairable += 1;
+                    if (detail.Status === 'unserviceable') acc.unserviceable += 1;
                     if (detail.Status === 'repair_in_progress') acc.repair_in_progress += 1;
                 });
                 return acc;
             },
-            { fixed: 0, unrepairable: 0, repair_in_progress: 0 }
+            { fixed: 0, unserviceable: 0, repair_in_progress: 0 }
         );
     }, [rows]);
 
@@ -371,7 +372,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                         <div className="space-y-1">
                             <p className="text-xs text-slate-500">Verification</p>
                             <p className="text-sm font-semibold text-emerald-700">Fixed items: {verificationOutcomeCounts.fixed}</p>
-                            <p className="text-sm font-semibold text-rose-700">Unrepairable items: {verificationOutcomeCounts.unrepairable}</p>
+                            <p className="text-sm font-semibold text-rose-700">Unserviceable items: {verificationOutcomeCounts.unserviceable}</p>
                         </div>
                     </div>
                 </div>
@@ -398,7 +399,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                             <option value="repair_in_progress">Repair In Progress</option>
                             <option value="verification">Verification</option>
                             <option value="fixed">Fixed</option>
-                            <option value="unrepairable">Unrepairable</option>
+                            <option value="unserviceable">Unserviceable</option>
                         </select>
                     </div>
                 </div>
@@ -430,58 +431,89 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                                     </tr>
                                 ) : (
                                     filteredRows.map((row) => (
-                                        <tr key={row.ServiceRecordID} className="hover:bg-slate-50">
-                                            <td className="px-4 py-3 text-sm font-semibold text-slate-900">{row.ServiceNumber}</td>
-                                            <td className="px-4 py-3 text-sm text-slate-700">{formatDateReported(row.DateReported)}</td>
-                                            <td className="px-4 py-3 text-sm text-slate-700">{formatReportingDepartment(row)}</td>
-                                            <td className="px-4 py-3 text-sm text-slate-700">{row.details?.length || 0}</td>
-                                            <td className="px-4 py-3">
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusClasses[row.Status]}`}>
-                                                    {statusLabel(row.Status)}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <div className="inline-flex gap-2 items-center justify-center">
+                                        <Fragment key={row.ServiceRecordID}>
+                                            <tr className="hover:bg-slate-50">
+                                                <td className="px-4 py-3 text-sm font-semibold text-slate-900">{row.ServiceNumber}</td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">{formatDateReported(row.DateReported)}</td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">{formatReportingDepartment(row)}</td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">
                                                     <button
-                                                        onClick={() => {
-                                                            setSelectedRecord(row);
-                                                            setSelectedRecordId(row.ServiceRecordID);
-                                                            setIsDetailModalOpen(true);
-                                                        }}
-                                                        className="inline-flex text-slate-500 hover:text-slate-800"
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 text-slate-700 hover:text-slate-900"
+                                                        onClick={() => setExpandedRecords((prev) => ({ ...prev, [row.ServiceRecordID]: !prev[row.ServiceRecordID] }))}
                                                     >
-                                                        <Eye className="w-4 h-4" />
+                                                        {expandedRecords[row.ServiceRecordID] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                                        {row.details?.length || 0}
                                                     </button>
-
-                                                    <span className="h-5 border-r border-slate-300" />
-
-                                                    {row.Status === 'repair_in_progress' || row.Status === 'verification' ? (
-                                                        <button
-                                                            onClick={() => beginVerificationReview(row)}
-                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
-                                                        >
-                                                            <Clock className="w-3 h-3" />
-                                                            <span className="text-[11px]">Review Items</span>
-                                                        </button>
-                                                    ) : getNextStatusFor(row.Status) ? (
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusClasses[row.Status]}`}>
+                                                        {statusLabel(row.Status)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <div className="inline-flex gap-2 items-center justify-center">
                                                         <button
                                                             onClick={() => {
-                                                                const detail = row.details?.[0];
-                                                                if (!detail) return;
-                                                                handleStatusRequest(row, detail, getNextStatusFor(row.Status) as AssetServiceStatus);
+                                                                setSelectedRecord(row);
+                                                                setSelectedRecordId(row.ServiceRecordID);
+                                                                setIsDetailModalOpen(true);
                                                             }}
-                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+                                                            className="inline-flex text-slate-500 hover:text-slate-800"
                                                         >
-                                                            {(() => {
-                                                                const Icon = statusTransitionMap[row.Status].icon;
-                                                                return <Icon className="w-3 h-3" />;
-                                                            })()}
-                                                            <span className="text-[11px]">{statusTransitionMap[row.Status].label}</span>
+                                                            <Eye className="w-4 h-4" />
                                                         </button>
-                                                    ) : null}
-                                                </div>
-                                            </td>
-                                        </tr>
+
+                                                        <span className="h-5 border-r border-slate-300" />
+
+                                                        {row.Status === 'repair_in_progress' || row.Status === 'verification' ? (
+                                                            <button
+                                                                onClick={() => beginVerificationReview(row)}
+                                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+                                                            >
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[11px]">Review Items</span>
+                                                            </button>
+                                                        ) : getNextStatusFor(row.Status) ? (
+                                                            <button
+                                                                onClick={() => {
+                                                                    const detail = row.details?.[0];
+                                                                    if (!detail) return;
+                                                                    handleStatusRequest(row, detail, getNextStatusFor(row.Status) as AssetServiceStatus);
+                                                                }}
+                                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+                                                            >
+                                                                {(() => {
+                                                                    const Icon = statusTransitionMap[row.Status].icon;
+                                                                    return <Icon className="w-3 h-3" />;
+                                                                })()}
+                                                                <span className="text-[11px]">{statusTransitionMap[row.Status].label}</span>
+                                                            </button>
+                                                        ) : null}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {expandedRecords[row.ServiceRecordID] && (
+                                                <tr>
+                                                    <td colSpan={6} className="px-4 py-3 bg-slate-50/70">
+                                                        <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                                                            {(row.details ?? []).map((detail) => (
+                                                                <div key={detail.ServiceRecordDetailID} className="rounded-md border border-slate-100 p-2 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
+                                                                    <div className="space-x-3">
+                                                                        <span className="font-semibold">#{detail.ServiceRecordDetailID}</span>
+                                                                        <span>{getItemDescription(detail)}</span>
+                                                                        <span className="text-slate-500">Property: {detail.PropertyNumber || '-'}</span>
+                                                                    </div>
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${statusClasses[detail.Status]}`}>
+                                                                        {statusLabel(detail.Status)}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </Fragment>
                                     ))
                                 )}
                             </tbody>
@@ -680,10 +712,10 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                                     <input
                                         type="radio"
                                         name={`detail-review-${detail.ServiceRecordDetailID}`}
-                                        checked={detailReviewStatus[detail.ServiceRecordDetailID] === 'unrepairable'}
-                                        onChange={() => setDetailReviewStatus((prev) => ({ ...prev, [detail.ServiceRecordDetailID]: 'unrepairable' }))}
+                                        checked={detailReviewStatus[detail.ServiceRecordDetailID] === 'unserviceable'}
+                                        onChange={() => setDetailReviewStatus((prev) => ({ ...prev, [detail.ServiceRecordDetailID]: 'unserviceable' }))}
                                     />
-                                    Unrepairable
+                                    Unserviceable
                                 </label>
                                 <label className="inline-flex items-center gap-2 text-xs">
                                     <input

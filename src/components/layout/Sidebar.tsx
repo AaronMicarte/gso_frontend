@@ -293,6 +293,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                 items: [
                     { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
                     { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
+                    { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
                     { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
                     { label: 'Job Orders', href: `${baseRoute}/job-orders`, icon: Wrench },
                     { label: 'Physical Count', href: `${baseRoute}/physical-count`, icon: ClipboardList },
@@ -349,6 +350,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                 items: [
                     { label: 'Property Oversight', href: `${baseRoute}/properties`, icon: Building2 },
                     { label: 'Received Items', href: `${baseRoute}/received-items`, icon: Package },
+                    { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
                     { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
                 ]
             },
