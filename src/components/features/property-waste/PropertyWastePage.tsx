@@ -185,6 +185,11 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
     };
 
     const saveMethod = async (report: PropertyWasteReport, item: PropertyWasteItem) => {
+        if (itemIsDisposed(item)) {
+            toast.error('Cannot change method for disposed items.');
+            return;
+        }
+
         if (!editingMethodId) {
             toast.error('Please select a disposal method.');
             return;
@@ -212,6 +217,11 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
     };
 
     const openMethodModal = (report: PropertyWasteReport, item: PropertyWasteItem) => {
+        if (itemIsDisposed(item)) {
+            toast.error('This item is already disposed and cannot change disposal method.');
+            return;
+        }
+
         setModalTarget({ reportId: report.PropertyWasteReportID, item });
         setEditingMethodId(item.DisposalMethodID ?? '');
         setEditingMethodNote(item.DisposalMethodNote ?? '');
@@ -254,6 +264,8 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
     };
 
     const reportDone = (report: PropertyWasteReport) => (report.items ?? []).length > 0 && (report.items ?? []).every((item) => item.Status === 'disposed');
+
+    const itemIsDisposed = (item: PropertyWasteItem) => item.Status === 'disposed';
 
     const saveReportNotes = async (report: PropertyWasteReport) => {
         const reportId = report.PropertyWasteReportID;
@@ -402,9 +414,10 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => openMethodModal(report, item)}
-                                                                                className="px-2 py-1 text-xs rounded-md border border-slate-300 hover:bg-slate-100"
+                                                                                disabled={itemIsDisposed(item)}
+                                                                                className={`px-2 py-1 text-xs rounded-md border border-slate-300 transition ${itemIsDisposed(item) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'hover:bg-slate-100'}`}
                                                                             >
-                                                                                {item.disposalMethod ? 'Change method' : 'Set method'}
+                                                                                {itemIsDisposed(item) ? 'Disposal done' : item.disposalMethod ? 'Change method' : 'Set method'}
                                                                             </button>
                                                                         )}
                                                                     </div>
