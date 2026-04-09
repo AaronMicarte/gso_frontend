@@ -127,7 +127,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                         className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
                     >
                         <Printer className="w-4 h-4" />
-                        Print DR
+                        Print IAR
                     </Link>
                     {canEdit && inspectionStatus !== 'inspected' && (
                         <Link
