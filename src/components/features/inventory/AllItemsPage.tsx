@@ -13,6 +13,7 @@ import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 import { PropertySticker } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
+import { PropertyCardDialog } from './PropertyCardDialog';
 
 export function AllItemsPage() {
     const searchParams = useSearchParams();
@@ -396,6 +397,14 @@ export function AllItemsPage() {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
+                                                    <PropertyCardDialog
+                                                        inventoryDetailId={item.InventoryDetailID}
+                                                        propertyNumber={item.PropertyNumber}
+                                                        itemName={getItemName(item)}
+                                                        description={item.Description}
+                                                        category={item.PropertyName || item.ClassificationName}
+                                                        custodianName={getCustodianDisplayName(item.custodianName)}
+                                                    />
                                                     {item.PropertyNumber && (
                                                         <PropertySticker
                                                             propertyNumber={item.PropertyNumber}

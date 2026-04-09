@@ -8,6 +8,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
 
 import issuanceAPI from '@/lib/api/issuance';
+import { CardListSkeleton } from '@/components/ui/ListSkeletons';
 
 interface DeliveryReceiptForIssuance {
     DRID: number;

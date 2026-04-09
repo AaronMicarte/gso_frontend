@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@radix-ui/react-tooltip
 import * as Dialog from '@radix-ui/react-dialog';
 import { PropertySticker } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
+import { PropertyCardDialog } from './PropertyCardDialog';
 
 export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const params = useParams() as { id?: string };
@@ -434,6 +435,14 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">
+                                                                <PropertyCardDialog
+                                                                    inventoryDetailId={d.InventoryDetailID}
+                                                                    propertyNumber={d.PropertyNumber}
+                                                                    itemName={getItemName(d)}
+                                                                    description={d.Description}
+                                                                    category={d.PropertyName || d.ClassificationName}
+                                                                    custodianName={d.accountabilityLabel || getCustodianDisplayName(d.custodianName)}
+                                                                />
                                                                 {d.PropertyNumber && (
                                                                     <PropertySticker
                                                                         propertyNumber={d.PropertyNumber}

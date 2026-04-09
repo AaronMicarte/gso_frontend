@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getInventories, getInventory, postIssuance, postGenerateQr, updateInventoryDetail, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar, getAllInventoryItems, InventoryItemsListResponse, getInventoryDetailHistory, InventoryHistoryResponse } from '@/lib/api/inventory';
+import { getInventories, getInventory, postIssuance, postGenerateQr, updateInventoryDetail, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar, getAllInventoryItems, InventoryItemsListResponse, getInventoryDetailHistory, InventoryHistoryResponse, getInventoryPropertyCard, PropertyCardResponse } from '@/lib/api/inventory';
 
 export const useInventories = (options?: { page?: number; per_page?: number; search?: string; sort_by?: 'date' | 'inventory_number'; sort_dir?: 'asc' | 'desc' }) => {
     return useQuery<InventoryListResponse>({
@@ -79,6 +79,14 @@ export const useInventoryDetailHistory = (id: number, enabled = true) => {
     return useQuery<InventoryHistoryResponse>({
         queryKey: ['inventory-detail-history', id],
         queryFn: () => getInventoryDetailHistory(id),
+        enabled: !!id && enabled,
+    });
+};
+
+export const useInventoryPropertyCard = (id: number, enabled = true) => {
+    return useQuery<PropertyCardResponse>({
+        queryKey: ['inventory-property-card', id],
+        queryFn: () => getInventoryPropertyCard(id),
         enabled: !!id && enabled,
     });
 };

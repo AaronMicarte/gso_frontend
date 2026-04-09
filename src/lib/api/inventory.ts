@@ -80,6 +80,30 @@ export type InventoryHistoryItem = {
     meta?: Record<string, unknown> | null;
 };
 export type InventoryHistoryResponse = { inventory_detail_id: number; history: InventoryHistoryItem[] };
+export type PropertyCardRow = {
+    date: string | null;
+    reference: string | null;
+    receipt_qty: number | null;
+    issue_qty: number | null;
+    office_officer: string | null;
+    balance_qty: number;
+    amount: number | null;
+    remarks: string | null;
+    entry_type: string;
+    source_type: string;
+};
+export type PropertyCardResponse = {
+    inventory_detail_id: number;
+    header: {
+        entity_name: string;
+        fund_cluster: string;
+        property_plant_equipment: string;
+        property_number: string | null;
+        description: string | null;
+        unit_cost: number | null;
+    };
+    rows: PropertyCardRow[];
+};
 export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: string; details: { IARDetailID: number; QuantityAccepted: number; ItemDescription?: string; VerifiedBrand?: string; VerifiedModel?: string; VerifiedSerial?: string; UnitCost?: number; propertyType?: { PropertyTypeID: number; PropertyName: string } }[]; signatures?: { id: number; role: string; url?: string; created_at: string; user?: { UserID: number; FullName: string } }[] };
 export type InventoryItem = { InventoryDetailID: number; InventoryID: number; PropertyTypeID?: number; ConditionID: number; Brand?: string; ModelNumber?: string; SerialNumber?: string; PropertyNumber?: string; Description?: string; Quantity: number; QuantityAvailable: number; PropertyStatusID: number; UnitOfMeasureID?: number; UnitCost?: number; TotalCost?: number; SourceIARDetailID?: number; SourceDRDetailID?: number; Remarks?: string; CreatedDate: string; UpdatedDate?: string; PropertyName?: string; ClassificationName?: string; DocumentType?: 'ICS' | 'PAR'; InventoryNumber?: string; StatusName?: string; ConditionName?: string; dr_item_description?: string; dr_article_name?: string; dr_brand?: string; dr_model?: string; dr_serial?: string; custodianName?: string; locationDepartment?: string; locationDepartmentId?: number | null; currentDepartmentHead?: string | null; departmentHeadVacant?: boolean; accountabilityLabel?: string | null; lastIssuedDate?: string | null; currentBorrowerName?: string | null; qrCodeData?: string | null };
 export type InventoryItemsListResponse = { data: InventoryItem[]; total: number; per_page: number; current_page: number; last_page: number };
@@ -140,5 +164,10 @@ export const updateInventoryDetail = async (id: number, data: { Description?: st
 
 export const getInventoryDetailHistory = async (id: number): Promise<InventoryHistoryResponse> => {
     const response: AxiosResponse<InventoryHistoryResponse> = await apiClient.get(`/admin/inventory/details/${id}/history`);
+    return response.data;
+};
+
+export const getInventoryPropertyCard = async (id: number): Promise<PropertyCardResponse> => {
+    const response: AxiosResponse<PropertyCardResponse> = await apiClient.get(`/admin/inventory/details/${id}/property-card`);
     return response.data;
 };
