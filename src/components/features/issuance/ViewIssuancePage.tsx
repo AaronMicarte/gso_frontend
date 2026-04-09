@@ -439,7 +439,6 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Article</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property No.</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty × Unit Cost</th>
@@ -460,7 +459,6 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                     {entry.itemName}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.unitName || '-'}</td>
                                                 <td className="px-6 py-4 text-sm text-gray-900">
                                                     <div className="font-medium">{entry.description}</div>
                                                     <div className="text-gray-500 text-xs mt-1">
@@ -491,8 +489,8 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                     {entry.unitCost !== null
-                                                        ? `${entry.quantity} × ₱${entry.unitCost.toLocaleString()}`
-                                                        : `${entry.quantity} × -`}
+                                                        ? `${entry.quantity} ${entry.unitName || ''} × ₱${entry.unitCost.toLocaleString()}`.trim()
+                                                        : `${entry.quantity} ${entry.unitName || ''} × -`.trim()}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                     {entry.unitCost !== null ? `₱${entry.totalCost.toLocaleString()}` : '-'}
