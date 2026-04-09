@@ -43,7 +43,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
     const deleteMutation = useDeleteDeliveryReceipt();
     const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
-    const { data, isLoading, refetch } = useDeliveryReceipts({
+    const { data, isLoading, isFetching, refetch } = useDeliveryReceipts({
         page,
         per_page: 10,
         ...(search ? { query: search } : {}),
@@ -95,10 +95,10 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                     <div className="flex gap-2">
                         <button
                             onClick={handleRefresh}
-                            disabled={isLoading}
+                            disabled={isFetching}
                             className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                         >
-                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Refresh</span>
                         </button>
                         <Link
@@ -270,7 +270,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setPage(Math.max(1, page - 1))}
-                                        disabled={page === 1}
+                                        disabled={page === 1 || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Previous
@@ -280,7 +280,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                     </span>
                                     <button
                                         onClick={() => setPage(Math.min(data.meta.last_page, page + 1))}
-                                        disabled={page === data.meta.last_page}
+                                        disabled={page === data.meta.last_page || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Next

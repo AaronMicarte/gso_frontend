@@ -59,7 +59,7 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
         setIsViewOpen(true);
     };
 
-    const { data, isLoading } = useIARs({
+    const { data, isLoading, isFetching } = useIARs({
         page,
         per_page: 10,
         ...(search ? (searchBy === 'iar' ? { iar_number: search } : { dr_number: search }) : {}),
@@ -220,7 +220,7 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setPage(Math.max(1, page - 1))}
-                                        disabled={page === 1}
+                                        disabled={page === 1 || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Previous
@@ -230,7 +230,7 @@ export function IARListPage({ baseRoute, canDelete = false }: IARListPageProps) 
                                     </span>
                                     <button
                                         onClick={() => setPage(Math.min(data.meta.last_page, page + 1))}
-                                        disabled={page === data.meta.last_page}
+                                        disabled={page === data.meta.last_page || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Next

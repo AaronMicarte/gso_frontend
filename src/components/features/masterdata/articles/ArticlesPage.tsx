@@ -43,7 +43,7 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
     const [viewImageUrl, setViewImageUrl] = useState<string | null>(null);
 
     // Use React Query for cached data fetching
-    const { data, isLoading, error, refetch } = useArticles({
+    const { data, isLoading, isFetching, error, refetch } = useArticles({
         search: debouncedSearch || undefined,
         is_active: activeFilter,
         page: currentPage,

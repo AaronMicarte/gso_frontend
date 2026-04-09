@@ -48,7 +48,7 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
     const officeText = text(req?.Office ?? req?.office ?? req?.department?.DepartmentName ?? '', '');
 
     return (
-        <div ref={ref} className="print-container bg-white p-8 max-w-5xl mx-auto text-black">
+        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
             <style dangerouslySetInnerHTML={{
                 __html: `
                     /* Base styles (screen + print) */
@@ -62,7 +62,7 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
                     .ris-label-col { width: 90px; font-weight: 600; }
 
                     @media print {
-                        .print-container { padding: 0; max-width: none; margin: 0; font-size: 12px; font-family: "Times New Roman", Georgia, serif; color: #000; -webkit-print-color-adjust: exact; }
+                        .print-container { padding: 0; max-width: none; margin: 0; font-size: 12px; font-family: Arial, Helvetica, sans-serif; color: #000; -webkit-print-color-adjust: exact; }
                         .no-print { display: none !important; }
 
                         .ris-table th, .ris-table td, .ris-sign-table th, .ris-sign-table td { padding: 6px 6px; vertical-align: middle; }
@@ -72,9 +72,7 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
                 `,
             }} />
 
-            <div className="text-center mb-2">
-                <div className="text-sm font-bold">REQUISITION AND ISSUE SLIP</div>
-            </div>
+            <div className="gso-print-title">Requisition and Issue Slip</div>
 
             <div className="grid grid-cols-2 gap-6 text-xs mb-2">
                 <div className="space-y-1">

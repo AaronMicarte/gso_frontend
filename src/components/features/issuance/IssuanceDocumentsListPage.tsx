@@ -89,6 +89,8 @@ interface IssuanceDocumentsListPageProps {
     fixedDocumentType: 'PAR' | 'ICS';
 }
 
+const DOCUMENTS_PER_PAGE = 10;
+
 function safeDate(dateValue: string | null | undefined): Date | null {
     if (!dateValue) return null;
     const parsed = new Date(dateValue);
@@ -108,7 +110,8 @@ export function IssuanceDocumentsListPage({
     fixedDocumentType,
 }: IssuanceDocumentsListPageProps) {
     const [rows, setRows] = useState<IssuanceRow[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isFetching, setIsFetching] = useState(false);
     const [filters, setFilters] = useState<AssetIssuanceFilters>(() => ({
         status: undefined,
         document_type: fixedDocumentType,
@@ -116,6 +119,13 @@ export function IssuanceDocumentsListPage({
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalEntries, setTotalEntries] = useState(0);
+    const [clientPaginated, setClientPaginated] = useState(false);
+
+    const detailsBaseRoute = useMemo(
+        () => baseRoute.replace(/\/(par|ics)\/?$/i, ''),
+        [baseRoute]
+    );
 
     // Keep the document type locked for this page.
     useEffect(() => {
@@ -128,15 +138,32 @@ export function IssuanceDocumentsListPage({
 
     const loadDocuments = useCallback(async (page = 1) => {
         try {
-            setLoading(true);
+            setIsFetching(true);
 
             const response = await issuanceAPI.getAll({
                 ...filters,
                 page,
-                per_page: 15,
+                per_page: DOCUMENTS_PER_PAGE,
             });
 
-            const grouped = response.data as unknown as GroupedIssuance[];
+            const responseAny = response as unknown as {
+                data?: GroupedIssuance[];
+                current_page?: number;
+                last_page?: number;
+                total?: number;
+                pagination?: {
+                    current_page?: number;
+                    last_page?: number;
+                    total?: number;
+                };
+                meta?: {
+                    current_page?: number;
+                    last_page?: number;
+                    total?: number;
+                };
+            };
+
+            const grouped = Array.isArray(responseAny.data) ? responseAny.data : [];
 
             const sortedGroups = grouped.slice().sort((a, b) => {
                 const aDate = safeDate(a.RequestDate)?.getTime() ?? 0;
@@ -174,13 +201,45 @@ export function IssuanceDocumentsListPage({
                 return bDate - aDate;
             });
 
+            const rootLastPage = Number(responseAny.last_page);
+            const rootCurrentPage = Number(responseAny.current_page);
+            const rootTotal = Number(responseAny.total);
+            const paginationLastPage = Number(responseAny.pagination?.last_page ?? responseAny.meta?.last_page);
+            const paginationCurrentPage = Number(responseAny.pagination?.current_page ?? responseAny.meta?.current_page);
+            const paginationTotal = Number(responseAny.pagination?.total ?? responseAny.meta?.total);
+
+            const hasServerPagination =
+                Number.isFinite(rootLastPage) || Number.isFinite(paginationLastPage);
+
+            const resolvedLastPage = hasServerPagination
+                ? Math.max(1, Number.isFinite(rootLastPage) && rootLastPage > 0 ? rootLastPage : (Number.isFinite(paginationLastPage) && paginationLastPage > 0 ? paginationLastPage : 1))
+                : Math.max(1, Math.ceil(flattened.length / DOCUMENTS_PER_PAGE));
+
+            const resolvedCurrentPage = hasServerPagination
+                ? (Number.isFinite(rootCurrentPage) && rootCurrentPage > 0
+                    ? rootCurrentPage
+                    : (Number.isFinite(paginationCurrentPage) && paginationCurrentPage > 0 ? paginationCurrentPage : page))
+                : page;
+
+            const boundedCurrentPage = Math.min(Math.max(1, resolvedCurrentPage), resolvedLastPage);
+
+            setClientPaginated(!hasServerPagination);
+
             setRows(flattened);
-            setCurrentPage(response.current_page);
-            setTotalPages(response.last_page);
+            setCurrentPage(boundedCurrentPage);
+            setTotalPages(resolvedLastPage);
+            setTotalEntries(
+                hasServerPagination
+                    ? (Number.isFinite(rootTotal) && rootTotal >= 0
+                        ? rootTotal
+                        : (Number.isFinite(paginationTotal) && paginationTotal >= 0 ? paginationTotal : flattened.length))
+                    : flattened.length
+            );
         } catch {
             toast.error('Failed to load issuance documents');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
+            setIsInitialLoading(false);
         }
     }, [filters]);
 
@@ -194,6 +253,11 @@ export function IssuanceDocumentsListPage({
 
     const handlePageChange = (page: number) => {
         if (page < 1 || page > totalPages) return;
+        if (clientPaginated) {
+            setCurrentPage(page);
+            return;
+        }
+
         loadDocuments(page);
     };
 
@@ -229,6 +293,22 @@ export function IssuanceDocumentsListPage({
         });
     }, [rows, searchTerm]);
 
+    useEffect(() => {
+        if (!clientPaginated) return;
+
+        const computedTotalPages = Math.max(1, Math.ceil(filteredRows.length / DOCUMENTS_PER_PAGE));
+        setTotalPages(computedTotalPages);
+        setTotalEntries(filteredRows.length);
+        setCurrentPage((prev) => Math.min(prev, computedTotalPages));
+    }, [filteredRows.length, clientPaginated]);
+
+    const visibleRows = useMemo(() => {
+        if (!clientPaginated) return filteredRows;
+
+        const startIndex = (currentPage - 1) * DOCUMENTS_PER_PAGE;
+        return filteredRows.slice(startIndex, startIndex + DOCUMENTS_PER_PAGE);
+    }, [filteredRows, currentPage, clientPaginated]);
+
     return (
         <div
             className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden"
@@ -248,10 +328,10 @@ export function IssuanceDocumentsListPage({
                     <div className="flex gap-2">
                         <button
                             onClick={handleRefresh}
-                            disabled={loading}
+                            disabled={isFetching}
                             className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                         >
-                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Refresh</span>
                         </button>
                     </div>
@@ -291,7 +371,25 @@ export function IssuanceDocumentsListPage({
 
                 {/* Flat Documents List */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    {filteredRows.length === 0 ? (
+                    {isInitialLoading && rows.length === 0 ? (
+                        <div className="divide-y divide-slate-200">
+                            {Array.from({ length: 8 }).map((_, index) => (
+                                <div key={`issuance-skeleton-${index}`} className="p-4 animate-pulse">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1 space-y-3">
+                                            <div className="h-4 w-48 rounded bg-slate-200" />
+                                            <div className="h-3 w-72 rounded bg-slate-200" />
+                                            <div className="h-3 w-56 rounded bg-slate-200" />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <div className="h-8 w-8 rounded-lg bg-slate-200" />
+                                            <div className="h-8 w-8 rounded-lg bg-slate-200" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : filteredRows.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                             <Package className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                             <h3 className="text-lg font-medium text-slate-400 mb-1">No Documents Found</h3>
@@ -301,7 +399,7 @@ export function IssuanceDocumentsListPage({
                         </div>
                     ) : (
                         <div className="divide-y divide-slate-200">
-                            {filteredRows.map((row) => {
+                            {visibleRows.map((row) => {
                                 const issuance = row.issuance;
                                 const StatusIcon = statusConfig[issuance.Status]?.icon ?? AlertCircle;
 
@@ -344,7 +442,7 @@ export function IssuanceDocumentsListPage({
 
                                             <div className="flex items-center gap-2 lg:justify-end">
                                                 <Link
-                                                    href={`${baseRoute}/${issuance.IssuanceID}`}
+                                                    href={`${detailsBaseRoute}/${issuance.IssuanceID}`}
                                                     className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
                                                     title="View Details"
                                                 >
@@ -366,25 +464,30 @@ export function IssuanceDocumentsListPage({
                     )}
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
+                    {!isInitialLoading && totalPages > 1 && (
                         <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
-                            <button
-                                onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage === 1}
-                                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Previous
-                            </button>
-                            <span className="text-sm text-slate-600">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <button
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage === totalPages}
-                                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Next
-                            </button>
+                            <div className="text-sm text-slate-500">
+                                Showing {((currentPage - 1) * DOCUMENTS_PER_PAGE) + 1} to {Math.min(currentPage * DOCUMENTS_PER_PAGE, totalEntries)} of {totalEntries} entries
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1 || isFetching}
+                                    className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Previous
+                                </button>
+                                <span className="text-sm text-slate-600">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages || isFetching}
+                                    className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

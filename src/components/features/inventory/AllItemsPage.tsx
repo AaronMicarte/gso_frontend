@@ -45,7 +45,7 @@ export function AllItemsPage() {
 
 
 
-    const { data, isLoading, refetch } = useAllInventoryItems({ page, per_page: 10, search, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined });
+    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined });
     const updateInventoryDetail = useUpdateInventoryDetail();
     const { data: propertyTypes } = useAllPropertyTypes();
 
@@ -202,10 +202,10 @@ export function AllItemsPage() {
                     <div className="flex gap-2 items-center">
                         <button
                             onClick={handleRefresh}
-                            disabled={isLoading}
+                            disabled={isFetching}
                             className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                         >
-                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Refresh</span>
                         </button>
                         <select
@@ -443,7 +443,7 @@ export function AllItemsPage() {
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setPage(Math.max(1, page - 1))}
-                                        disabled={page === 1}
+                                        disabled={page === 1 || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Previous
@@ -453,7 +453,7 @@ export function AllItemsPage() {
                                     </span>
                                     <button
                                         onClick={() => setPage(Math.min(data.last_page, page + 1))}
-                                        disabled={page === data.last_page}
+                                        disabled={page === data.last_page || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Next

@@ -56,7 +56,8 @@ function resolveSummaryStatus(items: DepartmentReceivedItem[]): ItemStatusKey {
 
 export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
     const [rows, setRows] = useState<DepartmentReceivedDr[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isFetching, setIsFetching] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<ItemStatusKey>('all');
     const [expandedByDr, setExpandedByDr] = useState<Record<number, boolean>>({});
@@ -65,7 +66,7 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
 
     const loadRows = useCallback(async (page = 1) => {
         try {
-            setLoading(true);
+            setIsFetching(true);
             const response = await departmentHeadAPI.getReceivedItems({
                 page,
                 per_page: 10,
@@ -78,7 +79,8 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
         } catch {
             toast.error('Failed to load received items');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
+            setIsInitialLoading(false);
         }
     }, [searchTerm]);
 
@@ -129,11 +131,11 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
                     </div>
                     <button
                         onClick={handleRefresh}
-                        disabled={loading}
+                        disabled={isFetching}
                         className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                         type="button"
                     >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                         <span className="hidden sm:inline">Refresh</span>
                     </button>
                 </div>
@@ -167,7 +169,7 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    {loading ? (
+                    {isInitialLoading && rows.length === 0 ? (
                         <CardListSkeleton cards={4} />
                     ) : filteredRows.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
@@ -290,7 +292,7 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
                         <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
                             <button
                                 onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage === 1}
+                                disabled={currentPage === 1 || isFetching}
                                 className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 type="button"
                             >
@@ -301,7 +303,7 @@ export function ReceivedItemsPage({ baseRoute }: ReceivedItemsPageProps) {
                             </span>
                             <button
                                 onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage === totalPages}
+                                disabled={currentPage === totalPages || isFetching}
                                 className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 type="button"
                             >

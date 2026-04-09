@@ -36,7 +36,8 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
-    const [loading, setLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isFetching, setIsFetching] = useState(false);
 
     const [expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
     const [disposalMethods, setDisposalMethods] = useState<PropertyWasteDisposalMethod[]>([]);
@@ -51,7 +52,7 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
 
     const load = useCallback(async (targetPage = 1) => {
         try {
-            setLoading(true);
+            setIsFetching(true);
             const response = await propertyWasteApi.getAll({
                 page: targetPage,
                 per_page: 15,
@@ -64,7 +65,8 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
         } catch {
             toast.error('Failed to load property waste records');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
+            setIsInitialLoading(false);
         }
     }, [search]);
 
@@ -293,10 +295,10 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
                     </div>
                     <button
                         onClick={() => load(page)}
-                        disabled={loading}
+                        disabled={isFetching}
                         className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                     >
-                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                         Refresh
                     </button>
                 </div>
@@ -343,7 +345,7 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {loading ? (
+                                {isInitialLoading && rows.length === 0 ? (
                                     <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
                                 ) : rows.length === 0 ? (
                                     <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No property waste records found.</td></tr>
@@ -478,16 +480,16 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
                         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
                             <button
                                 onClick={() => page > 1 && load(page - 1)}
-                                disabled={page <= 1}
-                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
+                                disabled={page <= 1 || isFetching}
+                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Previous
                             </button>
                             <span className="text-sm text-slate-600">Page {page} of {lastPage}</span>
                             <button
                                 onClick={() => page < lastPage && load(page + 1)}
-                                disabled={page >= lastPage}
-                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
+                                disabled={page >= lastPage || isFetching}
+                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Next
                             </button>

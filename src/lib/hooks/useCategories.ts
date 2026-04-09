@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getCategories,
     getAllCategories,
@@ -40,6 +40,7 @@ export function useCategories(filters?: CategoryFilters) {
     return useQuery({
         queryKey: categoryKeys.list(filters),
         queryFn: () => getCategories(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000, // Data stays fresh for 5 minutes
         gcTime: 10 * 60 * 1000, // Cache for 10 minutes
     });

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchQrProperties, updatePropertyCondition, type QrPropertyListParams, type PaginatedLaravelResponse } from '@/lib/api/qr';
 import type { QrScanAssignedProperty } from '@/types/qr';
 
@@ -6,6 +6,7 @@ export function useQrProperties(params: QrPropertyListParams & { page?: number }
     return useQuery<PaginatedLaravelResponse<QrScanAssignedProperty>>({
         queryKey: ['qr-properties', params],
         queryFn: () => fetchQrProperties(params),
+        placeholderData: keepPreviousData,
     });
 }
 

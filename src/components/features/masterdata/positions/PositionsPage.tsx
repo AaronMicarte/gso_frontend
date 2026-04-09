@@ -29,7 +29,7 @@ export function PositionsPage({ baseRoute: _baseRoute }: PositionsPageProps) {
     const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
     // Use React Query for cached data fetching
-    const { data, isLoading, error, refetch } = usePositions({
+    const { data, isLoading, isFetching, error, refetch } = usePositions({
         search: debouncedSearch || undefined,
         page: currentPage,
         per_page: 15,
@@ -182,11 +182,11 @@ export function PositionsPage({ baseRoute: _baseRoute }: PositionsPageProps) {
                         <div className="flex gap-2">
                             <button
                                 onClick={handleRefresh}
-                                disabled={isLoading}
+                                disabled={isFetching}
                                 className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                                 aria-label="Refresh positions list"
                             >
-                                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                                 <span className="hidden sm:inline">Refresh</span>
                             </button>
                             <button
@@ -384,14 +384,14 @@ export function PositionsPage({ baseRoute: _baseRoute }: PositionsPageProps) {
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     <button
                                         onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                                        disabled={pagination.current_page === 1}
+                                        disabled={pagination.current_page === 1 || isFetching}
                                         className="flex-1 sm:flex-initial px-4 py-2 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
                                     >
                                         Previous
                                     </button>
                                     <button
                                         onClick={() => setCurrentPage((prev) => Math.min(pagination.last_page, prev + 1))}
-                                        disabled={pagination.current_page === pagination.last_page}
+                                        disabled={pagination.current_page === pagination.last_page || isFetching}
                                         className="flex-1 sm:flex-initial px-4 py-2 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
                                     >
                                         Next

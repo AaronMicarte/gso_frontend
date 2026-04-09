@@ -32,7 +32,7 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
     const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
     // Use React Query for cached data fetching
-    const { data, isLoading, error, refetch } = useDepartments({
+    const { data, isLoading, isFetching, error, refetch } = useDepartments({
         search: debouncedSearch || undefined,
         page: currentPage,
         per_page: 15,
@@ -200,7 +200,7 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                            disabled={pagination.current_page === 1}
+                            disabled={pagination.current_page === 1 || isFetching}
                             className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Previous
@@ -210,7 +210,7 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
                         </span>
                         <button
                             onClick={() => setCurrentPage((prev) => Math.min(pagination.last_page, prev + 1))}
-                            disabled={pagination.current_page === pagination.last_page}
+                            disabled={pagination.current_page === pagination.last_page || isFetching}
                             className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Next
@@ -236,11 +236,11 @@ export function DepartmentsPage({ baseRoute: _baseRoute, canEdit = true, canDele
                         <div className="flex gap-2">
                             <button
                                 onClick={handleRefresh}
-                                disabled={isLoading}
+                                disabled={isFetching}
                                 className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                                 aria-label="Refresh departments list"
                             >
-                                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                                 <span className="hidden sm:inline">Refresh</span>
                             </button>
                             {canEdit && (

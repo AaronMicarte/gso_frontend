@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getClassifications,
     getAllClassifications,
@@ -26,6 +26,7 @@ export function useClassifications(filters?: ClassificationFilters) {
     return useQuery({
         queryKey: classificationKeys.list(filters),
         queryFn: () => getClassifications(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

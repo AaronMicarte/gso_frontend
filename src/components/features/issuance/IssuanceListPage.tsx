@@ -70,7 +70,8 @@ export function IssuanceListPage({
     pageDescription,
 }: IssuanceListPageProps) {
     const [rows, setRows] = useState<DeliveryReceiptForIssuance[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isFetching, setIsFetching] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -82,7 +83,7 @@ export function IssuanceListPage({
 
     const loadRows = useCallback(async (page = 1) => {
         try {
-            setLoading(true);
+            setIsFetching(true);
             const response = await issuanceAPI.getDeliveryReceiptsForIssuance({
                 page,
                 per_page: 15,
@@ -102,7 +103,8 @@ export function IssuanceListPage({
         } catch {
             toast.error('Failed to load delivery receipts for issuance');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
+            setIsInitialLoading(false);
         }
     }, [searchTerm]);
 
@@ -206,10 +208,10 @@ export function IssuanceListPage({
                     </div>
                     <button
                         onClick={handleRefresh}
-                        disabled={loading}
+                        disabled={isFetching}
                         className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                         <span className="hidden sm:inline">Refresh</span>
                     </button>
                 </div>
@@ -228,7 +230,9 @@ export function IssuanceListPage({
                 </div>
 
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    {filteredRows.length === 0 ? (
+                    {isInitialLoading && rows.length === 0 ? (
+                        <CardListSkeleton cards={4} />
+                    ) : filteredRows.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                             <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                             <h3 className="text-lg font-medium text-slate-400 mb-1">No delivery receipts available</h3>
@@ -416,7 +420,7 @@ export function IssuanceListPage({
                             <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
                                 <button
                                     onClick={() => handlePageChange(currentPage - 1)}
-                                    disabled={currentPage === 1}
+                                    disabled={currentPage === 1 || isFetching}
                                     className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Previous
@@ -426,7 +430,7 @@ export function IssuanceListPage({
                                 </span>
                                 <button
                                     onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage === totalPages}
+                                    disabled={currentPage === totalPages || isFetching}
                                     className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Next

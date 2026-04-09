@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getPropertyClassifications,
     getAllPropertyClassifications,
@@ -25,6 +25,7 @@ export function usePropertyClassifications(filters?: PropertyClassificationFilte
     return useQuery({
         queryKey: propertyClassificationKeys.list(filters),
         queryFn: () => getPropertyClassifications(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

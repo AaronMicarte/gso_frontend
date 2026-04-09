@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getUnitsOfMeasure,
     getAllUnitsOfMeasure,
@@ -25,6 +25,7 @@ export function useUnitsOfMeasure(filters?: UnitOfMeasureFilters) {
     return useQuery({
         queryKey: unitOfMeasureKeys.list(filters),
         queryFn: () => getUnitsOfMeasure(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

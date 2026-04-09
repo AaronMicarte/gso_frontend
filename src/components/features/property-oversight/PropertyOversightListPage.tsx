@@ -400,7 +400,7 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                    disabled={!canGoPrev}
+                                    disabled={!canGoPrev || query.isFetching}
                                     className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     type="button"
                                 >
@@ -408,7 +408,7 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                 </button>
                                 <button
                                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                    disabled={!canGoNext}
+                                    disabled={!canGoNext || query.isFetching}
                                     className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     type="button"
                                 >

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getDepartments,
     getAllDepartments,
@@ -25,6 +25,7 @@ export function useDepartments(filters?: DepartmentFilters) {
     return useQuery({
         queryKey: departmentKeys.list(filters),
         queryFn: () => getDepartments(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

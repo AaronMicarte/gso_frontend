@@ -21,7 +21,7 @@ export const QRCodeWithPrint = ({ value, size = 128, title = 'QR Code' }: QRCode
             const printWindow = window.open('', '_blank');
             if (printWindow) {
                 const svgString = new XMLSerializer().serializeToString(qrElement);
-                
+
                 printWindow.document.write(`
                     <!DOCTYPE html>
                     <html>
@@ -35,7 +35,7 @@ export const QRCodeWithPrint = ({ value, size = 128, title = 'QR Code' }: QRCode
                                 justify-content: center;
                                 height: 100vh;
                                 margin: 0;
-                                font-family: system-ui, -apple-system, sans-serif;
+                                font-family: Arial, Helvetica, sans-serif;
                             }
                             .qr-container {
                                 text-align: center;
@@ -46,7 +46,8 @@ export const QRCodeWithPrint = ({ value, size = 128, title = 'QR Code' }: QRCode
                                 color: #666;
                             }
                             @media print {
-                                body { -webkit-print-color-adjust: exact; }
+                                @page { size: A4; margin: 10mm; }
+                                body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                             }
                         </style>
                     </head>

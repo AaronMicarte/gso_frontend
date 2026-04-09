@@ -92,7 +92,8 @@ interface ServiceRecordsPageProps {
 
 export function ServiceRecordsPage({ baseRoute, title, description, showCreate = false }: ServiceRecordsPageProps) {
     const [rows, setRows] = useState<AssetServiceRecord[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isFetching, setIsFetching] = useState(false);
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState<'all' | AssetServiceStatus>('all');
     const [page, setPage] = useState(1);
@@ -115,7 +116,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
 
     const load = useCallback(async (targetPage = 1) => {
         try {
-            setLoading(true);
+            setIsFetching(true);
             const response = await serviceApi.getAll({
                 page: targetPage,
                 per_page: 15,
@@ -128,7 +129,8 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
         } catch {
             toast.error('Failed to load service records');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
+            setIsInitialLoading(false);
         }
     }, [search, status]);
 
@@ -196,7 +198,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
 
     const updateDetailStatus = async (recordId: number, detail: AssetServiceRecord['details'][number], newStatus: AssetServiceStatus, verificationNote?: string | null) => {
         try {
-            setLoading(true);
+            setIsFetching(true);
 
             const payload = {
                 details: [
@@ -224,7 +226,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
         } catch {
             toast.error('Failed to change status');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
         }
     };
 
@@ -255,7 +257,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
         }).filter((x): x is NonNullable<typeof x> => Boolean(x));
 
         try {
-            setLoading(true);
+            setIsFetching(true);
             const payload = {
                 final_notes: headerFinalNote || undefined,
                 details: items,
@@ -271,7 +273,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
         } catch {
             toast.error('Failed to finalize verification');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
         }
     };
 
@@ -329,10 +331,10 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                         )}
                         <button
                             onClick={() => load(page)}
-                            disabled={loading}
+                            disabled={isFetching}
                             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                         >
-                            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                             Refresh
                         </button>
                     </div>
@@ -418,7 +420,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {loading ? (
+                                {isInitialLoading && rows.length === 0 ? (
                                     <TableSkeletonRows columns={6} rows={10} cellClassName="px-4 py-3" />
                                 ) : filteredRows.length === 0 ? (
                                     <tr>
@@ -524,16 +526,16 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
                             <button
                                 onClick={() => page > 1 && load(page - 1)}
-                                disabled={page <= 1}
-                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
+                                disabled={page <= 1 || isFetching}
+                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Previous
                             </button>
                             <span className="text-sm text-slate-600">Page {page} of {lastPage}</span>
                             <button
                                 onClick={() => page < lastPage && load(page + 1)}
-                                disabled={page >= lastPage}
-                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
+                                disabled={page >= lastPage || isFetching}
+                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Next
                             </button>
@@ -664,7 +666,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                 onConfirm={applyStatusConfirm}
                 confirmText="Proceed"
                 cancelText="Cancel"
-                loading={loading}
+                loading={isFetching}
             >
                 <p className="text-sm text-slate-600">This action will update the current service detail status and recompute the record status.</p>
             </Dialog>

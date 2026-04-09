@@ -42,7 +42,8 @@ export function BorrowListPage({
 }: BorrowListPageProps) {
     const { user } = useAuth();
     const [rows, setRows] = useState<PropertyBorrow[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isFetching, setIsFetching] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<BorrowStatus | 'all'>('all');
     const [currentPage, setCurrentPage] = useState(1);
@@ -52,7 +53,7 @@ export function BorrowListPage({
 
     const loadBorrows = useCallback(async (page = 1) => {
         try {
-            setLoading(true);
+            setIsFetching(true);
             const data = await borrowAPI.getAll({
                 page,
                 per_page: 15,
@@ -67,7 +68,8 @@ export function BorrowListPage({
         } catch {
             toast.error('Failed to load borrow requests');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
+            setIsInitialLoading(false);
         }
     }, [searchTerm, statusFilter, scope]);
 
@@ -131,10 +133,10 @@ export function BorrowListPage({
                         )}
                         <button
                             onClick={() => loadBorrows(currentPage)}
-                            disabled={loading}
+                            disabled={isFetching}
                             className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                         >
-                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Refresh</span>
                         </button>
                     </div>
@@ -184,7 +186,7 @@ export function BorrowListPage({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {loading ? (
+                                {isInitialLoading && rows.length === 0 ? (
                                     <TableSkeletonRows columns={8} rows={10} cellClassName="px-4 py-3" />
                                 ) : filteredRows.length === 0 ? (
                                     <tr>
@@ -247,7 +249,7 @@ export function BorrowListPage({
                         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
                             <button
                                 onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage <= 1}
+                                disabled={currentPage <= 1 || isFetching}
                                 className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
                             >
                                 Previous
@@ -257,7 +259,7 @@ export function BorrowListPage({
                             </span>
                             <button
                                 onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage >= totalPages}
+                                disabled={currentPage >= totalPages || isFetching}
                                 className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
                             >
                                 Next

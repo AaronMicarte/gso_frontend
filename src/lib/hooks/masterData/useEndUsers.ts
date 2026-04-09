@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getEndUsers,
     getAllEndUsers,
@@ -25,6 +25,7 @@ export function useEndUsers(filters?: EndUserFilters) {
     return useQuery({
         queryKey: endUserKeys.list(filters),
         queryFn: () => getEndUsers(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

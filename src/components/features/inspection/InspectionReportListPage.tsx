@@ -26,7 +26,7 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
 
-    const { data, isLoading } = useInspectionReports({
+    const { data, isLoading, isFetching } = useInspectionReports({
         page,
         per_page: 10,
         // allow initial status prop (from dashboard) but override with filter dropdown when set
@@ -167,7 +167,7 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setPage(Math.max(1, page - 1))}
-                                        disabled={page === 1}
+                                        disabled={page === 1 || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Previous
@@ -177,7 +177,7 @@ export function InspectionReportListPage({ baseRoute, status, title, subtitle }:
                                     </span>
                                     <button
                                         onClick={() => setPage(Math.min(data.last_page, page + 1))}
-                                        disabled={page === data.last_page}
+                                        disabled={page === data.last_page || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Next

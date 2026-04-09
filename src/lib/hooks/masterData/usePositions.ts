@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getPositions,
     getAllPositions,
@@ -25,6 +25,7 @@ export function usePositions(filters?: PositionFilters) {
     return useQuery({
         queryKey: positionKeys.list(filters),
         queryFn: () => getPositions(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

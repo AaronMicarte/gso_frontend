@@ -66,7 +66,7 @@ export function PropertySticker({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Property Sticker</title>
         <style>
-            @page { margin: 12mm; }
+            @page { size: A4; margin: 10mm; }
             html, body { height: 100%; font-family: Helvetica, Arial, sans-serif; }
             body { margin: 0; display: flex; align-items: center; justify-content: center; background: #fff; }
             img { max-width: 100%; height: auto; }
@@ -119,7 +119,7 @@ export function PropertySticker({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Property Sticker</title>
         <style>
-            @page { margin: 12mm; }
+            @page { size: A4; margin: 10mm; }
             html, body { height: 100%; }
             body { margin: 0; display: flex; align-items: center; justify-content: center; background: #fff; }
             img { max-width: 100%; height: auto; }
@@ -153,7 +153,7 @@ export function PropertySticker({
             img.onerror = () => {
                 try {
                     const body = printWindow.document.body;
-                    body.innerHTML = '<div style="font-family:Helvetica,Arial,sans-serif;color:#b91c1c;padding:16px;">Failed to render sticker image for printing.</div>';
+                    body.innerHTML = '<div style="font-family:Arial,Helvetica,sans-serif;color:#b91c1c;padding:16px;">Failed to render sticker image for printing.</div>';
                 } catch {
                     // ignore
                 }

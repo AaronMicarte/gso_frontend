@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getArticles,
     getAllArticles,
@@ -28,6 +28,7 @@ export function useArticles(filters?: ArticleFilters) {
     return useQuery({
         queryKey: articleKeys.list(filters),
         queryFn: () => getArticles(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

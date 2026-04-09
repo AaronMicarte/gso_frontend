@@ -12,7 +12,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
 
-    const { data, isLoading } = useInventories({ page, per_page: 10, search, sort_by: 'date', sort_dir: 'desc' });
+    const { data, isLoading, isFetching } = useInventories({ page, per_page: 10, search, sort_by: 'date', sort_dir: 'desc' });
 
     // Summary stats should reflect actual per-item status (same logic as AllItemsPage)
     // Use per_page=1 to avoid loading large datasets; we only need the totals.
@@ -222,7 +222,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setPage(Math.max(1, page - 1))}
-                                        disabled={page === 1}
+                                        disabled={page === 1 || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Previous
@@ -230,7 +230,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                     <span className="text-sm text-slate-600">Page {data?.current_page ?? 1} of {data?.last_page ?? 1}</span>
                                     <button
                                         onClick={() => setPage(Math.min(data?.last_page ?? 1, page + 1))}
-                                        disabled={page === (data?.last_page ?? 1)}
+                                        disabled={page === (data?.last_page ?? 1) || isFetching}
                                         className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Next

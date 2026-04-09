@@ -27,7 +27,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
     const supplierCustodian = dr.requestedByUser?.FullName || dr.RequestedByName || '';
 
     return (
-        <div ref={ref} className="print-container bg-white p-8 max-w-4xl mx-auto text-black">
+        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
             <style
                 dangerouslySetInnerHTML={{
                     __html: `
@@ -37,7 +37,8 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                                 max-width: none;
                                 margin: 0;
                                 font-size: 12px;
-                                line-height: 1.35;
+                                line-height: 1.3;
+                                font-family: Arial, Helvetica, sans-serif;
                             }
                             .no-print { display: none !important; }
                         }
@@ -49,13 +50,21 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                 }}
             />
 
-            <div className="border border-black text-[11px] font-serif">
-                <div className="grid grid-cols-2 border-b border-black">
+            <div className="text-[11px]">
+                <div className="gso-print-title">Inspection and Acceptance Report</div>
+                <div className="grid grid-cols-2 gap-6 mb-1 px-1">
+                    <div className="flex items-end gap-1">
+                        <div className="whitespace-nowrap font-semibold">Entity Name :</div>
+                        <div className="flex-1 border-b border-black leading-none">CITY GOVERNMENT OF EL SALVADOR</div>
+                    </div>
+                    <div className="flex items-end gap-1">
+                        <div className="whitespace-nowrap font-semibold">Fund Cluster :</div>
+                        <div className="flex-1 border-b border-black leading-none">&nbsp;</div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 border border-black border-b-0">
                     <div className="p-1.5 space-y-1">
-                        <div className="flex items-end gap-1">
-                            <div className="whitespace-nowrap">Entity Name :</div>
-                            <div className="flex-1 border-b border-black leading-none">CITY GOVERNMENT OF EL SALVADOR</div>
-                        </div>
                         <div className="flex items-end gap-1">
                             <div className="whitespace-nowrap">Supplier :</div>
                             <div className="flex-1 border-b border-black leading-none">{dr.SupplierName || ''}</div>
@@ -75,10 +84,6 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                     </div>
                     <div className="p-1.5 space-y-1 border-l border-black">
                         <div className="flex items-end gap-1">
-                            <div className="whitespace-nowrap">Fund Cluster :</div>
-                            <div className="flex-1 border-b border-black leading-none">&nbsp;</div>
-                        </div>
-                        <div className="flex items-end gap-1">
                             <div className="whitespace-nowrap">IAR No. :</div>
                             <div className="flex-1 border-b border-black leading-none">{iarNumber || '\u00A0'}</div>
                         </div>
@@ -97,7 +102,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                     </div>
                 </div>
 
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse border border-black">
                     <thead>
                         <tr>
                             <th className="border-b border-black border-r border-black px-1 py-1 text-center w-[120px] italic">Stock<br />Property No.</th>

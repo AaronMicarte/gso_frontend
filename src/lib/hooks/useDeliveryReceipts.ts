@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getDeliveryReceipts,
     getDeliveryReceipt,
@@ -22,6 +22,7 @@ export function useDeliveryReceipts(filters?: DeliveryReceiptFilters) {
     return useQuery({
         queryKey: deliveryReceiptKeys.list(filters),
         queryFn: () => getDeliveryReceipts(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

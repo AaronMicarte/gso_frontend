@@ -34,7 +34,7 @@ export function VendorsPage({ canEdit = true, canDelete = true }: VendorsPagePro
         is_active: true,
     });
 
-    const { data, isLoading, error, refetch } = useVendors({
+    const { data, isLoading, isFetching, error, refetch } = useVendors({
         search: debouncedSearch || undefined,
         page: currentPage,
         per_page: 15,
@@ -169,10 +169,10 @@ export function VendorsPage({ canEdit = true, canDelete = true }: VendorsPagePro
                                     refetch();
                                     toast.success('Vendors refreshed');
                                 }}
-                                disabled={isLoading}
+                                disabled={isFetching}
                                 className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                             >
-                                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                                 <span className="hidden sm:inline">Refresh</span>
                             </button>
                             {canEdit && (

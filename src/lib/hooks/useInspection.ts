@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getPendingInspectionReceipts,
     getInspectionReports,
@@ -23,6 +23,7 @@ export function usePendingInspectionReceipts(filters?: { per_page?: number; page
     return useQuery({
         queryKey: inspectionKeys.pending(filters),
         queryFn: () => getPendingInspectionReceipts(filters),
+        placeholderData: keepPreviousData,
         staleTime: 2 * 60 * 1000,
     });
 }
@@ -31,6 +32,7 @@ export function useInspectionReports(filters?: InspectionReportFilters) {
     return useQuery({
         queryKey: inspectionKeys.reports(filters),
         queryFn: () => getInspectionReports(filters),
+        placeholderData: keepPreviousData,
         staleTime: 2 * 60 * 1000,
     });
 }

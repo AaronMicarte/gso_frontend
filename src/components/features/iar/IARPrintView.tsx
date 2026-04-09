@@ -2,7 +2,7 @@ import React from 'react';
 import { IAR } from '@/types/iar';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { resolveStorageUrl, resolveSignatureUrl } from '@/lib/utils/signature';
+import { resolveSignatureUrl } from '@/lib/utils/signature';
 
 interface IARPrintViewProps {
     iar: IAR;
@@ -63,11 +63,11 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
     const acceptanceName = iar.acceptedByUser?.FullName || iar.deliveryReceipt?.requestedByUser?.FullName || '';
 
     return (
-        <div ref={ref} className="hidden print:block p-4 bg-white text-black text-sm" style={{ fontFamily: 'Times New Roman, serif' }}>
+        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black text-[11px]">
             {/* Header */}
             <div className="mb-4">
                 <div className="flex justify-center items-start">
-                    <h1 className="font-bold text-2xl mb-2 text-center" style={{ fontFamily: 'Times New Roman, serif' }}>INSPECTION AND ACCEPTANCE REPORT</h1>
+                    <h1 className="gso-print-title">Inspection and Acceptance Report</h1>
                 </div>
 
                 <div className="text-left border-b-2 border-black pb-2 mt-2">

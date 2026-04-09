@@ -39,7 +39,8 @@ interface AssetRequestsPageProps {
 export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = true, isAdmin = false }: AssetRequestsPageProps) {
     const canCreate = initialCanCreate && !isAdmin;
     const [requests, setRequests] = useState<AssetRequest[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isFetching, setIsFetching] = useState(false);
     const [filters, setFilters] = useState<AssetRequestFilters>({
         status: undefined,
         from_date: '',
@@ -51,7 +52,7 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
 
     const loadRequests = async (page = 1) => {
         try {
-            setLoading(true);
+            setIsFetching(true);
             const response = await assetIssuanceAPI.requests.getAll({
                 ...filters,
                 page,
@@ -64,7 +65,8 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
         } catch (error) {
             toast.error('Failed to load asset requests');
         } finally {
-            setLoading(false);
+            setIsFetching(false);
+            setIsInitialLoading(false);
         }
     };
 
@@ -105,10 +107,10 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
                     <div className="flex gap-2">
                         <button
                             onClick={handleRefresh}
-                            disabled={loading}
+                            disabled={isFetching}
                             className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                         >
-                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Refresh</span>
                         </button>
                         {canCreate && (
@@ -181,7 +183,7 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {loading ? (
+                                {isInitialLoading && requests.length === 0 ? (
                                     <TableSkeletonRows columns={7} rows={10} />
                                 ) : filteredRequests.length === 0 ? (
                                     <tr>
@@ -251,8 +253,8 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
                         <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
                             <button
                                 onClick={() => loadRequests(currentPage - 1)}
-                                disabled={currentPage === 1}
-                                className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50 hover:bg-slate-50"
+                                disabled={currentPage === 1 || isFetching}
+                                className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
                             >
                                 Previous
                             </button>
@@ -261,8 +263,8 @@ export function AssetRequestsPage({ baseRoute, canCreate: initialCanCreate = tru
                             </span>
                             <button
                                 onClick={() => loadRequests(currentPage + 1)}
-                                disabled={currentPage === totalPages}
-                                className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50 hover:bg-slate-50"
+                                disabled={currentPage === totalPages || isFetching}
+                                className="px-3 py-1 border border-slate-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
                             >
                                 Next
                             </button>

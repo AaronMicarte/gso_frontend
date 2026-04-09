@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getPropertyTypes,
     getAllPropertyTypes,
@@ -25,6 +25,7 @@ export function usePropertyTypes(filters?: PropertyTypeFilters) {
     return useQuery({
         queryKey: propertyTypeKeys.list(filters),
         queryFn: () => getPropertyTypes(filters),
+        placeholderData: keepPreviousData,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });
