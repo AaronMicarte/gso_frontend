@@ -48,16 +48,11 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
     const fundCluster = 'GENERAL FUND';
 
-    const receivedByName = ensureText(
-        issuance.request?.requester?.FullName || issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
-        'REQUESTER'
-    );
     const receivedByOffice = ensureText(
         issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
         'DEPARTMENT'
     );
 
-    const issuedByName = ensureText(issuance.issuer?.FullName, 'PROPERTY OFFICER');
     const issuedByOffice = ensureText(issuance.issuer?.department?.DepartmentName, 'GENERAL SERVICES OFFICE');
 
     // Dates
@@ -66,8 +61,6 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
         issuance.AcknowledgedAt ? formatDate(issuance.AcknowledgedAt) : '',
         docDate
     );
-
-    const missingSignature = !receivedBySignature;
 
     return (
         <div ref={ref} className="print-container bg-white p-8 max-w-4xl mx-auto text-black">
@@ -97,15 +90,9 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
             }} />
 
             <>
-                {missingSignature && (
-                    <div className="no-print mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                        Recipient signature is not captured yet. Print for delivery and signing.
-                    </div>
-                )}
                 {/* Header */}
                 <div className="text-center mb-2">
                     <div className="text-sm font-bold">PROPERTY ACKNOWLEDGMENT RECEIPT</div>
-                    <div className="text-xs">(PAR)</div>
                 </div>
 
                 {/* Top Info Row */}
@@ -217,11 +204,10 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                             )}
                         </div>
                         <div className="text-[10px] text-center mt-1">Signature over Printed Name of Requester (Department Head)</div>
-                        <div className="border-b border-black mt-4 pb-1 text-center">{receivedByName}</div>
+                        <div className="border-b border-black mt-4 pb-1 text-center">{receivedByOffice}</div>
                         <div className="text-[10px] text-center mt-1">Position/Office</div>
-                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedByOffice}</div>
+                        <div className="border-b border-black mt-2 pb-1 text-center">&nbsp;</div>
                         <div className="text-[10px] text-center mt-1">Date</div>
-                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedDate}</div>
                     </div>
 
                     <div>
@@ -239,11 +225,10 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                             )}
                         </div>
                         <div className="text-[10px] text-center mt-1">Signature over Printed Name of Supply and/or Property Custodian</div>
-                        <div className="border-b border-black mt-4 pb-1 text-center">{issuedByName}</div>
+                        <div className="border-b border-black mt-4 pb-1 text-center">{issuedByOffice}</div>
                         <div className="text-[10px] text-center mt-1">Position/Office</div>
-                        <div className="border-b border-black mt-2 pb-1 text-center">{issuedByOffice}</div>
+                        <div className="border-b border-black mt-2 pb-1 text-center">&nbsp;</div>
                         <div className="text-[10px] text-center mt-1">Date</div>
-                        <div className="border-b border-black mt-2 pb-1 text-center">{docDate}</div>
                     </div>
                 </div>
             </>
