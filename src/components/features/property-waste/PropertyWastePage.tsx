@@ -34,6 +34,7 @@ const statusLabel = (value: string) => value.replaceAll('_', ' ');
 export function PropertyWastePage({ title, description, canManage }: PropertyWastePageProps) {
     const [rows, setRows] = useState<PropertyWasteReport[]>([]);
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -56,7 +57,7 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
             const response = await propertyWasteApi.getAll({
                 page: targetPage,
                 per_page: 15,
-                search: search || undefined,
+                search: debouncedSearch || undefined,
             });
 
             setRows(response.data ?? []);
@@ -68,6 +69,14 @@ export function PropertyWastePage({ title, description, canManage }: PropertyWas
             setIsFetching(false);
             setIsInitialLoading(false);
         }
+    }, [debouncedSearch]);
+
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setDebouncedSearch(search.trim());
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
     }, [search]);
 
     useEffect(() => {

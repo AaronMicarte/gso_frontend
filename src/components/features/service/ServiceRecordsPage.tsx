@@ -95,6 +95,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isFetching, setIsFetching] = useState(false);
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [status, setStatus] = useState<'all' | AssetServiceStatus>('all');
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
@@ -120,7 +121,7 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
             const response = await serviceApi.getAll({
                 page: targetPage,
                 per_page: 15,
-                search: search || undefined,
+                search: debouncedSearch || undefined,
                 status: status === 'all' ? undefined : status,
             });
             setRows(response.data || []);
@@ -132,7 +133,15 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
             setIsFetching(false);
             setIsInitialLoading(false);
         }
-    }, [search, status]);
+    }, [debouncedSearch, status]);
+
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setDebouncedSearch(search.trim());
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [search]);
 
     useEffect(() => {
         load(1);

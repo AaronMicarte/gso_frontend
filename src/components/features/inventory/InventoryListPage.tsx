@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useInventories, useAllInventoryItems } from '@/lib/hooks/useInventory';
 import { Package, Eye, User, AlertTriangle, CheckCircle, Archive, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -11,8 +11,17 @@ import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
 
-    const { data, isLoading, isFetching } = useInventories({ page, per_page: 10, search, sort_by: 'date', sort_dir: 'desc' });
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setDebouncedSearch(search.trim());
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [search]);
+
+    const { data, isLoading, isFetching } = useInventories({ page, per_page: 10, search: debouncedSearch || undefined, sort_by: 'date', sort_dir: 'desc' });
 
     // Summary stats should reflect actual per-item status (same logic as AllItemsPage)
     // Use per_page=1 to avoid loading large datasets; we only need the totals.
@@ -55,7 +64,10 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                             type="text"
                             placeholder="Search inventories..."
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                setPage(1);
+                            }}
                             className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                         />
                         <Link

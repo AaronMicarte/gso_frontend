@@ -2,6 +2,7 @@
 
 import { useInventory, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
+import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitOfMeasures';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -22,6 +23,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const { data, isLoading, refetch } = useInventory(id);
     const updateInventoryDetail = useUpdateInventoryDetail();
     const { data: propertyTypes } = useAllPropertyTypes();
+    const { data: allUnitsOfMeasure } = useAllUnitsOfMeasure();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
@@ -161,6 +163,20 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         SerialNumber?: string;
     }) => {
         return detail.dr_article_name || detail.PropertyName || 'Property Item';
+    };
+
+    const getUnitOfMeasureName = (unitOfMeasureId?: number) => {
+        if (!unitOfMeasureId || !allUnitsOfMeasure) {
+            return 'unit';
+        }
+
+        return allUnitsOfMeasure.find(unit => unit.id === unitOfMeasureId)?.name || 'unit';
+    };
+
+    const formatQuantityCost = (quantity: number, unitOfMeasureId?: number, unitCost?: number) => {
+        const unitName = getUnitOfMeasureName(unitOfMeasureId);
+        const cost = Number(unitCost || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return `${quantity} ${unitName} x ₱${cost}`;
     };
 
     const getQrCodeData = (detail: {
@@ -341,6 +357,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     DocumentType?: 'ICS' | 'PAR';
                                                     Quantity: number;
                                                     QuantityAvailable?: number;
+                                                    UnitOfMeasureID?: number;
                                                     UnitCost: number;
                                                     TotalCost: number;
                                                     ConditionID?: number;
@@ -398,7 +415,9 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         </td>
                                                         <td className="px-6 py-4 text-slate-600">
                                                             <div>
-                                                                <div className="font-medium">{d.Quantity} @ ₱{Number(d.UnitCost || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                                                <div className="font-medium">
+                                                                    {formatQuantityCost(d.Quantity, d.UnitOfMeasureID, d.UnitCost)}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 space-y-1">

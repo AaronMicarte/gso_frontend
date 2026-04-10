@@ -3,7 +3,7 @@
 import { useAllInventoryItems, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
 import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
@@ -19,6 +19,7 @@ export function AllItemsPage() {
     const searchParams = useSearchParams();
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedStatus, setSelectedStatus] = useState<number | null>(() => {
         const statusParam = searchParams.get('status');
         if (statusParam) {
@@ -46,7 +47,15 @@ export function AllItemsPage() {
 
 
 
-    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined });
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setDebouncedSearch(search.trim());
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [search]);
+
+    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined });
     const updateInventoryDetail = useUpdateInventoryDetail();
     const { data: propertyTypes } = useAllPropertyTypes();
 
@@ -66,19 +75,7 @@ export function AllItemsPage() {
     const filteredDetails = (() => {
         if (!data?.data) return [];
 
-        const source = !search
-            ? (data.data || [])
-            : (data.data || []).filter(item =>
-                item.dr_article_name?.toLowerCase().includes(search.toLowerCase()) ||
-                item.Description?.toLowerCase().includes(search.toLowerCase()) ||
-                item.PropertyName?.toLowerCase().includes(search.toLowerCase()) ||
-                item.Brand?.toLowerCase().includes(search.toLowerCase()) ||
-                item.ModelNumber?.toLowerCase().includes(search.toLowerCase()) ||
-                item.SerialNumber?.toLowerCase().includes(search.toLowerCase()) ||
-                item.InventoryNumber?.toLowerCase().includes(search.toLowerCase())
-            );
-
-        return [...source].sort((a, b) => {
+        return [...(data.data || [])].sort((a, b) => {
             const aTime = a.CreatedDate ? new Date(a.CreatedDate).getTime() : 0;
             const bTime = b.CreatedDate ? new Date(b.CreatedDate).getTime() : 0;
             if (aTime !== bTime) return bTime - aTime;
@@ -211,7 +208,10 @@ export function AllItemsPage() {
                         </button>
                         <select
                             value={selectedStatus || ''}
-                            onChange={(e) => setSelectedStatus(e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) => {
+                                setSelectedStatus(e.target.value ? Number(e.target.value) : null);
+                                setPage(1);
+                            }}
                             className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                         >
                             <option value="">All Statuses</option>
@@ -221,7 +221,10 @@ export function AllItemsPage() {
                         </select>
                         <select
                             value={selectedPropertyType || ''}
-                            onChange={(e) => setSelectedPropertyType(e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) => {
+                                setSelectedPropertyType(e.target.value ? Number(e.target.value) : null);
+                                setPage(1);
+                            }}
                             className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                         >
                             <option value="">All Property Types</option>
@@ -280,7 +283,10 @@ export function AllItemsPage() {
                             type="text"
                             placeholder="Search by description, brand, model, serial number, or inventory number..."
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                setPage(1);
+                            }}
                             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                         />
                     </div>
@@ -316,11 +322,11 @@ export function AllItemsPage() {
                             <tbody className="divide-y divide-slate-200">
                                 {isLoading ? (
                                     <TableSkeletonRows columns={7} rows={10} />
-                                ) : data?.data?.length === 0 ? (
+                                ) : filteredDetails.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                            No items found
+                                            {debouncedSearch || selectedStatus || selectedPropertyType ? 'No items found for the current search/filter' : 'No items found'}
                                         </td>
                                     </tr>
                                 ) : (
