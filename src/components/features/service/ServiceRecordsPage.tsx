@@ -509,11 +509,20 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                                                     <td colSpan={6} className="px-4 py-3 bg-slate-50/70">
                                                         <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
                                                             {(row.details ?? []).map((detail) => (
-                                                                <div key={detail.ServiceRecordDetailID} className="rounded-md border border-slate-100 p-2 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
-                                                                    <div className="space-x-3">
-                                                                        <span className="font-semibold">#{detail.ServiceRecordDetailID}</span>
-                                                                        <span>{getItemDescription(detail)}</span>
-                                                                        <span className="text-slate-500">Property: {detail.PropertyNumber || '-'}</span>
+                                                                <div key={detail.ServiceRecordDetailID} className="rounded-md border border-slate-100 p-3 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-3">
+                                                                    <div className="flex-1 min-w-[280px]">
+                                                                        <div className="font-semibold text-slate-800 mb-1">
+                                                                            #{detail.ServiceRecordDetailID} {getArticleLabel(detail)}
+                                                                        </div>
+                                                                        <div className="text-slate-600 mb-1">
+                                                                            {getItemDescription(detail)}
+                                                                        </div>
+                                                                        <div className="text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+                                                                            <span>Brand: {getBrand(detail)}</span>
+                                                                            <span>Model: {getModel(detail)}</span>
+                                                                            <span>Serial: {getSerial(detail)}</span>
+                                                                            <span>Property: {detail.PropertyNumber || '-'}</span>
+                                                                        </div>
                                                                     </div>
                                                                     <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${statusClasses[detail.Status]}`}>
                                                                         {statusLabel(detail.Status)}
@@ -702,8 +711,11 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                         <div key={detail.ServiceRecordDetailID} className="border border-slate-200 rounded-lg p-3">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
-                                    <p className="text-sm font-semibold">{getItemDescription(detail)}</p>
-                                    <p className="text-xs text-slate-500">Property: {detail.PropertyNumber || '-'}</p>
+                                    <p className="text-sm font-semibold">{getArticleLabel(detail)}</p>
+                                    <p className="text-xs text-slate-600">{getItemDescription(detail)}</p>
+                                    <p className="text-xs text-slate-500">
+                                        Brand: {getBrand(detail)} | Model: {getModel(detail)} | Serial: {getSerial(detail)} | Property: {detail.PropertyNumber || '-'}
+                                    </p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-xs text-slate-400">Current: {statusLabel(detail.Status)}</p>
