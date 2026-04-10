@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useInventories, useAllInventoryItems } from '@/lib/hooks/useInventory';
-import { Package, Eye, User, AlertTriangle, CheckCircle, Archive, Building2 } from 'lucide-react';
+import { Package, Eye, User, AlertTriangle, CheckCircle, Archive } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
@@ -48,6 +48,21 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
             const qty = d.QuantityAvailable ?? d.Quantity ?? 0;
             return sum + qty;
         }, 0);
+    };
+
+    const getInventoryDrNumber = (inv: {
+        iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } };
+        deliveryReceipt?: { DRNumber?: string | null } | null;
+        ResolvedDeliveryReceipt?: { DRNumber?: string | null } | null;
+        ResolvedDRNumber?: string | null;
+    }) => {
+        return (
+            inv.iar?.deliveryReceipt?.DRNumber
+            || inv.deliveryReceipt?.DRNumber
+            || inv.ResolvedDeliveryReceipt?.DRNumber
+            || inv.ResolvedDRNumber
+            || null
+        );
     };
 
     return (
@@ -143,7 +158,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                     <th className="px-6 py-4">Acquisition Date</th>
                                     <th className="px-6 py-4">Total Value</th>
                                     <th className="px-6 py-4">Property Status</th>
-                                    <th className="px-6 py-4">Custodian</th>
+                                    <th className="px-6 py-4">DR</th>
                                     <th className="px-6 py-4">Actions</th>
                                 </tr>
                             </thead>
@@ -158,7 +173,7 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                         </td>
                                     </tr>
                                 ) : (
-                                    data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; Description?: string; TotalItems: number; TotalValue: number; details?: InventoryRowDetail[]; PrimaryStatus?: 'Available' | 'Assigned'; CurrentCustodianName?: string; CurrentLocation?: string; CurrentDepartmentHead?: string | null; DepartmentHeadVacant?: boolean; AccountabilityLabel?: string | null; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } } }) => (
+                                    data?.data?.map((inv: { InventoryID: number; InventoryNumber: string; DateAcquired: string; Remarks?: string; Description?: string; TotalItems: number; TotalValue: number; details?: InventoryRowDetail[]; PrimaryStatus?: 'Available' | 'Assigned'; iar?: { IARNumber: string; deliveryReceipt?: { DRNumber: string } }; deliveryReceipt?: { DRNumber?: string | null } | null; ResolvedDeliveryReceipt?: { DRNumber?: string | null } | null; ResolvedDRNumber?: string | null }) => (
                                         <tr key={inv.InventoryID} className="hover:bg-slate-50">
                                             <td className="px-6 py-4 font-medium text-slate-900">
                                                 {inv.InventoryNumber}
@@ -195,15 +210,16 @@ export function InventoryListPage({ baseRoute }: { baseRoute: string }) {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
-                                                <div className="flex items-center gap-1">
-                                                    <User className="w-3 h-3" />
-                                                    {inv.AccountabilityLabel || inv.CurrentCustodianName || 'Requester not set'}
-                                                </div>
-                                                {inv.CurrentLocation && (
-                                                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                                                        <Building2 className="w-3 h-3" />
-                                                        {inv.CurrentLocation}
-                                                    </div>
+                                                {getInventoryDrNumber(inv) ? (
+                                                    <Link
+                                                        href={`${baseRoute}/delivery-receipts?query=${encodeURIComponent(getInventoryDrNumber(inv) || '')}`}
+                                                        className="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 hover:underline"
+                                                        title={`Open Delivery Receipts filtered by ${getInventoryDrNumber(inv)}`}
+                                                    >
+                                                        {getInventoryDrNumber(inv)}
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-slate-400 italic">No DR linked</span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useDeliveryReceipts, useDeleteDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
@@ -33,8 +34,12 @@ const workflowBadgeStyles: Record<string, string> = {
 };
 
 export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryReceiptsPageProps) {
+    const searchParams = useSearchParams();
+    const initialQuery = (searchParams.get('query') || searchParams.get('dr') || '').trim();
+
     const [page, setPage] = useState(1);
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(initialQuery);
+    const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
     const [statusFilter, setStatusFilter] = useState<'all' | 'to_be_issued' | 'acknowledged'>('all');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -43,10 +48,18 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
     const deleteMutation = useDeleteDeliveryReceipt();
     const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setDebouncedSearch(search.trim());
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [search]);
+
     const { data, isLoading, isFetching, refetch } = useDeliveryReceipts({
         page,
         per_page: 10,
-        ...(search ? { query: search } : {}),
+        ...(debouncedSearch ? { query: debouncedSearch } : {}),
         ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
         ...(startDate ? { start_date: startDate } : {}),
         ...(endDate ? { end_date: endDate } : {}),
