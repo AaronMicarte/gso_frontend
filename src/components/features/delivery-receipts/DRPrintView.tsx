@@ -55,23 +55,23 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                 <div className="grid grid-cols-2 gap-6 mb-1 px-1">
                     <div className="flex items-end gap-1">
                         <div className="whitespace-nowrap font-semibold">Entity Name :</div>
-                        <div className="flex-1 border-b border-black leading-none">CITY GOVERNMENT OF EL SALVADOR</div>
+                        <div className="flex-1 border-b border-slate-500 leading-none">CITY GOVERNMENT OF EL SALVADOR</div>
                     </div>
                     <div className="flex items-end gap-1">
                         <div className="whitespace-nowrap font-semibold">Fund Cluster :</div>
-                        <div className="flex-1 border-b border-black leading-none">&nbsp;</div>
+                        <div className="flex-1 border-b border-slate-500 leading-none">&nbsp;</div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 border border-black border-b-0">
+                <div className="grid grid-cols-2 border border-slate-500 border-b-0">
                     <div className="p-1.5 space-y-1">
                         <div className="flex items-end gap-1">
                             <div className="whitespace-nowrap">Supplier :</div>
-                            <div className="flex-1 border-b border-black leading-none">{dr.SupplierName || ''}</div>
+                            <div className="flex-1 border-b border-slate-500 leading-none">{dr.SupplierName || ''}</div>
                         </div>
                         <div className="flex items-end gap-1">
                             <div className="whitespace-nowrap">PO No./Date :</div>
-                            <div className="flex-1 border-b border-black leading-none">{dr.PONumber || ''}</div>
+                            <div className="flex-1 border-b border-slate-500 leading-none">{dr.PONumber || ''}</div>
                         </div>
                         <div className="flex items-end gap-1">
                             <div className="whitespace-nowrap">Requisitioning Office/Dept. :</div>
@@ -141,7 +141,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                     </tbody>
                 </table>
 
-                <div className="grid grid-cols-2 border-t border-black min-h-[220px]">
+                <div className="grid grid-cols-2 border border-black border-t-0 min-h-[220px]">
                     <div className="border-r border-black">
                         <div className="text-center italic font-semibold py-1 border-b border-black">INSPECTION</div>
                         <div className="p-1.5 text-[11px] dr-signature-block h-full flex flex-col">

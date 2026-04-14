@@ -6,198 +6,211 @@ import { resolveSignatureUrl } from '@/lib/utils/signature';
 
 interface IARPrintViewProps {
     iar: IAR;
-    // Optional runtime overrides (data URLs) used to ensure images appear in print previews
     printSignatures?: { inspected?: string | null; accepted?: string | null } | null;
 }
 
-export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(({ iar, printSignatures }, ref) => {
-    const formatDate = (dateString?: string) => {
-        if (!dateString) return '';
-        return format(toZonedTime(new Date(dateString), 'Asia/Manila'), 'yyyy-MM-dd');
-    };
+export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
+    ({ iar, printSignatures }, ref) => {
 
-    // Resolve inline or stored signature URLs (data URLs returned as-is)
-    const inspectedSigUrl = resolveSignatureUrl(iar, 'inspected');
-    const acceptedSigUrl = resolveSignatureUrl(iar, 'accepted');
-
-    // If the print flow requests runtime embedded signatures, listen for events and use them
-    const [runtimePrintSignatures, setRuntimePrintSignatures] = React.useState<{ inspected?: string | null; accepted?: string | null } | null>(printSignatures || null);
-
-    React.useEffect(() => {
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent).detail as { inspected?: string | null; accepted?: string | null };
-            setRuntimePrintSignatures(detail || null);
+        const formatDate = (dateString?: string) => {
+            if (!dateString) return '';
+            return format(toZonedTime(new Date(dateString), 'Asia/Manila'), 'yyyy-MM-dd');
         };
-        const clearHandler = () => setRuntimePrintSignatures(null);
-        window.addEventListener('gso:print-signatures', handler as EventListener);
-        window.addEventListener('afterprint', clearHandler);
-        return () => {
-            window.removeEventListener('gso:print-signatures', handler as EventListener);
-            window.removeEventListener('afterprint', clearHandler);
-        };
-    }, []);
 
-    // Prefer streaming endpoint for print (handles local/public disks where direct url may 404)
-    // For printing prefer the public streaming endpoint for local disk (safer than direct storage url)
-    const inspectedPrintUrl = inspectedSigUrl && !inspectedSigUrl.startsWith('data:')
-        ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signatures/${iar.IARID}/inspected`
-        : inspectedSigUrl;
-    const acceptedPrintUrl = acceptedSigUrl && !acceptedSigUrl.startsWith('data:')
-        ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signatures/${iar.IARID}/accepted`
-        : acceptedSigUrl;
+        const inspectedSigUrl = resolveSignatureUrl(iar, 'inspected');
+        const acceptedSigUrl = resolveSignatureUrl(iar, 'accepted');
 
-    // Prefer runtime embedded signatures (data URLs) when available for print
-    const inspectedFinal = runtimePrintSignatures?.inspected ?? inspectedPrintUrl;
-    const acceptedFinal = runtimePrintSignatures?.accepted ?? acceptedPrintUrl;
+        const [runtimePrintSignatures, setRuntimePrintSignatures] = React.useState(printSignatures || null);
 
-    // Calculate total amount
-    const totalAmount = iar.details?.reduce((sum, detail) => {
-        const unitCost = detail.drDetail?.UnitCost || 0;
-        const qty = detail.QuantityAccepted; // Only count accepted items for total value? Or delivered? Usually delivered.
-        // Appendix 62 usually lists what was delivered and then inspected.
-        // But let's list what was delivered.
-        const deliveredQty = detail.drDetail?.QuantityDelivered || 0;
-        return sum + (unitCost * deliveredQty);
-    }, 0) || 0;
+        React.useEffect(() => {
+            const handler = (e: Event) => {
+                const detail = (e as CustomEvent).detail;
+                setRuntimePrintSignatures(detail || null);
+            };
+            const clearHandler = () => setRuntimePrintSignatures(null);
 
-    const acceptanceName = iar.acceptedByUser?.FullName || iar.deliveryReceipt?.requestedByUser?.FullName || '';
+            window.addEventListener('gso:print-signatures', handler as EventListener);
+            window.addEventListener('afterprint', clearHandler);
 
-    return (
-        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black text-[11px]">
-            {/* Header */}
-            <div className="mb-4">
-                <div className="flex justify-center items-start">
-                    <h1 className="gso-print-title">Inspection and Acceptance Report</h1>
+            return () => {
+                window.removeEventListener('gso:print-signatures', handler as EventListener);
+                window.removeEventListener('afterprint', clearHandler);
+            };
+        }, []);
+
+        const inspectedPrintUrl = inspectedSigUrl && !inspectedSigUrl.startsWith('data:')
+            ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signatures/${iar.IARID}/inspected`
+            : inspectedSigUrl;
+
+        const acceptedPrintUrl = acceptedSigUrl && !acceptedSigUrl.startsWith('data:')
+            ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signatures/${iar.IARID}/accepted`
+            : acceptedSigUrl;
+
+        const inspectedFinal = runtimePrintSignatures?.inspected ?? inspectedPrintUrl;
+        const acceptedFinal = runtimePrintSignatures?.accepted ?? acceptedPrintUrl;
+
+        const totalAmount = iar.details?.reduce((sum, d) => {
+            const qty = d.drDetail?.QuantityDelivered || 0;
+            const cost = d.drDetail?.UnitCost || 0;
+            return sum + (qty * cost);
+        }, 0) || 0;
+
+        const acceptanceName =
+            iar.acceptedByUser?.FullName ||
+            iar.deliveryReceipt?.requestedByUser?.FullName ||
+            '';
+
+        return (
+            <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto text-black text-[11px]">
+
+                {/* HEADER */}
+                <div className="mb-4">
+                    <h1 className="text-center font-bold text-lg">Inspection and Acceptance Report</h1>
+
+                    <div className="border-b-2 border-black mt-2 pb-2 grid grid-cols-2">
+                        <p><b>Entity Name:</b> LGU EL SALVADOR CITY</p>
+                        <p><b>Fund Cluster:</b> ____________________</p>
+                    </div>
                 </div>
 
-                <div className="text-left border-b-2 border-black pb-2 mt-2">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p><span className="font-bold">Entity Name:</span> <span className="underline">LGU EL SALVADOR CITY</span></p>
+                {/* INFO */}
+                <div className="border border-black mb-4">
+                    <div className="grid grid-cols-2 divide-x divide-black">
+                        <div className="p-2 space-y-1">
+                            <p><b>Supplier:</b> {iar.deliveryReceipt?.SupplierName}</p>
+                            <p><b>PO No./Date:</b> {iar.deliveryReceipt?.PONumber || '________'}</p>
+                            <p><b>Requisitioning Office:</b> __________</p>
+                            <p><b>Responsibility Center Code:</b> __________</p>
                         </div>
-                        <div>
-                            <p><span className="font-bold">Fund Cluster:</span> <span className="underline">____________________</span></p>
+                        <div className="p-2 space-y-1">
+                            <p><b>IAR No.:</b> {iar.IARNumber}</p>
+                            <p><b>Date:</b> {formatDate(iar.CreatedDate)}</p>
+                            <p><b>Invoice No.:</b> {iar.deliveryReceipt?.InvoiceNumber || '________'}</p>
+                            <p><b>Date:</b> {formatDate(iar.deliveryReceipt?.DateReceived)}</p>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Info Grid */}
-            <div className="border border-black mb-4">
-                <div className="grid grid-cols-2 divide-x divide-black">
-                    <div className="p-2 space-y-2">
-                        <p><span className="font-bold">Supplier:</span> {iar.deliveryReceipt?.SupplierName}</p>
-                        <p><span className="font-bold">PO No./Date:</span> {iar.deliveryReceipt?.PONumber || '____________________'}</p>
-                        <p><span className="font-bold">Requisitioning Office/Dept:</span> ____________________</p>
-                        <p><span className="font-bold">Responsibility Center Code:</span> ____________________</p>
-                    </div>
-                    <div className="p-2 space-y-2">
-                        <p><span className="font-bold">IAR No.:</span> {iar.IARNumber}</p>
-                        <p><span className="font-bold">Date:</span> {formatDate(iar.CreatedDate)}</p>
-                        <p><span className="font-bold">Invoice No.:</span> {iar.deliveryReceipt?.InvoiceNumber || '____________________'}</p>
-                        <p><span className="font-bold">Date:</span> {formatDate(iar.deliveryReceipt?.DateReceived)}</p>
-                    </div>
-                </div>
-            </div>
+                {/* ITEMS TABLE */}
+                <table className="w-full border border-black border-collapse mb-3">
+                    <thead>
+                        <tr>
+                            <th className="border border-black p-1">Stock No.</th>
+                            <th className="border border-black p-1">Description</th>
+                            <th className="border border-black p-1">Unit</th>
+                            <th className="border border-black p-1">Qty</th>
+                            <th className="border border-black p-1">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {iar.details?.map((d, i) => (
+                            <tr key={i}>
+                                <td className="border border-black text-center">{i + 1}</td>
+                                <td className="border border-black p-1">{d.drDetail?.ItemDescription}</td>
+                                <td className="border border-black text-center">{d.drDetail?.UnitName}</td>
+                                <td className="border border-black text-center">{d.drDetail?.QuantityDelivered}</td>
+                                <td className="border border-black text-right">
+                                    {((d.drDetail?.QuantityDelivered || 0) * (d.drDetail?.UnitCost || 0))
+                                        .toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                </td>
+                            </tr>
+                        ))}
 
-            {/* Items Table */}
-            <table className="w-full border-collapse border border-black mb-2" style={{ borderWidth: '1.5px' }}>
-                <thead>
-                    <tr className="text-center">
-                        <th className="border border-black p-1 w-20">Stock/Property No.</th>
-                        <th className="border border-black p-1">Description</th>
-                        <th className="border border-black p-1 w-16">Unit</th>
-                        <th className="border border-black p-1 w-20">Quantity</th>
-                        <th className="border border-black p-1 w-32">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {iar.details?.map((detail, index) => (
-                        <tr key={index}>
-                            <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{index + 1}</td>
-                            <td className="border border-black p-1" style={{ verticalAlign: 'top' }}>
-                                <div className="font-semibold">{detail.drDetail?.ItemDescription}</div>
-                            </td>
-                            <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{detail.drDetail?.unitOfMeasure?.UnitName || detail.drDetail?.UnitName || ''}</td>
-                            <td className="border border-black p-1 text-center" style={{ verticalAlign: 'top' }}>{detail.drDetail?.QuantityDelivered}</td>
-                            <td className="border border-black p-1 text-right" style={{ verticalAlign: 'top' }}>
-                                {((detail.drDetail?.QuantityDelivered || 0) * (detail.drDetail?.UnitCost || 0)).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                        <tr>
+                            <td colSpan={4} className="border border-black text-right font-bold">TOTAL</td>
+                            <td className="border border-black text-right font-bold">
+                                {totalAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                             </td>
                         </tr>
-                    ))}
-                    {/* Empty rows to fill space if needed */}
-                    {[...Array(Math.max(0, 3 - (iar.details?.length || 0)))].map((_, i) => (
-                        <tr key={`empty-${i}`}>
-                            <td className="border border-black p-1">&nbsp;</td>
-                            <td className="border border-black p-1">&nbsp;</td>
-                            <td className="border border-black p-1">&nbsp;</td>
-                            <td className="border border-black p-1">&nbsp;</td>
-                            <td className="border border-black p-1">&nbsp;</td>
+                    </tbody>
+                </table>
+
+                {/*  FIXED INSPECTION + ACCEPTANCE */}
+                <table className="w-full border-2 border-black border-collapse text-[11px]">
+                    <tbody>
+                        <tr className="border-b-2 border-black">
+
+                            {/* INSPECTION */}
+                            <td className="w-1/2 border-r-2 border-black align-top h-[180px] p-0">
+                                <div className="flex flex-col h-full min-h-[180px]">
+
+                                    <div className="border-b border-black text-center font-bold py-1">
+                                        INSPECTION
+                                    </div>
+
+                                    <div className="p-2 flex-1">
+                                        <p>
+                                            Date Inspected:
+                                            <span className="ml-1 border-b border-black inline-block min-w-[150px]">
+                                                {formatDate(iar.DateInspected)}
+                                            </span>
+                                        </p>
+
+                                        <div className="flex gap-2 mt-2">
+                                            <div className="w-4 h-4 border border-black flex items-center justify-center">
+                                                ✓
+                                            </div>
+                                            <p>
+                                                Inspected, verified and found in order as to quantity and specifications.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="border border-black p-2 text-center">
+                                        <div className="h-10" />
+                                        <p className="border-b border-black font-bold uppercase">
+                                            {iar.inspectedByUser?.FullName || ''}
+                                        </p>
+                                        <p className="text-xs">Inspection Officer/Inspection Committee</p>
+                                    </div>
+
+                                </div>
+                            </td>
+
+                            {/* ACCEPTANCE */}
+                            <td className="w-1/2 align-top h-[180px] p-0">
+                                <div className="flex flex-col h-full min-h-[180px]">
+
+                                    <div className="border-b border-black text-center font-bold py-1">
+                                        ACCEPTANCE
+                                    </div>
+
+                                    <div className="p-2 flex-1">
+                                        <p>
+                                            Date Received:
+                                            <span className="ml-1 border-b border-black inline-block min-w-[150px]">
+                                                {formatDate(iar.DateAccepted)}
+                                            </span>
+                                        </p>
+
+                                        <div className="flex gap-2 mt-2">
+                                            <div className="w-4 h-4 border border-black"></div>
+                                            <p>Complete</p>
+                                        </div>
+
+                                        <div className="flex gap-2 mt-1">
+                                            <div className="w-4 h-4 border border-black"></div>
+                                            <p>Partial (pls. specify quantity)</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="border border-black p-2 text-center">
+                                        <div className="h-10" />
+                                        <p className="border-b border-black font-bold uppercase">
+                                            {acceptanceName}
+                                        </p>
+                                        <p className="text-xs">Supply and/or Property Custodian</p>
+                                    </div>
+
+                                </div>
+                            </td>
+
                         </tr>
-                    ))}
-                    <tr>
-                        <td colSpan={4} className="border border-black p-1 text-right font-bold">TOTAL AMOUNT</td>
-                        <td className="border border-black p-1 text-right font-bold">
-                            {totalAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
 
-            {/* Inspection and Acceptance Section */}
-            <div className="border border-black" style={{ border: '1.6px solid #000' }}>
-                <div className="grid grid-cols-2" style={{ borderTop: '0', borderBottom: '0' }}>
-                    {/* Inspection */}
-                    <div className="p-2" style={{ borderRight: '1.2px solid #000' }}>
-                        <h3 className="font-bold text-center mb-2 border-b border-black pb-1">INSPECTION</h3>
-                        <div className="mb-2">
-                            <p className="mb-2">Date Inspected: <span className="inline-block border-b border-black min-w-[160px]">{formatDate(iar.DateInspected)}</span></p>
-                            <div className="flex items-start gap-2">
-                                <div className="border border-black w-4 h-4 mt-1 flex items-center justify-center">
-                                    ✓
-                                </div>
-                                <p className="text-sm">Inspected, verified and found in order as to quantity and specifications.</p>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 text-center">
-                            <div className="h-10" />
-                            <p className="font-bold uppercase" style={{ marginTop: 6, borderBottom: '1px solid black', minHeight: '1.2em', display: 'inline-block', width: '100%', textAlign: 'center', position: 'relative', zIndex: 1 }}>{iar.inspectedByUser?.FullName || ''}</p>
-
-                            <p className="text-xs">Inspector Officer/Inspection Committee</p>
-                        </div>
-                    </div>
-
-                    {/* Acceptance */}
-                    <div className="p-2">
-                        <h3 className="font-bold text-center mb-2 border-b border-black pb-1">ACCEPTANCE</h3>
-                        <div className="mb-2">
-                            <p className="mb-2">Date Received: <span className="inline-block border-b border-black min-w-[160px]">{formatDate(iar.DateAccepted)}</span></p>
-                            <div className="flex items-start gap-2 mb-1">
-                                <div className="border border-black w-4 h-4 mt-1 flex items-center justify-center">
-
-                                </div>
-                                <p className="text-sm">Complete</p>
-                            </div>
-                            <div className="flex items-start gap-2">
-                                <div className="border border-black w-4 h-4 mt-1 flex items-center justify-center">
-
-                                </div>
-                                <p className="text-sm">Partial (pls. specify quantity)</p>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 text-center">
-                            <div className="h-10" />
-                            <p className="font-bold uppercase" style={{ marginTop: 6, borderBottom: '1px solid black', minHeight: '1.2em', display: 'inline-block', width: '100%', textAlign: 'center', position: 'relative', zIndex: 1 }}>{acceptanceName}</p>
-
-                            <p className="text-xs">Supply and/or Property Custodian</p>
-                        </div>
-                    </div>
-                </div>
             </div>
-        </div>
-    );
-});
+        );
+    });
 
 IARPrintView.displayName = 'IARPrintView';
