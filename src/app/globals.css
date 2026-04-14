@@ -41,13 +41,6 @@
   --border: #e2e8f0;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  /* Use Helvetica as the global sans-serif font for the app layout */
-  --font-sans: Helvetica, Arial, sans-serif;
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
