@@ -32,6 +32,13 @@ export function RISPrintPage() {
         if (Number.isFinite(id)) run();
     }, [id]);
 
+    useEffect(() => {
+        document.body.classList.add('print-scope-active');
+        return () => {
+            document.body.classList.remove('print-scope-active');
+        };
+    }, []);
+
     const doPrint = () => {
         window.print();
     };
@@ -52,7 +59,7 @@ export function RISPrintPage() {
     }
 
     return (
-        <div className="p-4">
+        <div className="print-scope p-4">
             <div className="no-print flex items-center justify-between mb-4">
                 <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900">
                     <ArrowLeft className="h-4 w-4" /> Back

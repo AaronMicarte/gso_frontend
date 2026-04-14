@@ -222,7 +222,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                             </table>
 
                             {isLastPage && (
-                                <div className="grid grid-cols-2 mt-0 text-xs border border-black border-t-0">
+                                <div className="grid grid-cols-2 mt-0 text-xs border border-black border-t-0" style={{ borderWidth: '1.4px' }}>
                                     <div className="p-3 border-r border-black">
                                         <div className="mb-6">Received from:</div>
                                         <div className="border-b border-black h-14 flex items-end justify-center">

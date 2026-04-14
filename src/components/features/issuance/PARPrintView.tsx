@@ -124,16 +124,25 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                             </div>
 
                             {/* Table */}
-                            <table className="w-full border-collapse border border-black text-[11px]">
+                            <table className="w-full table-fixed border-collapse border border-black text-[11px]">
+                                <colgroup>
+                                    <col style={{ width: '52px' }} />
+                                    <col style={{ width: '52px' }} />
+                                    <col />
+                                    <col style={{ width: '90px' }} />
+                                    <col style={{ width: '90px' }} />
+                                    <col style={{ width: '90px' }} />
+                                    <col style={{ width: '95px' }} />
+                                </colgroup>
                                 <thead>
                                     <tr>
-                                        <th className="border border-black px-1 py-1 w-[52px] text-center">Quantity</th>
-                                        <th className="border border-black px-1 py-1 w-[52px] text-center">Unit</th>
+                                        <th className="border border-black px-1 py-1 text-center">Quantity</th>
+                                        <th className="border border-black px-1 py-1 text-center">Unit</th>
                                         <th className="border border-black px-1 py-1 text-center">Description</th>
-                                        <th className="border border-black px-1 py-1 w-[90px] text-center">Property Number</th>
-                                        <th className="border border-black px-1 py-1 w-[90px] text-center">Date Acquired</th>
-                                        <th className="border border-black px-1 py-1 w-[90px] text-center">Unit Cost</th>
-                                        <th className="border border-black px-1 py-1 w-[95px] text-center">Total Amount</th>
+                                        <th className="border border-black px-1 py-1 text-center">Property Number</th>
+                                        <th className="border border-black px-1 py-1 text-center">Date Acquired</th>
+                                        <th className="border border-black px-1 py-1 text-center">Unit Cost</th>
+                                        <th className="border border-black px-1 py-1 text-center">Total Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -163,13 +172,13 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
 
                                             return (
                                                 <tr key={detail.IssuanceDetailID ?? `${pageIndex}-${idx}`}>
-                                                    <td className="border border-black px-1 py-1 text-center">{qty}</td>
-                                                    <td className="border border-black px-1 py-1 text-center">{unit}</td>
-                                                    <td className="border border-black px-1 py-1 align-top whitespace-pre-line">{description}</td>
-                                                    <td className="border border-black px-1 py-1 text-center">{propertyNumber}</td>
-                                                    <td className="border border-black px-1 py-1 text-center">{dateAcquired}</td>
-                                                    <td className="border border-black px-1 py-1 text-right">{unitCost.toFixed(2)}</td>
-                                                    <td className="border border-black px-1 py-1 text-right">{total.toFixed(2)}</td>
+                                                    <td className="border border-black px-1 py-1 text-center align-top">{qty}</td>
+                                                    <td className="border border-black px-1 py-1 text-center align-top">{unit}</td>
+                                                    <td className="border border-black px-1 py-1 align-top whitespace-normal break-words">{description}</td>
+                                                    <td className="border border-black px-1 py-1 text-center align-top">{propertyNumber}</td>
+                                                    <td className="border border-black px-1 py-1 text-center align-top">{dateAcquired}</td>
+                                                    <td className="border border-black px-1 py-1 text-right align-top">{unitCost.toFixed(2)}</td>
+                                                    <td className="border border-black px-1 py-1 text-right align-top">{total.toFixed(2)}</td>
                                                 </tr>
                                             );
                                         });
@@ -179,12 +188,12 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                                             rows.push(
                                                 <tr key={`blank-${pageIndex}-${i}`}>
                                                     <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
+                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
                                                 </tr>
                                             );
                                         }
@@ -195,10 +204,10 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                             </table>
 
                             {isLastPage && (
-                                <div className="grid grid-cols-2 gap-10 mt-10 text-xs">
-                                    <div>
-                                        <div className="mb-8">Received by:</div>
-                                        <div className="border-b border-black h-14 flex items-end justify-center">
+                                <div className="grid grid-cols-2 mt-0 text-xs border border-black border-t-0" style={{ borderWidth: '1.4px' }}>
+                                    <div className="p-3 border-r border-black flex flex-col">
+                                        <div className="h-5 mb-3">Received by:</div>
+                                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
                                             {receivedBySignature && (
                                                 <Image
                                                     src={receivedBySignature}
@@ -210,16 +219,18 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                                                 />
                                             )}
                                         </div>
-                                        <div className="text-[10px] text-center mt-1">Signature over Printed Name of Requester (Department Head)</div>
-                                        <div className="border-b border-black mt-4 pb-1 text-center">{receivedByOffice}</div>
-                                        <div className="text-[10px] text-center mt-1">Position/Office</div>
-                                        <div className="border-b border-black mt-2 pb-1 text-center">&nbsp;</div>
-                                        <div className="text-[10px] text-center mt-1">Date</div>
+                                        <div className="text-[10px] leading-tight text-center mt-1 h-8 flex items-end justify-center px-2">
+                                            Signature over Printed Name of Requester (Department Head)
+                                        </div>
+                                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{receivedByOffice}</div>
+                                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>
+                                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">&nbsp;</div>
+                                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Date</div>
                                     </div>
 
-                                    <div>
-                                        <div className="mb-8">Issued by:</div>
-                                        <div className="border-b border-black h-14 flex items-end justify-center">
+                                    <div className="p-3 flex flex-col">
+                                        <div className="h-5 mb-3">Issued by:</div>
+                                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
                                             {issuerSignatureUrl && (
                                                 <Image
                                                     src={issuerSignatureUrl}
@@ -231,11 +242,13 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                                                 />
                                             )}
                                         </div>
-                                        <div className="text-[10px] text-center mt-1">Signature over Printed Name of Supply and/or Property Custodian</div>
-                                        <div className="border-b border-black mt-4 pb-1 text-center">{issuedByOffice}</div>
-                                        <div className="text-[10px] text-center mt-1">Position/Office</div>
-                                        <div className="border-b border-black mt-2 pb-1 text-center">&nbsp;</div>
-                                        <div className="text-[10px] text-center mt-1">Date</div>
+                                        <div className="text-[10px] leading-tight text-center mt-1 h-8 flex items-end justify-center px-2">
+                                            Signature over Printed Name of Supply and/or Property Custodian
+                                        </div>
+                                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{issuedByOffice}</div>
+                                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>
+                                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">&nbsp;</div>
+                                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Date</div>
                                     </div>
                                 </div>
                             )}

@@ -145,10 +145,10 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
             </table>
 
             {/* Inspection and Acceptance Section */}
-            <div className="border border-black" style={{ borderWidth: '1.2px' }}>
-                <div className="grid grid-cols-2 divide-x divide-black">
+            <div className="border border-black" style={{ border: '1.6px solid #000' }}>
+                <div className="grid grid-cols-2" style={{ borderTop: '0', borderBottom: '0' }}>
                     {/* Inspection */}
-                    <div className="p-2">
+                    <div className="p-2" style={{ borderRight: '1.2px solid #000' }}>
                         <h3 className="font-bold text-center mb-2 border-b border-black pb-1">INSPECTION</h3>
                         <div className="mb-2">
                             <p className="mb-2">Date Inspected: <span className="inline-block border-b border-black min-w-[160px]">{formatDate(iar.DateInspected)}</span></p>

@@ -66,6 +66,13 @@ export function ViewIARPage({ baseRoute, iarId, isModal = false, onClose }: View
         }
     }, [resolvedId, baseRoute, router, isModal, onClose]);
 
+    const printWithScope = () => {
+        document.body.classList.add('print-scope-active');
+        const cleanup = () => document.body.classList.remove('print-scope-active');
+        window.addEventListener('afterprint', cleanup, { once: true });
+        window.print();
+    };
+
     const canPrint = !!user && (user.UserRoleID === 1 || user.UserRoleID === 2);
 
     if (isLoading) {
@@ -170,13 +177,13 @@ export function ViewIARPage({ baseRoute, iarId, isModal = false, onClose }: View
                                                 window.dispatchEvent(new CustomEvent('gso:print-signatures', { detail }));
 
                                                 // Wait for a short moment to allow images to update, then print
-                                                setTimeout(() => window.print(), 300);
+                                                setTimeout(() => printWithScope(), 300);
                                             };
 
                                             await preparePrint();
                                         } catch (err) {
                                             // fallback to normal print
-                                            window.print();
+                                            printWithScope();
                                         }
                                     }}
                                     className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"

@@ -132,6 +132,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                             { label: 'For Issuance', href: `${baseRoute}/issuance`, icon: FileText },
                             { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
                             { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
+                            { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
                         ]
                     }
                 ]
@@ -284,6 +285,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                             { label: 'Create Request', href: `${baseRoute}/issuance/new`, icon: Plus },
                             { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
                             { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
+                            { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
                         ]
                     }
                 ]

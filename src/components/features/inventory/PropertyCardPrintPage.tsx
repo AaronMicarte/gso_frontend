@@ -39,6 +39,13 @@ export function PropertyCardPrintPage({ baseRoute }: PropertyCardPrintPageProps)
         load();
     }, [load]);
 
+    useEffect(() => {
+        document.body.classList.add('print-scope-active');
+        return () => {
+            document.body.classList.remove('print-scope-active');
+        };
+    }, []);
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -67,7 +74,7 @@ export function PropertyCardPrintPage({ baseRoute }: PropertyCardPrintPageProps)
     }
 
     return (
-        <div className="min-h-screen bg-slate-100 py-6">
+        <div className="print-scope min-h-screen bg-slate-100 py-6">
             <div className="no-print max-w-6xl mx-auto px-4 mb-4 flex items-center justify-between">
                 <Link href={`${baseRoute}/inventory`} className="text-sm text-[var(--primary)] underline">
                     Back to inventory

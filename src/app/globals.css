@@ -137,6 +137,22 @@ html.reduce-motion *::after {
 }
 
 @media print {
+  body.print-scope-active * {
+    visibility: hidden !important;
+  }
+
+  body.print-scope-active .print-scope,
+  body.print-scope-active .print-scope * {
+    visibility: visible !important;
+  }
+
+  body.print-scope-active .print-scope {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
   .gso-print-doc {
     padding: 0 !important;
     max-width: none !important;
