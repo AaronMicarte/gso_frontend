@@ -222,8 +222,11 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                             </table>
 
                             {isLastPage && (
-                                <div className="grid grid-cols-2 mt-0 text-xs border border-black border-t-0" style={{ borderWidth: '1.4px' }}>
-                                    <div className="p-3 border-r border-black">
+                                <div
+                                    className="grid mt-0 text-xs border border-black border-t-0"
+                                    style={{ gridTemplateColumns: '52px 52px 85px 90px minmax(0, 1fr) 95px 95px 90px' }}
+                                >
+                                    <div className="col-span-5 p-3 border-r border-black">
                                         <div className="mb-6">Received from:</div>
                                         <div className="border-b border-black h-14 flex items-end justify-center">
                                             {issuerSignatureUrl && (
@@ -237,15 +240,15 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                                                 />
                                             )}
                                         </div>
-                                        <div className="text-[10px] text-center mt-1">Signature Over Printed Name of Requester (Department Head)</div>
-                                        <div className="border-b border-black mt-3 pb-1 text-center">{receivedFromName}</div>
+                                        <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name of End User</div>
+                                        <div className="border-b border-black mt-4 pb-1 text-center">{receivedFromName}</div>
                                         <div className="text-[10px] text-center mt-1">Position/Office</div>
                                         <div className="border-b border-black mt-2 pb-1 text-center">{receivedFromOffice}</div>
                                         <div className="text-[10px] text-center mt-1">Date</div>
                                         <div className="border-b border-black mt-2 pb-1 text-center">{docDate}</div>
                                     </div>
 
-                                    <div className="p-3">
+                                    <div className="col-span-3 p-3">
                                         <div className="mb-6">Received by:</div>
                                         <div className="border-b border-black h-14 flex items-end justify-center">
                                             {receivedBySignature && (
@@ -259,8 +262,8 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                                                 />
                                             )}
                                         </div>
-                                        <div className="text-[10px] text-center mt-1">Signature Over Printed Name</div>
-                                        <div className="border-b border-black mt-3 pb-1 text-center">{receivedByName}</div>
+                                        <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name</div>
+                                        <div className="border-b border-black mt-4 pb-1 text-center">{receivedByName}</div>
                                         <div className="text-[10px] text-center mt-1">Position/Office</div>
                                         <div className="border-b border-black mt-2 pb-1 text-center">{receivedByOffice}</div>
                                         <div className="text-[10px] text-center mt-1">Date</div>

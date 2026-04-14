@@ -204,8 +204,11 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                             </table>
 
                             {isLastPage && (
-                                <div className="grid grid-cols-2 mt-0 text-xs border border-black border-t-0" style={{ borderWidth: '1.4px' }}>
-                                    <div className="p-3 border-r border-black flex flex-col">
+                                <div
+                                    className="grid mt-0 text-xs border border-black border-t-0"
+                                    style={{ gridTemplateColumns: '52px 52px minmax(0, 1fr) 90px 90px 90px 95px' }}
+                                >
+                                    <div className="col-span-3 p-3 border-r border-black flex flex-col">
                                         <div className="h-5 mb-3">Received by:</div>
                                         <div className="border-b border-black h-14 flex items-end justify-center px-2">
                                             {receivedBySignature && (
@@ -219,16 +222,16 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                                                 />
                                             )}
                                         </div>
-                                        <div className="text-[10px] leading-tight text-center mt-1 h-8 flex items-end justify-center px-2">
-                                            Signature over Printed Name of Requester (Department Head)
+                                        <div className="text-[10px] leading-tight text-center mt-0.5 px-2">
+                                            Signature over Printed Name of End User
                                         </div>
-                                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{receivedByOffice}</div>
+                                        <div className="border-b border-black mt-4 h-6 flex items-end justify-center pb-0.5 text-center">{receivedByOffice}</div>
                                         <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>
                                         <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">&nbsp;</div>
                                         <div className="text-[10px] leading-tight text-center mt-1 h-4">Date</div>
                                     </div>
 
-                                    <div className="p-3 flex flex-col">
+                                    <div className="col-span-4 p-3 flex flex-col">
                                         <div className="h-5 mb-3">Issued by:</div>
                                         <div className="border-b border-black h-14 flex items-end justify-center px-2">
                                             {issuerSignatureUrl && (
@@ -242,10 +245,10 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                                                 />
                                             )}
                                         </div>
-                                        <div className="text-[10px] leading-tight text-center mt-1 h-8 flex items-end justify-center px-2">
+                                        <div className="text-[10px] leading-tight text-center mt-0.5 px-2">
                                             Signature over Printed Name of Supply and/or Property Custodian
                                         </div>
-                                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{issuedByOffice}</div>
+                                        <div className="border-b border-black mt-4 h-6 flex items-end justify-center pb-0.5 text-center">{issuedByOffice}</div>
                                         <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>
                                         <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">&nbsp;</div>
                                         <div className="text-[10px] leading-tight text-center mt-1 h-4">Date</div>
