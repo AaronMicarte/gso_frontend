@@ -155,8 +155,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             {
                 section: 'MAINTENANCE',
                 items: [
-                    { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
-                    { label: 'Job Orders', href: `${baseRoute}/job-orders`, icon: Wrench }
+                    { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench }
                 ]
             },
             {
