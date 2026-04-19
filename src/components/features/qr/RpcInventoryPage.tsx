@@ -21,9 +21,17 @@ import type {
     RpcInventoryCondition,
     RpcInventoryCycle,
     RpcInventoryPreviewAsset,
+    RpcInventoryPreviewCandidate,
     RpcInventoryScanRecord,
     RpcType,
 } from '@/types/rpcInventory';
+
+type PreviewAssetState = RpcInventoryPreviewAsset & {
+    group_total_count: number;
+    group_scanned_count: number;
+    group_remaining_count: number;
+    candidates: RpcInventoryPreviewCandidate[];
+};
 
 function parsePropertyId(raw: string): number | null {
     const value = raw.trim();
@@ -61,8 +69,9 @@ export function RpcInventoryPage() {
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('ALL');
 
     const [previewOpen, setPreviewOpen] = useState(false);
-    const [previewAsset, setPreviewAsset] = useState<RpcInventoryPreviewAsset | null>(null);
+    const [previewAsset, setPreviewAsset] = useState<PreviewAssetState | null>(null);
     const [alreadyScanned, setAlreadyScanned] = useState(false);
+    const [selectedInventoryDetailIds, setSelectedInventoryDetailIds] = useState<number[]>([]);
     const [conditionId, setConditionId] = useState<number>(0);
     const [scanRemarks, setScanRemarks] = useState('');
 
@@ -245,8 +254,21 @@ export function RpcInventoryPage() {
                 qr_value: rawValue,
             });
 
-            setPreviewAsset(preview.asset);
+            setPreviewAsset({
+                ...preview.asset,
+                group_total_count: preview.group_total_count,
+                group_scanned_count: preview.group_scanned_count,
+                group_remaining_count: preview.group_remaining_count,
+                candidates: preview.candidates,
+            });
             setAlreadyScanned(preview.already_scanned);
+            const unscannedIds = preview.candidates
+                .filter((candidate) => !candidate.is_scanned)
+                .map((candidate) => candidate.inventory_detail_id);
+            const defaultSelection = unscannedIds.includes(preview.asset.inventory_detail_id)
+                ? [preview.asset.inventory_detail_id]
+                : (unscannedIds[0] ? [unscannedIds[0]] : []);
+            setSelectedInventoryDetailIds(defaultSelection);
             if (conditions.length > 0) {
                 setConditionId(conditions[0].ConditionID);
             }
@@ -275,18 +297,34 @@ export function RpcInventoryPage() {
             return;
         }
 
+        const candidates = previewAsset.candidates ?? [];
+        const unscannedIds = new Set(candidates.filter((candidate) => !candidate.is_scanned).map((candidate) => candidate.inventory_detail_id));
+        const selectedIds = Array.from(new Set(selectedInventoryDetailIds.filter((id) => unscannedIds.has(id))));
+
+        if (selectedIds.length === 0) {
+            toast.error('Select at least one unscanned property number.');
+            return;
+        }
+
+        if (selectedIds.length > (previewAsset.group_remaining_count ?? 0)) {
+            toast.error('Selected quantity exceeds remaining count for this asset group.');
+            return;
+        }
+
         try {
             setSubmittingScan(true);
             await storeRpcScan(selectedCycleId, {
                 property_id: previewAsset.property_id ?? undefined,
                 inventory_detail_id: previewAsset.inventory_detail_id,
+                selected_inventory_detail_ids: selectedIds,
                 condition_id: conditionId,
                 quantity_per_count: 1,
                 remarks: scanRemarks.trim() || undefined,
             });
-            toast.success('Scan recorded.');
+            toast.success(selectedIds.length > 1 ? `${selectedIds.length} scans recorded.` : 'Scan recorded.');
             setPreviewOpen(false);
             setPreviewAsset(null);
+            setSelectedInventoryDetailIds([]);
             await loadScans();
             await loadCycles();
         } catch (error: unknown) {
@@ -387,8 +425,21 @@ export function RpcInventoryPage() {
                 qr_value: rawInput,
             });
 
-            setPreviewAsset(preview.asset);
+            setPreviewAsset({
+                ...preview.asset,
+                group_total_count: preview.group_total_count,
+                group_scanned_count: preview.group_scanned_count,
+                group_remaining_count: preview.group_remaining_count,
+                candidates: preview.candidates,
+            });
             setAlreadyScanned(preview.already_scanned);
+            const unscannedIds = preview.candidates
+                .filter((candidate) => !candidate.is_scanned)
+                .map((candidate) => candidate.inventory_detail_id);
+            const defaultSelection = unscannedIds.includes(preview.asset.inventory_detail_id)
+                ? [preview.asset.inventory_detail_id]
+                : (unscannedIds[0] ? [unscannedIds[0]] : []);
+            setSelectedInventoryDetailIds(defaultSelection);
             if (conditions.length > 0) {
                 setConditionId(conditions[0].ConditionID);
             }
@@ -414,7 +465,14 @@ export function RpcInventoryPage() {
             <div className="p-6 space-y-6">
                 <Dialog
                     open={previewOpen}
-                    onOpenChange={setPreviewOpen}
+                    onOpenChange={(open) => {
+                        setPreviewOpen(open);
+                        if (!open) {
+                            setPreviewAsset(null);
+                            setSelectedInventoryDetailIds([]);
+                            setScanRemarks('');
+                        }
+                    }}
                     title="Confirm Asset Scan"
                     description="Review classification and details before recording this scan."
                     onConfirm={handleSubmitScan}
@@ -428,7 +486,14 @@ export function RpcInventoryPage() {
                             {alreadyScanned && (
                                 <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 text-sm flex items-start gap-2">
                                     <AlertTriangle className="w-4 h-4 mt-0.5" />
-                                    This asset is already scanned in this cycle. Confirm will be blocked.
+                                    The scanned property number is already counted in this cycle.
+                                </div>
+                            )}
+
+                            {previewAsset.group_remaining_count === 0 && (
+                                <div className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-rose-900 text-sm flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 mt-0.5" />
+                                    All property numbers for this asset group are already scanned.
                                 </div>
                             )}
 
@@ -477,7 +542,7 @@ export function RpcInventoryPage() {
                                     <span className="block text-slate-600 mb-1">Quantity Counted</span>
                                     <input
                                         type="number"
-                                        value={1}
+                                        value={selectedInventoryDetailIds.length}
                                         readOnly
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-100 text-slate-700"
                                     />
@@ -492,6 +557,72 @@ export function RpcInventoryPage() {
                                         placeholder="optional"
                                     />
                                 </label>
+                            </div>
+
+                            <div className="rounded-lg border border-slate-200 p-3 space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                    <div className="text-slate-700">
+                                        <span className="font-semibold">Property Numbers in Group:</span>{' '}
+                                        {previewAsset.group_total_count} total, {previewAsset.group_remaining_count} remaining
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                            disabled={previewAsset.group_remaining_count === 0}
+                                            onClick={() => {
+                                                const ids = (previewAsset.candidates ?? [])
+                                                    .filter((candidate) => !candidate.is_scanned)
+                                                    .map((candidate) => candidate.inventory_detail_id);
+                                                setSelectedInventoryDetailIds(ids);
+                                            }}
+                                        >
+                                            Select All Remaining
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-700 hover:bg-slate-50"
+                                            onClick={() => setSelectedInventoryDetailIds([])}
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="max-h-44 overflow-auto rounded border border-slate-200 divide-y divide-slate-100">
+                                    {(previewAsset.candidates ?? []).map((candidate) => {
+                                        const disabled = candidate.is_scanned;
+                                        const checked = selectedInventoryDetailIds.includes(candidate.inventory_detail_id);
+
+                                        return (
+                                            <label
+                                                key={candidate.inventory_detail_id}
+                                                className={`flex items-center justify-between gap-3 px-3 py-2 text-sm ${disabled ? 'bg-slate-50 text-slate-400' : 'text-slate-800'}`}
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        disabled={disabled}
+                                                        checked={checked}
+                                                        onChange={(e) => {
+                                                            const next = new Set(selectedInventoryDetailIds);
+                                                            if (e.target.checked) {
+                                                                next.add(candidate.inventory_detail_id);
+                                                            } else {
+                                                                next.delete(candidate.inventory_detail_id);
+                                                            }
+                                                            setSelectedInventoryDetailIds(Array.from(next));
+                                                        }}
+                                                    />
+                                                    <span className="font-medium">{candidate.property_number || '-'}</span>
+                                                </span>
+                                                <span className={`text-xs ${disabled ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                                    {disabled ? 'already scanned' : 'available'}
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     ) : null}

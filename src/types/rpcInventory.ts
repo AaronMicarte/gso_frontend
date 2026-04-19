@@ -43,10 +43,22 @@ export interface RpcInventoryPreviewAsset {
     department_name: string | null;
 }
 
+export interface RpcInventoryPreviewCandidate {
+    inventory_detail_id: number;
+    property_id: number | null;
+    property_number: string | null;
+    is_scanned: boolean;
+    existing_scan_id: number | null;
+}
+
 export interface RpcInventoryScanPreviewResponse {
     asset: RpcInventoryPreviewAsset;
     already_scanned: boolean;
     existing_scan_id: number | null;
+    group_total_count: number;
+    group_scanned_count: number;
+    group_remaining_count: number;
+    candidates: RpcInventoryPreviewCandidate[];
 }
 
 export interface RpcInventoryScanRecord {

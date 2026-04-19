@@ -38,7 +38,14 @@ export async function previewRpcScan(cycleId: number, payload: { property_id?: n
 
 export async function storeRpcScan(
     cycleId: number,
-    payload: { property_id?: number; inventory_detail_id?: number; condition_id: number; quantity_per_count?: number; remarks?: string }
+    payload: {
+        property_id?: number;
+        inventory_detail_id?: number;
+        selected_inventory_detail_ids?: number[];
+        condition_id: number;
+        quantity_per_count?: number;
+        remarks?: string;
+    }
 ) {
     const res = await apiClient.post(`/rpc-inventory/cycles/${cycleId}/scans`, payload);
     return res.data;
