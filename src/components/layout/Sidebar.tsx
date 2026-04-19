@@ -9,7 +9,6 @@ import {
     LogOut,
     LucideIcon,
     ChevronDown,
-    ChevronRight,
     FileText,
     ClipboardList,
     Building2,
@@ -180,6 +179,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                         children: [
                             { label: 'Generate QR', href: `/qr/generate`, icon: QrCode },
                             { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
+                            { label: 'RPCPPE / RPCSEP', href: `/qr/rpc-inventory`, icon: ClipboardList },
                         ]
                     }
                 ]
@@ -309,6 +309,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                         children: [
                             { label: 'Generate QR', href: `/qr/generate`, icon: QrCode },
                             { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
+                            { label: 'RPCPPE / RPCSEP', href: `/qr/rpc-inventory`, icon: ClipboardList },
                         ]
                     }
                 ]
@@ -451,41 +452,42 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
                         <Icon className="w-5 h-5" />
                         <span className="text-sm font-medium">{item.label}</span>
                     </div>
-                    {isOpen ? (
-                        <ChevronDown className="w-4 h-4" />
-                    ) : (
-                        <ChevronRight className="w-4 h-4" />
-                    )}
+                    <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
                 </button>
-                {isOpen && (
-                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-300 pl-2">
-                        {item.children?.map((child) => {
-                            // Check if any other child is an exact match for the current pathname
-                            // This prevents "All PRs" from being active when "Create PR" is active
-                            const isOtherChildActive = item.children?.some(c => c !== child && c.href === pathname);
+                <div
+                    className={`ml-4 mt-1 grid overflow-hidden transition-all duration-300 ease-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                        }`}
+                >
+                    <div className="min-h-0">
+                        <div className="space-y-1 border-l-2 border-slate-300 pl-2 pb-1">
+                            {item.children?.map((child) => {
+                                // Check if any other child is an exact match for the current pathname
+                                // This prevents "All PRs" from being active when "Create PR" is active
+                                const isOtherChildActive = item.children?.some(c => c !== child && c.href === pathname);
 
-                            const isExactMatch = pathname === child.href;
-                            const isPrefixMatch = child.href ? pathname.startsWith(child.href + '/') : false;
+                                const isExactMatch = pathname === child.href;
+                                const isPrefixMatch = child.href ? pathname.startsWith(child.href + '/') : false;
 
-                            const isActive = isExactMatch || (isPrefixMatch && !isOtherChildActive);
+                                const isActive = isExactMatch || (isPrefixMatch && !isOtherChildActive);
 
-                            const ChildIcon = child.icon;
-                            return (
-                                <a
-                                    key={child.href}
-                                    href={child.href}
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
-                                        ? 'bg-[var(--primary)] text-white font-medium'
-                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                                        }`}
-                                >
-                                    <ChildIcon className="w-4 h-4" />
-                                    <span>{child.label}</span>
-                                </a>
-                            );
-                        })}
+                                const ChildIcon = child.icon;
+                                return (
+                                    <a
+                                        key={child.href}
+                                        href={child.href}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                                            ? 'bg-[var(--primary)] text-white font-medium'
+                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                            }`}
+                                    >
+                                        <ChildIcon className="w-4 h-4" />
+                                        <span>{child.label}</span>
+                                    </a>
+                                );
+                            })}
+                        </div>
                     </div>
-                )}
+                </div>
             </div>
         );
     }

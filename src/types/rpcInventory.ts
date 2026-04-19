@@ -1,0 +1,123 @@
+export type RpcType = 'RPCPPE' | 'RPCSEP';
+
+export interface RpcInventoryCycle {
+    id: number;
+    cycle_label: string;
+    start_year: number;
+    end_year: number;
+    status: string;
+    started_at?: string | null;
+    closed_at?: string | null;
+    scans_count: number;
+    rpcppe_count: number;
+    rpcsep_count: number;
+}
+
+export interface RpcInventoryCyclesResponse {
+    data: RpcInventoryCycle[];
+    current_cycle: {
+        start_year: number;
+        end_year: number;
+        label: string;
+    };
+}
+
+export interface RpcInventoryCondition {
+    ConditionID: number;
+    ConditionName: string;
+}
+
+export interface RpcInventoryPreviewAsset {
+    property_id: number | null;
+    inventory_detail_id: number;
+    property_classification_id: number | null;
+    rpc_type: RpcType;
+    article: string | null;
+    description: string | null;
+    property_number: string | null;
+    unit_of_measure: string | null;
+    unit_value: number | null;
+    accountable_officer: string | null;
+    end_user_id: number | null;
+    department_id: number | null;
+    department_name: string | null;
+}
+
+export interface RpcInventoryScanPreviewResponse {
+    asset: RpcInventoryPreviewAsset;
+    already_scanned: boolean;
+    existing_scan_id: number | null;
+}
+
+export interface RpcInventoryScanRecord {
+    id: number;
+    rpc_inventory_cycle_id: number;
+    inventory_detail_id: number;
+    property_id: number | null;
+    rpc_type: RpcType;
+    condition_id: number;
+    condition?: {
+        ConditionID: number;
+        ConditionName: string;
+    } | null;
+    scanned_at: string;
+    scanned_by_user_id: number;
+    scanned_by?: {
+        UserID: number;
+        FullName: string;
+    } | null;
+    end_user_id: number | null;
+    department_id: number | null;
+    article: string | null;
+    description: string | null;
+    property_number: string | null;
+    unit_of_measure: string | null;
+    unit_value: string | number | null;
+    quantity_per_card: number;
+    quantity_per_count: number;
+    remarks: string | null;
+    accountable_officer: string | null;
+    property_type?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface RpcInventoryScansPaginated {
+    data: RpcInventoryScanRecord[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+}
+
+export interface RpcInventoryReportRow {
+    property_type?: string | null;
+    article: string;
+    description: string;
+    property_number: string;
+    unit_of_measure: string;
+    unit_value: number;
+    quantity_per_card: number;
+    quantity_per_count: number;
+    shortage_overage_qty: number;
+    shortage_overage_value: number;
+    remarks: string | null;
+    accountable_officer: string;
+    department: string;
+    condition?: string | null;
+    is_scanned: boolean;
+}
+
+export interface RpcInventoryReportBucket {
+    rows: RpcInventoryReportRow[];
+    property_types?: string[];
+    scanned_count: number;
+    total_count: number;
+}
+
+export interface RpcInventoryReportResponse {
+    cycle: RpcInventoryCycle;
+    generated_at: string;
+    rpcppe: RpcInventoryReportBucket;
+    rpcsep: RpcInventoryReportBucket;
+}
