@@ -28,7 +28,10 @@ export async function getRpcInventoryCycleScans(
     return res.data;
 }
 
-export async function previewRpcScan(cycleId: number, payload: { property_id?: number; property_number?: string; qr_value?: string }) {
+export async function previewRpcScan(
+    cycleId: number,
+    payload: { property_id?: number; inventory_detail_id?: number; property_number?: string; qr_value?: string }
+) {
     const res: AxiosResponse<RpcInventoryScanPreviewResponse> = await apiClient.post(
         `/rpc-inventory/cycles/${cycleId}/scan-preview`,
         payload

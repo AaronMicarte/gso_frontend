@@ -33,17 +33,60 @@ type PreviewAssetState = RpcInventoryPreviewAsset & {
     candidates: RpcInventoryPreviewCandidate[];
 };
 
-function parsePropertyId(raw: string): number | null {
+type ParsedRpcScanTarget = {
+    propertyId?: number;
+    inventoryDetailId?: number;
+    inventoryDetailMissing?: boolean;
+};
+
+function parseRpcScanTarget(raw: string): ParsedRpcScanTarget | null {
     const value = raw.trim();
     if (!value) return null;
 
     const direct = Number(value);
-    if (Number.isInteger(direct) && direct > 0) return direct;
+    if (Number.isInteger(direct) && direct > 0) {
+        return { propertyId: direct };
+    }
+
+    const parsePath = (pathname: string, search = ''): ParsedRpcScanTarget | null => {
+        const qs = new URLSearchParams(search);
+        const detailParam = qs.get('detail');
+        const parsedDetailId = detailParam ? Number(detailParam) : NaN;
+        const inventoryDetailId = Number.isInteger(parsedDetailId) && parsedDetailId > 0 ? parsedDetailId : undefined;
+
+        const qrMatch = pathname.match(/\/qr\/scan\/(\d+)/);
+        if (qrMatch?.[1]) {
+            const id = Number(qrMatch[1]);
+            if (Number.isInteger(id) && id > 0) return { propertyId: id };
+        }
+
+        const inventoryMatch = pathname.match(/\/(?:(admin|staff|department_head)\/)?inventory\/(\d+)/);
+        if (inventoryMatch?.[2]) {
+            if (!inventoryDetailId) {
+                return { inventoryDetailMissing: true };
+            }
+            return { inventoryDetailId };
+        }
+
+        return null;
+    };
+
+    try {
+        const asUrl = new URL(value);
+        return parsePath(asUrl.pathname, asUrl.search);
+    } catch {
+        // not a URL
+    }
+
+    const routeLike = value.match(/^(\/[^\s?#]+)(\?[^\s#]+)?(#[^\s]+)?$/);
+    if (routeLike?.[1]) {
+        return parsePath(routeLike[1], routeLike[2] ?? '');
+    }
 
     const match = value.match(/\/qr\/scan\/(\d+)/);
     if (match?.[1]) {
         const id = Number(match[1]);
-        if (Number.isInteger(id) && id > 0) return id;
+        if (Number.isInteger(id) && id > 0) return { propertyId: id };
     }
 
     return null;
@@ -86,6 +129,7 @@ export function RpcInventoryPage() {
 
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const controlsRef = useRef<IScannerControls | null>(null);
+    const scanLockedRef = useRef(false);
     const [cameraReady, setCameraReady] = useState(false);
 
     const selectedCycle = useMemo(
@@ -177,21 +221,33 @@ export function RpcInventoryPage() {
             stopCamera();
             if (!videoRef.current) return;
 
-            const { BrowserMultiFormatReader } = await import('@zxing/browser');
-            const reader = new BrowserMultiFormatReader();
+            const { BrowserQRCodeReader } = await import('@zxing/browser');
+            const reader = new BrowserQRCodeReader();
+            scanLockedRef.current = false;
 
             const controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
                 if (!result) return;
+                if (scanLockedRef.current) return;
+                scanLockedRef.current = true;
 
                 const value = result.getText();
-                const propertyId = parsePropertyId(value);
-                if (!propertyId) {
+                const parsed = parseRpcScanTarget(value);
+                if (!parsed) {
                     toast.error('Unsupported QR content');
+                    scanLockedRef.current = false;
+                    return;
+                }
+
+                if (parsed.inventoryDetailMissing) {
+                    toast.error('Invalid inventory QR', {
+                        description: 'This QR must include ?detail={InventoryDetailID}. Please reprint per-item sticker.',
+                    });
+                    scanLockedRef.current = false;
                     return;
                 }
 
                 stopCamera();
-                void handlePreview(propertyId, value);
+                void handlePreview(parsed, value);
             });
 
             controlsRef.current = controls;
@@ -210,6 +266,7 @@ export function RpcInventoryPage() {
             // noop
         } finally {
             controlsRef.current = null;
+            scanLockedRef.current = false;
             const stream = (videoRef.current?.srcObject as MediaStream | null) ?? null;
             if (stream) {
                 for (const track of stream.getTracks()) track.stop();
@@ -242,7 +299,7 @@ export function RpcInventoryPage() {
         }
     };
 
-    const handlePreview = async (propertyId: number, rawValue?: string) => {
+    const handlePreview = async (target: ParsedRpcScanTarget, rawValue?: string) => {
         if (!selectedCycleId) {
             toast.error('Select a cycle first.');
             return;
@@ -250,7 +307,8 @@ export function RpcInventoryPage() {
 
         try {
             const preview = await previewRpcScan(selectedCycleId, {
-                property_id: propertyId,
+                property_id: target.propertyId,
+                inventory_detail_id: target.inventoryDetailId,
                 qr_value: rawValue,
             });
 
@@ -283,6 +341,9 @@ export function RpcInventoryPage() {
                     ? (error as { response: { data: { message: string } } }).response.data.message
                     : 'Unable to preview scan';
             toast.error(message);
+            if (scanMode === 'camera') {
+                void startCamera();
+            }
         }
     };
 
@@ -327,6 +388,9 @@ export function RpcInventoryPage() {
             setSelectedInventoryDetailIds([]);
             await loadScans();
             await loadCycles();
+            if (scanMode === 'camera') {
+                void startCamera();
+            }
         } catch (error: unknown) {
             const message =
                 typeof error === 'object' &&
@@ -336,6 +400,9 @@ export function RpcInventoryPage() {
                     ? (error as { response: { data: { message: string } } }).response.data.message
                     : 'Failed to record scan';
             toast.error(message);
+            if (scanMode === 'camera') {
+                void startCamera();
+            }
         } finally {
             setSubmittingScan(false);
         }
@@ -413,15 +480,23 @@ export function RpcInventoryPage() {
             return;
         }
 
-        const propertyId = parsePropertyId(rawInput);
+        const parsed = parseRpcScanTarget(rawInput);
+
+        if (parsed?.inventoryDetailMissing) {
+            toast.error('Invalid inventory QR', {
+                description: 'This QR must include ?detail={InventoryDetailID}. Please reprint per-item sticker.',
+            });
+            return;
+        }
 
         const minDelay = new Promise((resolve) => window.setTimeout(resolve, 900));
 
         try {
             setPreviewProcessing(true);
             const preview = await previewRpcScan(selectedCycleId, {
-                property_id: propertyId ?? undefined,
-                property_number: propertyId ? undefined : rawInput,
+                property_id: parsed?.propertyId,
+                inventory_detail_id: parsed?.inventoryDetailId,
+                property_number: parsed ? undefined : rawInput,
                 qr_value: rawInput,
             });
 
@@ -471,6 +546,9 @@ export function RpcInventoryPage() {
                             setPreviewAsset(null);
                             setSelectedInventoryDetailIds([]);
                             setScanRemarks('');
+                            if (scanMode === 'camera') {
+                                void startCamera();
+                            }
                         }
                     }}
                     title="Confirm Asset Scan"
