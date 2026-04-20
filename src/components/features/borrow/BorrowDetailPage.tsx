@@ -67,9 +67,6 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         && borrow?.Status === 'approved'
         && (borrow?.ReleasingDecision ?? 'pending') === 'pending'
         && Number(user?.DepartmentID ?? 0) === Number(borrow?.FromDepartmentID ?? 0);
-    const canConfirmBorrowDelivered = user?.UserRoleID === 4
-        && Number(user?.DepartmentID ?? 0) === Number(borrow?.ToDepartmentID ?? 0)
-        && (borrow?.Status === 'borrowed' || borrow?.Status === 'partially_returned' || borrow?.Status === 'returned');
     const canReturnBorrow = isPrivilegedUser
         && (borrow?.Status === 'borrowed' || borrow?.Status === 'partially_returned');
     const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
@@ -602,21 +599,21 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                             <h2 className="text-lg font-semibold text-slate-900">Approval Timeline</h2>
                             <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="rounded-lg border border-slate-200 p-3">
-                                    <div className="text-xs text-slate-500 uppercase">Releasing Review</div>
-                                    <div className={`text-xs font-semibold mt-1 px-2 py-1 inline-flex rounded-full ${releasingDecisionBadgeClass(borrow.ReleasingDecision)}`}>
-                                        {releasingDecisionLabel(borrow.ReleasingDecision)}
-                                    </div>
-                                    <div className="text-xs text-slate-500 mt-2">
-                                        {formatDisplayDateTime(borrow.ReleasingReviewedAt) || 'Pending review'}
-                                    </div>
-                                </div>
                                 {!isReleasingDepartmentViewer && (
                                     <>
                                         <div className="rounded-lg border border-slate-200 p-3">
                                             <div className="text-xs text-slate-500 uppercase">GSO Approval</div>
                                             <div className="text-sm font-semibold text-slate-900 mt-1">
                                                 {borrow.ApprovedAt ? formatDisplayDateTime(borrow.ApprovedAt) : 'Pending approval'}
+                                            </div>
+                                        </div>
+                                        <div className="rounded-lg border border-slate-200 p-3">
+                                            <div className="text-xs text-slate-500 uppercase">Releasing Review</div>
+                                            <div className={`text-xs font-semibold mt-1 px-2 py-1 inline-flex rounded-full ${releasingDecisionBadgeClass(borrow.ReleasingDecision)}`}>
+                                                {releasingDecisionLabel(borrow.ReleasingDecision)}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-2">
+                                                {formatDisplayDateTime(borrow.ReleasingReviewedAt) || 'Pending review'}
                                             </div>
                                         </div>
                                         <div className="rounded-lg border border-slate-200 p-3">
@@ -632,6 +629,17 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                             </div>
                                         </div>
                                     </>
+                                )}
+                                {isReleasingDepartmentViewer && (
+                                    <div className="rounded-lg border border-slate-200 p-3">
+                                        <div className="text-xs text-slate-500 uppercase">Releasing Review</div>
+                                        <div className={`text-xs font-semibold mt-1 px-2 py-1 inline-flex rounded-full ${releasingDecisionBadgeClass(borrow.ReleasingDecision)}`}>
+                                            {releasingDecisionLabel(borrow.ReleasingDecision)}
+                                        </div>
+                                        <div className="text-xs text-slate-500 mt-2">
+                                            {formatDisplayDateTime(borrow.ReleasingReviewedAt) || 'Pending review'}
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -705,16 +713,6 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                     className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700"
                                 >
                                     {borrow.Status === 'approved' ? 'Finalize Borrow' : 'Approve (GSO)'}
-                                </button>
-                            )}
-
-                            {canConfirmBorrowDelivered && (
-                                <button
-                                    type="button"
-                                    onClick={() => toast.info('Borrow delivery is tracked by the Borrowed At timestamp. No extra signing action is required in this module.')}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-4 py-2 text-blue-700 text-sm hover:bg-blue-50"
-                                >
-                                    Confirm Borrow Delivered
                                 </button>
                             )}
 
@@ -824,7 +822,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                 </div>
                             )}
 
-                            {!canReleasingReview && !canApprove && !canReject && !canReturnBorrow && !canConfirmBorrowDelivered && (
+                            {!canReleasingReview && !canApprove && !canReject && !canReturnBorrow && (
                                 <div className="text-sm text-slate-500">No actions available for your role.</div>
                             )}
                         </div>

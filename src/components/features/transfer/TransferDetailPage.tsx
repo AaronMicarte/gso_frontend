@@ -680,11 +680,6 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                            <div>
-                                <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
-                                <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
-                            </div>
-
                             {!isReleasingDepartmentViewer && (
                                 <>
                                     <div>
@@ -692,10 +687,21 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                         <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
                                     </div>
                                     <div>
+                                        <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
+                                        <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
+                                    </div>
+                                    <div>
                                         <div className="text-xs text-slate-500 uppercase">GSO Finalized At</div>
                                         <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
                                     </div>
                                 </>
+                            )}
+
+                            {isReleasingDepartmentViewer && (
+                                <div>
+                                    <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
+                                    <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
+                                </div>
                             )}
 
                             {transfer.ReleasingDecisionReason && (
