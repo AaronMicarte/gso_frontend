@@ -138,7 +138,7 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                     <tbody>
                         {details.map((item, idx) => (
                             <tr key={item.id ?? idx}>
-                                <td className="border border-black h-[24px] px-1">{text(item.ris_no)}</td>
+                                <td className="border border-black h-[24px] px-1">{item.ris_no === 'N/A' ? '' : text(item.ris_no)}</td>
                                 <td className="border border-black h-[24px] px-1">{text(item.responsibility_center_code)}</td>
                                 <td className="border border-black h-[24px] px-1">{text(item.stock_no)}</td>
                                 <td className="border border-black h-[24px] px-1">{text(item.item_description)}</td>
