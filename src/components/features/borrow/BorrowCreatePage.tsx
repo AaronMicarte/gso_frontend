@@ -632,7 +632,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                             max={maxQty}
                                                             value={quantity}
                                                             onChange={(event) => updateAvailableQuantity(group.key, Number(event.target.value), maxQty)}
-                                                            className="w-20 px-2 py-1 border border-slate-300 rounded-md text-sm"
+                                                            className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
                                                         />
                                                         <button
                                                             type="button"

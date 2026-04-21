@@ -19,7 +19,6 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
     };
 
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
-    const fundCluster = 'GENERAL FUND';
 
     const items = transfer.items ?? [];
     const docDate = ensureText(formatDate(transfer.ApprovedAt || transfer.created_at || ''), 'Missing date');
@@ -37,7 +36,7 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
     );
 
     return (
-        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
+        <div ref={ref} className="print-container gso-print-doc bg-white p-6 max-w-4xl mx-auto text-black">
             <style dangerouslySetInnerHTML={{
                 __html: `
                     @media print {
@@ -60,10 +59,9 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                 `
             }} />
 
-            <div className="gso-print-title">Property Transfer Report</div>
-            <div className="text-center text-xs mb-2">(PTR) - 4 Copies</div>
+            <div className="gso-print-title mb-1">Property Transfer Report</div>
 
-            <div className="grid grid-cols-2 gap-4 mb-2 text-xs">
+            <div className="grid grid-cols-2 gap-4 mb-1 text-xs leading-tight">
                 <div className="space-y-1">
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">Entity Name :</div>
@@ -71,7 +69,7 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                     </div>
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">Fund Cluster :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{fundCluster}</div>
+                        <div className="flex-1 border-b border-black pb-0.5"></div>
                     </div>
                 </div>
                 <div className="space-y-1">
@@ -86,7 +84,7 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs mb-3">
+            <div className="grid grid-cols-2 gap-4 text-xs mb-2 leading-tight">
                 <div>
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">Releasing Custodian:</div>
@@ -109,14 +107,14 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                 </div>
             </div>
 
-            <table className="w-full border-collapse border border-black text-[11px]">
+            <table className="w-full border-collapse border border-black text-[11px] leading-tight">
                 <thead>
                     <tr>
-                        <th className="border border-black px-1 py-1 w-[50px] text-center">Qty</th>
-                        <th className="border border-black px-1 py-1 w-[70px] text-center">Unit</th>
-                        <th className="border border-black px-1 py-1 text-center">Description</th>
-                        <th className="border border-black px-1 py-1 w-[110px] text-center">Property No.</th>
-                        <th className="border border-black px-1 py-1 w-[110px] text-center">Serial No.</th>
+                        <th className="border border-black px-1 py-[2px] w-[50px] text-center">Qty</th>
+                        <th className="border border-black px-1 py-[2px] w-[70px] text-center">Unit</th>
+                        <th className="border border-black px-1 py-[2px] text-center">Description</th>
+                        <th className="border border-black px-1 py-[2px] w-[110px] text-center">Property No.</th>
+                        <th className="border border-black px-1 py-[2px] w-[110px] text-center">Serial No.</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -131,11 +129,11 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
 
                             return (
                                 <tr key={item.TransferItemID ?? idx}>
-                                    <td className="border border-black px-1 py-1 text-center">{item.Quantity ?? 1}</td>
-                                    <td className="border border-black px-1 py-1 text-center">{unitName}</td>
-                                    <td className="border border-black px-1 py-1">{description}</td>
-                                    <td className="border border-black px-1 py-1 text-center">{propertyNo}</td>
-                                    <td className="border border-black px-1 py-1 text-center">{serial}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{item.Quantity ?? 1}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{unitName}</td>
+                                    <td className="border border-black px-1 py-[2px]">{description}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{propertyNo}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{serial}</td>
                                 </tr>
                             );
                         });
@@ -144,11 +142,11 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                         for (let i = 0; i < blanks; i++) {
                             rows.push(
                                 <tr key={`blank-${i}`}>
-                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px] h-[23px]">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
                                 </tr>
                             );
                         }
@@ -158,7 +156,7 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                 </tbody>
             </table>
 
-            <div className="grid grid-cols-2 gap-10 mt-10 text-xs">
+            <div className="grid grid-cols-2 gap-10 mt-8 text-xs">
                 <div>
                     <div className="mb-6">Released by (Releasing Custodian):</div>
                     <div className="border-b border-black h-12"></div>
@@ -182,9 +180,6 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                 </div>
             </div>
 
-            <div className="mt-6 text-[10px] text-slate-700">
-                <div>Copy distribution: Original (GSO), Duplicate (Releasing), Triplicate (Receiving), Quadruplicate (Accounting/Archive).</div>
-            </div>
         </div>
     );
 });

@@ -596,49 +596,54 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                            <h2 className="text-lg font-semibold text-slate-900">Approval Timeline</h2>
-                            <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex items-start justify-between gap-3 mb-4">
+                                <div className="text-sm font-semibold text-slate-900">Workflow Timeline</div>
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${releasingDecisionBadgeClass(borrow.ReleasingDecision)}`}>
+                                    {releasingDecisionLabel(borrow.ReleasingDecision)}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                                 {!isReleasingDepartmentViewer && (
                                     <>
-                                        <div className="rounded-lg border border-slate-200 p-3">
-                                            <div className="text-xs text-slate-500 uppercase">GSO Approval</div>
-                                            <div className="text-sm font-semibold text-slate-900 mt-1">
+                                        <div>
+                                            <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
+                                            <div className="text-sm font-medium text-slate-800 mt-1">
                                                 {borrow.ApprovedAt ? formatDisplayDateTime(borrow.ApprovedAt) : 'Pending approval'}
                                             </div>
                                         </div>
-                                        <div className="rounded-lg border border-slate-200 p-3">
-                                            <div className="text-xs text-slate-500 uppercase">Releasing Review</div>
-                                            <div className={`text-xs font-semibold mt-1 px-2 py-1 inline-flex rounded-full ${releasingDecisionBadgeClass(borrow.ReleasingDecision)}`}>
-                                                {releasingDecisionLabel(borrow.ReleasingDecision)}
-                                            </div>
-                                            <div className="text-xs text-slate-500 mt-2">
-                                                {formatDisplayDateTime(borrow.ReleasingReviewedAt) || 'Pending review'}
-                                            </div>
-                                        </div>
-                                        <div className="rounded-lg border border-slate-200 p-3">
+                                    </>
+                                )}
+
+                                <div>
+                                    <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
+                                    <div className="text-sm font-medium text-slate-800 mt-1">
+                                        {formatDisplayDateTime(borrow.ReleasingReviewedAt) || 'Pending review'}
+                                    </div>
+                                </div>
+
+                                {!isReleasingDepartmentViewer && (
+                                    <>
+                                        <div>
                                             <div className="text-xs text-slate-500 uppercase">Borrow Delivered At</div>
-                                            <div className="text-sm font-semibold text-slate-900 mt-1">
+                                            <div className="text-sm font-medium text-slate-800 mt-1">
                                                 {borrow.BorrowedAt ? formatDisplayDateTime(borrow.BorrowedAt) : 'Not yet delivered'}
                                             </div>
                                         </div>
-                                        <div className="rounded-lg border border-slate-200 p-3">
+                                        <div>
                                             <div className="text-xs text-slate-500 uppercase">Returned At</div>
-                                            <div className="text-sm font-semibold text-slate-900 mt-1">
+                                            <div className="text-sm font-medium text-slate-800 mt-1">
                                                 {lastReturnAt ? formatDisplayDateTime(lastReturnAt) : 'Not returned'}
                                             </div>
                                         </div>
                                     </>
                                 )}
-                                {isReleasingDepartmentViewer && (
-                                    <div className="rounded-lg border border-slate-200 p-3">
-                                        <div className="text-xs text-slate-500 uppercase">Releasing Review</div>
-                                        <div className={`text-xs font-semibold mt-1 px-2 py-1 inline-flex rounded-full ${releasingDecisionBadgeClass(borrow.ReleasingDecision)}`}>
-                                            {releasingDecisionLabel(borrow.ReleasingDecision)}
-                                        </div>
-                                        <div className="text-xs text-slate-500 mt-2">
-                                            {formatDisplayDateTime(borrow.ReleasingReviewedAt) || 'Pending review'}
-                                        </div>
+
+                                {borrow.ReleasingDecisionReason && (
+                                    <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                                        <div className="text-xs text-amber-700 uppercase">Releasing Reason</div>
+                                        <div className="text-sm text-amber-900 mt-1">{borrow.ReleasingDecisionReason}</div>
                                     </div>
                                 )}
                             </div>
@@ -754,7 +759,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                                                             )),
                                                                         }));
                                                                     }}
-                                                                    className="min-w-[200px] px-2 py-1 border border-slate-300 rounded-md text-sm"
+                                                                    className="min-w-[220px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
                                                                 >
                                                                     <option value="">Select condition</option>
                                                                     {conditions.map((condition) => (
@@ -779,7 +784,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                                                             )),
                                                                         }));
                                                                     }}
-                                                                    className="w-20 px-2 py-1 border border-slate-300 rounded-md text-sm"
+                                                                    className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
                                                                 />
                                                                 {(returnRowsByItem[entry.item.BorrowItemID] ?? []).length > 1 && (
                                                                     <button
@@ -828,7 +833,12 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                         </div>
 
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                            <h2 className="text-lg font-semibold text-slate-900">Borrow Summary</h2>
+                            <div className="flex items-start justify-between gap-3">
+                                <h2 className="text-lg font-semibold text-slate-900">Borrow Summary</h2>
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}>
+                                    {statusMeta.label}
+                                </span>
+                            </div>
                             <div className="text-sm text-slate-600">Requested on: {formatDisplayDateTime(borrow.created_at) || 'Unknown'}</div>
                             {!isReleasingDepartmentViewer && (
                                 <>
@@ -883,7 +893,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                                     ...prev,
                                                     [group.key]: Number(event.target.value),
                                                 }))}
-                                                className="w-20 px-2 py-1 border border-slate-300 rounded-md text-sm"
+                                                className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
                                             />
                                         </div>
                                     ))}
@@ -896,7 +906,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                     rows={3}
                                     value={releasingReason}
                                     onChange={(event) => setReleasingReason(event.target.value)}
-                                    className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg"
+                                    className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
                                 />
                             </div>
                         </div>

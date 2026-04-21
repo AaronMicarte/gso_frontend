@@ -118,6 +118,12 @@ apiClient.interceptors.response.use(
                 return Promise.reject(error);
             }
 
+            // Preserve original axios error payload for server-side failures so callers
+            // can read response.data.message and response.data.error for debugging.
+            if (status >= 500) {
+                return Promise.reject(error);
+            }
+
             const message = (data?.message as string) || 'An error occurred';
             return Promise.reject(new Error(message));
         } else if (error.request) {

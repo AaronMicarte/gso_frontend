@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, PlusCircle, Trash2 } from 'lucide-react';
+import { Search, PlusCircle, Trash2, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -399,7 +399,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
             <div className="p-6 space-y-6">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Create Transfer Request</h1>
-                    <p className="text-slate-500 text-sm">Prepare the PTR request for GSO approval and paper signing</p>
+                    <p className="text-slate-500 text-sm">Request transfer of assets from another department</p>
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
@@ -481,6 +481,38 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                     </div>
                                 </div>
                                 <div>
+                                    <label className="text-sm font-medium text-slate-700">Releasing Department</label>
+                                    <select
+                                        value={fromDepartmentId}
+                                        onChange={(event) => setFromDepartmentId(Number(event.target.value))}
+                                        className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+                                        disabled
+                                    >
+                                        <option value="">Select department</option>
+                                        {departments.map((dept) => (
+                                            <option key={dept.DepartmentID} value={dept.DepartmentID}>
+                                                {dept.DepartmentName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700">Receiving Department</label>
+                                    <select
+                                        value={toDepartmentId}
+                                        onChange={(event) => setToDepartmentId(Number(event.target.value))}
+                                        className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+                                        disabled
+                                    >
+                                        <option value="">Select department</option>
+                                        {departments.map((dept) => (
+                                            <option key={dept.DepartmentID} value={dept.DepartmentID}>
+                                                {dept.DepartmentName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="text-sm font-medium text-slate-700">Receiving Custodian (Requester)</label>
                                     <input
                                         type="text"
@@ -508,177 +540,126 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div>
-                                    <h2 className="text-lg font-semibold text-slate-900">Select Items to Transfer</h2>
-                                    <p className="text-sm text-slate-500">Only issued items assigned to the releasing custodian are listed</p>
+                                    <h2 className="text-lg font-semibold text-slate-900">Transferable Items</h2>
+                                    <p className="text-sm text-slate-500">Select assets from the releasing custodian</p>
                                 </div>
-                                <div className="relative w-full md:w-64">
+                                <div className="relative w-full md:max-w-xs">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                     <input
                                         type="text"
                                         placeholder="Search items"
                                         value={searchTerm}
                                         onChange={(event) => setSearchTerm(event.target.value)}
-                                        className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                                     />
                                 </div>
                             </div>
 
                             {itemLoading ? (
-                                <div className="flex items-center justify-center py-10 text-slate-500">Loading items...</div>
+                                <div className="text-sm text-slate-500">Loading available items...</div>
+                            ) : groupedAvailableItems.length === 0 ? (
+                                <div className="text-sm text-slate-500">
+                                    {(!fromDepartmentId || !fromEndUserId)
+                                        ? 'Select a releasing custodian to view transferable assets.'
+                                        : 'No eligible items found (issued only, not already in an active transfer).'}
+                                </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-slate-200">
-                                        <thead className="bg-slate-50">
-                                            <tr>
-                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Add</th>
-                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
-                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Item Description</th>
-                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">End User</th>
-                                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Qty</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-200">
-                                            {groupedAvailableItems.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
-                                                        {(!fromDepartmentId || !fromEndUserId)
-                                                            ? 'Select a borrower to view transferable assets.'
-                                                            : 'No eligible items found (issued only, not already in an active transfer).'}
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                groupedAvailableItems.map((group) => {
-                                                    const qtyAvailable = group.items.length;
-                                                    const qtySelected = availableQuantities[group.key] ?? 1;
-                                                    const groupSelected = isGroupSelected(group.key);
+                                <div className="space-y-3">
+                                    {groupedAvailableItems.map((group) => {
+                                        const selected = isGroupSelected(group.key);
+                                        const maxQty = group.items.length;
+                                        const quantity = availableQuantities[group.key] ?? 1;
 
-                                                    return (
-                                                        <tr key={group.key} className="hover:bg-slate-50">
-                                                            <td className="px-3 py-2">
-                                                                {groupSelected ? (
-                                                                    <button
-                                                                        onClick={() => handleRemoveGroup(group.key)}
-                                                                        className="text-red-500 hover:text-red-600"
-                                                                        aria-label="Remove group"
-                                                                    >
-                                                                        <Trash2 className="w-5 h-5" />
-                                                                    </button>
-                                                                ) : (
-                                                                    <button
-                                                                        onClick={() => handleAddGroup(group)}
-                                                                        className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                                                                        aria-label="Add group"
-                                                                    >
-                                                                        <PlusCircle className="w-5 h-5" />
-                                                                    </button>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-3 py-2 text-sm text-slate-700">
-                                                                {renderPropertyNumbers(group.items)}
-                                                            </td>
-                                                            <td className="px-3 py-2 text-sm text-slate-700">
-                                                                {group.itemDescription}
-                                                            </td>
-                                                            <td className="px-3 py-2 text-sm text-slate-700">
-                                                                {group.items[0]?.EndUserName || 'Missing end user'}
-                                                            </td>
-                                                            <td className="px-3 py-2 text-sm text-slate-700">
-                                                                <input
-                                                                    type="number"
-                                                                    min={1}
-                                                                    max={qtyAvailable}
-                                                                    value={qtySelected}
-                                                                    onChange={(event) => updateAvailableQuantity(
-                                                                        group.key,
-                                                                        Number(event.target.value || 1),
-                                                                        qtyAvailable
-                                                                    )}
-                                                                    className="w-20 px-2 py-1 border border-slate-300 rounded"
-                                                                />
-                                                                <span className="ml-2 text-xs text-slate-500">/ {qtyAvailable}</span>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })
-                                            )}
-                                        </tbody>
-                                    </table>
+                                        return (
+                                            <div key={group.key} className="flex flex-col gap-3 rounded-lg border border-slate-200 p-4">
+                                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                                    <div>
+                                                        <div className="text-sm font-semibold text-slate-900">{group.article}</div>
+                                                        <div className="text-xs text-slate-500">{group.itemDescription}</div>
+                                                        <div className="text-xs text-slate-500">{group.fullSpecs}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="text-sm text-slate-600">Available: {maxQty}</div>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={maxQty}
+                                                            value={quantity}
+                                                            onChange={(event) => updateAvailableQuantity(group.key, Number(event.target.value), maxQty)}
+                                                            className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddGroup(group)}
+                                                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${selected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'} hover:bg-slate-200`}
+                                                        >
+                                                            <PlusCircle className="w-4 h-4" />
+                                                            {selected ? 'Selected' : 'Add'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-slate-500">Property No(s): {renderPropertyNumbers(group.items)}</div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
                     </div>
 
                     <div className="space-y-6">
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h2 className="text-lg font-semibold text-slate-900">Selected Items for Transfer</h2>
-                            <p className="text-sm text-slate-500">PTR requires signed paper copies (4x)</p>
-
-                            <div className="mt-4 overflow-x-auto">
-                                <table className="min-w-full divide-y divide-slate-200">
-                                    <thead className="bg-slate-50">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Qty</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Article</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Item Description</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Full Specs</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Unit</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200">
-                                        {selectedGroups.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
-                                                    No items selected yet.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            selectedGroups.map((entry) => {
-                                                const group = groupedAvailableItems.find((g) => g.key === entry.key);
-                                                if (!group) return null;
-                                                const maxQty = group.items.length;
-                                                const qty = Math.min(Math.max(entry.quantity, 1), maxQty);
-                                                const selectedItems = group.items.slice(0, qty);
-
-                                                return (
-                                                    <tr key={entry.key}>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            {qty}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            {renderPropertyNumbers(selectedItems)}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            {group.article}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            {group.itemDescription}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            {group.fullSpecs}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                                            {group.unitName}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-slate-900">Selected Items</h3>
+                                <span className="text-sm text-slate-500">{selectedGroups.length} group(s)</span>
                             </div>
-                        </div>
 
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            {selectedGroups.length === 0 ? (
+                                <div className="text-sm text-slate-500">No items selected yet.</div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {selectedGroups.map((entry) => {
+                                        const group = groupedAvailableItems.find((g) => g.key === entry.key);
+                                        if (!group) return null;
+                                        const maxQty = group.items.length;
+                                        const qty = Math.min(Math.max(entry.quantity, 1), maxQty);
+                                        return (
+                                            <div key={entry.key} className="rounded-lg border border-slate-200 p-3">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div>
+                                                        <div className="text-sm font-semibold text-slate-900">{group.article}</div>
+                                                        <div className="text-xs text-slate-500">{group.itemDescription}</div>
+                                                        <div className="text-xs text-slate-500">Qty: {qty}</div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveGroup(entry.key)}
+                                                        className="text-slate-400 hover:text-rose-500"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
                             <button
+                                type="button"
                                 onClick={handleSubmit}
                                 disabled={!canSubmit || loading}
-                                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-white text-sm hover:bg-[var(--primary-hover)] disabled:opacity-50"
+                                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-white text-sm hover:bg-[var(--primary-hover)] disabled:opacity-60"
                             >
-                                {loading ? 'Submitting...' : 'Submit Transfer Request'}
+                                {loading ? 'Submitting...' : (
+                                    <>
+                                        <CalendarClock className="w-4 h-4" />
+                                        Submit Transfer Request
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

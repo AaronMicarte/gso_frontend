@@ -262,7 +262,6 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         if (pendingConfirmAction === 'approve') {
             await handleApprove();
             setPendingConfirmAction(null);
-            setPendingConfirmAction(null);
             return;
         }
     };
@@ -288,6 +287,11 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         return format(toZonedTime(new Date(dateValue), 'Asia/Manila'), 'MMM dd, yyyy');
     };
 
+    const formatDisplayDateTime = (dateValue?: string | null) => {
+        if (!dateValue) return '';
+        return format(toZonedTime(new Date(dateValue), 'Asia/Manila'), 'MMM dd, yyyy h:mm a');
+    };
+
     const displayText = (value: string | null | undefined, missingLabel: string) => {
         const text = value?.trim();
         return text && text.length > 0 ? text : missingLabel;
@@ -299,9 +303,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
             return 'Pending GSO/Admin approval';
         }
         if (transfer.Status === 'rejected') {
-            return formatDisplayDate(transfer.ApprovedAt) || 'Rejected (approval date missing)';
+            return formatDisplayDateTime(transfer.ApprovedAt) || 'Rejected (approval date missing)';
         }
-        return formatDisplayDate(transfer.ApprovedAt) || 'Approved (date missing)';
+        return formatDisplayDateTime(transfer.ApprovedAt) || 'Approved (date missing)';
     };
 
     const releasingDecisionLabel = (decision?: ReleasingDecision) => {
@@ -318,7 +322,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
     const releasingReviewedAtDisplay = () => {
         if (!transfer?.ReleasingReviewedAt) return 'Pending review';
-        return formatDisplayDate(transfer.ReleasingReviewedAt) || 'Pending review';
+        return formatDisplayDateTime(transfer.ReleasingReviewedAt) || 'Pending review';
     };
 
     const borrowerSignedDisplay = () => {
@@ -339,12 +343,22 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const completedDisplay = () => {
         if (!transfer) return '';
         if (transfer.Status === 'completed') {
-            return formatDisplayDate(transfer.CompletedAt) || 'Completed (date missing)';
+            return formatDisplayDateTime(transfer.CompletedAt) || 'Completed (date missing)';
         }
         if (transfer.Status === 'approved' && transfer.ReleasingDecision !== 'approved') return 'Awaiting releasing custody review';
         if (transfer.Status === 'approved') return 'Awaiting final GSO completion';
         if (transfer.Status === 'rejected') return 'Not applicable';
         return 'Pending approval';
+    };
+
+    const releasingApprovedDisplay = () => {
+        if (!transfer) return 'Pending review';
+        if ((transfer.ReleasingDecision ?? 'pending') === 'pending') return 'Pending review';
+        if (transfer.ReleasingDecision === 'rejected') return 'Rejected by releasing custody';
+
+        const approvedCount = Number(transfer.ReleasingApprovedCount ?? 0);
+        const requestedCount = Number(transfer.RequestedItemsCount ?? transfer.items?.length ?? 0);
+        return `${approvedCount} of ${requestedCount} item(s)`;
     };
 
     const statusBadge = useMemo(() => {
@@ -658,7 +672,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                             <div>
                                 <div className="text-xs text-slate-500 uppercase">Approved by Releasing</div>
                                 <div className="text-sm font-semibold text-slate-900">
-                                    {transfer.ReleasingApprovedCount ?? 'Pending'}
+                                    {releasingApprovedDisplay()}
                                 </div>
                             </div>
                         </div>
@@ -671,51 +685,70 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <div className="flex items-start justify-between gap-3 mb-4">
-                            <div className="text-sm font-semibold text-slate-900">Workflow Timeline</div>
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${releasingDecisionBadgeClass(transfer.ReleasingDecision)}`}>
-                                {releasingDecisionLabel(transfer.ReleasingDecision)}
-                            </span>
-                        </div>
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex items-start justify-between gap-3 mb-4">
+                                <div className="text-sm font-semibold text-slate-900">Workflow Timeline</div>
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${releasingDecisionBadgeClass(transfer.ReleasingDecision)}`}>
+                                    {releasingDecisionLabel(transfer.ReleasingDecision)}
+                                </span>
+                            </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                            {!isReleasingDepartmentViewer && (
-                                <>
-                                    <div>
-                                        <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
-                                        <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
-                                    </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                {!isReleasingDepartmentViewer && (
+                                    <>
+                                        <div>
+                                            <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
+                                            <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
+                                            <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-slate-500 uppercase">GSO Finalized At</div>
+                                            <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {isReleasingDepartmentViewer && (
                                     <div>
                                         <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
                                         <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
                                     </div>
-                                    <div>
-                                        <div className="text-xs text-slate-500 uppercase">GSO Finalized At</div>
-                                        <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
+                                )}
+
+                                {transfer.ReleasingDecisionReason && (
+                                    <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                                        <div className="text-xs text-amber-700 uppercase">Releasing Reason</div>
+                                        <div className="text-sm text-amber-900 mt-1">{transfer.ReleasingDecisionReason}</div>
                                     </div>
+                                )}
+
+                                {transfer.GsoNotes && (
+                                    <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <div className="text-xs text-slate-500 uppercase">Notes</div>
+                                        <div className="text-sm text-slate-700 mt-1">{transfer.GsoNotes}</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                                <h2 className="text-lg font-semibold text-slate-900">Transfer Summary</h2>
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusConfig[transfer.Status].className}`}>
+                                    {statusConfig[transfer.Status].label}
+                                </span>
+                            </div>
+                            <div className="text-sm text-slate-600">Requested on: {formatDisplayDateTime(transfer.created_at) || 'Unknown'}</div>
+                            <div className="text-sm text-slate-600">Reviewed at: {releasingReviewedAtDisplay()}</div>
+                            {!isReleasingDepartmentViewer && (
+                                <>
+                                    <div className="text-sm text-slate-600">Finalized at: {completedDisplay()}</div>
+                                    <div className="text-sm text-slate-600">Releasing approved: {releasingApprovedDisplay()}</div>
                                 </>
-                            )}
-
-                            {isReleasingDepartmentViewer && (
-                                <div>
-                                    <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
-                                    <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
-                                </div>
-                            )}
-
-                            {transfer.ReleasingDecisionReason && (
-                                <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
-                                    <div className="text-xs text-amber-700 uppercase">Releasing Reason</div>
-                                    <div className="text-sm text-amber-900 mt-1">{transfer.ReleasingDecisionReason}</div>
-                                </div>
-                            )}
-
-                            {transfer.GsoNotes && (
-                                <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <div className="text-xs text-slate-500 uppercase">Notes</div>
-                                    <div className="text-sm text-slate-700 mt-1">{transfer.GsoNotes}</div>
-                                </div>
                             )}
                         </div>
                     </div>

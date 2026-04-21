@@ -312,7 +312,7 @@ export function UserSettingsPage({ baseRoute, roleLabel, landingOptions }: UserS
                     </TabsContent>
 
                     <TabsContent value="security" className="space-y-4">
-                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        {/* <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h2 className="text-lg font-semibold text-slate-900 inline-flex items-center gap-2">
                                 <Shield className="w-5 h-5" />
                                 Authentication Controls
@@ -321,7 +321,7 @@ export function UserSettingsPage({ baseRoute, roleLabel, landingOptions }: UserS
                                 Manage MFA and remove any trusted device you no longer recognize.
                             </p>
                             <MFASetup />
-                        </div>
+                        </div> */}
 
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h2 className="text-lg font-semibold text-slate-900 inline-flex items-center gap-2 mb-4">

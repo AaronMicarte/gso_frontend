@@ -382,25 +382,25 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                     }
                 ]
             },
-            {
-                section: 'ACCOUNTABILITY DOCUMENTS',
-                items: [
-                    {
-                        label: 'Issued Documents',
-                        icon: FileText,
-                        children: [
-                            { label: 'All Issuances', href: `${baseRoute}/issuance`, icon: FileText },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'REPORTS',
-                items: [
-                    // Keep reports minimal until role-specific reporting is implemented.
-                    { label: 'Issuance Documents', href: `${baseRoute}/issuance`, icon: FileBarChart },
-                ]
-            },
+            // {
+            //     section: 'ACCOUNTABILITY DOCUMENTS',
+            //     items: [
+            //         {
+            //             label: 'Issued Documents',
+            //             icon: FileText,
+            //             children: [
+            //                 { label: 'All Issuances', href: `${baseRoute}/issuance`, icon: FileText },
+            //             ]
+            //         }
+            //     ]
+            // },
+            // {
+            //     section: 'REPORTS',
+            //     items: [
+            //         // Keep reports minimal until role-specific reporting is implemented.
+            //         { label: 'Issuance Documents', href: `${baseRoute}/issuance`, icon: FileBarChart },
+            //     ]
+            // },
             {
                 section: 'ACCOUNT',
                 items: [

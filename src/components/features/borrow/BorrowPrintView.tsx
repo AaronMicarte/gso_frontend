@@ -19,7 +19,6 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
     };
 
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
-    const fundCluster = 'GENERAL FUND';
 
     const items = borrow.items ?? [];
     const docDate = ensureText(formatDate(borrow.ApprovedAt || borrow.created_at || ''), 'Missing date');
@@ -38,7 +37,7 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
     );
 
     return (
-        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
+        <div ref={ref} className="print-container gso-print-doc bg-white p-6 max-w-4xl mx-auto text-black">
             <style dangerouslySetInnerHTML={{
                 __html: `
                     @media print {
@@ -61,10 +60,9 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                 `
             }} />
 
-            <div className="gso-print-title">Property Borrow Report</div>
-            <div className="text-center text-xs mb-2">(PBR) - 4 Copies</div>
+            <div className="gso-print-title mb-1">Property Borrow Report</div>
 
-            <div className="grid grid-cols-2 gap-4 mb-2 text-xs">
+            <div className="grid grid-cols-2 gap-4 mb-1 text-xs leading-tight">
                 <div className="space-y-1">
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">Entity Name :</div>
@@ -72,7 +70,7 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                     </div>
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">Fund Cluster :</div>
-                        <div className="flex-1 border-b border-black pb-0.5">{fundCluster}</div>
+                        <div className="flex-1 border-b border-black pb-0.5"></div>
                     </div>
                 </div>
                 <div className="space-y-1">
@@ -91,7 +89,7 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs mb-3">
+            <div className="grid grid-cols-2 gap-4 text-xs mb-2 leading-tight">
                 <div>
                     <div className="flex items-end gap-2">
                         <div className="whitespace-nowrap">Releasing Custodian:</div>
@@ -114,14 +112,14 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                 </div>
             </div>
 
-            <table className="w-full border-collapse border border-black text-[11px]">
+            <table className="w-full border-collapse border border-black text-[11px] leading-tight">
                 <thead>
                     <tr>
-                        <th className="border border-black px-1 py-1 w-[50px] text-center">Qty</th>
-                        <th className="border border-black px-1 py-1 w-[70px] text-center">Unit</th>
-                        <th className="border border-black px-1 py-1 text-center">Description</th>
-                        <th className="border border-black px-1 py-1 w-[110px] text-center">Property No.</th>
-                        <th className="border border-black px-1 py-1 w-[110px] text-center">Serial No.</th>
+                        <th className="border border-black px-1 py-[2px] w-[50px] text-center">Qty</th>
+                        <th className="border border-black px-1 py-[2px] w-[70px] text-center">Unit</th>
+                        <th className="border border-black px-1 py-[2px] text-center">Description</th>
+                        <th className="border border-black px-1 py-[2px] w-[110px] text-center">Property No.</th>
+                        <th className="border border-black px-1 py-[2px] w-[110px] text-center">Serial No.</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -136,11 +134,11 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
 
                             return (
                                 <tr key={item.BorrowItemID ?? idx}>
-                                    <td className="border border-black px-1 py-1 text-center">{item.Quantity ?? 1}</td>
-                                    <td className="border border-black px-1 py-1 text-center">{unitName}</td>
-                                    <td className="border border-black px-1 py-1">{description}</td>
-                                    <td className="border border-black px-1 py-1 text-center">{propertyNo}</td>
-                                    <td className="border border-black px-1 py-1 text-center">{serial}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{item.Quantity ?? 1}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{unitName}</td>
+                                    <td className="border border-black px-1 py-[2px]">{description}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{propertyNo}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{serial}</td>
                                 </tr>
                             );
                         });
@@ -149,11 +147,11 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                         for (let i = 0; i < blanks; i++) {
                             rows.push(
                                 <tr key={`blank-${i}`}>
-                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                    <td className="border border-black px-1 py-1">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px] h-[23px]">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
+                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
                                 </tr>
                             );
                         }
@@ -163,23 +161,30 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                 </tbody>
             </table>
 
-            <div className="grid grid-cols-2 gap-10 mt-10 text-xs">
-                <div className="space-y-2">
-                    <div className="font-semibold">Released by (Releasing Custodian)</div>
-                    <div className="border-b border-black pb-1">{releasingName}</div>
-                    <div className="border-b border-black pb-1">{releasingOffice}</div>
+            <div className="grid grid-cols-2 gap-10 mt-8 text-xs">
+                <div>
+                    <div className="mb-6">Released by (Releasing Custodian):</div>
+                    <div className="border-b border-black h-12"></div>
+                    <div className="text-[10px] text-center mt-1">Signature over Printed Name</div>
+                    <div className="border-b border-black mt-3 pb-1 text-center">{releasingName}</div>
+                    <div className="text-[10px] text-center mt-1">Position/Office</div>
+                    <div className="border-b border-black mt-2 pb-1 text-center">{releasingOffice}</div>
+                    <div className="text-[10px] text-center mt-1">Date</div>
+                    <div className="border-b border-black mt-2 pb-1 text-center">{docDate}</div>
                 </div>
 
-                <div className="space-y-2">
-                    <div className="font-semibold">Received by (Borrowing Custodian)</div>
-                    <div className="border-b border-black pb-1">{borrowingName}</div>
-                    <div className="border-b border-black pb-1">{borrowingOffice}</div>
+                <div>
+                    <div className="mb-6">Received by (Borrowing Custodian):</div>
+                    <div className="border-b border-black h-12"></div>
+                    <div className="text-[10px] text-center mt-1">Signature over Printed Name</div>
+                    <div className="border-b border-black mt-3 pb-1 text-center">{borrowingName}</div>
+                    <div className="text-[10px] text-center mt-1">Position/Office</div>
+                    <div className="border-b border-black mt-2 pb-1 text-center">{borrowingOffice}</div>
+                    <div className="text-[10px] text-center mt-1">Date</div>
+                    <div className="border-b border-black mt-2 pb-1 text-center">{formatDate(borrow.BorrowedAt) || docDate}</div>
                 </div>
             </div>
 
-            <div className="mt-6 text-[10px] text-slate-700">
-                <div>Copy distribution: Original (GSO), Duplicate (Releasing), Triplicate (Borrowing), Quadruplicate (Accounting/Archive).</div>
-            </div>
         </div>
     );
 });
