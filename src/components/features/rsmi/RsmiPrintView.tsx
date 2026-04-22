@@ -5,6 +5,7 @@ import type { RsmiReport } from '@/types/rsmi';
 
 interface RsmiPrintViewProps {
     report: RsmiReport;
+    batchMode?: boolean;
 }
 
 const formatPHDate = (dateString?: string | null) => {
@@ -28,7 +29,7 @@ const emptyDetailsRow = (id: number) => ({
 });
 
 export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps>(
-    ({ report }, ref) => {
+    ({ report, batchMode = false }, ref) => {
         const detailRows = 8;
         const recapRows = 4;
 
@@ -65,10 +66,20 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                             padding: 0;
                             margin: 0;
                             max-width: none;
+                            width: 100%;
+                        }
+                        ${batchMode
+                        ? ''
+                        : `
+                        .print-container {
                             position: absolute;
                             left: 0;
                             top: 0;
-                            width: 100%;
+                        }
+                        `
+                    }
+                        .rsmi-main-table thead {
+                            display: table-row-group;
                         }
                         .no-print { display: none !important; }
                     }
@@ -99,12 +110,12 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                         </div>
                         <div className="flex items-end justify-end gap-2">
                             <span className="font-bold">Date :</span>
-                            <span className="border-b border-black w-[230px] h-[20px]">{formatPHDate(report.report_date)}</span>
+                            <span className="border-b border-black w-[230px] h-[20px]">{text(report.report_date_label, formatPHDate(report.report_date))}</span>
                         </div>
                     </div>
                 </div>
 
-                <table className="w-full border-collapse text-[16px]">
+                <table className="rsmi-main-table w-full border-collapse text-[16px]">
                     <colgroup>
                         <col className="w-[13%]" />
                         <col className="w-[17%]" />
@@ -149,7 +160,7 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                             </tr>
                         ))}
                     </tbody>
-                    <tfoot>
+                    <tbody>
                         <tr>
                             <td className="border border-black" />
                             <td colSpan={2} className="border border-black text-center font-bold py-1">Recapitulation:</td>
@@ -192,7 +203,7 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                                 <td className="border border-black h-[24px]" />
                             </tr>
                         ))}
-                    </tfoot>
+                    </tbody>
                 </table>
 
                 <div className="grid grid-cols-[58%_42%] border-l border-r border-b border-black min-h-[110px] text-[16px]">

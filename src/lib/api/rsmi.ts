@@ -2,7 +2,14 @@ import type { AxiosResponse } from 'axios';
 import apiClient from '@/lib/api/client';
 import type { RsmiReport, RsmiReportListItem } from '@/types/rsmi';
 
-export const listRsmiReports = async (params?: { month?: number; year?: number }): Promise<RsmiReportListItem[]> => {
+export interface ListRsmiReportsParams {
+    month?: number;
+    year?: number;
+    start_date?: string;
+    end_date?: string;
+}
+
+export const listRsmiReports = async (params?: ListRsmiReportsParams): Promise<RsmiReportListItem[]> => {
     const response: AxiosResponse<RsmiReportListItem[]> = await apiClient.get('/rsmi-reports', { params });
     return response.data;
 };

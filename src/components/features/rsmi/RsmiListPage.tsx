@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { CalendarDays, FileCheck2, Printer, RefreshCw } from 'lucide-react';
@@ -12,13 +12,23 @@ interface RsmiListPageProps {
     baseRoute: '/admin' | '/staff';
 }
 
+type RsmiFilterMode = 'month' | 'custom';
+
 const formatDate = (value?: string | null) => {
     if (!value) return '-';
     return format(new Date(value), 'MMM dd, yyyy');
 };
 
 export function RsmiListPage({ baseRoute }: RsmiListPageProps) {
+    const today = useMemo(() => new Date(), []);
     const [monthFilter, setMonthFilter] = useState(format(new Date(), 'yyyy-MM'));
+    const [filterMode, setFilterMode] = useState<RsmiFilterMode>('month');
+    const [rangeStartDate, setRangeStartDate] = useState(format(today, 'yyyy-MM-01'));
+    const [rangeEndDate, setRangeEndDate] = useState(format(today, 'yyyy-MM-dd'));
+    const [appliedRange, setAppliedRange] = useState({
+        startDate: format(today, 'yyyy-MM-01'),
+        endDate: format(today, 'yyyy-MM-dd'),
+    });
 
     const [reports, setReports] = useState<RsmiReportListItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -31,10 +41,24 @@ export function RsmiListPage({ baseRoute }: RsmiListPageProps) {
         };
     }, [monthFilter]);
 
-    const load = async () => {
+    const listParams = useMemo(() => {
+        if (filterMode === 'custom') {
+            return {
+                start_date: appliedRange.startDate,
+                end_date: appliedRange.endDate,
+            };
+        }
+
+        return {
+            month: monthYear.month,
+            year: monthYear.year,
+        };
+    }, [appliedRange.endDate, appliedRange.startDate, filterMode, monthYear.month, monthYear.year]);
+
+    const load = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await listRsmiReports(monthYear);
+            const data = await listRsmiReports(listParams);
             setReports(data);
         } catch {
             toast.error('Failed to load RSMI reports');
@@ -42,12 +66,27 @@ export function RsmiListPage({ baseRoute }: RsmiListPageProps) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [listParams]);
 
     useEffect(() => {
         load();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [monthYear.month, monthYear.year]);
+    }, [load]);
+
+    const applyCustomRange = () => {
+        if (!rangeStartDate || !rangeEndDate) {
+            toast.error('Please select both start and end dates');
+            return;
+        }
+
+        if (rangeStartDate > rangeEndDate) {
+            toast.error('Start date must not be later than end date');
+            return;
+        }
+
+        setAppliedRange({ startDate: rangeStartDate, endDate: rangeEndDate });
+    };
+
+    const hasCustomRange = Boolean(appliedRange.startDate && appliedRange.endDate);
 
     return (
         <div
@@ -70,18 +109,93 @@ export function RsmiListPage({ baseRoute }: RsmiListPageProps) {
             </div>
 
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <label className="text-sm text-slate-700 inline-block">
-                    <span className="mb-1 block">Month Filter</span>
-                    <div className="relative">
-                        <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                            type="month"
-                            value={monthFilter}
-                            onChange={(e) => setMonthFilter(e.target.value)}
-                            className="w-full md:w-72 pl-9 pr-3 py-2 border border-slate-200 rounded-lg"
-                        />
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setFilterMode('month')}
+                            className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${filterMode === 'month'
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                                }`}
+                        >
+                            Monthly Filter
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFilterMode('custom')}
+                            className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${filterMode === 'custom'
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                                }`}
+                        >
+                            Custom Range
+                        </button>
                     </div>
-                </label>
+
+                    {filterMode === 'month' ? (
+                        <label className="text-sm text-slate-700 inline-block">
+                            <span className="mb-1 block">Month Filter</span>
+                            <div className="relative">
+                                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                    type="month"
+                                    value={monthFilter}
+                                    onChange={(e) => setMonthFilter(e.target.value)}
+                                    className="w-full md:w-72 pl-9 pr-3 py-2 border border-slate-200 rounded-lg"
+                                />
+                            </div>
+                        </label>
+                    ) : (
+                        <div className="flex flex-col gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                                <label className="text-sm text-slate-700">
+                                    <span className="mb-1 block">Start Date</span>
+                                    <input
+                                        type="date"
+                                        value={rangeStartDate}
+                                        onChange={(e) => setRangeStartDate(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                    />
+                                </label>
+
+                                <label className="text-sm text-slate-700">
+                                    <span className="mb-1 block">End Date</span>
+                                    <input
+                                        type="date"
+                                        value={rangeEndDate}
+                                        onChange={(e) => setRangeEndDate(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                    />
+                                </label>
+
+                                <button
+                                    type="button"
+                                    onClick={applyCustomRange}
+                                    className="h-[42px] px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                                >
+                                    Apply Range
+                                </button>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                                <span>
+                                    Active range: <span className="font-medium text-slate-900">{appliedRange.startDate}</span> to{' '}
+                                    <span className="font-medium text-slate-900">{appliedRange.endDate}</span>
+                                </span>
+
+                                {hasCustomRange && reports.length > 0 ? (
+                                    <Link
+                                        href={`${baseRoute}/rsmi/print/${appliedRange.startDate}/${appliedRange.endDate}`}
+                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800"
+                                    >
+                                        <Printer className="w-3.5 h-3.5" /> Print Active Range
+                                    </Link>
+                                ) : null}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -102,7 +216,7 @@ export function RsmiListPage({ baseRoute }: RsmiListPageProps) {
                                 <tr>
                                     <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
                                         <FileCheck2 className="w-9 h-9 mx-auto mb-2 text-slate-300" />
-                                        No RSMI reports for this month
+                                        {filterMode === 'custom' ? 'No RSMI reports for this date range' : 'No RSMI reports for this month'}
                                     </td>
                                 </tr>
                             ) : (

@@ -17,6 +17,7 @@ export interface RsmiReport {
     id: number;
     serial_no: string;
     report_date: string;
+    report_date_label?: string;
     entity_name: string;
     fund_cluster: string;
     items: RsmiReportItem[];
