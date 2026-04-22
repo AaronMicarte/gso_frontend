@@ -40,3 +40,11 @@ export async function markNotificationRead(notificationId: number): Promise<void
 export async function markAllNotificationsRead(): Promise<void> {
     await apiClient.patch('/notifications/read-all');
 }
+
+export async function deleteNotification(notificationId: number): Promise<void> {
+    await apiClient.delete(`/notifications/${notificationId}`);
+}
+
+export async function deleteAllNotifications(): Promise<void> {
+    await apiClient.delete('/notifications');
+}

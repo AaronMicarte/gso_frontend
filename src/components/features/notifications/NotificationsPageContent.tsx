@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, CheckCircle2, Circle, Clock, RefreshCcw } from 'lucide-react';
+import { Bell, CheckCircle2, Circle, Clock, RefreshCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
+    deleteAllNotifications,
     listNotifications,
     markAllNotificationsRead,
     markNotificationRead,
@@ -65,6 +66,22 @@ export function NotificationsPageContent() {
         }
     };
 
+    const deleteAll = async () => {
+        const confirmed = window.confirm('Delete all notifications? This cannot be undone.');
+        if (!confirmed) return;
+
+        setSaving(true);
+        try {
+            await deleteAllNotifications();
+            setNotifications([]);
+            toast.success('All notifications deleted.');
+        } catch (error) {
+            toast.error('Failed to delete all notifications.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return (
         <main
             className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat"
@@ -103,6 +120,14 @@ export function NotificationsPageContent() {
                             >
                                 <CheckCircle2 className="h-4 w-4" />
                                 Mark all as read
+                            </button>
+                            <button
+                                className="inline-flex items-center gap-2 rounded border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                                onClick={deleteAll}
+                                disabled={saving || loading || notifications.length === 0}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Delete all
                             </button>
                         </div>
                     </div>
