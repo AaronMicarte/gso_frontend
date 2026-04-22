@@ -105,7 +105,7 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
         defaultValues: {
             ris_date: format(toZonedTime(new Date(), 'Asia/Manila'), 'yyyy-MM-dd'),
             entity_name: 'CITY GOVERNMENT OF EL SALVADOR',
-            fund_cluster: 'GENERAL FUND',
+            fund_cluster: '',
             division: '',
             responsibility_center_code: '',
             remarks: '',
@@ -307,7 +307,7 @@ export function AdminReviewRequestPage({ baseRoute }: AdminReviewRequestPageProp
         resetRisForm({
             ris_date: format(toZonedTime(new Date(), 'Asia/Manila'), 'yyyy-MM-dd'),
             entity_name: 'CITY GOVERNMENT OF EL SALVADOR',
-            fund_cluster: 'GENERAL FUND',
+            fund_cluster: '',
             division: request?.department?.DepartmentName || '',
             responsibility_center_code: request?.department?.DepartmentCode || '',
             remarks: '',

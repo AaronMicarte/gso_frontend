@@ -46,7 +46,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
     const totalPages = Math.max(1, Math.ceil(details.length / rowsPerPage));
 
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
-    const fundCluster = 'GENERAL FUND';
+    const fundCluster = '';
     const icsNumber = ensureText(issuance.DocumentNumber, 'ICS');
 
     const receivedFromName = ensureText(issuance.issuer?.FullName, 'PROPERTY OFFICER');

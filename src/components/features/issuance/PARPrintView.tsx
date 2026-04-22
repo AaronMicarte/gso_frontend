@@ -48,7 +48,7 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
 
     // Names / departments
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
-    const fundCluster = 'GENERAL FUND';
+    const fundCluster = '';
 
     const receivedByOffice = ensureText(
         issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
