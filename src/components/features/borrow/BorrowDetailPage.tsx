@@ -63,10 +63,9 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         && (borrow?.Status === 'pending'
             || (borrow?.Status === 'approved' && borrow?.ReleasingDecision === 'approved'));
     const canReject = isPrivilegedUser && (borrow?.Status === 'pending' || borrow?.Status === 'approved');
-    const canReleasingReview = user?.UserRoleID === 4
+    const canReleasingReview = isPrivilegedUser
         && borrow?.Status === 'approved'
-        && (borrow?.ReleasingDecision ?? 'pending') === 'pending'
-        && Number(user?.DepartmentID ?? 0) === Number(borrow?.FromDepartmentID ?? 0);
+        && (borrow?.ReleasingDecision ?? 'pending') === 'pending';
     const canReturnBorrow = isPrivilegedUser
         && (borrow?.Status === 'borrowed' || borrow?.Status === 'partially_returned');
     const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
@@ -244,7 +243,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
             await borrowAPI.approve(borrow.BorrowID);
             toast.success(isFinalAction
                 ? 'Borrow finalized and marked as borrowed.'
-                : 'Borrow approved by GSO. Releasing custody can now review.');
+                : 'Borrow approved by GSO/Admin. Releasing review can now proceed.');
             await loadBorrow();
         } catch {
             toast.error('Failed to approve borrow');

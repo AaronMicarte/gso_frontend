@@ -1,5 +1,5 @@
-import { TransferCreatePage } from '@/components/features/transfer';
+import { redirect } from 'next/navigation';
 
 export default function DepartmentHeadTransferCreatePage() {
-    return <TransferCreatePage baseRoute="/department_head/transfer" />;
+    redirect('/department_head/transfer');
 }

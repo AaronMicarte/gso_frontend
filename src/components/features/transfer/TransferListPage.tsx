@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import transferAPI from '@/lib/api/transfer';
 import { PropertyTransfer, TransferStatus } from '@/types/propertyTransfer';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { USER_ROLE_IDS } from '@/constants';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 const statusConfig: Record<TransferStatus, { label: string; className: string }> = {
@@ -44,7 +45,9 @@ export function TransferListPage({
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
-    const canCreate = showCreate ?? (user?.UserRoleID === 4);
+    const canCreate = showCreate ?? (
+        user?.UserRoleID === USER_ROLE_IDS.ADMIN || user?.UserRoleID === USER_ROLE_IDS.GSO_STAFF
+    );
 
     const loadTransfers = useCallback(async (page = 1) => {
         try {

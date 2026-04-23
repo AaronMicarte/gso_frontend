@@ -5,9 +5,9 @@ export default function DepartmentHeadBorrowPage() {
         <BorrowListPage
             baseRoute="/department_head/borrow"
             scope="outgoing"
-            pageTitle="My Borrow Requests"
-            pageDescription="Track borrow requests you created"
-            showCreate={true}
+            pageTitle="Borrow Records"
+            pageDescription="View borrow records involving your department"
+            showCreate={false}
         />
     );
 }

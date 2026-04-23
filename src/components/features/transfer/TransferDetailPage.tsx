@@ -55,10 +55,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
     const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
     const canApprove = isPrivilegedUser && transfer?.Status === 'pending';
-    const canReleasingReview = user?.UserRoleID === 4
+    const canReleasingReview = isPrivilegedUser
         && transfer?.Status === 'approved'
-        && (transfer?.ReleasingDecision ?? 'pending') === 'pending'
-        && Number(user?.DepartmentID ?? 0) === Number(transfer?.FromDepartmentID ?? 0);
+        && (transfer?.ReleasingDecision ?? 'pending') === 'pending';
     const canCompleteTransfer = isPrivilegedUser
         && transfer?.Status === 'approved'
         && transfer?.ReleasingDecision === 'approved';
@@ -144,7 +143,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         try {
             setIsProcessing(true);
             await transferAPI.approve(transfer.TransferID);
-            toast.success('Transfer approved by GSO. Releasing custody can now review.');
+            toast.success('Transfer approved by GSO/Admin. Releasing review can now proceed.');
             await loadTransfer();
         } catch {
             toast.error('Failed to approve transfer');

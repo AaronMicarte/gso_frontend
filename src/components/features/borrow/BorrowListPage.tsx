@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import borrowAPI from '@/lib/api/borrow';
 import { PropertyBorrow, BorrowStatus } from '@/types/propertyBorrow';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { USER_ROLE_IDS } from '@/constants';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
 type BorrowStatusBadge = BorrowStatus | 'overdue';
@@ -49,7 +50,9 @@ export function BorrowListPage({
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
-    const canCreate = showCreate ?? (user?.UserRoleID === 4);
+    const canCreate = showCreate ?? (
+        user?.UserRoleID === USER_ROLE_IDS.ADMIN || user?.UserRoleID === USER_ROLE_IDS.GSO_STAFF
+    );
 
     const loadBorrows = useCallback(async (page = 1) => {
         try {

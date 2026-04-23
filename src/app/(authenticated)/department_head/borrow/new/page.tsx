@@ -1,5 +1,5 @@
-import { BorrowCreatePage } from '@/components/features/borrow';
+import { redirect } from 'next/navigation';
 
 export default function DepartmentHeadBorrowCreatePage() {
-    return <BorrowCreatePage baseRoute="/department_head/borrow" />;
+    redirect('/department_head/borrow');
 }

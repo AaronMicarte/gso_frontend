@@ -7,7 +7,7 @@ export default function DepartmentHeadIncomingBorrowPage() {
             scope="incoming"
             pageTitle="Incoming Borrow Requests"
             pageDescription="Review borrow requests sent to your department"
-            showCreate={true}
+            showCreate={false}
         />
     );
 }

@@ -5,9 +5,9 @@ export default function DepartmentHeadTransferPage() {
         <TransferListPage
             baseRoute="/department_head/transfer"
             scope="outgoing"
-            pageTitle="My Requests"
-            pageDescription="Track transfer requests you created"
-            showCreate={true}
+            pageTitle="Transfer Records"
+            pageDescription="View transfer records involving your department"
+            showCreate={false}
         />
     );
 }

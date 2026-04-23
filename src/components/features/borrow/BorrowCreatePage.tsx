@@ -44,7 +44,6 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
     const { user } = useAuth();
     const [departments, setDepartments] = useState<BorrowDepartment[]>([]);
     const [fromEndUsers, setFromEndUsers] = useState<BorrowEndUser[]>([]);
-    const [toEndUsers, setToEndUsers] = useState<BorrowEndUser[]>([]);
     const [availableItems, setAvailableItems] = useState<BorrowableItem[]>([]);
     const [selectedGroups, setSelectedGroups] = useState<Array<{ key: string; quantity: number }>>([]);
     const [availableQuantities, setAvailableQuantities] = useState<Record<string, number>>({});
@@ -57,9 +56,13 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
     const [releasingComboboxOpen, setReleasingComboboxOpen] = useState(false);
     const [releasingHighlightedIndex, setReleasingHighlightedIndex] = useState(-1);
     const releasingComboboxRef = useRef<HTMLDivElement | null>(null);
+    const [receivingDepartmentQuery, setReceivingDepartmentQuery] = useState('');
+    const [receivingDepartmentComboboxOpen, setReceivingDepartmentComboboxOpen] = useState(false);
+    const [receivingDepartmentHighlightedIndex, setReceivingDepartmentHighlightedIndex] = useState(-1);
+    const receivingDepartmentComboboxRef = useRef<HTMLDivElement | null>(null);
 
     const [fromDepartmentId, setFromDepartmentId] = useState<number | ''>('');
-    const [toDepartmentId, setToDepartmentId] = useState<number | ''>(user?.DepartmentID ?? '');
+    const [toDepartmentId, setToDepartmentId] = useState<number | ''>('');
     const [fromEndUserId, setFromEndUserId] = useState<number | ''>('');
     const [toEndUserId, setToEndUserId] = useState<number | ''>('');
     const [dueDate, setDueDate] = useState('');
@@ -74,20 +77,18 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
 
     const loadHelpers = useCallback(async () => {
         try {
-            const [deptData, receivingEndUsers, releasingEndUsers, allowedPropertyTypes] = await Promise.all([
+            const [deptData, releasingEndUsers, allowedPropertyTypes] = await Promise.all([
                 borrowAPI.getDepartments(),
-                user?.DepartmentID ? borrowAPI.getEndUsers(user.DepartmentID) : Promise.resolve([]),
                 borrowAPI.getEndUsers(undefined, { excludeGso: true }),
                 borrowAPI.getAllowedPropertyTypes(),
             ]);
             setDepartments(deptData);
-            setToEndUsers(receivingEndUsers);
             setFromEndUsers(releasingEndUsers);
             setAllowedTypes(allowedPropertyTypes);
         } catch {
             toast.error('Failed to load borrow helpers');
         }
-    }, [user?.DepartmentID]);
+    }, []);
 
     const loadAvailableItems = useCallback(async () => {
         if (!fromDepartmentId || !fromEndUserId) {
@@ -146,26 +147,28 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                 setReleasingComboboxOpen(false);
                 setReleasingHighlightedIndex(-1);
             }
+            if (receivingDepartmentComboboxRef.current
+                && !receivingDepartmentComboboxRef.current.contains(event.target as Node)) {
+                setReceivingDepartmentComboboxOpen(false);
+                setReceivingDepartmentHighlightedIndex(-1);
+            }
         };
         document.addEventListener('mousedown', onClickOutside);
         return () => document.removeEventListener('mousedown', onClickOutside);
     }, []);
 
     useEffect(() => {
-        if (user?.DepartmentID && !toDepartmentId) {
-            setToDepartmentId(user.DepartmentID);
-        }
-    }, [user?.DepartmentID, toDepartmentId]);
-
-    useEffect(() => {
         if (isDepartmentHead && user?.DepartmentID) {
             setToDepartmentId(user.DepartmentID);
+            const ownDepartment = departments.find((dept) => dept.DepartmentID === user.DepartmentID);
+            if (ownDepartment) {
+                setReceivingDepartmentQuery(ownDepartment.DepartmentName);
+            }
         }
-    }, [isDepartmentHead, user?.DepartmentID]);
+    }, [isDepartmentHead, user?.DepartmentID, departments]);
 
     useEffect(() => {
         if (!toDepartmentId) {
-            setToEndUsers([]);
             setToEndUserId('');
             setReceivingEndUser(null);
             setReceivingError(null);
@@ -174,21 +177,29 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
 
         borrowAPI.getEndUsers(Number(toDepartmentId))
             .then((endUsers) => {
-                setToEndUsers(endUsers);
-                const requesterName = (user?.FullName || '').trim().toLowerCase();
-                const match = endUsers.find((entry) => entry.FullName.trim().toLowerCase() === requesterName) || null;
-                if (!match) {
-                    setReceivingEndUser(null);
+                if (endUsers.length === 0) {
                     setToEndUserId('');
-                    setReceivingError('Requester must have a matching End User record in their department.');
+                    setReceivingEndUser(null);
+                    setReceivingError('No available borrowing custodian for the selected department.');
+                    return;
+                }
+
+                if (!isDepartmentHead) {
+                    const autoSelected = endUsers.find((entry) => entry.EndUserID === Number(toEndUserId)) || endUsers[0];
+                    setReceivingEndUser(autoSelected);
+                    setToEndUserId(autoSelected.EndUserID);
+                    setReceivingError(null);
                 } else {
-                    setReceivingEndUser(match);
-                    setToEndUserId(match.EndUserID);
+                    const requesterName = (user?.FullName || '').trim().toLowerCase();
+                    const match = endUsers.find((entry) => entry.FullName.trim().toLowerCase() === requesterName) || null;
+                    const autoSelected = match || endUsers[0];
+                    setReceivingEndUser(autoSelected);
+                    setToEndUserId(autoSelected.EndUserID);
                     setReceivingError(null);
                 }
             })
             .catch(() => toast.error('Failed to load borrowing end users'));
-    }, [toDepartmentId, user?.FullName]);
+    }, [toDepartmentId, user?.FullName, isDepartmentHead, toEndUserId]);
 
     useEffect(() => {
         loadAvailableItems();
@@ -341,6 +352,42 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
         });
     }, [fromEndUsers, fromEndUserSearch, user?.FullName, user?.DepartmentID]);
 
+    const filteredReceivingDepartments = useMemo(() => {
+        const term = receivingDepartmentQuery.trim().toLowerCase();
+        if (!term) return departments;
+
+        return departments.filter((department) => (
+            department.DepartmentName.toLowerCase().includes(term)
+        ));
+    }, [departments, receivingDepartmentQuery]);
+
+    const selectedReceivingDepartment = useMemo(() => (
+        departments.find((department) => department.DepartmentID === Number(toDepartmentId)) || null
+    ), [departments, toDepartmentId]);
+
+    const requestedByDisplay = useMemo(() => {
+        const departmentName = selectedReceivingDepartment?.DepartmentName
+            || receivingEndUser?.DepartmentName
+            || null;
+
+        if (receivingEndUser) {
+            return `${receivingEndUser.FullName}${departmentName ? ` - ${departmentName}` : ''}`;
+        }
+
+        if (departmentName) {
+            return `Pending custodian selection - ${departmentName}`;
+        }
+
+        return 'Select borrowing department';
+    }, [receivingEndUser, selectedReceivingDepartment]);
+
+    const selectReceivingDepartment = (department: BorrowDepartment) => {
+        setReceivingDepartmentQuery(department.DepartmentName);
+        setToDepartmentId(department.DepartmentID);
+        setReceivingDepartmentComboboxOpen(false);
+        setReceivingDepartmentHighlightedIndex(-1);
+    };
+
     const canSubmit = useMemo(() => {
         return !!fromDepartmentId
             && !!toDepartmentId
@@ -420,7 +467,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                             <div className="text-sm text-slate-600">Request Date: {formattedToday}</div>
                             <div className="text-sm text-slate-600">
-                                Requested By: {user?.FullName || 'Missing requester'}{user?.Department ? ` - ${user.Department}` : ''}
+                                Requested By: {requestedByDisplay}
                             </div>
 
                             <div className="grid gap-4 md:grid-cols-2">
@@ -436,6 +483,8 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                             value={fromEndUserSearch}
                                             onChange={(event) => {
                                                 setFromEndUserSearch(event.target.value);
+                                                setFromEndUserId('');
+                                                setFromDepartmentId('');
                                                 setReleasingComboboxOpen(true);
                                                 setReleasingHighlightedIndex(0);
                                             }}
@@ -522,38 +571,91 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-slate-700">Borrowing Department</label>
-                                    <select
-                                        value={toDepartmentId}
-                                        onChange={(event) => setToDepartmentId(Number(event.target.value))}
-                                        className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
-                                        disabled
-                                    >
-                                        <option value="">Select department</option>
-                                        {departments.map((dept) => (
-                                            <option key={dept.DepartmentID} value={dept.DepartmentID}>
-                                                {dept.DepartmentName}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    {isDepartmentHead ? (
+                                        <input
+                                            type="text"
+                                            value={selectedReceivingDepartment?.DepartmentName || user?.Department || 'Missing department'}
+                                            readOnly
+                                            className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
+                                        />
+                                    ) : (
+                                        <div className="relative mt-2" ref={receivingDepartmentComboboxRef}>
+                                            <input
+                                                type="text"
+                                                role="combobox"
+                                                aria-expanded={receivingDepartmentComboboxOpen}
+                                                aria-controls="borrowing-department-listbox"
+                                                aria-autocomplete="list"
+                                                value={receivingDepartmentQuery}
+                                                onChange={(event) => {
+                                                    setReceivingDepartmentQuery(event.target.value);
+                                                    setToDepartmentId('');
+                                                    setToEndUserId('');
+                                                    setReceivingEndUser(null);
+                                                    setReceivingError(null);
+                                                    setReceivingDepartmentComboboxOpen(true);
+                                                    setReceivingDepartmentHighlightedIndex(-1);
+                                                }}
+                                                onFocus={() => setReceivingDepartmentComboboxOpen(true)}
+                                                onKeyDown={(event) => {
+                                                    if (!receivingDepartmentComboboxOpen) return;
+                                                    if (event.key === 'ArrowDown') {
+                                                        event.preventDefault();
+                                                        setReceivingDepartmentHighlightedIndex((prev) => Math.min(prev + 1, filteredReceivingDepartments.length - 1));
+                                                    } else if (event.key === 'ArrowUp') {
+                                                        event.preventDefault();
+                                                        setReceivingDepartmentHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                                                    } else if (event.key === 'Enter') {
+                                                        event.preventDefault();
+                                                        const selected = filteredReceivingDepartments[receivingDepartmentHighlightedIndex];
+                                                        if (selected) {
+                                                            selectReceivingDepartment(selected);
+                                                        }
+                                                    } else if (event.key === 'Escape') {
+                                                        setReceivingDepartmentComboboxOpen(false);
+                                                        setReceivingDepartmentHighlightedIndex(-1);
+                                                    }
+                                                }}
+                                                placeholder="Search borrowing department"
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                                            />
+                                            {receivingDepartmentComboboxOpen && (
+                                                <ul id="borrowing-department-listbox" role="listbox" className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
+                                                    {filteredReceivingDepartments.length === 0 ? (
+                                                        <li className="px-3 py-2 text-sm text-slate-500">No matching departments.</li>
+                                                    ) : (
+                                                        filteredReceivingDepartments.map((department, idx) => (
+                                                            <li
+                                                                key={department.DepartmentID}
+                                                                role="option"
+                                                                aria-selected={receivingDepartmentHighlightedIndex === idx}
+                                                                onMouseDown={(e) => {
+                                                                    e.preventDefault();
+                                                                    selectReceivingDepartment(department);
+                                                                }}
+                                                                onMouseEnter={() => setReceivingDepartmentHighlightedIndex(idx)}
+                                                                className={`px-3 py-2 text-sm cursor-pointer ${receivingDepartmentHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
+                                                            >
+                                                                {department.DepartmentName}
+                                                            </li>
+                                                        ))
+                                                    )}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-slate-700">Borrowing Custodian</label>
-                                    <select
-                                        value={toEndUserId}
-                                        onChange={(event) => setToEndUserId(Number(event.target.value))}
-                                        className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                                    >
-                                        <option value="">Select end user</option>
-                                        {toEndUsers.map((endUser) => (
-                                            <option key={endUser.EndUserID} value={endUser.EndUserID}>
-                                                {endUser.FullName}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <input
+                                        type="text"
+                                        value={receivingEndUser
+                                            ? `${receivingEndUser.FullName}${receivingEndUser.DepartmentName ? ` - ${receivingEndUser.DepartmentName}` : ''}`
+                                            : 'Auto-selected based on borrowing department'}
+                                        readOnly
+                                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
+                                    />
                                     {receivingError && <p className="text-xs text-rose-500 mt-1">{receivingError}</p>}
-                                    {receivingEndUser && (
-                                        <p className="text-xs text-emerald-600 mt-1">Auto-selected for requester match.</p>
-                                    )}
                                 </div>
                             </div>
 

@@ -7,7 +7,7 @@ export default function DepartmentHeadIncomingTransferPage() {
             scope="incoming"
             pageTitle="Incoming Transfers"
             pageDescription="Review transfer requests sent to your department"
-            showCreate={true}
+            showCreate={false}
         />
     );
 }
