@@ -40,6 +40,10 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
     const [receivingDepartmentComboboxOpen, setReceivingDepartmentComboboxOpen] = useState(false);
     const [receivingDepartmentHighlightedIndex, setReceivingDepartmentHighlightedIndex] = useState(-1);
     const receivingDepartmentComboboxRef = useRef<HTMLDivElement | null>(null);
+    const [requestingDepartmentQuery, setRequestingDepartmentQuery] = useState('');
+    const [requestingDepartmentComboboxOpen, setRequestingDepartmentComboboxOpen] = useState(false);
+    const [requestingDepartmentHighlightedIndex, setRequestingDepartmentHighlightedIndex] = useState(-1);
+    const requestingDepartmentComboboxRef = useRef<HTMLDivElement | null>(null);
 
     const [fromDepartmentId, setFromDepartmentId] = useState<number | ''>('');
     const [toDepartmentId, setToDepartmentId] = useState<number | ''>('');
@@ -127,6 +131,11 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                 && !receivingDepartmentComboboxRef.current.contains(event.target as Node)) {
                 setReceivingDepartmentComboboxOpen(false);
                 setReceivingDepartmentHighlightedIndex(-1);
+            }
+            if (requestingDepartmentComboboxRef.current
+                && !requestingDepartmentComboboxRef.current.contains(event.target as Node)) {
+                setRequestingDepartmentComboboxOpen(false);
+                setRequestingDepartmentHighlightedIndex(-1);
             }
         };
         document.addEventListener('mousedown', onClickOutside);
@@ -340,11 +349,35 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
             if (requesterName && endUser.FullName.trim().toLowerCase() === requesterName) {
                 return false;
             }
+            if (fromDepartmentId && Number(endUser.DepartmentID ?? 0) !== Number(fromDepartmentId)) {
+                return false;
+            }
             if (!term) return true;
             const display = `${endUser.FullName} ${endUser.DepartmentName ?? ''}`.toLowerCase();
             return display.includes(term);
         });
-    }, [fromEndUsers, fromEndUserSearch, user?.FullName, user?.DepartmentID]);
+    }, [fromEndUsers, fromEndUserSearch, user?.FullName, user?.DepartmentID, fromDepartmentId]);
+
+    const usersByDepartment = useMemo(() => {
+        const map: Record<number, string[]> = {};
+        for (const endUser of fromEndUsers) {
+            const depId = Number(endUser.DepartmentID ?? 0);
+            if (!depId) continue;
+            if (!map[depId]) map[depId] = [];
+            map[depId].push(endUser.FullName);
+        }
+        return map;
+    }, [fromEndUsers]);
+
+    const filteredRequestingDepartments = useMemo(() => {
+        const term = requestingDepartmentQuery.trim().toLowerCase();
+        if (!term) return departments;
+        return departments.filter((department) => {
+            if (department.DepartmentName.toLowerCase().includes(term)) return true;
+            const users = usersByDepartment[department.DepartmentID] || [];
+            return users.some((name) => name.toLowerCase().includes(term));
+        });
+    }, [departments, requestingDepartmentQuery, usersByDepartment]);
 
     const filteredReceivingDepartments = useMemo(() => {
         const term = receivingDepartmentQuery.trim().toLowerCase();
@@ -352,8 +385,9 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
 
         return departments.filter((department) => (
             department.DepartmentName.toLowerCase().includes(term)
+            || (usersByDepartment[department.DepartmentID] || []).some((name) => name.toLowerCase().includes(term))
         ));
-    }, [departments, receivingDepartmentQuery]);
+    }, [departments, receivingDepartmentQuery, usersByDepartment]);
 
     const selectedReceivingDepartment = useMemo(() => (
         departments.find((department) => department.DepartmentID === Number(toDepartmentId)) || null
@@ -380,6 +414,15 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
         setToDepartmentId(department.DepartmentID);
         setReceivingDepartmentComboboxOpen(false);
         setReceivingDepartmentHighlightedIndex(-1);
+    };
+
+    const selectRequestingDepartment = (department: TransferDepartment) => {
+        setRequestingDepartmentQuery(department.DepartmentName);
+        setFromDepartmentId(department.DepartmentID);
+        setFromEndUserId('');
+        setFromEndUserSearch('');
+        setRequestingDepartmentComboboxOpen(false);
+        setRequestingDepartmentHighlightedIndex(-1);
     };
 
     const canSubmit = useMemo(() => {
@@ -490,6 +533,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                     if (selected) {
                                                         setFromEndUserId(selected.EndUserID);
                                                         setFromDepartmentId(selected.DepartmentID ?? '');
+                                                        setRequestingDepartmentQuery(selected.DepartmentName || '');
                                                         setFromEndUserSearch(`${selected.FullName}${selected.DepartmentName ? ` - ${selected.DepartmentName}` : ''}`);
                                                         setReleasingComboboxOpen(false);
                                                     }
@@ -515,6 +559,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                                 e.preventDefault();
                                                                 setFromEndUserId(endUser.EndUserID);
                                                                 setFromDepartmentId(endUser.DepartmentID ?? '');
+                                                                setRequestingDepartmentQuery(endUser.DepartmentName || '');
                                                                 setFromEndUserSearch(`${endUser.FullName}${endUser.DepartmentName ? ` - ${endUser.DepartmentName}` : ''}`);
                                                                 setReleasingComboboxOpen(false);
                                                             }}
@@ -530,20 +575,69 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-slate-700">Releasing Department</label>
-                                    <select
-                                        value={fromDepartmentId}
-                                        onChange={(event) => setFromDepartmentId(Number(event.target.value))}
-                                        className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
-                                        disabled
-                                    >
-                                        <option value="">Select department</option>
-                                        {departments.map((dept) => (
-                                            <option key={dept.DepartmentID} value={dept.DepartmentID}>
-                                                {dept.DepartmentName}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <label className="text-sm font-medium text-slate-700">Requesting Department</label>
+                                    <div className="relative mt-2" ref={requestingDepartmentComboboxRef}>
+                                        <input
+                                            type="text"
+                                            role="combobox"
+                                            aria-expanded={requestingDepartmentComboboxOpen}
+                                            aria-controls="requesting-department-listbox"
+                                            aria-autocomplete="list"
+                                            value={requestingDepartmentQuery}
+                                            onChange={(event) => {
+                                                setRequestingDepartmentQuery(event.target.value);
+                                                setFromDepartmentId('');
+                                                setFromEndUserId('');
+                                                setFromEndUserSearch('');
+                                                setRequestingDepartmentComboboxOpen(true);
+                                                setRequestingDepartmentHighlightedIndex(-1);
+                                            }}
+                                            onFocus={() => setRequestingDepartmentComboboxOpen(true)}
+                                            onKeyDown={(event) => {
+                                                if (!requestingDepartmentComboboxOpen) return;
+                                                if (event.key === 'ArrowDown') {
+                                                    event.preventDefault();
+                                                    setRequestingDepartmentHighlightedIndex((prev) => Math.min(prev + 1, filteredRequestingDepartments.length - 1));
+                                                } else if (event.key === 'ArrowUp') {
+                                                    event.preventDefault();
+                                                    setRequestingDepartmentHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                                                } else if (event.key === 'Enter') {
+                                                    event.preventDefault();
+                                                    const selected = filteredRequestingDepartments[requestingDepartmentHighlightedIndex];
+                                                    if (selected) selectRequestingDepartment(selected);
+                                                } else if (event.key === 'Escape') {
+                                                    setRequestingDepartmentComboboxOpen(false);
+                                                    setRequestingDepartmentHighlightedIndex(-1);
+                                                }
+                                            }}
+                                            placeholder="Search requesting department or user"
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                        />
+                                        {requestingDepartmentComboboxOpen && (
+                                            <ul id="requesting-department-listbox" role="listbox" className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
+                                                {filteredRequestingDepartments.length === 0 ? (
+                                                    <li className="px-3 py-2 text-sm text-slate-500">No matching departments.</li>
+                                                ) : (
+                                                    filteredRequestingDepartments.map((department, idx) => (
+                                                        <li
+                                                            key={department.DepartmentID}
+                                                            role="option"
+                                                            aria-selected={requestingDepartmentHighlightedIndex === idx}
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                selectRequestingDepartment(department);
+                                                            }}
+                                                            onMouseEnter={() => setRequestingDepartmentHighlightedIndex(idx)}
+                                                            className={`px-3 py-2 text-sm cursor-pointer ${requestingDepartmentHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
+                                                        >
+                                                            <div>{department.DepartmentName}</div>
+                                                            <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).slice(0, 2).join(', ') || 'No users'}</div>
+                                                        </li>
+                                                    ))
+                                                )}
+                                            </ul>
+                                        )}
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-slate-700">Receiving Department</label>
@@ -592,7 +686,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                         setReceivingDepartmentHighlightedIndex(-1);
                                                     }
                                                 }}
-                                                placeholder="Search receiving department"
+                                                placeholder="Search receiving department or user"
                                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                                             />
                                             {receivingDepartmentComboboxOpen && (

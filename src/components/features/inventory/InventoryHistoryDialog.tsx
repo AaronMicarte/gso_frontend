@@ -9,7 +9,12 @@ import { useInventoryDetailHistory } from '@/lib/hooks/useInventory';
 import type { InventoryHistoryItem } from '@/lib/api/inventory';
 
 const formatManilaDateTime = (value: string) => {
-    const date = new Date(value);
+    const raw = (value || '').trim();
+    if (!raw) return 'Unknown date';
+
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return 'Unknown date';
+
     return format(toZonedTime(date, 'Asia/Manila'), 'MMM dd, yyyy h:mm a');
 };
 
@@ -66,11 +71,14 @@ const renderMeta = (meta?: Record<string, unknown> | null) => {
 };
 
 const HistoryItem = ({ item }: { item: InventoryHistoryItem }) => (
-    <div className="flex gap-3">
+    <div className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3">
         <div className="mt-2 h-2 w-2 rounded-full bg-slate-400" />
         <div className="flex-1">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase rounded px-2 py-0.5 bg-slate-100 text-slate-600">{item.type}</span>
+                    <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+                </div>
                 <div className="text-xs text-slate-500">{formatManilaDateTime(item.occurred_at)}</div>
             </div>
             {item.description && <div className="text-xs text-slate-600">{item.description}</div>}
@@ -85,11 +93,19 @@ export function InventoryHistoryDialog({ inventoryDetailId, itemName }: { invent
     const { data, isLoading, isError } = useInventoryDetailHistory(inventoryDetailId, open);
     const history = (data?.history ?? [])
         .map((item, index) => ({ item, index }))
+        .filter(({ item }, idx, arr) => {
+            const fingerprint = `${item.type}|${item.action}|${item.occurred_at}|${item.actor?.id ?? 0}|${item.title}|${item.description ?? ''}|${JSON.stringify(item.meta ?? {})}`;
+            return arr.findIndex((candidate) => {
+                const c = candidate.item;
+                const cf = `${c.type}|${c.action}|${c.occurred_at}|${c.actor?.id ?? 0}|${c.title}|${c.description ?? ''}|${JSON.stringify(c.meta ?? {})}`;
+                return cf === fingerprint;
+            }) === idx;
+        })
         .sort((a, b) => {
             const timeA = new Date(a.item.occurred_at).getTime();
             const timeB = new Date(b.item.occurred_at).getTime();
-            if (Number.isNaN(timeA) || Number.isNaN(timeB)) return a.index - b.index;
-            return timeA - timeB || a.index - b.index;
+            if (Number.isNaN(timeA) || Number.isNaN(timeB)) return b.index - a.index;
+            return timeB - timeA || b.index - a.index;
         })
         .map(({ item }) => item);
 
@@ -128,7 +144,7 @@ export function InventoryHistoryDialog({ inventoryDetailId, itemName }: { invent
                         ) : history.length === 0 ? (
                             <div className="text-sm text-slate-500">No history recorded for this item yet.</div>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {history.map((item, index) => (
                                     <HistoryItem key={`${item.action}-${item.occurred_at}-${index}`} item={item} />
                                 ))}

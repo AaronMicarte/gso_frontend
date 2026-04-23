@@ -52,6 +52,7 @@ interface RawInventoryDetail {
         SerialNumber?: string | null;
         article?: {
             ArticleName?: string | null;
+            ArticleImage?: string | null;
         } | null;
     } | null;
     dr_detail?: {
@@ -59,6 +60,7 @@ interface RawInventoryDetail {
         SerialNumber?: string | null;
         article?: {
             ArticleName?: string | null;
+            ArticleImage?: string | null;
         } | null;
     } | null;
 }
@@ -179,6 +181,7 @@ const normalizeInventoryDetail = (inventoryDetail?: RawInventoryDetail | null) =
                 article: drDetail.article
                     ? {
                         ArticleName: drDetail.article.ArticleName ?? null,
+                        ArticleImage: drDetail.article.ArticleImage ?? null,
                     }
                     : null,
             }

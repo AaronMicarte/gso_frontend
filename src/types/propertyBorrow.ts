@@ -45,6 +45,7 @@ export interface BorrowInventoryDetail {
         ItemDescription?: string | null;
         article?: {
             ArticleName?: string | null;
+            ArticleImage?: string | null;
         } | null;
     } | null;
 }

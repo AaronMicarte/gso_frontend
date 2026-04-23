@@ -42,6 +42,7 @@ export interface TransferInventoryDetail {
         SerialNumber?: string | null;
         article?: {
             ArticleName?: string | null;
+            ArticleImage?: string | null;
         } | null;
     } | null;
 }
