@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
 
 import transferAPI from '@/lib/api/transfer';
-import { PropertyTransfer, ReleasingDecision, TransferStatus } from '@/types/propertyTransfer';
+import { PropertyTransfer, TransferStatus } from '@/types/propertyTransfer';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 const statusConfig: Record<TransferStatus, { label: string; className: string; icon: typeof Clock }> = {
@@ -54,13 +54,10 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
     const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
     const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
-    const canApprove = isPrivilegedUser && transfer?.Status === 'pending';
-    const canReleasingReview = isPrivilegedUser
-        && transfer?.Status === 'approved'
-        && (transfer?.ReleasingDecision ?? 'pending') === 'pending';
+    const canApprove = false;
+    const canReleasingReview = false;
     const canCompleteTransfer = isPrivilegedUser
-        && transfer?.Status === 'approved'
-        && transfer?.ReleasingDecision === 'approved';
+        && transfer?.Status === 'approved';
     const isReleasingDepartmentViewer = user?.UserRoleID === 4
         && !isPrivilegedUser
         && Number(user?.DepartmentID ?? 0) === Number(transfer?.FromDepartmentID ?? 0);
@@ -307,36 +304,18 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         return formatDisplayDateTime(transfer.ApprovedAt) || 'Approved (date missing)';
     };
 
-    const releasingDecisionLabel = (decision?: ReleasingDecision) => {
-        if (decision === 'approved') return 'Approved by releasing custody';
-        if (decision === 'rejected') return 'Rejected by releasing custody';
-        return 'Pending releasing custody review';
+    const releasingDecisionLabel = () => {
+        if (!transfer) return 'Workflow in progress';
+        if (transfer.Status === 'completed') return 'Completed';
+        if (transfer.Status === 'rejected') return 'Rejected';
+        return 'Auto-approved by GSO';
     };
 
-    const releasingDecisionBadgeClass = (decision?: ReleasingDecision) => {
-        if (decision === 'approved') return 'bg-emerald-100 text-emerald-700';
-        if (decision === 'rejected') return 'bg-rose-100 text-rose-700';
-        return 'bg-amber-100 text-amber-700';
-    };
-
-    const releasingReviewedAtDisplay = () => {
-        if (!transfer?.ReleasingReviewedAt) return 'Pending review';
-        return formatDisplayDateTime(transfer.ReleasingReviewedAt) || 'Pending review';
-    };
-
-    const borrowerSignedDisplay = () => {
-        if (!transfer) return '';
-        if (transfer.Status === 'pending') return 'Awaiting approval';
-        if (transfer.Status === 'rejected') return 'Not applicable';
-        return formatDisplayDate(transfer.BorrowerSignedAt) || 'Pending GSO releasing confirmation';
-    };
-
-    const borrowingSignedDisplay = () => {
-        if (!transfer) return '';
-        if (transfer.Status === 'pending') return 'Awaiting approval';
-        if (transfer.Status === 'rejected') return 'Not applicable';
-        if (!transfer.BorrowerSignedAt) return 'Waiting for GSO releasing confirmation';
-        return formatDisplayDate(transfer.BorrowingSignedAt) || 'Pending receiving signature';
+    const releasingDecisionBadgeClass = () => {
+        if (!transfer) return 'bg-slate-100 text-slate-700';
+        if (transfer.Status === 'completed') return 'bg-emerald-100 text-emerald-700';
+        if (transfer.Status === 'rejected') return 'bg-rose-100 text-rose-700';
+        return 'bg-blue-100 text-blue-700';
     };
 
     const completedDisplay = () => {
@@ -344,20 +323,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         if (transfer.Status === 'completed') {
             return formatDisplayDateTime(transfer.CompletedAt) || 'Completed (date missing)';
         }
-        if (transfer.Status === 'approved' && transfer.ReleasingDecision !== 'approved') return 'Awaiting releasing custody review';
         if (transfer.Status === 'approved') return 'Awaiting final GSO completion';
         if (transfer.Status === 'rejected') return 'Not applicable';
         return 'Pending approval';
-    };
-
-    const releasingApprovedDisplay = () => {
-        if (!transfer) return 'Pending review';
-        if ((transfer.ReleasingDecision ?? 'pending') === 'pending') return 'Pending review';
-        if (transfer.ReleasingDecision === 'rejected') return 'Rejected by releasing custody';
-
-        const approvedCount = Number(transfer.ReleasingApprovedCount ?? 0);
-        const requestedCount = Number(transfer.RequestedItemsCount ?? transfer.items?.length ?? 0);
-        return `${approvedCount} of ${requestedCount} item(s)`;
     };
 
     const statusBadge = useMemo(() => {
@@ -532,7 +500,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 Approve
                             </button>
                         )}
-                        {isPrivilegedUser && transfer.Status === 'pending' && (
+                        {isPrivilegedUser && transfer.Status === 'approved' && (
                             <Dialog.Root open={rejectOpen} onOpenChange={setRejectOpen}>
                                 <Dialog.Trigger asChild>
                                     <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
@@ -582,7 +550,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                     <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
                                         <Dialog.Title className="text-lg font-semibold text-slate-900">Complete Transfer</Dialog.Title>
                                         <Dialog.Description className="text-sm text-slate-500 mt-1">
-                                            Releasing custody has accepted this request. Finalize the transfer and update inventory ownership.
+                                            Finalize this transfer and update inventory ownership.
                                         </Dialog.Description>
 
                                         <div className="grid gap-4 mt-4">
@@ -613,12 +581,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </Dialog.Portal>
                             </Dialog.Root>
                         )}
-                        {isPrivilegedUser && transfer.Status === 'approved' && (transfer.ReleasingDecision ?? 'pending') === 'pending' && (
-                            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                Waiting for releasing custody review before final GSO action.
-                            </div>
-                        )}
-                        {isPrivilegedUser && transfer.Status === 'approved' && transfer.ReleasingDecision === 'approved' && (
+                        {isPrivilegedUser && transfer.Status === 'approved' && (
                             <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                                 Ready for final GSO completion.
                             </div>
@@ -669,10 +632,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </div>
                             </div>
                             <div>
-                                <div className="text-xs text-slate-500 uppercase">Approved by Releasing</div>
-                                <div className="text-sm font-semibold text-slate-900">
-                                    {releasingApprovedDisplay()}
-                                </div>
+                                <div className="text-xs text-slate-500 uppercase">Workflow</div>
+                                <div className="text-sm font-semibold text-slate-900">Auto-approved by GSO</div>
                             </div>
                         </div>
 
@@ -688,8 +649,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <div className="flex items-start justify-between gap-3 mb-4">
                                 <div className="text-sm font-semibold text-slate-900">Workflow Timeline</div>
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${releasingDecisionBadgeClass(transfer.ReleasingDecision)}`}>
-                                    {releasingDecisionLabel(transfer.ReleasingDecision)}
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${releasingDecisionBadgeClass()}`}>
+                                    {releasingDecisionLabel()}
                                 </span>
                             </div>
 
@@ -701,10 +662,6 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                             <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
                                         </div>
                                         <div>
-                                            <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
-                                            <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
-                                        </div>
-                                        <div>
                                             <div className="text-xs text-slate-500 uppercase">GSO Finalized At</div>
                                             <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
                                         </div>
@@ -713,8 +670,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
 
                                 {isReleasingDepartmentViewer && (
                                     <div>
-                                        <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
-                                        <div className="text-sm font-medium text-slate-800 mt-1">{releasingReviewedAtDisplay()}</div>
+                                        <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
+                                        <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
                                     </div>
                                 )}
 
@@ -742,11 +699,10 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </span>
                             </div>
                             <div className="text-sm text-slate-600">Requested on: {formatDisplayDateTime(transfer.created_at) || 'Unknown'}</div>
-                            <div className="text-sm text-slate-600">Reviewed at: {releasingReviewedAtDisplay()}</div>
                             {!isReleasingDepartmentViewer && (
                                 <>
                                     <div className="text-sm text-slate-600">Finalized at: {completedDisplay()}</div>
-                                    <div className="text-sm text-slate-600">Releasing approved: {releasingApprovedDisplay()}</div>
+                                    <div className="text-sm text-slate-600">Workflow: Auto-approved by GSO</div>
                                 </>
                             )}
                         </div>

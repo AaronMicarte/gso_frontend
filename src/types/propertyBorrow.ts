@@ -1,4 +1,4 @@
-export type BorrowStatus = 'pending' | 'approved' | 'rejected' | 'borrowed' | 'partially_returned' | 'returned' | 'cancelled';
+export type BorrowStatus = 'pending' | 'approved' | 'rejected' | 'borrowed' | 'partially_returned' | 'returned' | 'completed' | 'cancelled';
 export type BorrowReleasingDecision = 'pending' | 'approved' | 'rejected';
 
 export interface BorrowDepartment {

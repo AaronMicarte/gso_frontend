@@ -22,6 +22,7 @@ const statusConfig: Record<BorrowStatusBadge, { label: string; className: string
     borrowed: { label: 'Borrowed', className: 'bg-indigo-100 text-indigo-800' },
     partially_returned: { label: 'Partially Returned', className: 'bg-cyan-100 text-cyan-800' },
     returned: { label: 'Returned', className: 'bg-green-100 text-green-800' },
+    completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-800' },
     cancelled: { label: 'Cancelled', className: 'bg-slate-200 text-slate-700' },
     overdue: { label: 'Overdue', className: 'bg-rose-100 text-rose-700' },
 };
@@ -168,6 +169,7 @@ export function BorrowListPage({
                             <option value="borrowed">Borrowed</option>
                             <option value="partially_returned">Partially Returned</option>
                             <option value="returned">Returned</option>
+                            <option value="completed">Completed</option>
                             <option value="rejected">Rejected</option>
                         </select>
                     </div>

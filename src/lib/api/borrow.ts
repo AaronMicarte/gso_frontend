@@ -376,6 +376,14 @@ const borrowAPI = {
         } as PropertyBorrowActionResponse;
     },
 
+    deliver: async (id: number) => {
+        const { data } = await apiClient.post<{ message: string; borrow: RawBorrow }>(`/property-borrows/${id}/deliver`);
+        return {
+            ...data,
+            borrow: normalizeBorrow(data.borrow),
+        } as PropertyBorrowActionResponse;
+    },
+
     reject: async (id: number, payload?: { notes?: string | null }) => {
         const { data } = await apiClient.post<{ message: string; borrow: RawBorrow }>(
             `/property-borrows/${id}/reject`,
@@ -391,6 +399,17 @@ const borrowAPI = {
         const { data } = await apiClient.post<{ message: string; borrow: RawBorrow }>(
             `/property-borrows/${id}/return`,
             payload
+        );
+        return {
+            ...data,
+            borrow: normalizeBorrow(data.borrow),
+        } as PropertyBorrowActionResponse;
+    },
+
+    complete: async (id: number, payload?: { notes?: string | null }) => {
+        const { data } = await apiClient.post<{ message: string; borrow: RawBorrow }>(
+            `/property-borrows/${id}/complete`,
+            payload || {}
         );
         return {
             ...data,

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle, Clock, FileText, Printer, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock, Printer, XCircle } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -23,6 +23,7 @@ const statusConfig: Record<BorrowStatusBadge, { label: string; className: string
     borrowed: { label: 'Borrowed', className: 'bg-indigo-100 text-indigo-800', icon: CheckCircle },
     partially_returned: { label: 'Partially Returned', className: 'bg-cyan-100 text-cyan-800', icon: CheckCircle },
     returned: { label: 'Returned', className: 'bg-green-100 text-green-800', icon: CheckCircle },
+    completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-800', icon: CheckCircle },
     cancelled: { label: 'Cancelled', className: 'bg-slate-200 text-slate-700', icon: XCircle },
     overdue: { label: 'Overdue', className: 'bg-rose-100 text-rose-700', icon: XCircle },
 };
@@ -31,7 +32,7 @@ interface BorrowDetailPageProps {
     baseRoute: string;
 }
 
-type PendingConfirmAction = 'approve' | 'return' | null;
+type PendingConfirmAction = 'deliver' | 'return' | 'complete' | null;
 
 function displaySafeText(value: string | null | undefined, fallback: string) {
     const text = value?.trim();
@@ -59,15 +60,13 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
     const borrowId = params?.id ? parseInt(params.id as string) : null;
 
     const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
-    const canApprove = isPrivilegedUser
-        && (borrow?.Status === 'pending'
-            || (borrow?.Status === 'approved' && borrow?.ReleasingDecision === 'approved'));
+    const canApprove = false;
+    const canDeliver = isPrivilegedUser && borrow?.Status === 'approved';
     const canReject = isPrivilegedUser && (borrow?.Status === 'pending' || borrow?.Status === 'approved');
-    const canReleasingReview = isPrivilegedUser
-        && borrow?.Status === 'approved'
-        && (borrow?.ReleasingDecision ?? 'pending') === 'pending';
+    const canReleasingReview = false;
     const canReturnBorrow = isPrivilegedUser
         && (borrow?.Status === 'borrowed' || borrow?.Status === 'partially_returned');
+    const canCompleteBorrow = isPrivilegedUser && borrow?.Status === 'returned';
     const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
     const isReleasingDepartmentViewer = user?.UserRoleID === 4
         && !isPrivilegedUser
@@ -235,18 +234,29 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         setReturnRowsByItem(nextRows);
     }, [borrow, returnableItems]);
 
-    const handleApprove = async () => {
+    const handleDeliver = async () => {
         if (!borrow) return;
-        const isFinalAction = borrow.Status === 'approved';
         try {
             setIsProcessing(true);
-            await borrowAPI.approve(borrow.BorrowID);
-            toast.success(isFinalAction
-                ? 'Borrow finalized and marked as borrowed.'
-                : 'Borrow approved by GSO/Admin. Releasing review can now proceed.');
+            await borrowAPI.deliver(borrow.BorrowID);
+            toast.success('Borrow marked as delivered.');
             await loadBorrow();
         } catch {
-            toast.error('Failed to approve borrow');
+            toast.error('Failed to mark borrow as delivered');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleComplete = async () => {
+        if (!borrow) return;
+        try {
+            setIsProcessing(true);
+            await borrowAPI.complete(borrow.BorrowID, { notes: returnNotes.trim() || null });
+            toast.success('Borrow marked as completed.');
+            await loadBorrow();
+        } catch {
+            toast.error('Failed to complete borrow');
         } finally {
             setIsProcessing(false);
         }
@@ -391,8 +401,8 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
     const handleConfirmAction = async () => {
         if (!pendingConfirmAction) return;
 
-        if (pendingConfirmAction === 'approve') {
-            await handleApprove();
+        if (pendingConfirmAction === 'deliver') {
+            await handleDeliver();
             setPendingConfirmAction(null);
             return;
         }
@@ -400,18 +410,29 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         if (pendingConfirmAction === 'return') {
             await handleReturn();
             setPendingConfirmAction(null);
+            return;
+        }
+
+        if (pendingConfirmAction === 'complete') {
+            await handleComplete();
+            setPendingConfirmAction(null);
         }
     };
 
     const confirmDialogConfig = () => {
-        if (pendingConfirmAction === 'approve') {
-            const isFinalAction = borrow?.Status === 'approved';
+        if (pendingConfirmAction === 'deliver') {
             return {
-                title: isFinalAction ? 'Confirm Final GSO Action' : 'Confirm GSO Approval',
-                description: isFinalAction
-                    ? 'Finalize this request and mark items as borrowed?'
-                    : 'Approve this borrow request so releasing custody can review?',
-                confirmText: isFinalAction ? 'Finalize Borrow' : 'Confirm Approval',
+                title: 'Confirm Delivered',
+                description: 'Mark this borrow request as delivered now?',
+                confirmText: 'Mark Delivered',
+            };
+        }
+
+        if (pendingConfirmAction === 'complete') {
+            return {
+                title: 'Confirm Completion',
+                description: 'Mark this fully returned borrow as completed?',
+                confirmText: 'Mark Completed',
             };
         }
 
@@ -437,12 +458,6 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         return text && text.length > 0 ? text : missingLabel;
     };
 
-    const releasingDecisionLabel = (decision?: BorrowReleasingDecision) => {
-        if (decision === 'approved') return 'Approved by releasing custody';
-        if (decision === 'rejected') return 'Rejected by releasing custody';
-        return 'Pending releasing custody review';
-    };
-
     const releasingDecisionBadgeClass = (decision?: BorrowReleasingDecision) => {
         if (decision === 'approved') return 'bg-emerald-100 text-emerald-700';
         if (decision === 'rejected') return 'bg-rose-100 text-rose-700';
@@ -464,7 +479,8 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
     const canPrint = (borrow?.Status === 'approved'
         || borrow?.Status === 'borrowed'
         || borrow?.Status === 'partially_returned'
-        || borrow?.Status === 'returned')
+        || borrow?.Status === 'returned'
+        || borrow?.Status === 'completed')
         && !isDepartmentHead;
 
     if (loading) {
@@ -599,7 +615,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                             <div className="flex items-start justify-between gap-3 mb-4">
                                 <div className="text-sm font-semibold text-slate-900">Workflow Timeline</div>
                                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${releasingDecisionBadgeClass(borrow.ReleasingDecision)}`}>
-                                    {releasingDecisionLabel(borrow.ReleasingDecision)}
+                                    {borrow.Status === 'completed' ? 'Completed' : 'Auto-approved by GSO'}
                                 </span>
                             </div>
 
@@ -615,13 +631,6 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                     </>
                                 )}
 
-                                <div>
-                                    <div className="text-xs text-slate-500 uppercase">Releasing Reviewed At</div>
-                                    <div className="text-sm font-medium text-slate-800 mt-1">
-                                        {formatDisplayDateTime(borrow.ReleasingReviewedAt) || 'Pending review'}
-                                    </div>
-                                </div>
-
                                 {!isReleasingDepartmentViewer && (
                                     <>
                                         <div>
@@ -634,6 +643,14 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                             <div className="text-xs text-slate-500 uppercase">Returned At</div>
                                             <div className="text-sm font-medium text-slate-800 mt-1">
                                                 {lastReturnAt ? formatDisplayDateTime(lastReturnAt) : 'Not returned'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-slate-500 uppercase">Completed At</div>
+                                            <div className="text-sm font-medium text-slate-800 mt-1">
+                                                {borrow.Status === 'completed'
+                                                    ? (formatDisplayDateTime(borrow.updated_at) || 'Completed')
+                                                    : 'Not completed'}
                                             </div>
                                         </div>
                                     </>
@@ -699,24 +716,13 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
                             <h2 className="text-lg font-semibold text-slate-900">Actions</h2>
 
-                            {canReleasingReview && (
+                            {canDeliver && (
                                 <button
                                     type="button"
-                                    onClick={() => setReleasingReviewOpen(true)}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-white text-sm hover:bg-amber-600"
-                                >
-                                    <FileText className="w-4 h-4" />
-                                    Releasing Review
-                                </button>
-                            )}
-
-                            {canApprove && (
-                                <button
-                                    type="button"
-                                    onClick={() => setPendingConfirmAction('approve')}
+                                    onClick={() => setPendingConfirmAction('deliver')}
                                     className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700"
                                 >
-                                    {borrow.Status === 'approved' ? 'Finalize Borrow' : 'Approve (GSO)'}
+                                    Mark as Delivered
                                 </button>
                             )}
 
@@ -821,12 +827,22 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                         disabled={returnableItems.length === 0}
                                         className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700 disabled:opacity-60"
                                     >
-                                        Record Return
+                                        Return Item(s)
                                     </button>
                                 </div>
                             )}
 
-                            {!canReleasingReview && !canApprove && !canReject && !canReturnBorrow && (
+                            {canCompleteBorrow && (
+                                <button
+                                    type="button"
+                                    onClick={() => setPendingConfirmAction('complete')}
+                                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white text-sm hover:bg-blue-700"
+                                >
+                                    Mark as Completed
+                                </button>
+                            )}
+
+                            {!canReleasingReview && !canApprove && !canDeliver && !canReject && !canReturnBorrow && !canCompleteBorrow && (
                                 <div className="text-sm text-slate-500">No actions available for your role.</div>
                             )}
                         </div>
@@ -843,6 +859,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                 <>
                                     <div className="text-sm text-slate-600">Borrowed at: {formatDisplayDateTime(borrow.BorrowedAt) || 'Not yet borrowed'}</div>
                                     <div className="text-sm text-slate-600">Returned at: {formatDisplayDateTime(lastReturnAt) || 'Not yet returned'}</div>
+                                    <div className="text-sm text-slate-600">Completed at: {borrow.Status === 'completed' ? (formatDisplayDateTime(borrow.updated_at) || 'Completed') : 'Not yet completed'}</div>
                                     <div className="text-sm text-slate-600">Returned items: {totalReturned} of {totalBorrowed}</div>
                                 </>
                             )}
