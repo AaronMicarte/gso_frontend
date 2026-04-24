@@ -124,7 +124,6 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
             <table className="w-full border-collapse border border-black text-[11px] leading-tight">
                 <thead>
                     <tr>
-                        <th className="border border-black px-1 py-[2px] w-[80px] text-center">Image</th>
                         <th className="border border-black px-1 py-[2px] w-[50px] text-center">Qty</th>
                         <th className="border border-black px-1 py-[2px] w-[70px] text-center">Unit</th>
                         <th className="border border-black px-1 py-[2px] text-center">Description</th>
@@ -140,17 +139,11 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                             const description = ensureText(inv?.Description, 'Missing description');
                             const unitName = ensureText(inv?.unitOfMeasure?.UnitName, 'Missing unit');
                             const propertyNo = ensureText(inv?.PropertyNumber, 'Missing property number');
-                            const serial = ensureText(inv?.SerialNumber, 'Missing serial');
-                            const articleImage = resolveArticleImageUrl(inv?.drDetail?.article?.ArticleImage);
+                            const serial = ensureText(inv?.SerialNumber, '');
 
                             return (
                                 <tr key={item.BorrowItemID ?? idx}>
-                                    <td className="border border-black px-1 py-[2px] text-center align-middle">
-                                        {articleImage ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={articleImage} alt="Article" className="mx-auto h-10 w-10 object-cover" />
-                                        ) : 'N/A'}
-                                    </td>
+
                                     <td className="border border-black px-1 py-[2px] text-center">{item.Quantity ?? 1}</td>
                                     <td className="border border-black px-1 py-[2px] text-center">{unitName}</td>
                                     <td className="border border-black px-1 py-[2px]">{description}</td>
@@ -166,7 +159,6 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                                 <tr key={`blank-${i}`}>
                                     <td className="border border-black px-1 py-[2px] h-[23px]">&nbsp;</td>
                                     <td className="border border-black px-1 py-[2px] h-[23px]">&nbsp;</td>
-                                    <td className="border border-black px-1 py-[2px]">&nbsp;</td>
                                     <td className="border border-black px-1 py-[2px]">&nbsp;</td>
                                     <td className="border border-black px-1 py-[2px]">&nbsp;</td>
                                     <td className="border border-black px-1 py-[2px]">&nbsp;</td>
