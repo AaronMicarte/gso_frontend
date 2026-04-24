@@ -2,6 +2,7 @@ import React from 'react';
 import { PropertyBorrow } from '@/types/propertyBorrow';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { resolveStorageUrl } from '@/lib/utils/signature';
 
 interface BorrowPrintViewProps {
     borrow: PropertyBorrow;
@@ -21,9 +22,9 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
     const resolveArticleImageUrl = (raw?: string | null) => {
         const value = (raw || '').trim();
         if (!value) return null;
-        if (value.startsWith('http') || value.startsWith('//') || value.startsWith('/')) return value;
-        if (value.startsWith('data:')) return value;
-        return `/${value}`;
+        const normalized = value.replace(/^\/+/, '');
+        const mapped = normalized.startsWith('article_images/') ? `/storage/${normalized}` : value;
+        return resolveStorageUrl(mapped);
     };
 
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';

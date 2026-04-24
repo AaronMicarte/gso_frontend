@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { addDays, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
+import { resolveStorageUrl } from '@/lib/utils/signature';
 import borrowAPI from '@/lib/api/borrow';
 import {
     PropertyBorrowCreatePayload,
@@ -16,6 +17,7 @@ import {
     BorrowAllowedPropertyType,
 } from '@/types/propertyBorrow';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { ArticlePreviewModal } from '@/components/ui/ArticlePreviewModal';
 
 interface BorrowCreatePageProps {
     baseRoute: string;
@@ -64,6 +66,8 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
     const [requestingDepartmentComboboxOpen, setRequestingDepartmentComboboxOpen] = useState(false);
     const [requestingDepartmentHighlightedIndex, setRequestingDepartmentHighlightedIndex] = useState(-1);
     const requestingDepartmentComboboxRef = useRef<HTMLDivElement | null>(null);
+    const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+    const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
     const [fromDepartmentId, setFromDepartmentId] = useState<number | ''>('');
     const [toDepartmentId, setToDepartmentId] = useState<number | ''>('');
@@ -248,15 +252,18 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
             groups.get(key)!.items.push(item);
         }
 
-        return Array.from(groups.values()).map((group) => {
-            const sortedItems = [...group.items].sort((a, b) => {
-                const left = a.PropertyNumber || '';
-                const right = b.PropertyNumber || '';
-                return left.localeCompare(right);
-            });
-            return { ...group, items: sortedItems };
-        });
+        return Array.from(groups.values())
+            .map((group) => {
+                const sortedItems = [...group.items].sort((a, b) => {
+                    const left = a.PropertyNumber || '';
+                    const right = b.PropertyNumber || '';
+                    return left.localeCompare(right);
+                });
+                return { ...group, items: sortedItems };
+            })
+            .sort((a, b) => a.article.localeCompare(b.article));
     }, [availableItems]);
+
 
     useEffect(() => {
         if (groupedAvailableItems.length === 0) {
@@ -341,6 +348,14 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                 </div>
             </details>
         );
+    };
+
+    const resolveArticleImageUrl = (raw?: string | null): string | null => {
+        const value = (raw || '').trim();
+        if (!value) return null;
+        const normalized = value.replace(/^\/+/, '');
+        const mapped = normalized.startsWith('article_images/') ? `/storage/${normalized}` : value;
+        return resolveStorageUrl(mapped);
     };
 
     const filteredFromEndUsers = useMemo(() => {
@@ -814,11 +829,35 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                         return (
                                             <div key={group.key} className="flex flex-col gap-3 rounded-lg border border-slate-200 p-4">
                                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                                    <div>
-                                                        <div className="text-sm font-semibold text-slate-900">{group.article}</div>
-                                                        <div className="text-xs text-slate-500">{group.itemDescription}</div>
-                                                        <div className="text-xs text-slate-500">{group.fullSpecs}</div>
-                                                        <div className="text-xs text-slate-500">Type: {group.propertyType}</div>
+                                                    <div className="flex items-start gap-3">
+                                                        {(() => {
+                                                            const imgUrl = resolveArticleImageUrl(group.items[0]?.ArticleImage);
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        if (!imgUrl) return;
+                                                                        setPreviewImageUrl(imgUrl);
+                                                                        setIsImageModalOpen(true);
+                                                                    }}
+                                                                    className="h-14 w-14 overflow-hidden rounded border border-slate-200 bg-slate-50 flex items-center justify-center"
+                                                                    title={imgUrl ? 'Click to preview image' : 'No image available'}
+                                                                >
+                                                                    {imgUrl ? (
+                                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                                        <img src={imgUrl} alt={group.article} className="h-full w-full object-cover" />
+                                                                    ) : (
+                                                                        <span className="text-[10px] text-slate-400">No image</span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })()}
+                                                        <div>
+                                                            <div className="text-sm font-semibold text-slate-900">{group.article}</div>
+                                                            <div className="text-xs text-slate-500">{group.itemDescription}</div>
+                                                            <div className="text-xs text-slate-500">{group.fullSpecs}</div>
+                                                            <div className="text-xs text-slate-500">Type: {group.propertyType}</div>
+                                                        </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <div className="text-sm text-slate-600">Available: {maxQty}</div>
@@ -866,10 +905,34 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                         return (
                                             <div key={groupEntry.key} className="rounded-lg border border-slate-200 p-3">
                                                 <div className="flex items-start justify-between gap-2">
-                                                    <div>
-                                                        <div className="text-sm font-semibold text-slate-900">{group.article}</div>
-                                                        <div className="text-xs text-slate-500">{group.itemDescription}</div>
-                                                        <div className="text-xs text-slate-500">Qty: {groupEntry.quantity}</div>
+                                                    <div className="flex items-start gap-3">
+                                                        {(() => {
+                                                            const imgUrl = resolveArticleImageUrl(group.items[0]?.ArticleImage);
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        if (!imgUrl) return;
+                                                                        setPreviewImageUrl(imgUrl);
+                                                                        setIsImageModalOpen(true);
+                                                                    }}
+                                                                    className="h-12 w-12 overflow-hidden rounded border border-slate-200 bg-slate-50 flex items-center justify-center"
+                                                                    title={imgUrl ? 'Click to preview image' : 'No image available'}
+                                                                >
+                                                                    {imgUrl ? (
+                                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                                        <img src={imgUrl} alt={group.article} className="h-full w-full object-cover" />
+                                                                    ) : (
+                                                                        <span className="text-[10px] text-slate-400">No image</span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })()}
+                                                        <div>
+                                                            <div className="text-sm font-semibold text-slate-900">{group.article}</div>
+                                                            <div className="text-xs text-slate-500">{group.itemDescription}</div>
+                                                            <div className="text-xs text-slate-500">Qty: {groupEntry.quantity}</div>
+                                                        </div>
                                                     </div>
                                                     <button
                                                         type="button"
@@ -902,6 +965,16 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                     </div>
                 </div>
             </div>
+
+            <ArticlePreviewModal
+                open={isImageModalOpen && !!previewImageUrl}
+                onClose={() => {
+                    setIsImageModalOpen(false);
+                    setPreviewImageUrl(null);
+                }}
+                imageUrl={previewImageUrl || ''}
+                alt="Article image preview"
+            />
         </div>
     );
 }

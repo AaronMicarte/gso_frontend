@@ -134,6 +134,7 @@ export interface BorrowableItem {
     InventoryDescription?: string | null;
     ItemDescription?: string | null;
     ArticleName?: string | null;
+    ArticleImage?: string | null;
     PropertyNumber?: string | null;
     Brand?: string | null;
     ModelNumber?: string | null;
