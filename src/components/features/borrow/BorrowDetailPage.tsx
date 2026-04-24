@@ -153,7 +153,13 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
             itemDescription: string;
             fullSpecs: string;
             unit: string;
-            propertyNumbers: string[];
+            propertyNumbers: Array<{
+                propertyNumber: string;
+                requestedQty: number;
+                approvedQty: number;
+                statusClass: string;
+                statusLabel: string;
+            }>;
             statusClass: string;
             statusLabel: string;
         }>();
@@ -191,15 +197,32 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
             const approved = Number(item.ApprovedQuantity ?? item.Quantity ?? 0);
             entry.requestedQty += requested;
             entry.approvedQty += approved;
-            entry.propertyNumbers.push(displaySafeText(item.inventoryDetail?.PropertyNumber, 'Missing property number'));
+            const propertyNumber = displaySafeText(item.inventoryDetail?.PropertyNumber, 'Missing property number');
+            const itemStatus = !borrow || borrow.Status === 'pending'
+                ? { statusClass: 'bg-amber-100 text-amber-700', statusLabel: 'Pending' }
+                : approved <= 0
+                    ? { statusClass: 'bg-rose-100 text-rose-700', statusLabel: 'Rejected' }
+                    : approved < requested
+                        ? { statusClass: 'bg-yellow-100 text-yellow-800', statusLabel: 'Partially Approved' }
+                        : { statusClass: 'bg-emerald-100 text-emerald-700', statusLabel: 'Approved' };
+            entry.propertyNumbers.push({
+                propertyNumber,
+                requestedQty: requested,
+                approvedQty: approved,
+                statusClass: itemStatus.statusClass,
+                statusLabel: itemStatus.statusLabel,
+            });
 
+        }
+
+        for (const entry of groups.values()) {
             if (!borrow || borrow.Status === 'pending') {
                 entry.statusClass = 'bg-amber-100 text-amber-700';
                 entry.statusLabel = 'Pending';
-            } else if (approved <= 0) {
+            } else if (entry.approvedQty <= 0) {
                 entry.statusClass = 'bg-rose-100 text-rose-700';
                 entry.statusLabel = 'Rejected';
-            } else if (approved < requested) {
+            } else if (entry.approvedQty < entry.requestedQty) {
                 entry.statusClass = 'bg-yellow-100 text-yellow-800';
                 entry.statusLabel = 'Partially Approved';
             } else {
@@ -836,13 +859,25 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                         <td className="px-3 py-2 text-sm text-slate-700">{row.approvedQty}</td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
                                             {row.propertyNumbers.length <= 1 ? (
-                                                row.propertyNumbers[0] || 'Missing property number'
+                                                <div>
+                                                    <div>{row.propertyNumbers[0]?.propertyNumber || 'Missing property number'}</div>
+                                                    <div className="mt-1">
+                                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.propertyNumbers[0]?.statusClass || row.statusClass}`}>
+                                                            {row.propertyNumbers[0]?.statusLabel || row.statusLabel}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             ) : (
                                                 <details>
                                                     <summary className="cursor-pointer text-slate-700">Multiple ({row.propertyNumbers.length})</summary>
-                                                    <div className="mt-1 space-y-0.5 text-xs text-slate-500">
-                                                        {row.propertyNumbers.map((propertyNumber, idx) => (
-                                                            <div key={`${row.key}-property-${propertyNumber}-${idx}`}>{propertyNumber}</div>
+                                                    <div className="mt-2 space-y-2 text-xs text-slate-500">
+                                                        {row.propertyNumbers.map((entry, idx) => (
+                                                            <div key={`${row.key}-property-${entry.propertyNumber}-${idx}`} className="flex flex-wrap items-center justify-between gap-2">
+                                                                <span>{entry.propertyNumber}</span>
+                                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${entry.statusClass}`}>
+                                                                    {entry.statusLabel}
+                                                                </span>
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 </details>
