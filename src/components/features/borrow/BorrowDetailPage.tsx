@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle, Clock, Printer, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock, FileText, Printer, XCircle } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -54,6 +54,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
     const [releasingReviewOpen, setReleasingReviewOpen] = useState(false);
     const [releasingDecision, setReleasingDecision] = useState<'approved' | 'rejected'>('approved');
     const [releasingProvidedByGroup, setReleasingProvidedByGroup] = useState<Record<string, number>>({});
+    const [releasingStatusByGroup, setReleasingStatusByGroup] = useState<Record<string, 'approved' | 'rejected'>>({});
     const [releasingReason, setReleasingReason] = useState('');
     const [pendingConfirmAction, setPendingConfirmAction] = useState<PendingConfirmAction>(null);
 
@@ -99,6 +100,8 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         const groups = new Map<string, {
             key: string;
             label: string;
+            fullSpecs: string;
+            propertyNumbers: string[];
             requestedQty: number;
             itemIds: number[];
             itemById: Record<number, { requestedQty: number }>;
@@ -107,14 +110,24 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         for (const item of borrow?.items ?? []) {
             const itemId = item.BorrowItemID;
             const requestedQty = Number(item.Quantity ?? 1);
-            const description = displaySafeText(item.inventoryDetail?.Description, 'Unspecified item');
+            const article = displaySafeText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article');
+            const description = displaySafeText(item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description, 'Unspecified item');
             const unit = displaySafeText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'unit');
-            const groupKey = `${description}||${unit}`;
+            const fullSpecs = [
+                item.inventoryDetail?.Brand,
+                item.inventoryDetail?.ModelNumber,
+                item.inventoryDetail?.SerialNumber
+                    ? `SN: ${item.inventoryDetail.SerialNumber}`
+                    : null,
+            ].filter(Boolean).join(' | ') || 'Missing full specs';
+            const groupKey = `${article}||${description}||${fullSpecs}||${unit}`;
 
             if (!groups.has(groupKey)) {
                 groups.set(groupKey, {
                     key: groupKey,
-                    label: `${description} (${unit})`,
+                    label: `${article} · ${description} (${unit})`,
+                    fullSpecs,
+                    propertyNumbers: [],
                     requestedQty: 0,
                     itemIds: [],
                     itemById: {},
@@ -125,10 +138,78 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
             existing.requestedQty += requestedQty;
             existing.itemIds.push(itemId);
             existing.itemById[itemId] = { requestedQty };
+            existing.propertyNumbers.push(displaySafeText(item.inventoryDetail?.PropertyNumber, 'Missing property number'));
         }
 
         return Array.from(groups.values());
     }, [borrow?.items]);
+
+    const groupedBorrowRows = useMemo(() => {
+        const groups = new Map<string, {
+            key: string;
+            requestedQty: number;
+            approvedQty: number;
+            article: string;
+            itemDescription: string;
+            fullSpecs: string;
+            unit: string;
+            propertyNumbers: string[];
+            statusClass: string;
+            statusLabel: string;
+        }>();
+
+        for (const item of borrow?.items ?? []) {
+            const article = displaySafeText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article');
+            const itemDescription = displaySafeText(item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description, 'Missing item description');
+            const unit = displaySafeText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'Missing unit');
+            const fullSpecs = [
+                item.inventoryDetail?.Brand,
+                item.inventoryDetail?.ModelNumber,
+                item.inventoryDetail?.SerialNumber
+                    ? `SN: ${item.inventoryDetail.SerialNumber}`
+                    : null,
+            ].filter(Boolean).join(' | ') || 'Missing full specs';
+            const key = `${article}||${itemDescription}||${fullSpecs}||${unit}`;
+
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    requestedQty: 0,
+                    approvedQty: 0,
+                    article,
+                    itemDescription,
+                    fullSpecs,
+                    unit,
+                    propertyNumbers: [],
+                    statusClass: 'bg-amber-100 text-amber-700',
+                    statusLabel: 'Pending',
+                });
+            }
+
+            const entry = groups.get(key)!;
+            const requested = Number(item.Quantity ?? 0);
+            const approved = Number(item.ApprovedQuantity ?? item.Quantity ?? 0);
+            entry.requestedQty += requested;
+            entry.approvedQty += approved;
+            entry.propertyNumbers.push(displaySafeText(item.inventoryDetail?.PropertyNumber, 'Missing property number'));
+
+            if (!borrow || borrow.Status === 'pending') {
+                entry.statusClass = 'bg-amber-100 text-amber-700';
+                entry.statusLabel = 'Pending';
+            } else if (approved <= 0) {
+                entry.statusClass = 'bg-rose-100 text-rose-700';
+                entry.statusLabel = 'Rejected';
+            } else if (approved < requested) {
+                entry.statusClass = 'bg-yellow-100 text-yellow-800';
+                entry.statusLabel = 'Partially Approved';
+            } else {
+                entry.statusClass = 'bg-emerald-100 text-emerald-700';
+                entry.statusLabel = 'Approved';
+            }
+        }
+
+        return Array.from(groups.values());
+    }, [borrow, borrow?.items]);
 
     const returnTotalsByItemId = useMemo(() => {
         const totals: Record<number, number> = {};
@@ -219,6 +300,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
             groupedDefaults[key] = qty;
         });
         setReleasingProvidedByGroup(groupedDefaults);
+        setReleasingStatusByGroup(Object.fromEntries(Object.keys(groupedDefaults).map((key) => [key, 'approved'])));
         setReleasingDecision('approved');
         setReleasingReason(borrow.ReleasingDecisionReason ?? '');
     }, [borrow]);
@@ -290,7 +372,10 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         const approvedQuantities: Record<number, number> = {};
 
         for (const group of groupedRequestedItems) {
-            const providedQtyRaw = Number(releasingProvidedByGroup[group.key] ?? group.requestedQty);
+            const groupStatus = releasingStatusByGroup[group.key] ?? 'approved';
+            const providedQtyRaw = groupStatus === 'rejected'
+                ? 0
+                : Number(releasingProvidedByGroup[group.key] ?? group.requestedQty);
             const providedQty = Number.isFinite(providedQtyRaw) ? providedQtyRaw : 0;
 
             if (providedQty < 0) {
@@ -506,6 +591,17 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         || borrow?.Status === 'completed')
         && !isDepartmentHead;
 
+    const statusBadgeNode = useMemo(() => {
+        const config = statusConfig[statusBadge];
+        const Icon = config.icon;
+        return (
+            <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${config.className}`}>
+                <Icon className="w-3.5 h-3.5" />
+                {config.label}
+            </span>
+        );
+    }, [statusBadge]);
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -524,8 +620,9 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                     <div className="text-slate-900 font-semibold">Borrow request not found</div>
                     <div className="text-sm text-slate-600 mt-1">The record could not be loaded.</div>
                     <div className="mt-4">
-                        <Link href={baseRoute} className="text-sm text-[var(--primary)] underline">
-                            Back to borrows
+                        <Link href={baseRoute} className="inline-flex items-center gap-2 text-sm text-[var(--primary)] hover:underline">
+                            <ArrowLeft className="w-4 h-4" />
+                            <span className="hidden sm:inline">Back to borrows</span>
                         </Link>
                     </div>
                 </div>
@@ -533,142 +630,117 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         );
     }
 
-    const statusMeta = statusConfig[statusBadge];
-    const StatusIcon = statusMeta.icon;
-
     return (
         <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="p-6 space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <Link href={baseRoute} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <Link href={baseRoute} className="inline-flex items-center gap-2 text-sm text-[var(--primary)] hover:underline">
                             <ArrowLeft className="w-4 h-4" />
-                            Back to borrows
+                            <span className="hidden sm:inline">Back to borrows</span>
                         </Link>
-                        <h1 className="text-2xl font-bold text-slate-900">Borrow Request {borrow.BorrowNumber}</h1>
-                        <p className="text-sm text-slate-500">Track approvals, release, and return status</p>
+                        <h1 className="text-2xl font-bold text-slate-900 mt-2">{borrow.BorrowNumber}</h1>
+                        <div className="mt-2">{statusBadgeNode}</div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${statusMeta.className}`}>
-                            <StatusIcon className="w-4 h-4" />
-                            {statusMeta.label}
-                        </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {canReleasingReview && (
+                            <button
+                                type="button"
+                                onClick={() => setReleasingReviewOpen(true)}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+                            >
+                                <FileText className="w-4 h-4" />
+                                Releasing Review
+                            </button>
+                        )}
+                        {canDeliver && (
+                            <button
+                                type="button"
+                                onClick={() => setPendingConfirmAction('deliver')}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                            >
+                                Mark as Delivered
+                            </button>
+                        )}
+                        {canReject && (
+                            <button
+                                type="button"
+                                onClick={() => setRejectOpen(true)}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                                <XCircle className="w-4 h-4" />
+                                Reject Borrow
+                            </button>
+                        )}
+                        {canCompleteBorrow && (
+                            <button
+                                type="button"
+                                onClick={() => setPendingConfirmAction('complete')}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                            >
+                                <FileText className="w-4 h-4" />
+                                Mark as Completed
+                            </button>
+                        )}
                         {canPrint && (
                             <Link
                                 href={`${baseRoute}/${borrow.BorrowID}/print`}
-                                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
                             >
                                 <Printer className="w-4 h-4" />
-                                Print
+                                Print PBR
                             </Link>
                         )}
                     </div>
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-                    <div className="space-y-6">
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div>
-                                    <div className="text-xs text-slate-500 uppercase">Releasing Custodian</div>
-                                    <div className="text-sm font-semibold text-slate-900">
-                                        {displayText(borrow.fromEndUser?.FullName, 'Missing releasing custodian')}
-                                        {borrow.fromEndUser?.DepartmentName
-                                            ? ` - ${borrow.fromEndUser.DepartmentName}`
-                                            : (borrow.fromDepartment?.DepartmentName ? ` - ${borrow.fromDepartment.DepartmentName}` : '')}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-slate-500 uppercase">Borrowing Custodian</div>
-                                    <div className="text-sm font-semibold text-slate-900">
-                                        {displayText(borrow.toEndUser?.FullName, 'Missing borrowing custodian')}
-                                        {borrow.toEndUser?.DepartmentName
-                                            ? ` - ${borrow.toEndUser.DepartmentName}`
-                                            : (borrow.toDepartment?.DepartmentName ? ` - ${borrow.toDepartment.DepartmentName}` : '')}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-slate-500 uppercase">Requested By</div>
-                                    <div className="text-sm font-semibold text-slate-900">
-                                        {displayText(borrow.requestedBy?.FullName, 'Missing requester')}
-                                        {borrow.requestedBy?.department?.DepartmentName
-                                            ? ` - ${borrow.requestedBy.department.DepartmentName}`
-                                            : ''}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-slate-500 uppercase">Due Date</div>
-                                    <div className={`text-sm font-semibold ${isOverdue() ? 'text-rose-600' : 'text-slate-900'}`}>
-                                        {formatDisplayDate(borrow.DueDate) || 'Missing due date'}
-                                    </div>
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Releasing Custodian</div>
+                                <div className="text-sm font-semibold text-slate-900">
+                                    {displayText(borrow.fromEndUser?.FullName, 'Missing releasing custodian')}
+                                    {borrow.fromEndUser?.DepartmentName
+                                        ? ` - ${borrow.fromEndUser.DepartmentName}`
+                                        : (borrow.fromDepartment?.DepartmentName ? ` - ${borrow.fromDepartment.DepartmentName}` : '')}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-xs text-slate-500 uppercase">Purpose</div>
-                                <div className="text-sm text-slate-700">
-                                    {displayText(borrow.Purpose, 'No purpose provided')}
+                                <div className="text-xs text-slate-500 uppercase">Borrowing Custodian</div>
+                                <div className="text-sm font-semibold text-slate-900">
+                                    {displayText(borrow.toEndUser?.FullName, 'Missing borrowing custodian')}
+                                    {borrow.toEndUser?.DepartmentName
+                                        ? ` - ${borrow.toEndUser.DepartmentName}`
+                                        : (borrow.toDepartment?.DepartmentName ? ` - ${borrow.toDepartment.DepartmentName}` : '')}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Requested By</div>
+                                <div className="text-sm font-semibold text-slate-900">
+                                    {displayText(borrow.requestedBy?.FullName, 'Missing requester')}
+                                    {borrow.requestedBy?.department?.DepartmentName
+                                        ? ` - ${borrow.requestedBy.department.DepartmentName}`
+                                        : ''}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Due Date</div>
+                                <div className={`text-sm font-semibold ${isOverdue() ? 'text-rose-600' : 'text-slate-900'}`}>
+                                    {formatDisplayDate(borrow.DueDate) || 'Missing due date'}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-slate-900">Borrowed Items</h2>
-                                <span className="text-sm text-slate-500">{borrow.items?.length ?? 0} item(s)</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-slate-200">
-                                    <thead className="bg-slate-50">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Requested</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Approved</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Article</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Description</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Unit</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200">
-                                        {(borrow.items ?? []).map((item) => (
-                                            <tr key={item.BorrowItemID}>
-                                                <td className="px-3 py-2 text-sm text-slate-700">
-                                                    {item.Quantity ?? 1}
-                                                </td>
-                                                <td className="px-3 py-2 text-sm text-slate-700">
-                                                    {item.ApprovedQuantity ?? item.Quantity ?? 0}
-                                                </td>
-                                                <td className="px-3 py-2 text-sm text-slate-700">
-                                                    {displayText(item.inventoryDetail?.PropertyNumber, 'Missing property number')}
-                                                </td>
-                                                <td className="px-3 py-2 text-sm text-slate-700">
-                                                    {displayText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article')}
-                                                </td>
-                                                <td className="px-3 py-2 text-sm text-slate-700">
-                                                    {displayText(item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description, 'Missing item description')}
-                                                </td>
-                                                <td className="px-3 py-2 text-sm text-slate-700">
-                                                    {displayText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'Missing unit')}
-                                                </td>
-                                                <td className="px-3 py-2 text-sm text-slate-700">
-                                                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getBorrowItemStatus(item).className}`}>
-                                                        {getBorrowItemStatus(item).label}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {(!borrow.items || borrow.items.length === 0) && (
-                                            <tr>
-                                                <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
-                                                    No items recorded for this borrow.
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                        <div>
+                            <div className="text-xs text-slate-500 uppercase">Purpose</div>
+                            <div className="text-sm text-slate-700">
+                                {displayText(borrow.Purpose, 'No purpose provided')}
                             </div>
                         </div>
+                    </div>
 
+                    <div className="space-y-6">
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <div className="flex items-start justify-between gap-3 mb-4">
                                 <div className="text-sm font-semibold text-slate-900">Workflow Timeline</div>
@@ -686,11 +758,6 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                                 {borrow.ApprovedAt ? formatDisplayDateTime(borrow.ApprovedAt) : 'Pending approval'}
                                             </div>
                                         </div>
-                                    </>
-                                )}
-
-                                {!isReleasingDepartmentViewer && (
-                                    <>
                                         <div>
                                             <div className="text-xs text-slate-500 uppercase">Borrow Delivered At</div>
                                             <div className="text-sm font-medium text-slate-800 mt-1">
@@ -723,193 +790,11 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                             </div>
                         </div>
 
-                        {!isReleasingDepartmentViewer && (
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-lg font-semibold text-slate-900">Return History</h2>
-                                    <span className="text-sm text-slate-500">{totalReturned} of {totalBorrowed} returned</span>
-                                </div>
-                                {(borrow.returns ?? []).length === 0 ? (
-                                    <div className="text-sm text-slate-500">No returns recorded yet.</div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {(borrow.returns ?? []).map((returnRecord) => (
-                                            <div key={returnRecord.ReturnID} className="rounded-lg border border-slate-200 p-4">
-                                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <div className="text-sm font-semibold text-slate-900">
-                                                        {returnRecord.ReturnNumber || `Return #${returnRecord.ReturnID}`}
-                                                    </div>
-                                                    <div className="text-xs text-slate-500">
-                                                        {formatDisplayDateTime(returnRecord.ReturnedAt || returnRecord.created_at) || 'Missing return date'}
-                                                    </div>
-                                                </div>
-                                                <div className="text-xs text-slate-500 mt-1">
-                                                    Returned by {displayText(returnRecord.returnedBy?.FullName, 'Unknown user')}
-                                                </div>
-                                                {returnRecord.Notes && (
-                                                    <div className="text-xs text-slate-600 mt-2">Notes: {returnRecord.Notes}</div>
-                                                )}
-                                                <div className="mt-3 space-y-2">
-                                                    {(returnRecord.items ?? []).map((item) => (
-                                                        <div key={item.ReturnItemID} className="flex items-center justify-between text-xs text-slate-700">
-                                                            <div>
-                                                                {displayText(item.inventoryDetail?.Description, 'Unspecified item')}
-                                                                {item.condition?.ConditionName
-                                                                    ? ` · ${item.condition.ConditionName}`
-                                                                    : ''}
-                                                            </div>
-                                                            <div className="font-semibold">Qty: {item.QuantityReturned}</div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="space-y-6">
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                            <h2 className="text-lg font-semibold text-slate-900">Actions</h2>
-
-                            {canDeliver && (
-                                <button
-                                    type="button"
-                                    onClick={() => setPendingConfirmAction('deliver')}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700"
-                                >
-                                    Mark as Delivered
-                                </button>
-                            )}
-
-                            {canReject && (
-                                <button
-                                    type="button"
-                                    onClick={() => setRejectOpen(true)}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-4 py-2 text-rose-600 text-sm hover:bg-rose-50"
-                                >
-                                    Reject Borrow
-                                </button>
-                            )}
-
-                            {canReturnBorrow && (
-                                <div className="space-y-3">
-                                    {returnableItems.length === 0 ? (
-                                        <div className="text-sm text-slate-500">All items have been returned.</div>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {returnableItems.map((entry) => (
-                                                <div key={entry.item.BorrowItemID} className="space-y-2 rounded-lg border border-slate-200 p-3">
-                                                    <div className="text-sm text-slate-700 font-medium">
-                                                        {displayText(entry.item.inventoryDetail?.Description, 'Unspecified item')}
-                                                        <span className="text-xs text-slate-400"> · Remaining: {entry.remainingQty}</span>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        {(returnRowsByItem[entry.item.BorrowItemID] ?? []).map((row) => (
-                                                            <div key={row.rowId} className="flex flex-wrap items-center gap-2">
-                                                                <select
-                                                                    value={row.conditionId ?? ''}
-                                                                    onChange={(event) => {
-                                                                        const nextValue = event.target.value ? Number(event.target.value) : null;
-                                                                        setReturnRowsByItem((prev) => ({
-                                                                            ...prev,
-                                                                            [entry.item.BorrowItemID]: (prev[entry.item.BorrowItemID] ?? []).map((existing) => (
-                                                                                existing.rowId === row.rowId
-                                                                                    ? { ...existing, conditionId: nextValue }
-                                                                                    : existing
-                                                                            )),
-                                                                        }));
-                                                                    }}
-                                                                    className="min-w-[220px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
-                                                                >
-                                                                    <option value="">Select condition</option>
-                                                                    {conditions.map((condition) => (
-                                                                        <option key={condition.ConditionID} value={condition.ConditionID}>
-                                                                            {condition.ConditionName}
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                                <input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    max={entry.remainingQty}
-                                                                    value={row.quantity}
-                                                                    onChange={(event) => {
-                                                                        const nextValue = Math.max(0, Number(event.target.value));
-                                                                        setReturnRowsByItem((prev) => ({
-                                                                            ...prev,
-                                                                            [entry.item.BorrowItemID]: (prev[entry.item.BorrowItemID] ?? []).map((existing) => (
-                                                                                existing.rowId === row.rowId
-                                                                                    ? { ...existing, quantity: nextValue }
-                                                                                    : existing
-                                                                            )),
-                                                                        }));
-                                                                    }}
-                                                                    className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
-                                                                />
-                                                                {(returnRowsByItem[entry.item.BorrowItemID] ?? []).length > 1 && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => removeConditionRow(entry.item.BorrowItemID, row.rowId)}
-                                                                        className="text-xs text-rose-600 hover:text-rose-700"
-                                                                    >
-                                                                        Remove
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => addConditionRow(entry.item.BorrowItemID)}
-                                                        className="text-xs text-[var(--primary)] hover:underline"
-                                                    >
-                                                        Add condition row
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <textarea
-                                        rows={3}
-                                        value={returnNotes}
-                                        onChange={(event) => setReturnNotes(event.target.value)}
-                                        placeholder="Return notes (optional)"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setPendingConfirmAction('return')}
-                                        disabled={returnableItems.length === 0}
-                                        className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700 disabled:opacity-60"
-                                    >
-                                        Return Item(s)
-                                    </button>
-                                </div>
-                            )}
-
-                            {canCompleteBorrow && (
-                                <button
-                                    type="button"
-                                    onClick={() => setPendingConfirmAction('complete')}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white text-sm hover:bg-blue-700"
-                                >
-                                    Mark as Completed
-                                </button>
-                            )}
-
-                            {!canReleasingReview && !canApprove && !canDeliver && !canReject && !canReturnBorrow && !canCompleteBorrow && (
-                                <div className="text-sm text-slate-500">No actions available for your role.</div>
-                            )}
-                        </div>
-
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
                             <div className="flex items-start justify-between gap-3">
                                 <h2 className="text-lg font-semibold text-slate-900">Borrow Summary</h2>
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}>
-                                    {statusMeta.label}
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusConfig[statusBadge].className}`}>
+                                    {statusConfig[statusBadge].label}
                                 </span>
                             </div>
                             <div className="text-sm text-slate-600">Requested on: {formatDisplayDateTime(borrow.created_at) || 'Unknown'}</div>
@@ -923,6 +808,213 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                             )}
                         </div>
                     </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-slate-900">Borrowed Items</h2>
+                        <span className="text-sm text-slate-500">{borrow.items?.length ?? 0} item(s)</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Requested</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Approved</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Article</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Description</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Full Specs</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Unit</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                                {groupedBorrowRows.map((row) => (
+                                    <tr key={row.key}>
+                                        <td className="px-3 py-2 text-sm text-slate-700">{row.requestedQty}</td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">{row.approvedQty}</td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                            {row.propertyNumbers.length <= 1 ? (
+                                                row.propertyNumbers[0] || 'Missing property number'
+                                            ) : (
+                                                <details>
+                                                    <summary className="cursor-pointer text-slate-700">Multiple ({row.propertyNumbers.length})</summary>
+                                                    <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                                                        {row.propertyNumbers.map((propertyNumber, idx) => (
+                                                            <div key={`${row.key}-property-${propertyNumber}-${idx}`}>{propertyNumber}</div>
+                                                        ))}
+                                                    </div>
+                                                </details>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">{row.article}</td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">{row.itemDescription}</td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">{row.fullSpecs}</td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">{row.unit}</td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${row.statusClass}`}>
+                                                {row.statusLabel}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {groupedBorrowRows.length === 0 && (
+                                    <tr>
+                                        <td colSpan={8} className="px-3 py-6 text-center text-slate-500">No items recorded for this borrow.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {!isReleasingDepartmentViewer && (
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-slate-900">Return History</h2>
+                            <span className="text-sm text-slate-500">{totalReturned} of {totalBorrowed} returned</span>
+                        </div>
+                        {(borrow.returns ?? []).length === 0 ? (
+                            <div className="text-sm text-slate-500">No returns recorded yet.</div>
+                        ) : (
+                            <div className="space-y-4">
+                                {(borrow.returns ?? []).map((returnRecord) => (
+                                    <div key={returnRecord.ReturnID} className="rounded-lg border border-slate-200 p-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="text-sm font-semibold text-slate-900">
+                                                {returnRecord.ReturnNumber || `Return #${returnRecord.ReturnID}`}
+                                            </div>
+                                            <div className="text-xs text-slate-500">
+                                                {formatDisplayDateTime(returnRecord.ReturnedAt || returnRecord.created_at) || 'Missing return date'}
+                                            </div>
+                                        </div>
+                                        <div className="text-xs text-slate-500 mt-1">
+                                            Returned by {displayText(returnRecord.returnedBy?.FullName, 'Unknown user')}
+                                        </div>
+                                        {returnRecord.Notes && (
+                                            <div className="text-xs text-slate-600 mt-2">Notes: {returnRecord.Notes}</div>
+                                        )}
+                                        <div className="mt-3 space-y-2">
+                                            {(returnRecord.items ?? []).map((item) => (
+                                                <div key={item.ReturnItemID} className="flex items-center justify-between text-xs text-slate-700">
+                                                    <div>
+                                                        {displayText(item.inventoryDetail?.Description, 'Unspecified item')}
+                                                        {item.condition?.ConditionName ? ` · ${item.condition.ConditionName}` : ''}
+                                                    </div>
+                                                    <div className="font-semibold">Qty: {item.QuantityReturned}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    <h2 className="text-lg font-semibold text-slate-900">Actions</h2>
+
+                    {canReturnBorrow && (
+                        <div className="space-y-3">
+                            {returnableItems.length === 0 ? (
+                                <div className="text-sm text-slate-500">All items have been returned.</div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {returnableItems.map((entry) => (
+                                        <div key={entry.item.BorrowItemID} className="space-y-2 rounded-lg border border-slate-200 p-3">
+                                            <div className="text-sm text-slate-700 font-medium">
+                                                {displayText(entry.item.inventoryDetail?.Description, 'Unspecified item')}
+                                                <span className="text-xs text-slate-400"> · Remaining: {entry.remainingQty}</span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {(returnRowsByItem[entry.item.BorrowItemID] ?? []).map((row) => (
+                                                    <div key={row.rowId} className="flex flex-wrap items-center gap-2">
+                                                        <select
+                                                            value={row.conditionId ?? ''}
+                                                            onChange={(event) => {
+                                                                const nextValue = event.target.value ? Number(event.target.value) : null;
+                                                                setReturnRowsByItem((prev) => ({
+                                                                    ...prev,
+                                                                    [entry.item.BorrowItemID]: (prev[entry.item.BorrowItemID] ?? []).map((existing) => (
+                                                                        existing.rowId === row.rowId
+                                                                            ? { ...existing, conditionId: nextValue }
+                                                                            : existing
+                                                                    )),
+                                                                }));
+                                                            }}
+                                                            className="min-w-[220px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
+                                                        >
+                                                            <option value="">Select condition</option>
+                                                            {conditions.map((condition) => (
+                                                                <option key={condition.ConditionID} value={condition.ConditionID}>
+                                                                    {condition.ConditionName}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            max={entry.remainingQty}
+                                                            value={row.quantity}
+                                                            onChange={(event) => {
+                                                                const nextValue = Math.max(0, Number(event.target.value));
+                                                                setReturnRowsByItem((prev) => ({
+                                                                    ...prev,
+                                                                    [entry.item.BorrowItemID]: (prev[entry.item.BorrowItemID] ?? []).map((existing) => (
+                                                                        existing.rowId === row.rowId
+                                                                            ? { ...existing, quantity: nextValue }
+                                                                            : existing
+                                                                    )),
+                                                                }));
+                                                            }}
+                                                            className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
+                                                        />
+                                                        {(returnRowsByItem[entry.item.BorrowItemID] ?? []).length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeConditionRow(entry.item.BorrowItemID, row.rowId)}
+                                                                className="text-xs text-rose-600 hover:text-rose-700"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => addConditionRow(entry.item.BorrowItemID)}
+                                                className="text-xs text-[var(--primary)] hover:underline"
+                                            >
+                                                Add condition row
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <textarea
+                                rows={3}
+                                value={returnNotes}
+                                onChange={(event) => setReturnNotes(event.target.value)}
+                                placeholder="Return notes (optional)"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setPendingConfirmAction('return')}
+                                disabled={returnableItems.length === 0}
+                                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                                Return Item(s)
+                            </button>
+                        </div>
+                    )}
+
+                    {!canReleasingReview && !canApprove && !canDeliver && !canReject && !canReturnBorrow && !canCompleteBorrow && (
+                        <div className="text-sm text-slate-500">No actions available for your role.</div>
+                    )}
                 </div>
             </div>
 
@@ -956,19 +1048,54 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                             {releasingDecision === 'approved' && (
                                 <div className="space-y-3">
                                     {groupedRequestedItems.map((group) => (
-                                        <div key={group.key} className="flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2">
-                                            <div className="text-sm text-slate-700">{group.label}</div>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={group.requestedQty}
-                                                value={releasingProvidedByGroup[group.key] ?? group.requestedQty}
-                                                onChange={(event) => setReleasingProvidedByGroup((prev) => ({
-                                                    ...prev,
-                                                    [group.key]: Number(event.target.value),
-                                                }))}
-                                                className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
-                                            />
+                                        <div key={group.key} className="grid grid-cols-12 gap-3 border border-slate-200 rounded-lg px-3 py-3 items-center">
+                                            <div className="col-span-12 md:col-span-6 text-sm text-slate-700">
+                                                <div className="font-medium">{group.label}</div>
+                                                <div className="text-xs text-slate-500">Requested: {group.requestedQty}</div>
+                                                <div className="text-xs text-slate-500">{group.fullSpecs}</div>
+                                                <details className="mt-1">
+                                                    <summary className="cursor-pointer text-xs text-slate-500">Property numbers ({group.propertyNumbers.length})</summary>
+                                                    <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                                                        {group.propertyNumbers.map((propertyNumber, idx) => (
+                                                            <div key={`${group.key}-${propertyNumber}-${idx}`}>{propertyNumber}</div>
+                                                        ))}
+                                                    </div>
+                                                </details>
+                                            </div>
+                                            <div className="col-span-12 md:col-span-3">
+                                                <label className="text-xs text-slate-500">Item Status</label>
+                                                <select
+                                                    value={releasingStatusByGroup[group.key] ?? 'approved'}
+                                                    onChange={(event) => {
+                                                        const nextStatus = event.target.value as 'approved' | 'rejected';
+                                                        setReleasingStatusByGroup((prev) => ({ ...prev, [group.key]: nextStatus }));
+                                                        if (nextStatus === 'rejected') {
+                                                            setReleasingProvidedByGroup((prev) => ({ ...prev, [group.key]: 0 }));
+                                                        } else if ((releasingProvidedByGroup[group.key] ?? 0) === 0) {
+                                                            setReleasingProvidedByGroup((prev) => ({ ...prev, [group.key]: group.requestedQty }));
+                                                        }
+                                                    }}
+                                                    className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
+                                                >
+                                                    <option value="approved">Approved</option>
+                                                    <option value="rejected">Rejected</option>
+                                                </select>
+                                            </div>
+                                            <div className="col-span-12 md:col-span-3">
+                                                <label className="text-xs text-slate-500">Can Provide</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={group.requestedQty}
+                                                    disabled={(releasingStatusByGroup[group.key] ?? 'approved') === 'rejected'}
+                                                    value={releasingProvidedByGroup[group.key] ?? group.requestedQty}
+                                                    onChange={(event) => setReleasingProvidedByGroup((prev) => ({
+                                                        ...prev,
+                                                        [group.key]: Math.max(0, Math.min(group.requestedQty, Number(event.target.value || 0))),
+                                                    }))}
+                                                    className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]"
+                                                />
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

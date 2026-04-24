@@ -29,7 +29,7 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
 
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
 
-    const items = transfer.items ?? [];
+    const items = (transfer.items ?? []).filter((item) => Number(item.ApprovedQuantity ?? item.Quantity ?? 0) > 0);
     const docDate = ensureText(formatDate(transfer.ApprovedAt || transfer.created_at || ''), 'Missing date');
 
     const borrowerName = ensureText(transfer.fromEndUser?.FullName, 'Missing releasing custodian');
@@ -138,7 +138,7 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
 
                             return (
                                 <tr key={item.TransferItemID ?? idx}>
-                                    <td className="border border-black px-1 py-[2px] text-center">{item.Quantity ?? 1}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{Math.max(1, Number(item.ApprovedQuantity ?? item.Quantity ?? 1))}</td>
                                     <td className="border border-black px-1 py-[2px] text-center">{unitName}</td>
                                     <td className="border border-black px-1 py-[2px]">{description}</td>
                                     <td className="border border-black px-1 py-[2px] text-center">{propertyNo}</td>

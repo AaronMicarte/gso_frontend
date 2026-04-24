@@ -29,7 +29,7 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
 
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
 
-    const items = borrow.items ?? [];
+    const items = (borrow.items ?? []).filter((item) => Number(item.ApprovedQuantity ?? item.Quantity ?? 0) > 0);
     const docDate = ensureText(formatDate(borrow.ApprovedAt || borrow.created_at || ''), 'Missing date');
     const dueDate = ensureText(formatDate(borrow.DueDate), 'Missing due date');
 
@@ -144,7 +144,7 @@ export const BorrowPrintView = React.forwardRef<HTMLDivElement, BorrowPrintViewP
                             return (
                                 <tr key={item.BorrowItemID ?? idx}>
 
-                                    <td className="border border-black px-1 py-[2px] text-center">{item.Quantity ?? 1}</td>
+                                    <td className="border border-black px-1 py-[2px] text-center">{Math.max(1, Number(item.ApprovedQuantity ?? item.Quantity ?? 1))}</td>
                                     <td className="border border-black px-1 py-[2px] text-center">{unitName}</td>
                                     <td className="border border-black px-1 py-[2px]">{description}</td>
                                     <td className="border border-black px-1 py-[2px] text-center">{propertyNo}</td>

@@ -47,6 +47,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const [releasingReviewOpen, setReleasingReviewOpen] = useState(false);
     const [releasingDecision, setReleasingDecision] = useState<'approved' | 'rejected'>('approved');
     const [releasingProvidedByGroup, setReleasingProvidedByGroup] = useState<Record<string, number>>({});
+    const [releasingStatusByGroup, setReleasingStatusByGroup] = useState<Record<string, 'approved' | 'rejected'>>({});
     const [releasingReason, setReleasingReason] = useState('');
     const [pendingConfirmAction, setPendingConfirmAction] = useState<PendingConfirmAction>(null);
 
@@ -70,6 +71,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         const groups = new Map<string, {
             key: string;
             label: string;
+            fullSpecs: string;
+            propertyNumbers: string[];
             requestedQty: number;
             itemIds: number[];
             itemById: Record<number, { requestedQty: number }>;
@@ -78,14 +81,24 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         for (const item of transfer?.items ?? []) {
             const itemId = item.TransferItemID;
             const requestedQty = Number(item.Quantity ?? 1);
-            const description = displaySafeText(item.inventoryDetail?.Description, 'Unspecified item');
+            const article = displaySafeText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article');
+            const description = displaySafeText(item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description, 'Unspecified item');
             const unit = displaySafeText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'unit');
-            const groupKey = `${description}||${unit}`;
+            const fullSpecs = [
+                item.inventoryDetail?.Brand,
+                item.inventoryDetail?.ModelNumber,
+                (item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber)
+                    ? `SN: ${item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber}`
+                    : null,
+            ].filter(Boolean).join(' | ') || 'Missing full specs';
+            const groupKey = `${article}||${description}||${fullSpecs}||${unit}`;
 
             if (!groups.has(groupKey)) {
                 groups.set(groupKey, {
                     key: groupKey,
-                    label: `${description} (${unit})`,
+                    label: `${article} · ${description} (${unit})`,
+                    fullSpecs,
+                    propertyNumbers: [],
                     requestedQty: 0,
                     itemIds: [],
                     itemById: {},
@@ -96,10 +109,78 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
             existing.requestedQty += requestedQty;
             existing.itemIds.push(itemId);
             existing.itemById[itemId] = { requestedQty };
+            existing.propertyNumbers.push(displaySafeText(item.inventoryDetail?.PropertyNumber, 'Missing property number'));
         }
 
         return Array.from(groups.values());
     }, [transfer?.items]);
+
+    const groupedTransferRows = useMemo(() => {
+        const groups = new Map<string, {
+            key: string;
+            requestedQty: number;
+            approvedQty: number;
+            article: string;
+            itemDescription: string;
+            fullSpecs: string;
+            unit: string;
+            propertyNumbers: string[];
+            statusClass: string;
+            statusLabel: string;
+        }>();
+
+        for (const item of transfer?.items ?? []) {
+            const article = displaySafeText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article');
+            const itemDescription = displaySafeText(item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description, 'Missing item description');
+            const unit = displaySafeText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'Missing unit');
+            const fullSpecs = [
+                item.inventoryDetail?.Brand,
+                item.inventoryDetail?.ModelNumber,
+                (item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber)
+                    ? `SN: ${item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber}`
+                    : null,
+            ].filter(Boolean).join(' | ') || 'Missing full specs';
+            const key = `${article}||${itemDescription}||${fullSpecs}||${unit}`;
+
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    requestedQty: 0,
+                    approvedQty: 0,
+                    article,
+                    itemDescription,
+                    fullSpecs,
+                    unit,
+                    propertyNumbers: [],
+                    statusClass: 'bg-amber-100 text-amber-700',
+                    statusLabel: 'Pending',
+                });
+            }
+
+            const entry = groups.get(key)!;
+            const requested = Number(item.Quantity ?? 0);
+            const approved = Number(item.ApprovedQuantity ?? item.Quantity ?? 0);
+            entry.requestedQty += requested;
+            entry.approvedQty += approved;
+            entry.propertyNumbers.push(displaySafeText(item.inventoryDetail?.PropertyNumber, 'Missing property number'));
+
+            if (!transfer || transfer.Status === 'pending') {
+                entry.statusClass = 'bg-amber-100 text-amber-700';
+                entry.statusLabel = 'Pending';
+            } else if (approved <= 0) {
+                entry.statusClass = 'bg-rose-100 text-rose-700';
+                entry.statusLabel = 'Rejected';
+            } else if (approved < requested) {
+                entry.statusClass = 'bg-yellow-100 text-yellow-800';
+                entry.statusLabel = 'Partially Approved';
+            } else {
+                entry.statusClass = 'bg-emerald-100 text-emerald-700';
+                entry.statusLabel = 'Approved';
+            }
+        }
+
+        return Array.from(groups.values());
+    }, [transfer, transfer?.items]);
 
     const loadTransfer = useCallback(async () => {
         if (!transferId) return;
@@ -133,6 +214,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
             groupedDefaults[key] = qty;
         });
         setReleasingProvidedByGroup(groupedDefaults);
+        setReleasingStatusByGroup(Object.fromEntries(Object.keys(groupedDefaults).map((key) => [key, 'approved'])));
         setReleasingDecision('approved');
         setReleasingReason(transfer.ReleasingDecisionReason ?? '');
     }, [transfer]);
@@ -175,7 +257,10 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         const approvedQuantities: Record<number, number> = {};
 
         for (const group of groupedRequestedItems) {
-            const providedQtyRaw = Number(releasingProvidedByGroup[group.key] ?? group.requestedQty);
+            const groupStatus = releasingStatusByGroup[group.key] ?? 'approved';
+            const providedQtyRaw = groupStatus === 'rejected'
+                ? 0
+                : Number(releasingProvidedByGroup[group.key] ?? group.requestedQty);
             const providedQty = Number.isFinite(providedQtyRaw) ? providedQtyRaw : 0;
 
             if (providedQty < 0) {
@@ -440,17 +525,46 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                                     <div className="mt-2 border border-slate-200 rounded-lg max-h-72 overflow-auto">
                                                         {groupedRequestedItems.map((group) => (
                                                             <div key={group.key} className="grid grid-cols-12 gap-3 p-3 border-b border-slate-100 last:border-b-0 items-center">
-                                                                <div className="col-span-12 md:col-span-7 text-sm text-slate-700">
+                                                                <div className="col-span-12 md:col-span-6 text-sm text-slate-700">
                                                                     <div className="font-medium">{group.label}</div>
                                                                     <div className="text-xs text-slate-500">Requested: {group.requestedQty}</div>
+                                                                    <div className="text-xs text-slate-500">{group.fullSpecs}</div>
+                                                                    <details className="mt-1">
+                                                                        <summary className="cursor-pointer text-xs text-slate-500">Property numbers ({group.propertyNumbers.length})</summary>
+                                                                        <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                                                                            {group.propertyNumbers.map((propertyNumber, idx) => (
+                                                                                <div key={`${group.key}-${propertyNumber}-${idx}`}>{propertyNumber}</div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </details>
                                                                 </div>
-                                                                <div className="col-span-12 md:col-span-5">
+                                                                <div className="col-span-12 md:col-span-3">
+                                                                    <label className="text-xs text-slate-500">Item Status</label>
+                                                                    <select
+                                                                        value={releasingStatusByGroup[group.key] ?? 'approved'}
+                                                                        onChange={(event) => {
+                                                                            const nextStatus = event.target.value as 'approved' | 'rejected';
+                                                                            setReleasingStatusByGroup((prev) => ({ ...prev, [group.key]: nextStatus }));
+                                                                            if (nextStatus === 'rejected') {
+                                                                                setReleasingProvidedByGroup((prev) => ({ ...prev, [group.key]: 0 }));
+                                                                            } else if ((releasingProvidedByGroup[group.key] ?? 0) === 0) {
+                                                                                setReleasingProvidedByGroup((prev) => ({ ...prev, [group.key]: group.requestedQty }));
+                                                                            }
+                                                                        }}
+                                                                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
+                                                                    >
+                                                                        <option value="approved">Approved</option>
+                                                                        <option value="rejected">Rejected</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div className="col-span-12 md:col-span-3">
                                                                     <label className="text-xs text-slate-500">Can Provide</label>
                                                                     <input
                                                                         type="number"
                                                                         min={0}
                                                                         max={group.requestedQty}
                                                                         value={releasingProvidedByGroup[group.key] ?? group.requestedQty}
+                                                                        disabled={(releasingStatusByGroup[group.key] ?? 'approved') === 'rejected'}
                                                                         onChange={(event) => {
                                                                             const rawValue = Number(event.target.value || 0);
                                                                             const value = Math.max(0, Math.min(group.requestedQty, rawValue));
@@ -747,46 +861,48 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {(transfer.items || []).map((item) => (
-                                    <tr key={item.TransferItemID}>
+                                {groupedTransferRows.map((row) => (
+                                    <tr key={row.key}>
                                         <td className="px-3 py-2 text-sm text-slate-700">
-                                            {item.Quantity ?? 1}
+                                            {row.requestedQty}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
-                                            {item.ApprovedQuantity ?? item.Quantity ?? 0}
+                                            {row.approvedQty}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
-                                            {displayText(item.inventoryDetail?.PropertyNumber, 'Missing property number')}
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                            {displayText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article')}
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-slate-700">
-                                            {displayText(
-                                                item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description,
-                                                'Missing item description'
+                                            {row.propertyNumbers.length <= 1 ? (
+                                                row.propertyNumbers[0] || 'Missing property number'
+                                            ) : (
+                                                <details>
+                                                    <summary className="cursor-pointer text-slate-700">Multiple ({row.propertyNumbers.length})</summary>
+                                                    <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                                                        {row.propertyNumbers.map((propertyNumber, idx) => (
+                                                            <div key={`${row.key}-property-${propertyNumber}-${idx}`}>{propertyNumber}</div>
+                                                        ))}
+                                                    </div>
+                                                </details>
                                             )}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
-                                            {[
-                                                item.inventoryDetail?.Brand,
-                                                item.inventoryDetail?.ModelNumber,
-                                                (item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber)
-                                                    ? `SN: ${item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber}`
-                                                    : null,
-                                            ].filter(Boolean).join(' | ') || 'Missing full specs'}
+                                            {row.article}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
-                                            {displayText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'Missing unit')}
+                                            {row.itemDescription}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
-                                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getTransferItemStatus(item).className}`}>
-                                                {getTransferItemStatus(item).label}
+                                            {row.fullSpecs}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                            {row.unit}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${row.statusClass}`}>
+                                                {row.statusLabel}
                                             </span>
                                         </td>
                                     </tr>
                                 ))}
-                                {(!transfer.items || transfer.items.length === 0) && (
+                                {(groupedTransferRows.length === 0) && (
                                     <tr>
                                         <td colSpan={8} className="px-3 py-6 text-center text-slate-500">
                                             No items recorded for this transfer.
