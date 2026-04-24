@@ -55,6 +55,7 @@ export interface PropertyBorrowItem {
     BorrowID: number;
     InventoryDetailID: number;
     Quantity: number;
+    ApprovedQuantity?: number | null;
     Remarks?: string | null;
     inventoryDetail?: BorrowInventoryDetail | null;
 }

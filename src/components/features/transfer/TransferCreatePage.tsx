@@ -177,6 +177,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                     const autoSelected = endUsers.find((entry) => entry.EndUserID === Number(toEndUserId)) || endUsers[0];
                     setReceivingEndUser(autoSelected);
                     setToEndUserId(autoSelected.EndUserID);
+                    setReceivingDepartmentQuery(`${autoSelected.FullName}${autoSelected.DepartmentName ? ` - ${autoSelected.DepartmentName}` : ''}`);
                     setReceivingError(null);
                 } else {
                     const requesterName = (user?.FullName || '').trim().toLowerCase();
@@ -184,6 +185,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                     const autoSelected = match || endUsers[0];
                     setReceivingEndUser(autoSelected);
                     setToEndUserId(autoSelected.EndUserID);
+                    setReceivingDepartmentQuery(`${autoSelected.FullName}${autoSelected.DepartmentName ? ` - ${autoSelected.DepartmentName}` : ''}`);
                     setReceivingError(null);
                 }
             })
@@ -661,7 +663,9 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                     {isDepartmentHead ? (
                                         <input
                                             type="text"
-                                            value={selectedReceivingDepartment?.DepartmentName || user?.Department || 'Missing department'}
+                                            value={receivingEndUser
+                                                ? `${receivingEndUser.FullName}${receivingEndUser.DepartmentName ? ` - ${receivingEndUser.DepartmentName}` : ''}`
+                                                : (selectedReceivingDepartment?.DepartmentName || user?.Department || 'Missing department')}
                                             readOnly
                                             className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
                                         />
@@ -723,7 +727,8 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                                 onMouseEnter={() => setReceivingDepartmentHighlightedIndex(idx)}
                                                                 className={`px-3 py-2 text-sm cursor-pointer ${receivingDepartmentHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
                                                             >
-                                                                {department.DepartmentName}
+                                                                <div>{department.DepartmentName}</div>
+                                                                <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).slice(0, 2).join(', ') || 'No users'}</div>
                                                             </li>
                                                         ))
                                                     )}
@@ -736,9 +741,9 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                     <label className="text-sm font-medium text-slate-700">Receiving Custodian</label>
                                     <input
                                         type="text"
-                                        value={receivingEndUser
-                                            ? `${receivingEndUser.FullName}${receivingEndUser.DepartmentName ? ` - ${receivingEndUser.DepartmentName}` : ''}`
-                                            : 'Auto-selected based on receiving department'}
+                                        value={selectedReceivingDepartment?.DepartmentName
+                                            || receivingEndUser?.DepartmentName
+                                            || 'Auto-selected based on receiving department'}
                                         readOnly
                                         className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
                                     />

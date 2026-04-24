@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
 
 import transferAPI from '@/lib/api/transfer';
-import { PropertyTransfer, TransferStatus } from '@/types/propertyTransfer';
+import { PropertyTransfer, PropertyTransferItem, TransferStatus } from '@/types/propertyTransfer';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 const statusConfig: Record<TransferStatus, { label: string; className: string; icon: typeof Clock }> = {
@@ -293,6 +293,25 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const displayText = (value: string | null | undefined, missingLabel: string) => {
         const text = value?.trim();
         return text && text.length > 0 ? text : missingLabel;
+    };
+
+    const getTransferItemStatus = (item: PropertyTransferItem) => {
+        const approvedQuantity = Number(item.ApprovedQuantity ?? item.Quantity ?? 0);
+        const requestedQuantity = Number(item.Quantity ?? 0);
+
+        if (!transfer || transfer.Status === 'pending') {
+            return { label: 'Pending', className: 'bg-amber-100 text-amber-700' };
+        }
+
+        if (approvedQuantity <= 0) {
+            return { label: 'Rejected', className: 'bg-rose-100 text-rose-700' };
+        }
+
+        if (approvedQuantity < requestedQuantity) {
+            return { label: 'Partially Approved', className: 'bg-yellow-100 text-yellow-800' };
+        }
+
+        return { label: 'Approved', className: 'bg-emerald-100 text-emerald-700' };
     };
 
     const approvalDisplay = () => {
@@ -718,11 +737,13 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Qty</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Approved</th>
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Article</th>
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Item Description</th>
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Full Specs</th>
                                     <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Unit</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -730,6 +751,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                     <tr key={item.TransferItemID}>
                                         <td className="px-3 py-2 text-sm text-slate-700">
                                             {item.Quantity ?? 1}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                            {item.ApprovedQuantity ?? item.Quantity ?? 0}
                                         </td>
                                         <td className="px-3 py-2 text-sm text-slate-700">
                                             {displayText(item.inventoryDetail?.PropertyNumber, 'Missing property number')}
@@ -755,11 +779,16 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                         <td className="px-3 py-2 text-sm text-slate-700">
                                             {displayText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'Missing unit')}
                                         </td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">
+                                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getTransferItemStatus(item).className}`}>
+                                                {getTransferItemStatus(item).label}
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))}
                                 {(!transfer.items || transfer.items.length === 0) && (
                                     <tr>
-                                        <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
+                                        <td colSpan={8} className="px-3 py-6 text-center text-slate-500">
                                             No items recorded for this transfer.
                                         </td>
                                     </tr>

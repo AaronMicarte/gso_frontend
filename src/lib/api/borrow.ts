@@ -79,6 +79,7 @@ interface RawBorrowItem {
     BorrowID?: number;
     InventoryDetailID?: number;
     Quantity?: number;
+    ApprovedQuantity?: number | null;
     Remarks?: string | null;
     inventoryDetail?: RawInventoryDetail | null;
     inventory_detail?: RawInventoryDetail | null;
@@ -314,6 +315,7 @@ const normalizeBorrow = (borrow: RawBorrow): PropertyBorrow => {
             BorrowID: item.BorrowID ?? borrow.BorrowID,
             InventoryDetailID: item.InventoryDetailID ?? 0,
             Quantity: item.Quantity ?? 1,
+            ApprovedQuantity: item.ApprovedQuantity ?? null,
             Remarks: item.Remarks ?? null,
             inventoryDetail: normalizeInventoryDetail(item.inventoryDetail ?? item.inventory_detail),
         })),

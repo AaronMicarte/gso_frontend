@@ -52,6 +52,7 @@ export interface PropertyTransferItem {
     TransferID: number;
     InventoryDetailID: number;
     Quantity: number;
+    ApprovedQuantity?: number | null;
     Remarks?: string | null;
     inventoryDetail?: TransferInventoryDetail | null;
 }

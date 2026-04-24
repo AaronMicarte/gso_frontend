@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
 
 import borrowAPI from '@/lib/api/borrow';
-import { BorrowCondition, PropertyBorrow, BorrowReleasingDecision, BorrowStatus } from '@/types/propertyBorrow';
+import { BorrowCondition, PropertyBorrow, PropertyBorrowItem, BorrowReleasingDecision, BorrowStatus } from '@/types/propertyBorrow';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 type BorrowStatusBadge = BorrowStatus | 'overdue';
@@ -145,9 +145,11 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
     const returnableItems = useMemo(() => (
         (borrow?.items ?? []).map((item) => {
             const returnedQty = returnTotalsByItemId[item.BorrowItemID] ?? 0;
-            const remainingQty = Math.max(0, Number(item.Quantity ?? 0) - returnedQty);
+            const effectiveQty = Number(item.ApprovedQuantity ?? item.Quantity ?? 0);
+            const remainingQty = Math.max(0, effectiveQty - returnedQty);
             return {
                 item,
+                effectiveQty,
                 returnedQty,
                 remainingQty,
             };
@@ -155,7 +157,7 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
     ), [borrow?.items, returnTotalsByItemId]);
 
     const totalBorrowed = useMemo(() => (
-        (borrow?.items ?? []).reduce((sum, item) => sum + Number(item.Quantity ?? 0), 0)
+        (borrow?.items ?? []).reduce((sum, item) => sum + Number(item.ApprovedQuantity ?? item.Quantity ?? 0), 0)
     ), [borrow?.items]);
 
     const totalReturned = useMemo(() => (
@@ -460,6 +462,25 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         return text && text.length > 0 ? text : missingLabel;
     };
 
+    const getBorrowItemStatus = (item: PropertyBorrowItem) => {
+        const approvedQuantity = Number(item.ApprovedQuantity ?? item.Quantity ?? 0);
+        const requestedQuantity = Number(item.Quantity ?? 0);
+
+        if (!borrow || borrow.Status === 'pending') {
+            return { label: 'Pending', className: 'bg-amber-100 text-amber-700' };
+        }
+
+        if (approvedQuantity <= 0) {
+            return { label: 'Rejected', className: 'bg-rose-100 text-rose-700' };
+        }
+
+        if (approvedQuantity < requestedQuantity) {
+            return { label: 'Partially Approved', className: 'bg-yellow-100 text-yellow-800' };
+        }
+
+        return { label: 'Approved', className: 'bg-emerald-100 text-emerald-700' };
+    };
+
     const releasingDecisionBadgeClass = (decision?: BorrowReleasingDecision) => {
         if (decision === 'approved') return 'bg-emerald-100 text-emerald-700';
         if (decision === 'rejected') return 'bg-rose-100 text-rose-700';
@@ -595,21 +616,56 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                 <h2 className="text-lg font-semibold text-slate-900">Borrowed Items</h2>
                                 <span className="text-sm text-slate-500">{borrow.items?.length ?? 0} item(s)</span>
                             </div>
-                            <div className="divide-y divide-slate-200">
-                                {(borrow.items ?? []).map((item) => (
-                                    <div key={item.BorrowItemID} className="py-3">
-                                        <div className="text-sm font-semibold text-slate-900">
-                                            {displayText(item.inventoryDetail?.Description, 'Unspecified item')}
-                                        </div>
-                                        <div className="text-xs text-slate-500">
-                                            {displayText(item.inventoryDetail?.propertyType?.PropertyName, 'Unclassified')}
-                                            {' • '}Unit: {displayText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'unit')}
-                                        </div>
-                                        <div className="text-xs text-slate-500">
-                                            Property #: {displayText(item.inventoryDetail?.PropertyNumber, 'Missing')} | Serial: {displayText(item.inventoryDetail?.SerialNumber, 'Missing')}
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Requested</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Approved</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Property #</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Article</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Description</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Unit</th>
+                                            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {(borrow.items ?? []).map((item) => (
+                                            <tr key={item.BorrowItemID}>
+                                                <td className="px-3 py-2 text-sm text-slate-700">
+                                                    {item.Quantity ?? 1}
+                                                </td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">
+                                                    {item.ApprovedQuantity ?? item.Quantity ?? 0}
+                                                </td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">
+                                                    {displayText(item.inventoryDetail?.PropertyNumber, 'Missing property number')}
+                                                </td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">
+                                                    {displayText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article')}
+                                                </td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">
+                                                    {displayText(item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description, 'Missing item description')}
+                                                </td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">
+                                                    {displayText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'Missing unit')}
+                                                </td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">
+                                                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getBorrowItemStatus(item).className}`}>
+                                                        {getBorrowItemStatus(item).label}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {(!borrow.items || borrow.items.length === 0) && (
+                                            <tr>
+                                                <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
+                                                    No items recorded for this borrow.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 

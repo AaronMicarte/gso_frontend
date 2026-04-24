@@ -70,6 +70,7 @@ interface RawTransferItem {
     TransferID?: number;
     InventoryDetailID?: number;
     Quantity?: number;
+    ApprovedQuantity?: number | null;
     Remarks?: string | null;
     inventoryDetail?: RawInventoryDetail | null;
     inventory_detail?: RawInventoryDetail | null;
@@ -230,6 +231,7 @@ const normalizeTransfer = (transfer: RawTransfer): PropertyTransfer => {
             TransferID: item.TransferID ?? transfer.TransferID,
             InventoryDetailID: item.InventoryDetailID ?? 0,
             Quantity: item.Quantity ?? 1,
+            ApprovedQuantity: item.ApprovedQuantity ?? null,
             Remarks: item.Remarks ?? null,
             inventoryDetail: normalizeInventoryDetail(item.inventoryDetail ?? item.inventory_detail),
         })),
