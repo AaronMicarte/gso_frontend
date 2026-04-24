@@ -63,7 +63,9 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
     const canApprove = false;
     const canDeliver = isPrivilegedUser && borrow?.Status === 'approved';
     const canReject = isPrivilegedUser && (borrow?.Status === 'pending' || borrow?.Status === 'approved');
-    const canReleasingReview = false;
+    const canReleasingReview = isPrivilegedUser
+        && borrow?.Status === 'approved'
+        && (borrow?.ReleasingDecision ?? 'pending') === 'pending';
     const canReturnBorrow = isPrivilegedUser
         && (borrow?.Status === 'borrowed' || borrow?.Status === 'partially_returned');
     const canCompleteBorrow = isPrivilegedUser && borrow?.Status === 'returned';

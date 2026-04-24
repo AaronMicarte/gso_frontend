@@ -55,7 +55,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
     const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
     const canApprove = false;
-    const canReleasingReview = false;
+    const canReleasingReview = isPrivilegedUser
+        && transfer?.Status === 'approved'
+        && (transfer?.ReleasingDecision ?? 'pending') === 'pending';
     const canCompleteTransfer = isPrivilegedUser
         && transfer?.Status === 'approved';
     const isReleasingDepartmentViewer = user?.UserRoleID === 4
@@ -500,7 +502,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 Approve
                             </button>
                         )}
-                        {isPrivilegedUser && transfer.Status === 'approved' && (
+                        {isPrivilegedUser && (transfer.Status === 'pending' || transfer.Status === 'approved') && (
                             <Dialog.Root open={rejectOpen} onOpenChange={setRejectOpen}>
                                 <Dialog.Trigger asChild>
                                     <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
