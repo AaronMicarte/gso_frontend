@@ -783,35 +783,41 @@ export function RpcInventoryPage() {
                     </div>
                 </Dialog>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="space-y-1">
-                            <h1 className="text-2xl font-bold text-slate-900">RPCPPE / RPCSEP</h1>
-                            <p className="text-sm text-slate-600 max-w-3xl">
-                                Physical count cycles, QR scanning, and report generation for non-expendable and semi-expendable properties.
+                        <div className="space-y-2">
+                            <p className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold tracking-wide text-slate-700">
+                                QR Inventory Control
+                            </p>
+                            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900">RPCPPE / RPCSEP Workspace</h1>
+                            <p className="max-w-3xl text-sm text-slate-600">
+                                Manage cycle-based physical counting, quick scan validation, and export-ready reports in one streamlined console.
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
                             <Button size="sm" variant="outline" className="w-auto" onClick={() => void loadCycles()} isLoading={loadingCycles}>
                                 <RefreshCw className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" className="w-auto" onClick={() => void handleCreateCurrentCycle()}>
+                            <Button size="sm" className="w-auto bg-[var(--primary)] hover:bg-[var(--primary-hover)]" onClick={() => void handleCreateCurrentCycle()}>
                                 <Plus className="w-4 h-4" /> Add New (Current Year)
                             </Button>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <section className="space-y-3">
-                    <div className="text-xs font-semibold tracking-wide uppercase text-slate-500 px-1">Inventory Cycles</div>
+                <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="text-xs font-semibold tracking-[0.14em] uppercase text-slate-500">Inventory Cycles</div>
+                        <div className="text-xs text-slate-500">{cycles.length} total</div>
+                    </div>
                     {loadingCycles && cycles.length === 0 ? (
-                        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-600">Loading cycles...</div>
+                        <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-600">Loading cycles...</div>
                     ) : cycles.length === 0 ? (
-                        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-600">
+                        <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-600">
                             No cycles yet. Click Add New (Current Year) to create your first cycle.
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                             {cycles.map((cycle) => {
                                 const isSelected = cycle.id === selectedCycleId;
                                 return (
@@ -824,12 +830,21 @@ export function RpcInventoryPage() {
                                             : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
                                             }`}
                                     >
-                                        <div className="text-xs uppercase tracking-wide opacity-80">{cycle.status}</div>
-                                        <div className="font-semibold mt-1">{cycle.cycle_label}</div>
-                                        <div className={`mt-3 text-sm ${isSelected ? 'text-slate-100' : 'text-slate-600'}`}>
-                                            <div>Total Scans: {cycle.scans_count}</div>
-                                            <div>RPCPPE: {cycle.rpcppe_count}</div>
-                                            <div>RPCSEP: {cycle.rpcsep_count}</div>
+                                        <div className={`text-[11px] uppercase tracking-wide ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>{cycle.status}</div>
+                                        <div className="font-semibold mt-1 line-clamp-2">{cycle.cycle_label}</div>
+                                        <div className={`mt-3 text-sm grid grid-cols-3 gap-2 ${isSelected ? 'text-slate-100' : 'text-slate-600'}`}>
+                                            <div>
+                                                <div className="text-[10px] uppercase">Total</div>
+                                                <div className="font-semibold">{cycle.scans_count}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] uppercase">PPE</div>
+                                                <div className="font-semibold">{cycle.rpcppe_count}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] uppercase">SEP</div>
+                                                <div className="font-semibold">{cycle.rpcsep_count}</div>
+                                            </div>
                                         </div>
                                     </button>
                                 );
@@ -840,93 +855,117 @@ export function RpcInventoryPage() {
 
                 {selectedCycle ? (
                     <>
-                        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4 shadow-sm">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                    <div className="text-xs uppercase tracking-wide text-slate-500">Scanner</div>
-                                    <div className="font-semibold text-slate-900">{selectedCycle.cycle_label}</div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Link
-                                        href={`/qr/rpc-inventory/${selectedCycle.id}/print?type=RPCPPE`}
-                                        target="_blank"
-                                        className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-sm hover:bg-slate-50"
-                                    >
-                                        Generate RPCPPE Report
-                                    </Link>
-                                    <Link
-                                        href={`/qr/rpc-inventory/${selectedCycle.id}/print?type=RPCSEP`}
-                                        target="_blank"
-                                        className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-sm hover:bg-slate-50"
-                                    >
-                                        Generate RPCSEP Report
-                                    </Link>
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-100 rounded-lg p-1 inline-flex gap-1">
-                                <button
-                                    type="button"
-                                    onClick={() => setScanMode('paste')}
-                                    className={`px-3 py-2 rounded-md text-sm ${scanMode === 'paste' ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                                >
-                                    <QrCode className="w-4 h-4 inline mr-1" /> Paste / Manual
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setScanMode('camera')}
-                                    className={`px-3 py-2 rounded-md text-sm ${scanMode === 'camera' ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                                >
-                                    <Camera className="w-4 h-4 inline mr-1" /> Camera
-                                </button>
-                            </div>
-
-                            {scanMode === 'paste' ? (
-                                <div className="flex flex-col md:flex-row gap-2">
-                                    <input
-                                        value={scanInput}
-                                        onChange={(e) => setScanInput(e.target.value)}
-                                        placeholder="Property ID, Property Number, or /qr/scan/{id} URL"
-                                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg"
-                                    />
-                                    <Button
-                                        className="w-auto"
-                                        size="sm"
-                                        onClick={() => void onPreviewFromInput()}
-                                        disabled={previewProcessing}
-                                    >
-                                        {previewProcessing ? 'Processing...' : 'Preview Scan'}
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    <div className="rounded-lg overflow-hidden border border-slate-200 bg-black">
-                                        <video ref={videoRef} className="w-full h-[340px] object-cover" muted playsInline />
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                            <div className="xl:col-span-8 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 space-y-4 shadow-sm">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Scanner</div>
+                                        <div className="font-semibold text-slate-900 text-lg">{selectedCycle.cycle_label}</div>
                                     </div>
-                                    <div className="text-sm text-slate-600">
-                                        {cameraReady ? 'Point the camera to a property QR code.' : 'Starting camera...'}
+                                    <div className="flex items-center gap-2">
+                                        <Link
+                                            href={`/qr/rpc-inventory/${selectedCycle.id}/print?type=RPCPPE`}
+                                            target="_blank"
+                                            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-sm hover:bg-slate-50"
+                                        >
+                                            Generate RPCPPE Report
+                                        </Link>
+                                        <Link
+                                            href={`/qr/rpc-inventory/${selectedCycle.id}/print?type=RPCSEP`}
+                                            target="_blank"
+                                            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-sm hover:bg-slate-50"
+                                        >
+                                            Generate RPCSEP Report
+                                        </Link>
                                     </div>
                                 </div>
-                            )}
+
+                                <div className="bg-slate-100 rounded-xl p-1 inline-flex gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setScanMode('paste')}
+                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${scanMode === 'paste' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+                                    >
+                                        <QrCode className="w-4 h-4 inline mr-1" /> Paste / Manual
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setScanMode('camera')}
+                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${scanMode === 'camera' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+                                    >
+                                        <Camera className="w-4 h-4 inline mr-1" /> Camera
+                                    </button>
+                                </div>
+
+                                {scanMode === 'paste' ? (
+                                    <div className="flex flex-col md:flex-row gap-2">
+                                        <input
+                                            value={scanInput}
+                                            onChange={(e) => setScanInput(e.target.value)}
+                                            placeholder="Property ID, Property Number, or /qr/scan/{id} URL"
+                                            className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl"
+                                        />
+                                        <Button
+                                            className="w-auto bg-[var(--primary)] hover:bg-[var(--primary-hover)]"
+                                            size="sm"
+                                            onClick={() => void onPreviewFromInput()}
+                                            disabled={previewProcessing}
+                                        >
+                                            {previewProcessing ? 'Processing...' : 'Preview Scan'}
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <div className="rounded-xl overflow-hidden border border-slate-200 bg-black">
+                                            <video ref={videoRef} className="w-full h-[340px] object-cover" muted playsInline />
+                                        </div>
+                                        <div className="text-sm text-slate-600">
+                                            {cameraReady ? 'Point the camera to a property QR code.' : 'Starting camera...'}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <aside className="xl:col-span-4 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
+                                <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Cycle Snapshot</div>
+                                <div className="mt-2 font-semibold text-slate-900">{selectedCycle.cycle_label}</div>
+                                <div className="mt-4 grid grid-cols-3 gap-2">
+                                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                                        <div className="text-[10px] uppercase text-slate-500">Total</div>
+                                        <div className="text-xl font-black text-slate-900">{selectedCycle.scans_count}</div>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                                        <div className="text-[10px] uppercase text-slate-500">RPCPPE</div>
+                                        <div className="text-xl font-black text-slate-900">{selectedCycle.rpcppe_count}</div>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                                        <div className="text-[10px] uppercase text-slate-500">RPCSEP</div>
+                                        <div className="text-xl font-black text-slate-900">{selectedCycle.rpcsep_count}</div>
+                                    </div>
+                                </div>
+                                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                                    Use filters below to review scans, then open row actions to edit condition or remove a scan.
+                                </div>
+                            </aside>
                         </div>
 
-                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                            <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                            <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70">
                                 <div className="font-semibold text-slate-900">Scanned Assets</div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <div className="relative">
                                         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                         <input
                                             value={search}
                                             onChange={(e) => setSearch(e.target.value)}
                                             placeholder="Search property/article"
-                                            className="pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                            className="pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
                                         />
                                     </div>
                                     <select
                                         value={typeFilter}
                                         onChange={(e) => setTypeFilter(e.target.value as 'ALL' | RpcType)}
-                                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
                                     >
                                         <option value="ALL">All Types</option>
                                         <option value="RPCPPE">RPCPPE</option>
@@ -935,7 +974,7 @@ export function RpcInventoryPage() {
                                     <select
                                         value={propertyTypeFilter}
                                         onChange={(e) => setPropertyTypeFilter(e.target.value)}
-                                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
                                     >
                                         <option value="ALL">All Property Types</option>
                                         {availablePropertyTypes.map((propertyType) => (
@@ -952,7 +991,7 @@ export function RpcInventoryPage() {
 
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-slate-50 text-slate-600">
+                                    <thead className="bg-slate-100 text-slate-700">
                                         <tr>
                                             <th className="text-left px-4 py-3">Type</th>
                                             <th className="text-left px-4 py-3">Property Number</th>
@@ -979,7 +1018,7 @@ export function RpcInventoryPage() {
                                         ) : (
                                             filteredScans.map((scan) => (
                                                 <tr key={scan.id} className="hover:bg-slate-50">
-                                                    <td className="px-4 py-3">{scan.rpc_type}</td>
+                                                    <td className="px-4 py-3 font-medium">{scan.rpc_type}</td>
                                                     <td className="px-4 py-3">{scan.property_number || '-'}</td>
                                                     <td className="px-4 py-3">{scan.article || scan.description || '-'}</td>
                                                     <td className="px-4 py-3">{scan.accountable_officer || '-'}</td>
@@ -1014,7 +1053,7 @@ export function RpcInventoryPage() {
                         </div>
                     </>
                 ) : (
-                    <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-600">
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-600">
                         No cycle selected. Create a current-year cycle to start scanning.
                     </div>
                 )}
