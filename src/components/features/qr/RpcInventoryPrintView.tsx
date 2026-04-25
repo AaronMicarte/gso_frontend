@@ -25,6 +25,8 @@ const currency = (value: number) => {
     });
 };
 
+const ROWS_PER_PAGE = 14;
+
 export function RpcInventoryPrintView({
     cycleLabel,
     type,
@@ -64,34 +66,58 @@ export function RpcInventoryPrintView({
     const orderedPropertyTypes = [...knownPropertyTypes, ...extraPropertyTypes];
 
     const printableGroups = orderedPropertyTypes.length > 0
-        ? orderedPropertyTypes.map((propertyType) => ({
-            propertyType,
-            rows: [...(groupedRows[propertyType] || [])].sort((a, b) => (a.property_number || '').localeCompare(b.property_number || '', undefined, { sensitivity: 'base' })),
-        }))
+        ? orderedPropertyTypes.map((propertyType) => {
+            const sortedRows = [...(groupedRows[propertyType] || [])]
+                .sort((a, b) => (a.property_number || '').localeCompare(b.property_number || '', undefined, { sensitivity: 'base' }));
+
+            const pages: RpcInventoryReportRow[][] = [];
+            for (let start = 0; start < sortedRows.length; start += ROWS_PER_PAGE) {
+                pages.push(sortedRows.slice(start, start + ROWS_PER_PAGE));
+            }
+
+            return {
+                propertyType,
+                pages,
+            };
+        })
         : [
             {
                 propertyType: '-',
-                rows: [
-                    {
-                        property_type: '-',
-                        article: '-',
-                        description: 'No rows available for this cycle and report type.',
-                        property_number: '-',
-                        unit_of_measure: '-',
-                        unit_value: 0,
-                        quantity_per_card: 0,
-                        quantity_per_count: 0,
-                        shortage_overage_qty: 0,
-                        shortage_overage_value: 0,
-                        remarks: '-',
-                        accountable_officer: '-',
-                        department: '-',
-                        condition: '-',
-                        is_scanned: false,
-                    },
+                pages: [
+                    [
+                        {
+                            property_type: '-',
+                            article: '-',
+                            description: 'No rows available for this cycle and report type.',
+                            property_number: '-',
+                            unit_of_measure: '-',
+                            unit_value: 0,
+                            quantity_per_card: 0,
+                            quantity_per_count: 0,
+                            shortage_overage_qty: 0,
+                            shortage_overage_value: 0,
+                            remarks: '-',
+                            accountable_officer: '-',
+                            department: '-',
+                            condition: '-',
+                            is_scanned: false,
+                        },
+                    ],
                 ],
             },
         ];
+
+    const printablePages = printableGroups.flatMap((group) => {
+        const totalPagesForType = group.pages.length;
+        return group.pages.map((pageRows, pageIndex) => ({
+            propertyType: group.propertyType,
+            rows: pageRows,
+            pageNumberForType: pageIndex + 1,
+            totalPagesForType,
+        }));
+    });
+
+    const totalPages = printablePages.length;
 
     return (
         <div className="print-sheet bg-white text-black p-4">
@@ -100,6 +126,16 @@ export function RpcInventoryPrintView({
                     font-family: 'Times New Roman', serif;
                     font-size: 11px;
                     line-height: 1.15;
+                }
+
+                .report-page {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+
+                .report-page + .report-page {
+                    break-before: page;
+                    page-break-before: always;
                 }
 
                 @media print {
@@ -121,13 +157,15 @@ export function RpcInventoryPrintView({
                 }
             `}</style>
 
-            {printableGroups.map((group, groupIndex) => {
+            {printablePages.map((page, pageIndex) => {
+                const isLastPageOverall = pageIndex === totalPages - 1;
                 return (
-                    <section key={`${group.propertyType}-${groupIndex}`} className={groupIndex > 0 ? 'mt-8 print:break-before-page' : ''}>
+                    <section key={`${page.propertyType}-${pageIndex}`} className={`${pageIndex > 0 ? 'mt-8' : ''} report-page`}>
                         <div className="text-center">
                             <div className="font-bold text-[14px]">{title}</div>
-                            <div className="font-semibold text-[12px]">{group.propertyType}</div>
+                            <div className="font-semibold text-[12px]">{page.propertyType}</div>
                             <div className="text-[11px]">{subtitle}</div>
+                            <div className="text-[11px]">Cycle: {cycleLabel}</div>
                             <div className="text-[11px]">As of {reportAsOfDate}</div>
                         </div>
 
@@ -181,8 +219,8 @@ export function RpcInventoryPrintView({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {(group.rows.length > 0 ? group.rows : [null]).map((row, index) => (
-                                        <tr key={`${group.propertyType}-${row?.property_number || 'empty'}-${index}`}>
+                                    {(page.rows.length > 0 ? page.rows : [null]).map((row, index) => (
+                                        <tr key={`${page.propertyType}-${row?.property_number || 'empty'}-${index}`}>
                                             <td className="border border-black px-1 py-1">{row?.article || ''}</td>
                                             <td className="border border-black px-1 py-1">{row?.description || ''}</td>
                                             <td className="border border-black px-1 py-1">{row?.property_number || ''}</td>
@@ -201,34 +239,40 @@ export function RpcInventoryPrintView({
                                 </tbody>
                             </table>
                         </div>
+
+                        {isLastPageOverall && (
+                            <>
+                                <div className="mt-2 text-[11px]">
+                                    <span className="font-semibold">Summary:</span> Scanned {scannedCount} of {totalCount} items.
+                                </div>
+
+                                <div className="mt-6 grid grid-cols-3 gap-6 text-[11px]">
+                                    <div>
+                                        <div>Prepared by:</div>
+                                        <div className="h-10" />
+                                        <div className="border-b border-black" />
+                                        <div className="text-center">Supply Officer</div>
+                                    </div>
+                                    <div>
+                                        <div>Certified Correct by:</div>
+                                        <div className="h-10" />
+                                        <div className="border-b border-black" />
+                                        <div className="text-center">City Accountant</div>
+                                    </div>
+                                    <div>
+                                        <div>Approved by:</div>
+                                        <div className="h-10" />
+                                        <div className="border-b border-black" />
+                                        <div className="text-center">City Mayor</div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        <div className="mt-3 text-center text-[10px]">Page {page.pageNumberForType} of {page.totalPagesForType}</div>
                     </section>
                 );
             })}
-
-            <div className="mt-2 text-[11px]">
-                <span className="font-semibold">Summary:</span> Scanned {scannedCount} of {totalCount} items.
-            </div>
-
-            <div className="mt-6 grid grid-cols-3 gap-6 text-[11px]">
-                <div>
-                    <div>Prepared by:</div>
-                    <div className="h-10" />
-                    <div className="border-b border-black" />
-                    <div className="text-center">Supply Officer</div>
-                </div>
-                <div>
-                    <div>Certified Correct by:</div>
-                    <div className="h-10" />
-                    <div className="border-b border-black" />
-                    <div className="text-center">City Accountant</div>
-                </div>
-                <div>
-                    <div>Approved by:</div>
-                    <div className="h-10" />
-                    <div className="border-b border-black" />
-                    <div className="text-center">City Mayor</div>
-                </div>
-            </div>
         </div>
     );
 }
