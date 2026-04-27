@@ -70,23 +70,62 @@ const renderMeta = (meta?: Record<string, unknown> | null) => {
     );
 };
 
-const HistoryItem = ({ item }: { item: InventoryHistoryItem }) => (
-    <div className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3">
-        <div className="mt-2 h-2 w-2 rounded-full bg-slate-400" />
-        <div className="flex-1">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase rounded px-2 py-0.5 bg-slate-100 text-slate-600">{item.type}</span>
-                    <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+const getTypePalette = (type: string) => {
+    switch ((type || '').toLowerCase()) {
+        case 'delivery_receipt':
+            return {
+                badge: 'bg-amber-100 text-amber-800 border border-amber-200',
+                dot: 'bg-amber-500',
+            };
+        case 'issuance':
+            return {
+                badge: 'bg-blue-100 text-blue-800 border border-blue-200',
+                dot: 'bg-blue-500',
+            };
+        case 'borrow':
+            return {
+                badge: 'bg-violet-100 text-violet-800 border border-violet-200',
+                dot: 'bg-violet-500',
+            };
+        case 'inventory':
+            return {
+                badge: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+                dot: 'bg-emerald-500',
+            };
+        case 'audit':
+            return {
+                badge: 'bg-rose-100 text-rose-800 border border-rose-200',
+                dot: 'bg-rose-500',
+            };
+        default:
+            return {
+                badge: 'bg-slate-100 text-slate-700 border border-slate-200',
+                dot: 'bg-slate-400',
+            };
+    }
+};
+
+const HistoryItem = ({ item }: { item: InventoryHistoryItem }) => {
+    const palette = getTypePalette(item.type);
+
+    return (
+        <div className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3">
+            <div className={`mt-2 h-2 w-2 rounded-full ${palette.dot}`} />
+            <div className="flex-1">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] uppercase rounded px-2 py-0.5 ${palette.badge}`}>{item.type}</span>
+                        <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+                    </div>
+                    <div className="text-xs text-slate-500">{formatManilaDateTime(item.occurred_at)}</div>
                 </div>
-                <div className="text-xs text-slate-500">{formatManilaDateTime(item.occurred_at)}</div>
+                {item.description && <div className="text-xs text-slate-600">{item.description}</div>}
+                {item.actor?.name && <div className="text-xs text-slate-500">By {item.actor.name}</div>}
+                {renderMeta(item.meta)}
             </div>
-            {item.description && <div className="text-xs text-slate-600">{item.description}</div>}
-            {item.actor?.name && <div className="text-xs text-slate-500">By {item.actor.name}</div>}
-            {renderMeta(item.meta)}
         </div>
-    </div>
-);
+    );
+};
 
 export function InventoryHistoryDialog({ inventoryDetailId, itemName }: { inventoryDetailId: number; itemName: string }) {
     const [open, setOpen] = useState(false);

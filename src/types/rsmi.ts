@@ -1,5 +1,6 @@
 export interface RsmiReportItem {
     id: number;
+    ris_id?: number | null;
     ris_no: string;
     responsibility_center_code: string;
     stock_no: string;
