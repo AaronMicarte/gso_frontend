@@ -47,7 +47,7 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
         search: debouncedSearch || undefined,
         is_active: activeFilter,
         page: currentPage,
-        per_page: 15,
+        per_page: 10,
         sort_by: 'id',
         sort_order: 'desc',
     });
@@ -63,7 +63,15 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
     const { data: unitsData } = useAllUnitsOfMeasure();
 
     const propertyTypes = Array.isArray(propertyTypesData) ? propertyTypesData : [];
-    const propertyTypeMap = new Map(propertyTypes.map((pt) => [pt.id, pt.name]));
+    const propertyTypeMap = new Map(
+        propertyTypes.map((pt) => [
+            pt.id,
+            {
+                name: pt.name,
+                classificationLabel: pt.property_classification_label || null,
+            },
+        ])
+    );
 
     type UnitOfMeasureResponse = { id?: number; name?: string; UnitOfMeasureID?: number; UnitName?: string };
     const units = Array.isArray(unitsData)
@@ -426,7 +434,19 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                                    {propertyTypeMap.get(article.property_type_id) || 'Unknown'}
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{propertyTypeMap.get(article.property_type_id)?.name || article.property_type_name || 'Unknown'}</span>
+                                                        {(article.property_classification_label || propertyTypeMap.get(article.property_type_id)?.classificationLabel) && (
+                                                            <span
+                                                                className={`inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full ${(article.property_classification_label || propertyTypeMap.get(article.property_type_id)?.classificationLabel) === 'PPE'
+                                                                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                                                        : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                                                    }`}
+                                                            >
+                                                                {article.property_classification_label || propertyTypeMap.get(article.property_type_id)?.classificationLabel}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                                     {unitMap.get(article.default_unit_of_measure_id) || 'Unknown'}
@@ -481,8 +501,8 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                             </div>
 
                             {/* Pagination */}
-                            {data && data.total > data.per_page && (
-                                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                            {data && data.last_page > 1 && (
+                                <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
                                     <div className="flex-1 flex justify-between sm:hidden">
                                         <button
                                             onClick={() => handlePageChange(currentPage - 1)}
@@ -499,7 +519,7 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                             Next
                                         </button>
                                     </div>
-                                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                    <div className="hidden sm:flex sm:items-center sm:justify-between">
                                         <div>
                                             <p className="text-sm text-gray-700">
                                                 Showing{' '}
@@ -510,25 +530,27 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                                 <span className="font-medium">
                                                     {Math.min(currentPage * data.per_page, data.total)}
                                                 </span>{' '}
-                                                of <span className="font-medium">{data.total}</span> results
+                                                of <span className="font-medium">{data.total}</span> entries
                                             </p>
                                         </div>
-                                        <div>
-                                            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                                    <button
-                                                        key={page}
-                                                        onClick={() => handlePageChange(page)}
-                                                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === currentPage
-                                                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                                            } ${page === 1 ? 'rounded-l-md' : ''} ${page === totalPages ? 'rounded-r-md' : ''
-                                                            }`}
-                                                    >
-                                                        {page}
-                                                    </button>
-                                                ))}
-                                            </nav>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                                                disabled={currentPage <= 1 || isFetching}
+                                                className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Previous
+                                            </button>
+                                            <span className="text-sm text-slate-600">
+                                                Page {currentPage} of {totalPages}
+                                            </span>
+                                            <button
+                                                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                                                disabled={currentPage >= totalPages || isFetching}
+                                                className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Next
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -639,7 +661,9 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                             >
                                 <option value={0}>Select property type</option>
                                 {propertyTypes.map((pt) => (
-                                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                    <option key={pt.id} value={pt.id}>
+                                        {pt.name}{pt.property_classification_label ? ` (${pt.property_classification_label})` : ''}
+                                    </option>
                                 ))}
                             </select>
                             {formErrors.PropertyTypeID && (
@@ -732,7 +756,19 @@ export function ArticlesPage({ baseRoute: _baseRoute }: ArticlesPageProps) {
                                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                         <div>
                                             <p className="text-xs text-gray-500 uppercase tracking-wide">Property Type</p>
-                                            <p className="text-sm font-medium text-gray-900">{propertyTypeMap.get(viewingArticle.property_type_id) || 'Unknown'}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium text-gray-900">{propertyTypeMap.get(viewingArticle.property_type_id)?.name || viewingArticle.property_type_name || 'Unknown'}</p>
+                                                {(viewingArticle.property_classification_label || propertyTypeMap.get(viewingArticle.property_type_id)?.classificationLabel) && (
+                                                    <span
+                                                        className={`inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full ${(viewingArticle.property_classification_label || propertyTypeMap.get(viewingArticle.property_type_id)?.classificationLabel) === 'PPE'
+                                                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                                                : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                                            }`}
+                                                    >
+                                                        {viewingArticle.property_classification_label || propertyTypeMap.get(viewingArticle.property_type_id)?.classificationLabel}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div>
                                             <p className="text-xs text-gray-500 uppercase tracking-wide">Default Unit</p>

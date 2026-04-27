@@ -108,6 +108,8 @@ export interface Article {
     image_path?: string | null;
     image_url?: string | null;
     property_type_id: number;
+    property_type_name?: string | null;
+    property_classification_label?: string | null;
     default_unit_of_measure_id: number;
     is_active: boolean;
     created_at: string;

@@ -290,7 +290,9 @@ export function ArticlesFormPage({ baseRoute }: ArticlesFormPageProps) {
                             >
                                 <option value={0}>Select property type</option>
                                 {propertyTypes.map((pt) => (
-                                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                    <option key={pt.id} value={pt.id}>
+                                        {pt.name}{pt.property_classification_label ? ` (${pt.property_classification_label})` : ''}
+                                    </option>
                                 ))}
                             </select>
                             {errors.PropertyTypeID && (
