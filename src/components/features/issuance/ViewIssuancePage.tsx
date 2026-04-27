@@ -353,7 +353,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                 }`}
                         >
                             <FileText className="w-4 h-4 mr-2" />
-                            Open printable view
+                            Open PAR/ICS print view
                         </button>
                         {canAcknowledge() && (
                             <div className="space-y-3">

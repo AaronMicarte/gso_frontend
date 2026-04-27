@@ -9,6 +9,82 @@ interface ICSPrintViewProps {
     printSignature?: string | null;
 }
 
+interface GroupedIcsRow {
+    key: string;
+    quantity: number;
+    unit: string;
+    unitCost: number;
+    totalCost: number;
+    description: string;
+    inventoryNumbers: string[];
+    dateAcquired: string;
+    estimatedUsefulLife: string;
+    maxSequence: number;
+}
+
+function parseTrailingNumber(value: string): { prefix: string; number: number; width: number } | null {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(.*?)(\d+)$/);
+    if (!match) return null;
+    const numberText = match[2];
+    return {
+        prefix: match[1],
+        number: Number(numberText),
+        width: numberText.length,
+    };
+}
+
+function formatRange(values: string[]): string {
+    const unique = Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
+    if (unique.length === 0) return '';
+    if (unique.length === 1) return unique[0];
+
+    const parsed = unique.map((value) => ({ value, parsed: parseTrailingNumber(value) }));
+    const firstParsed = parsed[0].parsed;
+    const canCompact = !!firstParsed && parsed.every((item) => (
+        item.parsed
+        && item.parsed.prefix === firstParsed.prefix
+        && item.parsed.width === firstParsed.width
+    ));
+
+    if (canCompact) {
+        const sorted = parsed
+            .map((item) => ({
+                parsed: item.parsed!,
+            }))
+            .sort((a, b) => a.parsed.number - b.parsed.number);
+
+        const blocks: string[] = [];
+        let start = sorted[0].parsed.number;
+        let previous = sorted[0].parsed.number;
+
+        const pushBlock = (rangeStart: number, rangeEnd: number) => {
+            const startFull = `${firstParsed.prefix}${String(rangeStart).padStart(firstParsed.width, '0')}`;
+            if (rangeStart === rangeEnd) {
+                blocks.push(startFull);
+                return;
+            }
+            const endSuffix = String(rangeEnd).padStart(firstParsed.width, '0');
+            blocks.push(`${startFull}/${endSuffix}`);
+        };
+
+        for (let i = 1; i < sorted.length; i++) {
+            const current = sorted[i].parsed.number;
+            if (current !== previous + 1) {
+                pushBlock(start, previous);
+                start = current;
+            }
+            previous = current;
+        }
+
+        pushBlock(start, previous);
+
+        return blocks.join(', ');
+    }
+
+    return unique.slice().sort((a, b) => a.localeCompare(b)).join(', ');
+}
+
 export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(({ issuance, printSignature }, ref) => {
     const formatDate = (dateString?: string) => {
         if (!dateString) return '';
@@ -42,8 +118,6 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         || null;
 
     const details = issuance.details ?? [];
-    const rowsPerPage = 10;
-    const totalPages = Math.max(1, Math.ceil(details.length / rowsPerPage));
 
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
     const fundCluster = '';
@@ -67,7 +141,78 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         docDate
     );
 
-    const missingSignature = !receivedBySignature;
+    const groupedRows = details.reduce<Map<string, GroupedIcsRow>>((map, detail, index) => {
+        const inv = detail.inventoryDetail;
+        const pInv = inv?.propertyInventory;
+
+        const qty = Math.max(1, Number(detail.QuantityIssued ?? 1));
+        const unit = ensureText(inv?.unitOfMeasure?.UnitName || detail.Unit || 'unit', 'unit');
+
+        const itemName = ensureText(
+            pInv?.ItemDescription || pInv?.ItemName || detail.ItemDescription,
+            'ITEM'
+        );
+        const brandModel = [pInv?.Brand, pInv?.ModelNumber].filter(Boolean).join(' ');
+        const serial = ensureText(pInv?.SerialNumber, '');
+        const description = [itemName, brandModel, serial ? `SN: ${serial}` : ''].filter(Boolean).join(' / ');
+
+        const inventoryItemNo = ensureText(
+            pInv?.InventoryNumber || inv?.InventoryNumber || inv?.PropertyNumber || inv?.InventoryDetailID,
+            `${index + 1}`
+        );
+
+        const dateAcquired = ensureText(
+            pInv?.DateAcquired ? formatDate(pInv.DateAcquired) : (pInv?.DateReceived ? formatDate(pInv.DateReceived) : ''),
+            docDate
+        );
+
+        const estimatedUsefulLife = ensureText(
+            inv?.EstimatedUsefulLife || pInv?.EstimatedUsefulLife,
+            '1 year'
+        );
+
+        const unitCost = Number(inv?.UnitCost ?? 0);
+        const key = [description, unit, dateAcquired, estimatedUsefulLife, unitCost.toFixed(2)].join('|');
+
+        if (!map.has(key)) {
+            map.set(key, {
+                key,
+                quantity: 0,
+                unit,
+                unitCost,
+                totalCost: 0,
+                description,
+                inventoryNumbers: [],
+                dateAcquired,
+                estimatedUsefulLife,
+                maxSequence: -1,
+            });
+        }
+
+        const row = map.get(key)!;
+        row.quantity += qty;
+        row.totalCost += qty * unitCost;
+        row.inventoryNumbers.push(inventoryItemNo);
+
+        const trailing = parseTrailingNumber(inventoryItemNo);
+        if (trailing) {
+            row.maxSequence = Math.max(row.maxSequence, trailing.number);
+        }
+
+        return map;
+    }, new Map());
+
+    const rows = Array.from(groupedRows.values()).sort((a, b) => {
+        if (a.maxSequence !== b.maxSequence) {
+            return b.maxSequence - a.maxSequence;
+        }
+        return a.description.localeCompare(b.description);
+    });
+
+    const minimumRows = 10;
+    const blankRowCount = rows.length > 0 && rows.length < minimumRows
+        ? minimumRows - rows.length
+        : 0;
 
     return (
         <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
@@ -89,6 +234,11 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                         .print-page-break {
                             page-break-after: always;
                         }
+
+                        .ics-signature-block {
+                            break-inside: avoid;
+                            page-break-inside: avoid;
+                        }
                     }
                     @page {
                         size: A4;
@@ -98,182 +248,128 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
             }} />
 
             <>
-                {missingSignature && (
-                    <div className="no-print mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                        Recipient signature is not captured yet. Print for delivery and signing.
+                {/* Header */}
+                <div className="gso-print-title">Inventory Custodian Slip</div>
+
+                {/* Top Info */}
+                <div className="grid grid-cols-2 gap-6 text-xs mb-2">
+                    <div className="space-y-2">
+                        <div className="flex items-end gap-2">
+                            <div className="whitespace-nowrap">Entity Name:</div>
+                            <div className="flex-1 border-b border-black pb-0.5">{entityName}</div>
+                        </div>
+                        <div className="flex items-end gap-2">
+                            <div className="whitespace-nowrap">Fund Cluster :</div>
+                            <div className="flex-1 border-b border-black pb-0.5">{fundCluster}</div>
+                        </div>
                     </div>
-                )}
+                    <div className="flex items-start justify-end">
+                        <div className="flex items-end gap-2">
+                            <div className="whitespace-nowrap">ICS No :</div>
+                            <div className="w-48 border-b border-black pb-0.5 text-right">{icsNumber}</div>
+                        </div>
+                    </div>
+                </div>
 
-                {Array.from({ length: totalPages }).map((_, pageIndex) => {
-                    const pageStart = pageIndex * rowsPerPage;
-                    const pageDetails = details.slice(pageStart, pageStart + rowsPerPage);
-                    const isLastPage = pageIndex === totalPages - 1;
+                {/* Table */}
+                <table className="w-full border-collapse border border-black text-[11px]">
+                    <thead>
+                        <tr>
+                            <th rowSpan={2} className="border border-black px-1 py-1 w-[52px] text-center align-middle">Quantity</th>
+                            <th rowSpan={2} className="border border-black px-1 py-1 w-[52px] text-center align-middle">Unit</th>
+                            <th colSpan={2} className="border border-black px-1 py-1 text-center align-middle">Amount</th>
+                            <th rowSpan={2} className="border border-black px-1 py-1 text-center align-middle">Description</th>
+                            <th rowSpan={2} className="border border-black px-1 py-1 w-[95px] text-center align-middle">Inventory Item No.</th>
+                            <th rowSpan={2} className="border border-black px-1 py-1 w-[95px] text-center align-middle">Date of Acquisition</th>
+                            <th rowSpan={2} className="border border-black px-1 py-1 w-[90px] text-center align-middle">Estimated Useful Life</th>
+                        </tr>
+                        <tr>
+                            <th className="border border-black px-1 py-1 w-[85px] text-center">Unit Cost</th>
+                            <th className="border border-black px-1 py-1 w-[90px] text-center">Total Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row) => (
+                            <tr key={row.key}>
+                                <td className="border border-black px-1 py-1 text-center">{row.quantity}</td>
+                                <td className="border border-black px-1 py-1 text-center">{row.unit}</td>
+                                <td className="border border-black px-1 py-1 text-right">{row.unitCost.toFixed(2)}</td>
+                                <td className="border border-black px-1 py-1 text-right">{row.totalCost.toFixed(2)}</td>
+                                <td className="border border-black px-1 py-1 align-top whitespace-pre-line">{row.description}</td>
+                                <td className="border border-black px-1 py-1 text-center">{formatRange(row.inventoryNumbers)}</td>
+                                <td className="border border-black px-1 py-1 text-center">{row.dateAcquired}</td>
+                                <td className="border border-black px-1 py-1 text-center">{row.estimatedUsefulLife}</td>
+                            </tr>
+                        ))}
 
-                    return (
-                        <div key={`ics-page-${pageIndex}`} className={isLastPage ? '' : 'print-page-break'}>
-                            {/* Header */}
-                            <div className="gso-print-title">Inventory Custodian Slip</div>
+                        {Array.from({ length: blankRowCount }).map((_, blankIndex) => (
+                            <tr key={`blank-row-${blankIndex}`}>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                            </tr>
+                        ))}
 
-                            {/* Top Info */}
-                            <div className="grid grid-cols-2 gap-6 text-xs mb-2">
-                                <div className="space-y-2">
-                                    <div className="flex items-end gap-2">
-                                        <div className="whitespace-nowrap">Entity Name:</div>
-                                        <div className="flex-1 border-b border-black pb-0.5">{entityName}</div>
-                                    </div>
-                                    <div className="flex items-end gap-2">
-                                        <div className="whitespace-nowrap">Fund Cluster :</div>
-                                        <div className="flex-1 border-b border-black pb-0.5">{fundCluster}</div>
-                                    </div>
-                                </div>
-                                <div className="flex items-start justify-end">
-                                    <div className="flex items-end gap-2">
-                                        <div className="whitespace-nowrap">ICS No :</div>
-                                        <div className="w-48 border-b border-black pb-0.5 text-right">{icsNumber}</div>
-                                    </div>
-                                </div>
-                            </div>
+                        {rows.length === 0 && (
+                            <tr>
+                                <td className="border border-black px-1 py-1 text-center" colSpan={8}>No issued items</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
 
-                            {/* Table */}
-                            <table className="w-full border-collapse border border-black text-[11px]">
-                                <thead>
-                                    <tr>
-                                        <th rowSpan={2} className="border border-black px-1 py-1 w-[52px] text-center align-middle">Quantity</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1 w-[52px] text-center align-middle">Unit</th>
-                                        <th colSpan={2} className="border border-black px-1 py-1 text-center align-middle">Amount</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1 text-center align-middle">Description</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1 w-[95px] text-center align-middle">Inventory Item No.</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1 w-[95px] text-center align-middle">Date of Acquisition</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1 w-[90px] text-center align-middle">Estimated Useful Life</th>
-                                    </tr>
-                                    <tr>
-                                        <th className="border border-black px-1 py-1 w-[85px] text-center">Unit Cost</th>
-                                        <th className="border border-black px-1 py-1 w-[90px] text-center">Total Cost</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(() => {
-                                        const rows = pageDetails.map((detail, idx) => {
-                                            const inv = detail.inventoryDetail;
-                                            const pInv = inv?.propertyInventory;
-
-                                            const qty = Number(detail.QuantityIssued ?? 1);
-                                            const unit = ensureText(inv?.unitOfMeasure?.UnitName || (detail.Unit ?? ''), 'unit');
-
-                                            const itemName = ensureText(
-                                                pInv?.ItemDescription || pInv?.ItemName || detail.ItemDescription,
-                                                'ITEM'
-                                            );
-                                            const brandModel = [pInv?.Brand, pInv?.ModelNumber].filter(Boolean).join(' ');
-                                            const serial = ensureText(pInv?.SerialNumber, '');
-                                            const description = [itemName, brandModel, serial ? `SN: ${serial}` : ''].filter(Boolean).join(' / ');
-
-                                            const inventoryItemNo = ensureText(
-                                                pInv?.InventoryNumber || inv?.InventoryNumber || inv?.PropertyNumber || inv?.InventoryDetailID,
-                                                ensureText(pageStart + idx + 1, '1')
-                                            );
-
-                                            const dateAcquired = ensureText(
-                                                pInv?.DateAcquired ? formatDate(pInv.DateAcquired) : (pInv?.DateReceived ? formatDate(pInv.DateReceived) : ''),
-                                                docDate
-                                            );
-
-                                            const estimatedUsefulLife = ensureText(
-                                                inv?.EstimatedUsefulLife || pInv?.EstimatedUsefulLife,
-                                                '1 year'
-                                            );
-
-                                            const unitCost = Number(inv?.UnitCost ?? 0);
-                                            const totalCost = qty * unitCost;
-
-                                            return (
-                                                <tr key={detail.IssuanceDetailID ?? `${pageIndex}-${idx}`}>
-                                                    <td className="border border-black px-1 py-1 text-center">{qty}</td>
-                                                    <td className="border border-black px-1 py-1 text-center">{unit}</td>
-                                                    <td className="border border-black px-1 py-1 text-right">{unitCost.toFixed(2)}</td>
-                                                    <td className="border border-black px-1 py-1 text-right">{totalCost.toFixed(2)}</td>
-                                                    <td className="border border-black px-1 py-1 align-top whitespace-pre-line">{description}</td>
-                                                    <td className="border border-black px-1 py-1 text-center">{inventoryItemNo}</td>
-                                                    <td className="border border-black px-1 py-1 text-center">{dateAcquired}</td>
-                                                    <td className="border border-black px-1 py-1 text-center">{estimatedUsefulLife}</td>
-                                                </tr>
-                                            );
-                                        });
-
-                                        const blanks = Math.max(0, rowsPerPage - rows.length);
-                                        for (let i = 0; i < blanks; i++) {
-                                            rows.push(
-                                                <tr key={`blank-${pageIndex}-${i}`}>
-                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1">&nbsp;</td>
-                                                </tr>
-                                            );
-                                        }
-
-                                        return rows;
-                                    })()}
-                                </tbody>
-                            </table>
-
-                            {isLastPage && (
-                                <div
-                                    className="grid mt-0 text-xs border border-black border-t-0"
-                                    style={{ gridTemplateColumns: '52px 52px 85px 90px minmax(0, 1fr) 95px 95px 90px' }}
-                                >
-                                    <div className="col-span-5 p-3 border-r border-black">
-                                        <div className="mb-6">Received from:</div>
-                                        <div className="border-b border-black h-14 flex items-end justify-center">
-                                            {issuerSignatureUrl && (
-                                                <Image
-                                                    src={issuerSignatureUrl}
-                                                    alt="Received from signature"
-                                                    width={180}
-                                                    height={60}
-                                                    unoptimized
-                                                    className="max-h-12 object-contain"
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name of End User</div>
-                                        <div className="border-b border-black mt-4 pb-1 text-center">{receivedFromName}</div>
-                                        <div className="text-[10px] text-center mt-1">Position/Office</div>
-                                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedFromOffice}</div>
-                                        <div className="text-[10px] text-center mt-1">Date</div>
-                                        <div className="border-b border-black mt-2 pb-1 text-center">{docDate}</div>
-                                    </div>
-
-                                    <div className="col-span-3 p-3">
-                                        <div className="mb-6">Received by:</div>
-                                        <div className="border-b border-black h-14 flex items-end justify-center">
-                                            {receivedBySignature && (
-                                                <Image
-                                                    src={receivedBySignature}
-                                                    alt="Received by signature"
-                                                    width={180}
-                                                    height={60}
-                                                    unoptimized
-                                                    className="max-h-12 object-contain"
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name</div>
-                                        <div className="border-b border-black mt-4 pb-1 text-center">{receivedByName}</div>
-                                        <div className="text-[10px] text-center mt-1">Position/Office</div>
-                                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedByOffice}</div>
-                                        <div className="text-[10px] text-center mt-1">Date</div>
-                                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedDate}</div>
-                                    </div>
-                                </div>
+                <div className="ics-signature-block grid grid-cols-2 mt-0 text-xs border border-black border-t-0">
+                    <div className="p-3 border-r border-black">
+                        <div className="mb-6">Received from:</div>
+                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
+                            {issuerSignatureUrl ? (
+                                <Image
+                                    src={issuerSignatureUrl}
+                                    alt="Received from signature"
+                                    width={180}
+                                    height={60}
+                                    unoptimized
+                                    className="max-h-12 object-contain"
+                                />
+                            ) : (
+                                <span className="pb-0.5 text-center">{receivedFromName}</span>
                             )}
                         </div>
-                    );
-                })}
+                        <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name of End User</div>
+                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedFromOffice}</div>
+                        <div className="text-[10px] text-center mt-1">Position/Office</div>
+                        <div className="border-b border-black mt-2 pb-1 text-center">{docDate}</div>
+                        <div className="text-[10px] text-center mt-1">Date</div>
+                    </div>
+
+                    <div className="p-3">
+                        <div className="mb-6">Received by:</div>
+                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
+                            {receivedBySignature ? (
+                                <Image
+                                    src={receivedBySignature}
+                                    alt="Received by signature"
+                                    width={180}
+                                    height={60}
+                                    unoptimized
+                                    className="max-h-12 object-contain"
+                                />
+                            ) : (
+                                <span className="pb-0.5 text-center">{receivedByName}</span>
+                            )}
+                        </div>
+                        <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name</div>
+                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedByOffice}</div>
+                        <div className="text-[10px] text-center mt-1">Position/Office</div>
+                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedDate}</div>
+                        <div className="text-[10px] text-center mt-1">Date</div>
+                    </div>
+                </div>
             </>
         </div>
     );

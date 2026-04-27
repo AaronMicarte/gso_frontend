@@ -198,7 +198,10 @@ export function IssuanceDocumentsListPage({
             flattened.sort((a, b) => {
                 const aDate = safeDate(a.issuance.IssuanceDate)?.getTime() ?? 0;
                 const bDate = safeDate(b.issuance.IssuanceDate)?.getTime() ?? 0;
-                return bDate - aDate;
+                if (aDate !== bDate) {
+                    return bDate - aDate;
+                }
+                return (b.issuance.IssuanceID ?? 0) - (a.issuance.IssuanceID ?? 0);
             });
 
             const rootLastPage = Number(responseAny.last_page);

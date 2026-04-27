@@ -127,6 +127,22 @@ export interface AssetIssuance {
     acknowledger?: User;
     auditLogs?: AssetAuditLog[];
 
+    // Related issuance documents for the same DR or request, keyed by document type.
+    issuances_by_document_type?: {
+        PAR?: {
+            IssuanceID: number;
+            DocumentType?: 'PAR' | 'ICS' | string | null;
+            DocumentNumber?: string | null;
+            Status?: string | null;
+        } | null;
+        ICS?: {
+            IssuanceID: number;
+            DocumentType?: 'PAR' | 'ICS' | string | null;
+            DocumentNumber?: string | null;
+            Status?: string | null;
+        } | null;
+    } | null;
+
     // Computed
     signature_url?: string;
 }

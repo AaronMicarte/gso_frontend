@@ -162,8 +162,8 @@ export function IssuanceListPage({
         setPendingRow(null);
     };
 
-    const handlePrint = (row: DeliveryReceiptForIssuance, docType: 'PAR' | 'ICS') => {
-        const existing = row.issuances_by_document_type?.[docType];
+    const handlePrint = (row: DeliveryReceiptForIssuance) => {
+        const existing = row.issuances_by_document_type?.PAR ?? row.issuances_by_document_type?.ICS;
         if (existing?.IssuanceID) {
             const printUrl = `${baseRoute}/${existing.IssuanceID}/print`;
             window.open(printUrl, '_blank', 'noopener,noreferrer');
@@ -172,7 +172,7 @@ export function IssuanceListPage({
 
         issuanceAPI.ensureIssuances({ dr_id: row.DRID, iar_id: row.IARID || undefined })
             .then((response) => {
-                const ensured = response.data?.issuances_by_document_type?.[docType];
+                const ensured = response.data?.issuances_by_document_type?.PAR ?? response.data?.issuances_by_document_type?.ICS;
                 if (!ensured?.IssuanceID) {
                     toast.error('Issuance document is not available yet');
                     return;
@@ -317,12 +317,12 @@ export function IssuanceListPage({
                                                 {availableTypes.length > 0 && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => handlePrint(row, selectedType)}
+                                                        onClick={() => handlePrint(row)}
                                                         disabled={!canPrint}
                                                         className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                                                     >
                                                         <FileText className="w-4 h-4" />
-                                                        Print {selectedType}
+                                                        Print PAR/ICS
                                                     </button>
                                                 )}
                                                 <button

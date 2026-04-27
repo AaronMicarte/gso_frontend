@@ -9,6 +9,81 @@ interface PARPrintViewProps {
     printSignature?: string | null;
 }
 
+interface GroupedParRow {
+    key: string;
+    quantity: number;
+    unit: string;
+    description: string;
+    propertyNumbers: string[];
+    dateAcquired: string;
+    unitCost: number;
+    totalAmount: number;
+    maxSequence: number;
+}
+
+function parseTrailingNumber(value: string): { prefix: string; number: number; width: number } | null {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(.*?)(\d+)$/);
+    if (!match) return null;
+    const numberText = match[2];
+    return {
+        prefix: match[1],
+        number: Number(numberText),
+        width: numberText.length,
+    };
+}
+
+function formatRange(values: string[]): string {
+    const unique = Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
+    if (unique.length === 0) return '';
+    if (unique.length === 1) return unique[0];
+
+    const parsed = unique.map((value) => ({ value, parsed: parseTrailingNumber(value) }));
+    const firstParsed = parsed[0].parsed;
+    const canCompact = !!firstParsed && parsed.every((item) => (
+        item.parsed
+        && item.parsed.prefix === firstParsed.prefix
+        && item.parsed.width === firstParsed.width
+    ));
+
+    if (canCompact) {
+        const sorted = parsed
+            .map((item) => ({
+                parsed: item.parsed!,
+            }))
+            .sort((a, b) => a.parsed.number - b.parsed.number);
+
+        const blocks: string[] = [];
+        let start = sorted[0].parsed.number;
+        let previous = sorted[0].parsed.number;
+
+        const pushBlock = (rangeStart: number, rangeEnd: number) => {
+            const startFull = `${firstParsed.prefix}${String(rangeStart).padStart(firstParsed.width, '0')}`;
+            if (rangeStart === rangeEnd) {
+                blocks.push(startFull);
+                return;
+            }
+            const endSuffix = String(rangeEnd).padStart(firstParsed.width, '0');
+            blocks.push(`${startFull}/${endSuffix}`);
+        };
+
+        for (let i = 1; i < sorted.length; i++) {
+            const current = sorted[i].parsed.number;
+            if (current !== previous + 1) {
+                pushBlock(start, previous);
+                start = current;
+            }
+            previous = current;
+        }
+
+        pushBlock(start, previous);
+
+        return blocks.join(', ');
+    }
+
+    return unique.slice().sort((a, b) => a.localeCompare(b)).join(', ');
+}
+
 export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(({ issuance, printSignature }, ref) => {
     const formatDate = (dateString?: string) => {
         if (!dateString) return '';
@@ -37,8 +112,6 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
     };
 
     const details = issuance.details ?? [];
-    const rowsPerPage = 10;
-    const totalPages = Math.max(1, Math.ceil(details.length / rowsPerPage));
 
     // Signatures
     const receivedBySignature = runtimePrintSignature || issuance.AcknowledgmentSignature;
@@ -54,7 +127,12 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
         issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
         'DEPARTMENT'
     );
+    const receivedByName = ensureText(
+        issuance.request?.requester?.FullName || issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
+        'END USER'
+    );
 
+    const issuedByName = ensureText(issuance.issuer?.FullName, 'PROPERTY CUSTODIAN');
     const issuedByOffice = ensureText(issuance.issuer?.department?.DepartmentName, 'GENERAL SERVICES OFFICE');
 
     // Dates
@@ -63,6 +141,72 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
         issuance.AcknowledgedAt ? formatDate(issuance.AcknowledgedAt) : '',
         docDate
     );
+
+    const groupedRows = details.reduce<Map<string, GroupedParRow>>((map, detail, index) => {
+        const inv = detail.inventoryDetail;
+        const pInv = inv?.propertyInventory;
+
+        const itemName = ensureText(
+            pInv?.ItemDescription || pInv?.ItemName || detail.ItemDescription,
+            'ITEM'
+        );
+        const technical = ensureText(inv?.Description, '');
+        const description = technical ? `${itemName} - ${technical}` : itemName;
+
+        const qty = Math.max(1, Number(detail.QuantityIssued ?? 1));
+        const unit = ensureText(inv?.unitOfMeasure?.UnitName || detail.Unit || 'unit', 'unit');
+
+        const propertyNumber = ensureText(
+            inv?.PropertyNumber || inv?.InventoryNumber || pInv?.InventoryNumber || inv?.InventoryDetailID,
+            `${index + 1}`
+        );
+
+        const dateAcquired = ensureText(
+            pInv?.DateAcquired ? formatDate(pInv.DateAcquired) : (pInv?.DateReceived ? formatDate(pInv.DateReceived) : ''),
+            docDate
+        );
+
+        const unitCost = Number(inv?.UnitCost ?? 0);
+        const key = [description, unit, dateAcquired, unitCost.toFixed(2)].join('|');
+
+        if (!map.has(key)) {
+            map.set(key, {
+                key,
+                quantity: 0,
+                unit,
+                description,
+                propertyNumbers: [],
+                dateAcquired,
+                unitCost,
+                totalAmount: 0,
+                maxSequence: -1,
+            });
+        }
+
+        const row = map.get(key)!;
+        row.quantity += qty;
+        row.totalAmount += qty * unitCost;
+        row.propertyNumbers.push(propertyNumber);
+
+        const trailing = parseTrailingNumber(propertyNumber);
+        if (trailing) {
+            row.maxSequence = Math.max(row.maxSequence, trailing.number);
+        }
+
+        return map;
+    }, new Map());
+
+    const rows = Array.from(groupedRows.values()).sort((a, b) => {
+        if (a.maxSequence !== b.maxSequence) {
+            return b.maxSequence - a.maxSequence;
+        }
+        return a.description.localeCompare(b.description);
+    });
+
+    const minimumRows = 10;
+    const blankRowCount = rows.length > 0 && rows.length < minimumRows
+        ? minimumRows - rows.length
+        : 0;
 
     return (
         <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
@@ -84,6 +228,11 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                         .print-page-break {
                             page-break-after: always;
                         }
+
+                        .par-signature-block {
+                            break-inside: avoid;
+                            page-break-inside: avoid;
+                        }
                     }
                     @page {
                         size: A4;
@@ -93,171 +242,135 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
             }} />
 
             <>
-                {Array.from({ length: totalPages }).map((_, pageIndex) => {
-                    const pageStart = pageIndex * rowsPerPage;
-                    const pageDetails = details.slice(pageStart, pageStart + rowsPerPage);
-                    const isLastPage = pageIndex === totalPages - 1;
+                {/* Header */}
+                <div className="gso-print-title">Property Acknowledgment Receipt</div>
 
-                    return (
-                        <div key={`par-page-${pageIndex}`} className={isLastPage ? '' : 'print-page-break'}>
-                            {/* Header */}
-                            <div className="gso-print-title">Property Acknowledgment Receipt</div>
+                {/* Top Info Row */}
+                <div className="grid grid-cols-2 gap-4 mb-2 text-xs">
+                    <div className="space-y-1">
+                        <div className="flex items-end gap-2">
+                            <div className="whitespace-nowrap">Entity Name :</div>
+                            <div className="flex-1 border-b border-black pb-0.5">{entityName}</div>
+                        </div>
+                        <div className="flex items-end gap-2">
+                            <div className="whitespace-nowrap">Fund Cluster :</div>
+                            <div className="flex-1 border-b border-black pb-0.5">{fundCluster}</div>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <div className="flex items-end gap-2 justify-end">
+                            <div className="whitespace-nowrap">PAR No. :</div>
+                            <div className="w-48 border-b border-black pb-0.5 text-right">{ensureText(issuance.DocumentNumber, 'PAR')}</div>
+                        </div>
+                    </div>
+                </div>
 
-                            {/* Top Info Row */}
-                            <div className="grid grid-cols-2 gap-4 mb-2 text-xs">
-                                <div className="space-y-1">
-                                    <div className="flex items-end gap-2">
-                                        <div className="whitespace-nowrap">Entity Name :</div>
-                                        <div className="flex-1 border-b border-black pb-0.5">{entityName}</div>
-                                    </div>
-                                    <div className="flex items-end gap-2">
-                                        <div className="whitespace-nowrap">Fund Cluster :</div>
-                                        <div className="flex-1 border-b border-black pb-0.5">{fundCluster}</div>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="flex items-end gap-2 justify-end">
-                                        <div className="whitespace-nowrap">PAR No. :</div>
-                                        <div className="w-48 border-b border-black pb-0.5 text-right">{ensureText(issuance.DocumentNumber, 'PAR')}</div>
-                                    </div>
-                                </div>
-                            </div>
+                {/* Table */}
+                <table className="w-full table-fixed border-collapse border border-black text-[11px]">
+                    <colgroup>
+                        <col style={{ width: '52px' }} />
+                        <col style={{ width: '52px' }} />
+                        <col />
+                        <col style={{ width: '90px' }} />
+                        <col style={{ width: '90px' }} />
+                        <col style={{ width: '90px' }} />
+                        <col style={{ width: '95px' }} />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th className="border border-black px-1 py-1 text-center">Quantity</th>
+                            <th className="border border-black px-1 py-1 text-center">Unit</th>
+                            <th className="border border-black px-1 py-1 text-center">Description</th>
+                            <th className="border border-black px-1 py-1 text-center">Property Number</th>
+                            <th className="border border-black px-1 py-1 text-center">Date Acquired</th>
+                            <th className="border border-black px-1 py-1 text-center">Unit Cost</th>
+                            <th className="border border-black px-1 py-1 text-center">Total Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row) => (
+                            <tr key={row.key}>
+                                <td className="border border-black px-1 py-1 text-center align-top">{row.quantity}</td>
+                                <td className="border border-black px-1 py-1 text-center align-top">{row.unit}</td>
+                                <td className="border border-black px-1 py-1 align-top whitespace-normal break-words">{row.description}</td>
+                                <td className="border border-black px-1 py-1 text-center align-top">{formatRange(row.propertyNumbers)}</td>
+                                <td className="border border-black px-1 py-1 text-center align-top">{row.dateAcquired}</td>
+                                <td className="border border-black px-1 py-1 text-right align-top">{row.unitCost.toFixed(2)}</td>
+                                <td className="border border-black px-1 py-1 text-right align-top">{row.totalAmount.toFixed(2)}</td>
+                            </tr>
+                        ))}
 
-                            {/* Table */}
-                            <table className="w-full table-fixed border-collapse border border-black text-[11px]">
-                                <colgroup>
-                                    <col style={{ width: '52px' }} />
-                                    <col style={{ width: '52px' }} />
-                                    <col />
-                                    <col style={{ width: '90px' }} />
-                                    <col style={{ width: '90px' }} />
-                                    <col style={{ width: '90px' }} />
-                                    <col style={{ width: '95px' }} />
-                                </colgroup>
-                                <thead>
-                                    <tr>
-                                        <th className="border border-black px-1 py-1 text-center">Quantity</th>
-                                        <th className="border border-black px-1 py-1 text-center">Unit</th>
-                                        <th className="border border-black px-1 py-1 text-center">Description</th>
-                                        <th className="border border-black px-1 py-1 text-center">Property Number</th>
-                                        <th className="border border-black px-1 py-1 text-center">Date Acquired</th>
-                                        <th className="border border-black px-1 py-1 text-center">Unit Cost</th>
-                                        <th className="border border-black px-1 py-1 text-center">Total Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(() => {
-                                        const rows = pageDetails.map((detail, idx) => {
-                                            const inv = detail.inventoryDetail;
-                                            const pInv = inv?.propertyInventory;
+                        {Array.from({ length: blankRowCount }).map((_, blankIndex) => (
+                            <tr key={`blank-row-${blankIndex}`}>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                                <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
+                            </tr>
+                        ))}
 
-                                            const itemName = ensureText(
-                                                pInv?.ItemDescription || pInv?.ItemName || detail.ItemDescription,
-                                                'ITEM'
-                                            );
-                                            const technical = ensureText(inv?.Description, '');
-                                            const description = technical ? `${itemName} - ${technical}` : itemName;
+                        {rows.length === 0 && (
+                            <tr>
+                                <td className="border border-black px-1 py-1 text-center" colSpan={7}>No issued items</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
 
-                                            const qty = Number(detail.QuantityIssued ?? 1);
-                                            const unit = ensureText(inv?.unitOfMeasure?.UnitName || (detail.Unit ?? ''), 'unit');
-                                            const propertyNumber = ensureText(inv?.PropertyNumber || inv?.InventoryDetailID, ensureText(pageStart + idx + 1, '1'));
-
-                                            const dateAcquired = ensureText(
-                                                pInv?.DateAcquired ? formatDate(pInv.DateAcquired) : (pInv?.DateReceived ? formatDate(pInv.DateReceived) : ''),
-                                                docDate
-                                            );
-
-                                            const unitCost = Number(inv?.UnitCost ?? 0);
-                                            const total = qty * unitCost;
-
-                                            return (
-                                                <tr key={detail.IssuanceDetailID ?? `${pageIndex}-${idx}`}>
-                                                    <td className="border border-black px-1 py-1 text-center align-top">{qty}</td>
-                                                    <td className="border border-black px-1 py-1 text-center align-top">{unit}</td>
-                                                    <td className="border border-black px-1 py-1 align-top whitespace-normal break-words">{description}</td>
-                                                    <td className="border border-black px-1 py-1 text-center align-top">{propertyNumber}</td>
-                                                    <td className="border border-black px-1 py-1 text-center align-top">{dateAcquired}</td>
-                                                    <td className="border border-black px-1 py-1 text-right align-top">{unitCost.toFixed(2)}</td>
-                                                    <td className="border border-black px-1 py-1 text-right align-top">{total.toFixed(2)}</td>
-                                                </tr>
-                                            );
-                                        });
-
-                                        const blanks = Math.max(0, rowsPerPage - rows.length);
-                                        for (let i = 0; i < blanks; i++) {
-                                            rows.push(
-                                                <tr key={`blank-${pageIndex}-${i}`}>
-                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                    <td className="border border-black px-1 py-1 h-6">&nbsp;</td>
-                                                </tr>
-                                            );
-                                        }
-
-                                        return rows;
-                                    })()}
-                                </tbody>
-                            </table>
-
-                            {isLastPage && (
-                                <div
-                                    className="grid mt-0 text-xs border border-black border-t-0"
-                                    style={{ gridTemplateColumns: '52px 52px minmax(0, 1fr) 90px 90px 90px 95px' }}
-                                >
-                                    <div className="col-span-3 p-3 border-r border-black flex flex-col">
-                                        <div className="h-5 mb-3">Received by:</div>
-                                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
-                                            {receivedBySignature && (
-                                                <Image
-                                                    src={receivedBySignature}
-                                                    alt="Received by signature"
-                                                    width={180}
-                                                    height={60}
-                                                    unoptimized
-                                                    className="max-h-12 object-contain"
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="text-[10px] leading-tight text-center mt-0.5 px-2">
-                                            Signature over Printed Name of End User
-                                        </div>
-                                        <div className="border-b border-black mt-4 h-6 flex items-end justify-center pb-0.5 text-center">{receivedByOffice}</div>
-                                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>
-                                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">&nbsp;</div>
-                                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Date</div>
-                                    </div>
-
-                                    <div className="col-span-4 p-3 flex flex-col">
-                                        <div className="h-5 mb-3">Issued by:</div>
-                                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
-                                            {issuerSignatureUrl && (
-                                                <Image
-                                                    src={issuerSignatureUrl}
-                                                    alt="Issued by signature"
-                                                    width={180}
-                                                    height={60}
-                                                    unoptimized
-                                                    className="max-h-12 object-contain"
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="text-[10px] leading-tight text-center mt-0.5 px-2">
-                                            Signature over Printed Name of Supply and/or Property Custodian
-                                        </div>
-                                        <div className="border-b border-black mt-4 h-6 flex items-end justify-center pb-0.5 text-center">{issuedByOffice}</div>
-                                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>
-                                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">&nbsp;</div>
-                                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Date</div>
-                                    </div>
-                                </div>
+                <div className="par-signature-block grid grid-cols-2 mt-0 text-xs border border-black border-t-0">
+                    <div className="p-3 border-r border-black flex flex-col">
+                        <div className="h-5 mb-3">Received by:</div>
+                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
+                            {receivedBySignature ? (
+                                <Image
+                                    src={receivedBySignature}
+                                    alt="Received by signature"
+                                    width={180}
+                                    height={60}
+                                    unoptimized
+                                    className="max-h-12 object-contain"
+                                />
+                            ) : (
+                                <span className="pb-0.5 text-center">{receivedByName}</span>
                             )}
                         </div>
-                    );
-                })}
+                        <div className="text-[10px] leading-tight text-center mt-0.5 px-2">
+                            Signature over Printed Name of End User
+                        </div>
+                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{receivedByOffice}</div>
+                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>
+                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{receivedDate}</div>
+                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Date</div>
+                    </div>
+
+                    <div className="p-3 flex flex-col">
+                        <div className="h-5 mb-3">Issued by:</div>
+                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
+                            {issuerSignatureUrl ? (
+                                <Image
+                                    src={issuerSignatureUrl}
+                                    alt="Issued by signature"
+                                    width={180}
+                                    height={60}
+                                    unoptimized
+                                    className="max-h-12 object-contain"
+                                />
+                            ) : (
+                                <span className="pb-0.5 text-center">{issuedByName}</span>
+                            )}
+                        </div>
+                        <div className="text-[10px] leading-tight text-center mt-0.5 px-2">
+                            Signature over Printed Name of Supply and/or Property Custodian
+                        </div>
+                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{issuedByOffice}</div>
+                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>
+                        <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{docDate}</div>
+                        <div className="text-[10px] leading-tight text-center mt-1 h-4">Date</div>
+                    </div>
+                </div>
             </>
         </div>
     );
