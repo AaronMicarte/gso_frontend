@@ -180,8 +180,11 @@ export function AllItemsPage() {
         return custodianName || 'Requester not set';
     };
 
-    const getBorrowedLabel = (borrowerName?: string | null) => {
-        return borrowerName ? `Currently borrowed by ${borrowerName}` : null;
+    const getBorrowedLabel = (borrowerName?: string | null, departmentName?: string | null) => {
+        if (!borrowerName) return null;
+        return departmentName
+            ? `Currently borrowed by ${borrowerName} - ${departmentName}`
+            : `Currently borrowed by ${borrowerName}`;
     };
 
     const getQrCodeData = (item: InventoryItem): string | null => {
@@ -330,119 +333,123 @@ export function AllItemsPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredDetails.map((item) => (
-                                        <tr key={item.InventoryDetailID} className="hover:bg-slate-50">
-                                            <td className="px-6 py-4">
-                                                <div>
-                                                    <div className="font-medium text-slate-900">
-                                                        {getItemName(item)}
-                                                    </div>
-                                                    <div className="text-xs text-slate-500 space-y-1 mt-1">
-                                                        {item.Brand && <div>Brand: {item.Brand}</div>}
-                                                        {item.ModelNumber && <div>Model: {item.ModelNumber}</div>}
-                                                        {item.SerialNumber && <div>Serial: {item.SerialNumber}</div>}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                <div
-                                                    className={`max-w-xs cursor-pointer ${expandedDescriptions.has(item.InventoryDetailID) ? '' : 'truncate'}`}
-                                                    onClick={() => toggleDescriptionExpansion(item.InventoryDetailID)}
-                                                    style={expandedDescriptions.has(item.InventoryDetailID) ? { whiteSpace: 'pre-line' } : {}}
-                                                >
-                                                    {getCombinedDescription(item)}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                                    {item.PropertyName || 'Unknown'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                <div className="font-medium">{item.InventoryNumber || 'N/A'}</div>
-                                            </td>
-                                            <td className="px-6 py-4 space-y-1">
-                                                <div>{getStatusBadge(item.PropertyStatusID, item.StatusName)}</div>
-                                                {item.ConditionName ? (
-                                                    <div
-                                                        className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
-                                                        style={{
-                                                            backgroundColor: item.ConditionName.toLowerCase().includes('unserviceable') ? '#fef2f2' : item.ConditionName.toLowerCase().includes('under repair') ? '#fffbeb' : '#ecfdf5',
-                                                            color: item.ConditionName.toLowerCase().includes('unserviceable') ? '#b91c1c' : item.ConditionName.toLowerCase().includes('under repair') ? '#92400e' : '#065f46',
-                                                            border: '1px solid ' + (item.ConditionName.toLowerCase().includes('unserviceable') ? '#fecaca' : item.ConditionName.toLowerCase().includes('under repair') ? '#fde68a' : '#bbf7d0'),
-                                                        }}
-                                                    >
-                                                        <span className="uppercase tracking-wider">{item.ConditionName}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-xs text-slate-500">Unknown</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                {getBorrowedLabel(item.currentBorrowerName) ? (
-                                                    <div className="flex items-center gap-1 text-amber-700">
-                                                        <User className="w-3 h-3" />
-                                                        {getBorrowedLabel(item.currentBorrowerName)}
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="flex items-center gap-1">
-                                                            <User className="w-3 h-3" />
-                                                            {item.locationDepartment
-                                                                ? `${getCustodianDisplayName(item.custodianName)}`
-                                                                : getCustodianDisplayName(item.custodianName)}
+                                    filteredDetails.map((item) => {
+                                        const borrowedLabel = getBorrowedLabel(item.currentBorrowerName, item.currentBorrowerDepartment);
+
+                                        return (
+                                            <tr key={item.InventoryDetailID} className="hover:bg-slate-50">
+                                                <td className="px-6 py-4">
+                                                    <div>
+                                                        <div className="font-medium text-slate-900">
+                                                            {getItemName(item)}
                                                         </div>
-                                                        {item.locationDepartment && (
-                                                            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                                                                <Building2 className="w-3 h-3" />
-                                                                {item.locationDepartment}
+                                                        <div className="text-xs text-slate-500 space-y-1 mt-1">
+                                                            {item.Brand && <div>Brand: {item.Brand}</div>}
+                                                            {item.ModelNumber && <div>Model: {item.ModelNumber}</div>}
+                                                            {item.SerialNumber && <div>Serial: {item.SerialNumber}</div>}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    <div
+                                                        className={`max-w-xs cursor-pointer ${expandedDescriptions.has(item.InventoryDetailID) ? '' : 'truncate'}`}
+                                                        onClick={() => toggleDescriptionExpansion(item.InventoryDetailID)}
+                                                        style={expandedDescriptions.has(item.InventoryDetailID) ? { whiteSpace: 'pre-line' } : {}}
+                                                    >
+                                                        {getCombinedDescription(item)}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                        {item.PropertyName || 'Unknown'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    <div className="font-medium">{item.InventoryNumber || 'N/A'}</div>
+                                                </td>
+                                                <td className="px-6 py-4 space-y-1">
+                                                    <div>{getStatusBadge(item.PropertyStatusID, item.StatusName)}</div>
+                                                    {item.ConditionName ? (
+                                                        <div
+                                                            className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
+                                                            style={{
+                                                                backgroundColor: item.ConditionName.toLowerCase().includes('unserviceable') ? '#fef2f2' : item.ConditionName.toLowerCase().includes('under repair') ? '#fffbeb' : '#ecfdf5',
+                                                                color: item.ConditionName.toLowerCase().includes('unserviceable') ? '#b91c1c' : item.ConditionName.toLowerCase().includes('under repair') ? '#92400e' : '#065f46',
+                                                                border: '1px solid ' + (item.ConditionName.toLowerCase().includes('unserviceable') ? '#fecaca' : item.ConditionName.toLowerCase().includes('under repair') ? '#fde68a' : '#bbf7d0'),
+                                                            }}
+                                                        >
+                                                            <span className="uppercase tracking-wider">{item.ConditionName}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-500">Unknown</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    {borrowedLabel ? (
+                                                        <div className="flex items-center gap-1 text-amber-700">
+                                                            <User className="w-3 h-3" />
+                                                            {borrowedLabel}
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="flex items-center gap-1">
+                                                                <User className="w-3 h-3" />
+                                                                {item.locationDepartment
+                                                                    ? `${getCustodianDisplayName(item.custodianName)}`
+                                                                    : getCustodianDisplayName(item.custodianName)}
                                                             </div>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <PropertyCardDialog
-                                                        inventoryDetailId={item.InventoryDetailID}
-                                                        propertyNumber={item.PropertyNumber}
-                                                        itemName={getItemName(item)}
-                                                        description={item.Description}
-                                                        category={item.PropertyName || item.ClassificationName}
-                                                        custodianName={getCustodianDisplayName(item.custodianName)}
-                                                    />
-                                                    {item.PropertyNumber && (
-                                                        <PropertySticker
+                                                            {item.locationDepartment && (
+                                                                <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                                    <Building2 className="w-3 h-3" />
+                                                                    {item.locationDepartment}
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <PropertyCardDialog
+                                                            inventoryDetailId={item.InventoryDetailID}
                                                             propertyNumber={item.PropertyNumber}
                                                             itemName={getItemName(item)}
-                                                            category={item.PropertyName || item.ClassificationName || '-'}
-                                                            url={(() => {
-                                                                const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                                const qrCodeData = getQrCodeData(item);
-                                                                const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
-                                                                if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
-                                                                return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
-                                                            })()}
+                                                            description={item.Description}
+                                                            category={item.PropertyName || item.ClassificationName}
                                                             custodianName={getCustodianDisplayName(item.custodianName)}
-                                                            date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
-                                                            unitCost={item.UnitCost}
                                                         />
-                                                    )}
-                                                    <InventoryHistoryDialog
-                                                        inventoryDetailId={item.InventoryDetailID}
-                                                        itemName={getItemName(item)}
-                                                    />
-                                                    <button
-                                                        onClick={() => openEditModal(item.InventoryDetailID, item.Description || '')}
-                                                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                        title="Edit Description"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                        {item.PropertyNumber && (
+                                                            <PropertySticker
+                                                                propertyNumber={item.PropertyNumber}
+                                                                itemName={getItemName(item)}
+                                                                category={item.PropertyName || item.ClassificationName || '-'}
+                                                                url={(() => {
+                                                                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                                    const qrCodeData = getQrCodeData(item);
+                                                                    const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                                    if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+                                                                    return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
+                                                                })()}
+                                                                custodianName={getCustodianDisplayName(item.custodianName)}
+                                                                date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
+                                                                unitCost={item.UnitCost}
+                                                            />
+                                                        )}
+                                                        <InventoryHistoryDialog
+                                                            inventoryDetailId={item.InventoryDetailID}
+                                                            itemName={getItemName(item)}
+                                                        />
+                                                        <button
+                                                            onClick={() => openEditModal(item.InventoryDetailID, item.Description || '')}
+                                                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                            title="Edit Description"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
