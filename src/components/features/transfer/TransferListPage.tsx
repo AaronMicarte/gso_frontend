@@ -44,6 +44,8 @@ export function TransferListPage({
     const [statusFilter, setStatusFilter] = useState<TransferStatus | 'all'>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [perPage, setPerPage] = useState(10);
 
     const canCreate = showCreate ?? (
         user?.UserRoleID === USER_ROLE_IDS.ADMIN || user?.UserRoleID === USER_ROLE_IDS.GSO_STAFF
@@ -54,7 +56,7 @@ export function TransferListPage({
             setIsFetching(true);
             const data = await transferAPI.getAll({
                 page,
-                per_page: 15,
+                per_page: 10,
                 search: searchTerm || undefined,
                 status: statusFilter === 'all' ? undefined : statusFilter,
                 scope,
@@ -63,6 +65,8 @@ export function TransferListPage({
             setRows(data.data || []);
             setCurrentPage(data.current_page);
             setTotalPages(data.last_page);
+            setTotalRecords(data.total || 0);
+            setPerPage(data.per_page || 10);
         } catch {
             toast.error('Failed to load transfers');
         } finally {
@@ -233,24 +237,31 @@ export function TransferListPage({
                     </div>
 
                     {totalPages > 1 && (
-                        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
-                            <button
-                                onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage <= 1 || isFetching}
-                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
-                            >
-                                Previous
-                            </button>
-                            <span className="text-sm text-slate-600">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <button
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage >= totalPages || isFetching}
-                                className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 disabled:opacity-50"
-                            >
-                                Next
-                            </button>
+                        <div className="px-4 py-3 bg-slate-50 border-t border-slate-200">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm text-slate-500">
+                                    Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, totalRecords)} of {totalRecords} entries
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage <= 1 || isFetching}
+                                        className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Previous
+                                    </button>
+                                    <span className="text-sm text-slate-600">
+                                        Page {currentPage} of {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage >= totalPages || isFetching}
+                                        className="px-3 py-1 text-sm rounded border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>

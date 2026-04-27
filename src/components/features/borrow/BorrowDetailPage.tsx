@@ -595,6 +595,45 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
         return 'bg-amber-100 text-amber-700';
     };
 
+    const borrowProgressPercent = useMemo(() => {
+        if (totalBorrowed <= 0) return 0;
+        return Math.min(100, Math.round((totalReturned / totalBorrowed) * 100));
+    }, [totalBorrowed, totalReturned]);
+
+    const workflowTimelineItems = useMemo(() => {
+        const items = [
+            {
+                label: 'Request Submitted',
+                value: formatDisplayDateTime(borrow?.created_at) || 'Unknown',
+                completed: Boolean(borrow?.created_at),
+            },
+            {
+                label: 'GSO Approved',
+                value: borrow?.ApprovedAt ? formatDisplayDateTime(borrow.ApprovedAt) : 'Pending approval',
+                completed: Boolean(borrow?.ApprovedAt),
+            },
+            {
+                label: 'Borrow Delivered',
+                value: borrow?.BorrowedAt ? formatDisplayDateTime(borrow.BorrowedAt) : 'Not yet delivered',
+                completed: Boolean(borrow?.BorrowedAt),
+            },
+            {
+                label: 'Returned',
+                value: lastReturnAt ? formatDisplayDateTime(lastReturnAt) : 'Not returned',
+                completed: Boolean(lastReturnAt),
+            },
+            {
+                label: 'Completed',
+                value: borrow?.Status === 'completed'
+                    ? (formatDisplayDateTime(borrow.updated_at) || 'Completed')
+                    : 'Not completed',
+                completed: borrow?.Status === 'completed',
+            },
+        ];
+
+        return isReleasingDepartmentViewer ? items.slice(0, 2) : items;
+    }, [borrow, formatDisplayDateTime, isReleasingDepartmentViewer, lastReturnAt]);
+
     const isOverdue = () => {
         if (!borrow) return false;
         if (borrow.Status !== 'borrowed' && borrow.Status !== 'partially_returned') return false;
@@ -772,40 +811,22 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                                 </span>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                {!isReleasingDepartmentViewer && (
-                                    <>
-                                        <div>
-                                            <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
-                                            <div className="text-sm font-medium text-slate-800 mt-1">
-                                                {borrow.ApprovedAt ? formatDisplayDateTime(borrow.ApprovedAt) : 'Pending approval'}
-                                            </div>
+                            <div className="space-y-3">
+                                {workflowTimelineItems.map((entry) => (
+                                    <div key={entry.label} className="relative flex gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+                                        <div className="mt-0.5 flex flex-col items-center">
+                                            <span className={`h-2.5 w-2.5 rounded-full ${entry.completed ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                            <span className="mt-1 h-full min-h-6 w-px bg-slate-200" />
                                         </div>
-                                        <div>
-                                            <div className="text-xs text-slate-500 uppercase">Borrow Delivered At</div>
-                                            <div className="text-sm font-medium text-slate-800 mt-1">
-                                                {borrow.BorrowedAt ? formatDisplayDateTime(borrow.BorrowedAt) : 'Not yet delivered'}
-                                            </div>
+                                        <div className="min-w-0">
+                                            <div className="text-xs uppercase tracking-wide text-slate-500">{entry.label}</div>
+                                            <div className={`mt-0.5 text-sm font-medium ${entry.completed ? 'text-slate-900' : 'text-slate-600'}`}>{entry.value}</div>
                                         </div>
-                                        <div>
-                                            <div className="text-xs text-slate-500 uppercase">Returned At</div>
-                                            <div className="text-sm font-medium text-slate-800 mt-1">
-                                                {lastReturnAt ? formatDisplayDateTime(lastReturnAt) : 'Not returned'}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-slate-500 uppercase">Completed At</div>
-                                            <div className="text-sm font-medium text-slate-800 mt-1">
-                                                {borrow.Status === 'completed'
-                                                    ? (formatDisplayDateTime(borrow.updated_at) || 'Completed')
-                                                    : 'Not completed'}
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
+                                    </div>
+                                ))}
 
                                 {borrow.ReleasingDecisionReason && (
-                                    <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
                                         <div className="text-xs text-amber-700 uppercase">Releasing Reason</div>
                                         <div className="text-sm text-amber-900 mt-1">{borrow.ReleasingDecisionReason}</div>
                                     </div>
@@ -813,21 +834,45 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                             <div className="flex items-start justify-between gap-3">
                                 <h2 className="text-lg font-semibold text-slate-900">Borrow Summary</h2>
                                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusConfig[statusBadge].className}`}>
                                     {statusConfig[statusBadge].label}
                                 </span>
                             </div>
-                            <div className="text-sm text-slate-600">Requested on: {formatDisplayDateTime(borrow.created_at) || 'Unknown'}</div>
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                <div className="text-xs uppercase tracking-wide text-slate-500">Return Progress</div>
+                                <div className="mt-2 h-2 w-full rounded-full bg-slate-200">
+                                    <div
+                                        className="h-2 rounded-full bg-emerald-500 transition-all"
+                                        style={{ width: `${borrowProgressPercent}%` }}
+                                    />
+                                </div>
+                                <div className="mt-2 text-sm font-medium text-slate-700">{totalReturned} of {totalBorrowed} returned ({borrowProgressPercent}%)</div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="text-[11px] uppercase text-slate-500">Requested</div>
+                                    <div className="text-sm font-semibold text-slate-800">{formatDisplayDateTime(borrow.created_at) || 'Unknown'}</div>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="text-[11px] uppercase text-slate-500">Borrowed</div>
+                                    <div className="text-sm font-semibold text-slate-800">{formatDisplayDateTime(borrow.BorrowedAt) || 'Not yet borrowed'}</div>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="text-[11px] uppercase text-slate-500">Returned</div>
+                                    <div className="text-sm font-semibold text-slate-800">{formatDisplayDateTime(lastReturnAt) || 'Not yet returned'}</div>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="text-[11px] uppercase text-slate-500">Completed</div>
+                                    <div className="text-sm font-semibold text-slate-800">{borrow.Status === 'completed' ? (formatDisplayDateTime(borrow.updated_at) || 'Completed') : 'Not yet completed'}</div>
+                                </div>
+                            </div>
                             {!isReleasingDepartmentViewer && (
-                                <>
-                                    <div className="text-sm text-slate-600">Borrowed at: {formatDisplayDateTime(borrow.BorrowedAt) || 'Not yet borrowed'}</div>
-                                    <div className="text-sm text-slate-600">Returned at: {formatDisplayDateTime(lastReturnAt) || 'Not yet returned'}</div>
-                                    <div className="text-sm text-slate-600">Completed at: {borrow.Status === 'completed' ? (formatDisplayDateTime(borrow.updated_at) || 'Completed') : 'Not yet completed'}</div>
-                                    <div className="text-sm text-slate-600">Returned items: {totalReturned} of {totalBorrowed}</div>
-                                </>
+                                <div className="text-xs text-slate-500">
+                                    Due date: {formatDisplayDate(borrow.DueDate) || 'Missing due date'}
+                                </div>
                             )}
                         </div>
                     </div>

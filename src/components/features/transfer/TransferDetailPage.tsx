@@ -457,6 +457,45 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         return 'Pending approval';
     };
 
+    const workflowTimelineItems = useMemo(() => {
+        const items = [
+            {
+                label: 'Request Submitted',
+                value: formatDisplayDateTime(transfer?.created_at) || 'Unknown',
+                completed: Boolean(transfer?.created_at),
+            },
+            {
+                label: 'GSO Approved',
+                value: approvalDisplay(),
+                completed: Boolean(transfer?.ApprovedAt),
+            },
+            {
+                label: 'Releasing Review',
+                value: transfer?.ReleasingReviewedAt
+                    ? formatDisplayDateTime(transfer.ReleasingReviewedAt)
+                    : 'Pending releasing review',
+                completed: Boolean(transfer?.ReleasingReviewedAt),
+            },
+            {
+                label: 'GSO Finalized',
+                value: completedDisplay(),
+                completed: transfer?.Status === 'completed',
+            },
+        ];
+
+        return isReleasingDepartmentViewer ? items.slice(0, 3) : items;
+    }, [approvalDisplay, completedDisplay, formatDisplayDateTime, isReleasingDepartmentViewer, transfer]);
+
+    const transferRequestedQty = useMemo(
+        () => groupedTransferRows.reduce((sum, row) => sum + Number(row.requestedQty || 0), 0),
+        [groupedTransferRows]
+    );
+
+    const transferApprovedQty = useMemo(
+        () => groupedTransferRows.reduce((sum, row) => sum + Number(row.approvedQty || 0), 0),
+        [groupedTransferRows]
+    );
+
     const statusBadge = useMemo(() => {
         if (!transfer) return null;
         const status = transfer.Status;
@@ -812,36 +851,29 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </span>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                {!isReleasingDepartmentViewer && (
-                                    <>
-                                        <div>
-                                            <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
-                                            <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
+                            <div className="space-y-3">
+                                {workflowTimelineItems.map((entry) => (
+                                    <div key={entry.label} className="relative flex gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+                                        <div className="mt-0.5 flex flex-col items-center">
+                                            <span className={`h-2.5 w-2.5 rounded-full ${entry.completed ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                            <span className="mt-1 h-full min-h-6 w-px bg-slate-200" />
                                         </div>
-                                        <div>
-                                            <div className="text-xs text-slate-500 uppercase">GSO Finalized At</div>
-                                            <div className="text-sm font-medium text-slate-800 mt-1">{completedDisplay()}</div>
+                                        <div className="min-w-0">
+                                            <div className="text-xs uppercase tracking-wide text-slate-500">{entry.label}</div>
+                                            <div className={`mt-0.5 text-sm font-medium ${entry.completed ? 'text-slate-900' : 'text-slate-600'}`}>{entry.value}</div>
                                         </div>
-                                    </>
-                                )}
-
-                                {isReleasingDepartmentViewer && (
-                                    <div>
-                                        <div className="text-xs text-slate-500 uppercase">GSO Approved At</div>
-                                        <div className="text-sm font-medium text-slate-800 mt-1">{approvalDisplay()}</div>
                                     </div>
-                                )}
+                                ))}
 
                                 {transfer.ReleasingDecisionReason && (
-                                    <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
                                         <div className="text-xs text-amber-700 uppercase">Releasing Reason</div>
                                         <div className="text-sm text-amber-900 mt-1">{transfer.ReleasingDecisionReason}</div>
                                     </div>
                                 )}
 
                                 {transfer.GsoNotes && (
-                                    <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                         <div className="text-xs text-slate-500 uppercase">Notes</div>
                                         <div className="text-sm text-slate-700 mt-1">{transfer.GsoNotes}</div>
                                     </div>
@@ -849,19 +881,33 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                             <div className="flex items-start justify-between gap-3">
                                 <h2 className="text-lg font-semibold text-slate-900">Transfer Summary</h2>
                                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusConfig[transfer.Status].className}`}>
                                     {statusConfig[transfer.Status].label}
                                 </span>
                             </div>
-                            <div className="text-sm text-slate-600">Requested on: {formatDisplayDateTime(transfer.created_at) || 'Unknown'}</div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="text-[11px] uppercase text-slate-500">Requested Qty</div>
+                                    <div className="text-sm font-semibold text-slate-800">{transferRequestedQty}</div>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="text-[11px] uppercase text-slate-500">Approved Qty</div>
+                                    <div className="text-sm font-semibold text-slate-800">{transferApprovedQty}</div>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="text-[11px] uppercase text-slate-500">Requested On</div>
+                                    <div className="text-sm font-semibold text-slate-800">{formatDisplayDateTime(transfer.created_at) || 'Unknown'}</div>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="text-[11px] uppercase text-slate-500">Finalized At</div>
+                                    <div className="text-sm font-semibold text-slate-800">{completedDisplay()}</div>
+                                </div>
+                            </div>
                             {!isReleasingDepartmentViewer && (
-                                <>
-                                    <div className="text-sm text-slate-600">Finalized at: {completedDisplay()}</div>
-                                    <div className="text-sm text-slate-600">Workflow: Auto-approved by GSO</div>
-                                </>
+                                <div className="text-xs text-slate-500">Workflow: Auto-approved by GSO</div>
                             )}
                         </div>
                     </div>
