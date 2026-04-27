@@ -78,6 +78,7 @@ export interface PropertyType {
     id: number;
     name: string;
     property_classification_id: number;
+    property_classification_label?: string;
     description?: string | null;
     created_at: string;
     updated_at?: string | null;

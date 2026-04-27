@@ -23,6 +23,7 @@ interface PropertyTypesPageProps {
 
 export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPageProps) {
     const [searchTerm, setSearchTerm] = useState('');
+    const [classificationFilter, setClassificationFilter] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [formOpen, setFormOpen] = useState(false);
@@ -39,6 +40,7 @@ export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPagePr
     // Use React Query for cached data fetching
     const { data, isLoading, isFetching, error, refetch } = usePropertyTypes({
         search: debouncedSearch || undefined,
+        property_classification_id: classificationFilter || undefined,
         page: currentPage,
         per_page: 15,
         sort_by: 'id',
@@ -186,6 +188,27 @@ export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPagePr
     const isSaving = createMutation.isPending || updateMutation.isPending;
     const classifications = classificationData || [];
 
+    const getClassificationBadge = (type: PropertyType) => {
+        const explicitLabel = (type.property_classification_label || '').toLowerCase();
+        const relationName = (type.property_classification?.name || '').toLowerCase();
+        const documentType = (type.property_classification?.document_type || '').toUpperCase();
+
+        const isSemiExpendable = explicitLabel.includes('semi')
+            || relationName.includes('semi')
+            || documentType === 'ICS';
+
+        const label = isSemiExpendable ? 'Semi Expe' : 'PPE';
+        const className = isSemiExpendable
+            ? 'bg-sky-100 text-sky-800 border border-sky-200'
+            : 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+
+        return (
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${className}`}>
+                {label}
+            </span>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-app print:hidden">
             {/* Header */}
@@ -225,16 +248,34 @@ export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPagePr
             <div className="p-4 sm:p-6 lg:p-8">
                 {/* Search Bar */}
                 <div className="bg-white rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true" />
-                        <input
-                            type="search"
-                            placeholder="Search property types..."
-                            value={searchTerm}
-                            onChange={(e) => handleSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 text-sm sm:text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                            aria-label="Search property types by name"
-                        />
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true" />
+                            <input
+                                type="search"
+                                placeholder="Search property types..."
+                                value={searchTerm}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 text-sm sm:text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                                aria-label="Search property types by name"
+                            />
+                        </div>
+                        <select
+                            value={classificationFilter || ''}
+                            onChange={(e) => {
+                                setClassificationFilter(e.target.value ? Number(e.target.value) : null);
+                                setCurrentPage(1);
+                            }}
+                            className="px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                            aria-label="Filter by property classification"
+                        >
+                            <option value="">All Classifications</option>
+                            {classifications.map((classification) => (
+                                <option key={classification.id} value={classification.id}>
+                                    {classification.document_type === 'ICS' ? 'Semi Expe' : 'PPE'} ({classification.name})
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
@@ -251,7 +292,7 @@ export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPagePr
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <tbody className="divide-y divide-slate-200">
-                                    <TableSkeletonRows columns={4} rows={10} />
+                                    <TableSkeletonRows columns={5} rows={10} />
                                 </tbody>
                             </table>
                         </div>
@@ -289,6 +330,9 @@ export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPagePr
                                             <h3 className="font-semibold text-slate-900 mb-1">
                                                 {type.name}
                                             </h3>
+                                            <div className="mb-2">
+                                                {getClassificationBadge(type)}
+                                            </div>
                                             <p className="text-sm text-slate-600">
                                                 {type.description || 'No description'}
                                             </p>
@@ -336,6 +380,9 @@ export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPagePr
                                                 Property Type Name
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                                Classification
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                                 Description
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -351,6 +398,9 @@ export function PropertyTypesPage({ baseRoute: _baseRoute }: PropertyTypesPagePr
                                             <tr key={`desktop-type-${type.id}`} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="font-medium text-slate-900">{type.name}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {getClassificationBadge(type)}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm text-slate-600">
