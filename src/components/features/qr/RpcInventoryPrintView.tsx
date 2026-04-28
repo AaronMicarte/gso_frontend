@@ -109,11 +109,20 @@ export function RpcInventoryPrintView({
 
     const printablePages = printableGroups.flatMap((group) => {
         const totalPagesForType = group.pages.length;
+        // Calculate subtotals for this property type
+        const allRowsForType = group.pages.flat();
+        const subtotals = {
+            totalUnitValue: allRowsForType.reduce((sum, row) => sum + ((row.unit_value || 0) * (row.quantity_per_card || 0)), 0),
+            totalQuantityPerCard: allRowsForType.reduce((sum, row) => sum + (row.quantity_per_card || 0), 0),
+            totalQuantityPerCount: allRowsForType.reduce((sum, row) => sum + (row.quantity_per_count || 0), 0),
+        };
         return group.pages.map((pageRows, pageIndex) => ({
             propertyType: group.propertyType,
             rows: pageRows,
             pageNumberForType: pageIndex + 1,
             totalPagesForType,
+            isLastPageOfType: pageIndex === totalPagesForType - 1,
+            subtotals,
         }));
     });
 
@@ -215,7 +224,7 @@ export function RpcInventoryPrintView({
                             </div> */}
                             </div>
 
-                            <div className="mt-3 border border-black overflow-hidden">
+                            <div className="mt-3 overflow-hidden">
                                 <table className="w-full border-collapse text-[10px]">
                                     <thead>
                                         <tr>
@@ -258,16 +267,21 @@ export function RpcInventoryPrintView({
                                                 <td className="border border-black px-1 py-1">{row?.department || ''}</td>
                                             </tr>
                                         ))}
+                                        {page.isLastPageOfType && (
+                                            <tr>
+                                                <td colSpan={5} className="px-1 py-1 text-right">TOTAL</td>
+                                                <td className="px-1 py-1 text-right">{currency(page.subtotals.totalUnitValue)}</td>
+                                                <td className="px-1 py-1 text-center">{page.subtotals.totalQuantityPerCard}</td>
+                                                <td className="px-1 py-1 text-center">{page.subtotals.totalQuantityPerCount}</td>
+                                                <td colSpan={5} className="px-1 py-1"></td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
 
-                            {isLastPageOverall && (
+                            {page.isLastPageOfType && (
                                 <>
-                                    <div className="mt-2 text-[11px]">
-                                        <span className="font-semibold">Summary:</span> Scanned {scannedCount} of {totalCount} items.
-                                    </div>
-
                                     <div className="mt-6 grid grid-cols-3 gap-6 text-[11px]">
                                         <div>
                                             <div>Prepared by:</div>
@@ -288,6 +302,14 @@ export function RpcInventoryPrintView({
                                             <div className="text-center">City Mayor</div>
                                         </div>
                                     </div>
+                                </>
+                            )}
+
+                            {isLastPageOverall && (
+                                <>
+                                    {/* <div className="mt-2 text-[11px]">
+                                        <span className="font-semibold">Summary:</span> Scanned {scannedCount} of {totalCount} items.
+                                    </div> */}
                                 </>
                             )}
                         </div>
