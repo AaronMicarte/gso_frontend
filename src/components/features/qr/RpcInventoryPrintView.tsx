@@ -131,11 +131,22 @@ export function RpcInventoryPrintView({
                 .report-page {
                     break-inside: avoid;
                     page-break-inside: avoid;
+                    min-height: calc(210mm - 20mm);
+                    display: flex;
+                    flex-direction: column;
+                    box-sizing: border-box;
                 }
 
                 .report-page + .report-page {
                     break-before: page;
                     page-break-before: always;
+                }
+
+                .page-footer {
+                    text-align: center;
+                    font-size: 10px;
+                    padding-top: 12px;
+                    margin-top: auto;
                 }
 
                 @media print {
@@ -149,6 +160,17 @@ export function RpcInventoryPrintView({
                         margin: 0;
                         padding: 0;
                     }
+                    .report-page {
+                        page-break-inside: avoid;
+                        display: flex;
+                        flex-direction: column;
+                        break-inside: avoid;
+                    }
+                    .page-footer {
+                        page-break-inside: avoid;
+                        break-inside: avoid;
+                        display: block;
+                    }
                 }
 
                 @page {
@@ -160,24 +182,24 @@ export function RpcInventoryPrintView({
             {printablePages.map((page, pageIndex) => {
                 const isLastPageOverall = pageIndex === totalPages - 1;
                 return (
-                    <section key={`${page.propertyType}-${pageIndex}`} className={`${pageIndex > 0 ? 'mt-8' : ''} report-page`}>
-                        <div className="text-center">
-                            <div className="font-bold text-[14px]">{title}</div>
-                            <div className="font-semibold text-[12px]">{page.propertyType}</div>
-                            <div className="text-[11px]">{subtitle}</div>
-                            <div className="text-[11px]">Cycle: {cycleLabel}</div>
-                            <div className="text-[11px]">As of {reportAsOfDate}</div>
-                        </div>
-
-                        {/* Accountability Section - Two rows: text above, labels below */}
-                        <div className="mt-2 text-[11px] w-full">
-                            {/* Row 1: Accountability Statement */}
-                            <div className="text-center leading-tight">
-                                For which <span className="font-semibold">NILO SABAYANON,</span> <span className="font-semibold">OIC-CGSO,</span> <span className="font-semibold">LOCAL GOVERNMENT UNIT OF ELSALVADOR CITY</span> is accountable, having assumed such accountability on <span className="font-semibold">{assumedMonthYear}</span>.
+                    <section key={`${page.propertyType}-${pageIndex}`} className="report-page">
+                        <div className="page-content">
+                            <div className="text-center">
+                                <div className="font-bold text-[14px]">{title}</div>
+                                <div className="font-semibold text-[12px]">{page.propertyType}</div>
+                                <div className="text-[11px]">{subtitle}</div>
+                                <div className="text-[11px]">As of {reportAsOfDate}</div>
                             </div>
 
-                            {/* Row 2: Labels Below */}
-                            {/* <div className="text-center text-[10px] mt-2 flex justify-center gap-8">
+                            {/* Accountability Section - Two rows: text above, labels below */}
+                            <div className="mt-2 text-[11px] w-full">
+                                {/* Row 1: Accountability Statement */}
+                                <div className="text-center leading-tight">
+                                    For which <span className="font-semibold">NILO SABAYANON,</span> <span className="font-semibold">OIC-CGSO,</span> <span className="font-semibold">LOCAL GOVERNMENT UNIT OF ELSALVADOR CITY</span> is accountable, having assumed such accountability on <span className="font-semibold">{assumedMonthYear}</span>.
+                                </div>
+
+                                {/* Row 2: Labels Below */}
+                                {/* <div className="text-center text-[10px] mt-2 flex justify-center gap-8">
                                 <div className="w-32 text-center">
                                     <div>(Name of Accountable officer)</div>
                                 </div>
@@ -191,85 +213,86 @@ export function RpcInventoryPrintView({
                                     <div>(Date of Assumption)</div>
                                 </div>
                             </div> */}
-                        </div>
+                            </div>
 
-                        <div className="mt-3 border border-black overflow-hidden">
-                            <table className="w-full border-collapse text-[10px]">
-                                <thead>
-                                    <tr>
-                                        <th rowSpan={2} className="border border-black px-1 py-1">Article</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1">Description</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1">PROPERTY NUMBER</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1">Unit of Measure</th>
-                                        <th colSpan={2} className="border border-black px-1 py-1">UNIT VALUE</th>
-                                        <th className="border border-black px-1 py-1">BALANCE PER CARD</th>
-                                        <th className="border border-black px-1 py-1">ON HAND PER COUNT</th>
-                                        <th colSpan={2} className="border border-black px-1 py-1">SHORTAGE/OVERAGE</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1">Remarks</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1">End User</th>
-                                        <th rowSpan={2} className="border border-black px-1 py-1">Department</th>
-                                    </tr>
-                                    <tr>
-                                        <th className="border border-black px-1 py-1">Unit Cost</th>
-                                        <th className="border border-black px-1 py-1">Total Cost</th>
-                                        <th className="border border-black px-1 py-1">(Quantity)</th>
-                                        <th className="border border-black px-1 py-1">(Quantity)</th>
-                                        <th className="border border-black px-1 py-1">Quantity</th>
-                                        <th className="border border-black px-1 py-1">Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(page.rows.length > 0 ? page.rows : [null]).map((row, index) => (
-                                        <tr key={`${page.propertyType}-${row?.property_number || 'empty'}-${index}`}>
-                                            <td className="border border-black px-1 py-1">{row?.article || ''}</td>
-                                            <td className="border border-black px-1 py-1">{row?.description || ''}</td>
-                                            <td className="border border-black px-1 py-1">{row?.property_number || ''}</td>
-                                            <td className="border border-black px-1 py-1 text-center">{row?.unit_of_measure || ''}</td>
-                                            <td className="border border-black px-1 py-1 text-right">{row ? currency(row.unit_value || 0) : ''}</td>
-                                            <td className="border border-black px-1 py-1 text-right">{row ? currency((row.unit_value || 0) * (row.quantity_per_card || 0)) : ''}</td>
-                                            <td className="border border-black px-1 py-1 text-center">{row?.quantity_per_card ?? ''}</td>
-                                            <td className="border border-black px-1 py-1 text-center">{row?.quantity_per_count ?? ''}</td>
-                                            <td className="border border-black px-1 py-1 text-center">{row?.shortage_overage_qty ?? ''}</td>
-                                            <td className="border border-black px-1 py-1 text-right">{row ? currency(row.shortage_overage_value || 0) : ''}</td>
-                                            <td className="border border-black px-1 py-1">{row?.remarks || ''}</td>
-                                            <td className="border border-black px-1 py-1">{row?.accountable_officer || ''}</td>
-                                            <td className="border border-black px-1 py-1">{row?.department || ''}</td>
+                            <div className="mt-3 border border-black overflow-hidden">
+                                <table className="w-full border-collapse text-[10px]">
+                                    <thead>
+                                        <tr>
+                                            <th rowSpan={2} className="border border-black px-1 py-1">Article</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1">Description</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1">PROPERTY NUMBER</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1">Unit of Measure</th>
+                                            <th colSpan={2} className="border border-black px-1 py-1">UNIT VALUE</th>
+                                            <th className="border border-black px-1 py-1">BALANCE PER CARD</th>
+                                            <th className="border border-black px-1 py-1">ON HAND PER COUNT</th>
+                                            <th colSpan={2} className="border border-black px-1 py-1">SHORTAGE/OVERAGE</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1">Remarks</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1">End User</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1">Department</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                        <tr>
+                                            <th className="border border-black px-1 py-1">Unit Cost</th>
+                                            <th className="border border-black px-1 py-1">Total Cost</th>
+                                            <th className="border border-black px-1 py-1">(Quantity)</th>
+                                            <th className="border border-black px-1 py-1">(Quantity)</th>
+                                            <th className="border border-black px-1 py-1">Quantity</th>
+                                            <th className="border border-black px-1 py-1">Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(page.rows.length > 0 ? page.rows : [null]).map((row, index) => (
+                                            <tr key={`${page.propertyType}-${row?.property_number || 'empty'}-${index}`}>
+                                                <td className="border border-black px-1 py-1">{row?.article || ''}</td>
+                                                <td className="border border-black px-1 py-1">{row?.description || ''}</td>
+                                                <td className="border border-black px-1 py-1">{row?.property_number || ''}</td>
+                                                <td className="border border-black px-1 py-1 text-center">{row?.unit_of_measure || ''}</td>
+                                                <td className="border border-black px-1 py-1 text-right">{row ? currency(row.unit_value || 0) : ''}</td>
+                                                <td className="border border-black px-1 py-1 text-right">{row ? currency((row.unit_value || 0) * (row.quantity_per_card || 0)) : ''}</td>
+                                                <td className="border border-black px-1 py-1 text-center">{row?.quantity_per_card ?? ''}</td>
+                                                <td className="border border-black px-1 py-1 text-center">{row?.quantity_per_count ?? ''}</td>
+                                                <td className="border border-black px-1 py-1 text-center">{row?.shortage_overage_qty ?? ''}</td>
+                                                <td className="border border-black px-1 py-1 text-right">{row ? currency(row.shortage_overage_value || 0) : ''}</td>
+                                                <td className="border border-black px-1 py-1">{row?.remarks || ''}</td>
+                                                <td className="border border-black px-1 py-1">{row?.accountable_officer || ''}</td>
+                                                <td className="border border-black px-1 py-1">{row?.department || ''}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {isLastPageOverall && (
+                                <>
+                                    <div className="mt-2 text-[11px]">
+                                        <span className="font-semibold">Summary:</span> Scanned {scannedCount} of {totalCount} items.
+                                    </div>
+
+                                    <div className="mt-6 grid grid-cols-3 gap-6 text-[11px]">
+                                        <div>
+                                            <div>Prepared by:</div>
+                                            <div className="h-10" />
+                                            <div className="border-b border-black" />
+                                            <div className="text-center">Supply Officer</div>
+                                        </div>
+                                        <div>
+                                            <div>Certified Correct by:</div>
+                                            <div className="h-10" />
+                                            <div className="border-b border-black" />
+                                            <div className="text-center">City Accountant</div>
+                                        </div>
+                                        <div>
+                                            <div>Approved by:</div>
+                                            <div className="h-10" />
+                                            <div className="border-b border-black" />
+                                            <div className="text-center">City Mayor</div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
-                        {isLastPageOverall && (
-                            <>
-                                <div className="mt-2 text-[11px]">
-                                    <span className="font-semibold">Summary:</span> Scanned {scannedCount} of {totalCount} items.
-                                </div>
-
-                                <div className="mt-6 grid grid-cols-3 gap-6 text-[11px]">
-                                    <div>
-                                        <div>Prepared by:</div>
-                                        <div className="h-10" />
-                                        <div className="border-b border-black" />
-                                        <div className="text-center">Supply Officer</div>
-                                    </div>
-                                    <div>
-                                        <div>Certified Correct by:</div>
-                                        <div className="h-10" />
-                                        <div className="border-b border-black" />
-                                        <div className="text-center">City Accountant</div>
-                                    </div>
-                                    <div>
-                                        <div>Approved by:</div>
-                                        <div className="h-10" />
-                                        <div className="border-b border-black" />
-                                        <div className="text-center">City Mayor</div>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-                        <div className="mt-3 text-center text-[10px]">Page {page.pageNumberForType} of {page.totalPagesForType}</div>
+                        <div className="page-footer">Page {page.pageNumberForType} of {page.totalPagesForType}</div>
                     </section>
                 );
             })}

@@ -6,11 +6,13 @@ import { toast } from 'sonner';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { getRsmiReport } from '@/lib/api/rsmi';
 import type { RsmiReport } from '@/types/rsmi';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { RsmiPrintView } from './RsmiPrintView';
 
 export function RsmiPrintPage() {
     const params = useParams();
     const router = useRouter();
+    const { user } = useAuth();
     const id = Number(params?.id);
 
     const printRef = useRef<HTMLDivElement>(null);
@@ -67,7 +69,7 @@ export function RsmiPrintPage() {
                 </button>
             </div>
 
-            <RsmiPrintView ref={printRef} report={report} />
+            <RsmiPrintView ref={printRef} report={report} custodianName={user?.FullName} />
         </div>
     );
 }
