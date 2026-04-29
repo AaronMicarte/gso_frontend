@@ -1,36 +1,147 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## ⚙️ Project Overview
 
-## Getting Started
+This project is composed of two main applications:
 
-First, run the development server:
+- **Frontend** → Next.js (UI / Client Application)
+- **Backend** → API Server (Node.js / Express or equivalent)
+
+Both applications are required for the system to function properly.
+
+---
+
+## 📁 Project Structure
+
+The project must be organized like this:
+
+project-root/
+│
+├── frontend/ # Next.js application
+├── backend/ # API server
+└── package.json (root scripts)
+
+
+⚠️ IMPORTANT:
+- Both `frontend` and `backend` folders must be in the **same root directory**
+- The system depends on cross-communication between both services
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+git clone <repository-url>
+cd project-root
+2. Install dependencies
+Frontend
+cd frontend
+npm install
+Backend
+cd ../backend
+npm install
+Root (if applicable)
+cd ..
+npm install
+▶️ Running the Project
+To start both frontend and backend simultaneously:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+npm run dev:full
+This command will:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Start the frontend (Next.js) server
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Start the backend API server
 
-## Learn More
+Run both services concurrently for development
 
-To learn more about Next.js, take a look at the following resources:
+🌐 Access URLs
+Once running:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Frontend: http://localhost:3000
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Backend API: http://localhost:<backend-port>
 
-## Deploy on Vercel
+🧠 Important Notes
+Both frontend and backend must be running for full functionality
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Do NOT run frontend alone if API-dependent features are used
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ensure both services share correct environment configurations
+
+Keep both folders inside the same workspace directory
+
+⚙️ Available Scripts
+Root (Recommended)
+npm run dev:full   # Runs both frontend + backend
+Frontend
+npm run dev        # Start frontend only
+npm run build      # Build production version
+npm run start      # Run production build
+Backend
+npm run dev        # Start backend only
+🔐 Environment Variables
+Each service requires its own environment file:
+
+Frontend
+/frontend/.env.local
+Backend
+/backend/.env
+Make sure both are properly configured before running the system.
+
+🧩 Features
+Requisition and Issue Slip (RIS) generation
+
+Property Accountability (PAR / ICS)
+
+Inventory tracking system
+
+Issuance and acknowledgment workflow
+
+Print-ready government forms (A4 format)
+
+Role-based access control (if enabled)
+
+Audit-friendly transaction history
+
+🛠 Tech Stack
+Frontend
+Next.js
+
+React
+
+TypeScript
+
+Tailwind CSS
+
+Backend
+Node.js / Express (or equivalent)
+
+REST API
+
+Database integration (MySQL/PostgreSQL/etc.)
+
+⚠️ Troubleshooting
+Common Issues
+1. Blank page / API not working
+
+Ensure backend is running
+
+Check .env API URL configuration
+
+2. Port already in use
+
+npx kill-port 3000
+3. Dependencies issues
+
+rm -rf node_modules
+npm install
+4. dev:full not working
+
+Ensure both frontend and backend exist in the same directory
+
+Check root package.json scripts
+
+📄 License
+This project is intended for Academic Purposes Only.
+
