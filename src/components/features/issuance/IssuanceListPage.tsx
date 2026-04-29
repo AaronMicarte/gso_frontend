@@ -79,6 +79,8 @@ export function IssuanceListPage({
     const [acknowledgingId, setAcknowledgingId] = useState<number | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [pendingRow, setPendingRow] = useState<DeliveryReceiptForIssuance | null>(null);
+    const [risNumberInput, setRisNumberInput] = useState('');
+    const [risNumberError, setRisNumberError] = useState('');
     const [docTypeByDr, setDocTypeByDr] = useState<Record<number, 'PAR' | 'ICS'>>({});
     const [expandedByDr, setExpandedByDr] = useState<Record<number, boolean>>({});
 
@@ -133,16 +135,18 @@ export function IssuanceListPage({
         ));
     }, [rows, searchTerm]);
 
-    const handleAcknowledge = async (row: DeliveryReceiptForIssuance) => {
+    const handleAcknowledge = async (row: DeliveryReceiptForIssuance, risNumber?: string) => {
         if (acknowledgingId) return;
 
         try {
             setAcknowledgingId(row.DRID);
-            const response = await issuanceAPI.acknowledgeInspection({ dr_id: row.DRID });
-            const risNumber = (response as { data?: { ris_number?: string } }).data?.ris_number;
+            const payload: Record<string, unknown> = { dr_id: row.DRID };
+            if (risNumber) payload.ris_number = risNumber;
+            const response = await issuanceAPI.acknowledgeInspection(payload);
+            const createdRisNumber = (response as { data?: { ris_number?: string } }).data?.ris_number;
             toast.success(
-                risNumber
-                    ? `IAR acknowledged and RIS ${risNumber} created`
+                createdRisNumber
+                    ? `IAR acknowledged and RIS ${createdRisNumber} created`
                     : 'IAR acknowledged and inventory updated'
             );
             await loadRows(currentPage);
@@ -157,12 +161,21 @@ export function IssuanceListPage({
 
     const openConfirm = (row: DeliveryReceiptForIssuance) => {
         setPendingRow(row);
+        setRisNumberInput('');
+        setRisNumberError('');
         setConfirmOpen(true);
     };
 
     const confirmAcknowledge = async () => {
         if (!pendingRow) return;
-        await handleAcknowledge(pendingRow);
+        // Validate RIS number (required)
+        const trimmed = String(risNumberInput ?? '').trim();
+        if (!trimmed) {
+            setRisNumberError('Enter the RIS number for this issuance.');
+            return;
+        }
+        setRisNumberError('');
+        await handleAcknowledge(pendingRow, trimmed);
         setConfirmOpen(false);
         setPendingRow(null);
     };
@@ -461,6 +474,18 @@ export function IssuanceListPage({
                                 {pendingRow.IARNumber && <div>IAR: {pendingRow.IARNumber}</div>}
                             </div>
                         )}
+                        <div className="mt-4">
+                            <label htmlFor="ris-number" className="block text-sm font-medium text-slate-700">Enter RIS number for this issuance</label>
+                            <input
+                                id="ris-number"
+                                type="text"
+                                value={risNumberInput}
+                                onChange={(e) => setRisNumberInput(e.target.value)}
+                                placeholder="e.g. 2026-000129/000133 or 2026-04-0001"
+                                className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/60"
+                            />
+                            {risNumberError && <div className="text-rose-600 text-xs mt-1">{risNumberError}</div>}
+                        </div>
                         <div className="mt-6 flex items-center justify-end gap-2">
                             <Dialog.Close asChild>
                                 <button

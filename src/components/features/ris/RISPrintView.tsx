@@ -96,10 +96,10 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
     const issuedBySig = asImageSrc(ris.signatures.issued_by?.url ?? null);
     const receivedBySig = asImageSrc(ris.signatures.received_by?.signature ?? null);
 
-    const requestedByName = text(ris.signatures.requested_by?.user?.FullName, 'REQUESTER');
-    const approvedByName = text(ris.signatures.approved_by?.user?.FullName, 'APPROVER');
-    const issuedByName = text(ris.signatures.issued_by?.user?.FullName, 'PROPERTY CUSTODIAN');
-    const receivedByName = text(ris.signatures.received_by?.issued_to_name ?? req?.requester?.FullName, 'RECEIVER');
+    const requestedByName = text(ris.signatures.requested_by?.user?.FullName, '');
+    const approvedByName = text(ris.signatures.approved_by?.user?.FullName, '');
+    const issuedByName = text(ris.signatures.issued_by?.user?.FullName, '');
+    const receivedByName = text(ris.signatures.received_by?.issued_to_name ?? ris.signatures.received_by?.user?.FullName ?? req?.requester?.FullName, '');
 
     const docDate = text(formatPHDate(req?.RequestDate), formatPHDate(new Date().toISOString()));
     const receivedDate = text(formatPHDate(ris.signatures.received_by?.acknowledged_at ?? null), docDate);
