@@ -196,14 +196,25 @@ export function IssuanceListPage({
                     return;
                 }
 
-                setRows((prev) => prev.map((item) => (
-                    item.DRID === row.DRID
-                        ? {
-                            ...item,
-                            issuances_by_document_type: response.data?.issuances_by_document_type,
-                        }
-                        : item
-                )));
+                setRows((prev) => {
+                    const updated = prev.map((item) => (
+                        item.DRID === row.DRID
+                            ? {
+                                ...item,
+                                issuances_by_document_type: response.data?.issuances_by_document_type,
+                            }
+                            : item
+                    ));
+
+                    // Ensure newest delivery receipts remain at the top (by DateReceived desc)
+                    updated.sort((a, b) => {
+                        const aDate = safeDate(a.DateReceived)?.getTime() ?? 0;
+                        const bDate = safeDate(b.DateReceived)?.getTime() ?? 0;
+                        return bDate - aDate;
+                    });
+
+                    return updated;
+                });
 
                 const printUrl = `${baseRoute}/${ensured.IssuanceID}/print`;
                 window.open(printUrl, '_blank', 'noopener,noreferrer');

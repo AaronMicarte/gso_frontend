@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { toast } from 'sonner';
@@ -156,6 +157,7 @@ export function RsmiRangePrintPage() {
 
     const [combinedReport, setCombinedReport] = useState<RsmiReport | null>(null);
     const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
 
     const isRangeValid = useMemo(() => {
         if (!isValidDateValue(startDate) || !isValidDateValue(endDate)) return false;
@@ -239,7 +241,7 @@ export function RsmiRangePrintPage() {
             {!combinedReport ? (
                 <div className="text-slate-700">No RSMI reports found for this date range.</div>
             ) : (
-                <RsmiPrintView report={combinedReport} />
+                <RsmiPrintView report={combinedReport} custodianName={user?.FullName ?? ''} />
             )}
         </div>
     );

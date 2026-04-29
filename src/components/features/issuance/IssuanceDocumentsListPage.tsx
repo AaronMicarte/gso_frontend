@@ -228,6 +228,14 @@ export function IssuanceDocumentsListPage({
 
             setClientPaginated(!hasServerPagination);
 
+            // Ensure rows are sorted newest-first before setting state so top is latest
+            flattened.sort((x, y) => {
+                const xd = safeDate(x.issuance.IssuanceDate)?.getTime() ?? 0;
+                const yd = safeDate(y.issuance.IssuanceDate)?.getTime() ?? 0;
+                if (xd !== yd) return yd - xd;
+                return (y.issuance.IssuanceID ?? 0) - (x.issuance.IssuanceID ?? 0);
+            });
+
             setRows(flattened);
             setCurrentPage(boundedCurrentPage);
             setTotalPages(resolvedLastPage);
