@@ -65,6 +65,24 @@ function safeDate(dateValue: string | null | undefined): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function createdTimeForDr(dr: any): number {
+    if (!dr) return 0;
+    const candidates = [
+        dr.created_at,
+        dr.CreatedDate,
+        dr.createdAt,
+        dr.DateReceived,
+    ];
+
+    for (const v of candidates) {
+        if (!v) continue;
+        const t = new Date(String(v)).getTime();
+        if (!Number.isNaN(t)) return t;
+    }
+
+    return 0;
+}
+
 export function IssuanceListPage({
     baseRoute,
     pageTitle,
@@ -94,10 +112,11 @@ export function IssuanceListPage({
             });
 
             const data = response.data || [];
+            // Prefer created timestamp if available, otherwise fallback to DateReceived
             data.sort((a, b) => {
-                const aDate = safeDate(a.DateReceived)?.getTime() ?? 0;
-                const bDate = safeDate(b.DateReceived)?.getTime() ?? 0;
-                return bDate - aDate;
+                const aTime = createdTimeForDr(a);
+                const bTime = createdTimeForDr(b);
+                return bTime - aTime;
             });
 
             setRows(data);

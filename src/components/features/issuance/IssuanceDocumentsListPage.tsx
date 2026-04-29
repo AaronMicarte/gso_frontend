@@ -97,6 +97,28 @@ function safeDate(dateValue: string | null | undefined): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function createdTime(value: any): number {
+    if (!value) return 0;
+    const candidates = [
+        value.created_at,
+        // some APIs use CreatedDate
+        value.CreatedDate,
+        // sometimes camelCase
+        value.createdAt,
+        // fallbacks
+        value.IssuanceDate,
+        value.RequestDate,
+    ];
+
+    for (const v of candidates) {
+        if (!v) continue;
+        const t = new Date(String(v)).getTime();
+        if (!Number.isNaN(t)) return t;
+    }
+
+    return 0;
+}
+
 function formatPHDate(dateValue: string | null | undefined): string {
     const parsed = safeDate(dateValue);
     if (!parsed) return 'N/A';
@@ -194,13 +216,11 @@ export function IssuanceDocumentsListPage({
                 }
             }
 
-            // Sort newest issuance first.
+            // Sort newest issuance first using creation timestamp if present.
             flattened.sort((a, b) => {
-                const aDate = safeDate(a.issuance.IssuanceDate)?.getTime() ?? 0;
-                const bDate = safeDate(b.issuance.IssuanceDate)?.getTime() ?? 0;
-                if (aDate !== bDate) {
-                    return bDate - aDate;
-                }
+                const aDate = createdTime(a.issuance);
+                const bDate = createdTime(b.issuance);
+                if (aDate !== bDate) return bDate - aDate;
                 return (b.issuance.IssuanceID ?? 0) - (a.issuance.IssuanceID ?? 0);
             });
 
@@ -230,8 +250,8 @@ export function IssuanceDocumentsListPage({
 
             // Ensure rows are sorted newest-first before setting state so top is latest
             flattened.sort((x, y) => {
-                const xd = safeDate(x.issuance.IssuanceDate)?.getTime() ?? 0;
-                const yd = safeDate(y.issuance.IssuanceDate)?.getTime() ?? 0;
+                const xd = createdTime(x.issuance);
+                const yd = createdTime(y.issuance);
                 if (xd !== yd) return yd - xd;
                 return (y.issuance.IssuanceID ?? 0) - (x.issuance.IssuanceID ?? 0);
             });
