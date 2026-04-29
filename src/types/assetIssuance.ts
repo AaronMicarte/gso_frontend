@@ -9,6 +9,15 @@ export interface AssetRequestDepartment {
     DepartmentCode?: string | null;
 }
 
+export interface AssetRequestRisSummary {
+    id: number;
+    ris_number: string;
+    status: string;
+    items?: Array<{
+        id: number;
+    }>;
+}
+
 export interface AssetRequest {
     RequestID: number;
     RequestNumber: string;
@@ -32,6 +41,7 @@ export interface AssetRequest {
     details?: AssetRequestDetail[];
     reviewer?: User;
     issuer?: User;
+    ris?: AssetRequestRisSummary | null;
     issuances?: AssetIssuance[];
     auditLogs?: AssetAuditLog[];
     signatures?: AssetRequestSignature[];

@@ -138,8 +138,13 @@ export function IssuanceListPage({
 
         try {
             setAcknowledgingId(row.DRID);
-            await issuanceAPI.acknowledgeInspection({ dr_id: row.DRID });
-            toast.success('IAR acknowledged and inventory updated');
+            const response = await issuanceAPI.acknowledgeInspection({ dr_id: row.DRID });
+            const risNumber = (response as { data?: { ris_number?: string } }).data?.ris_number;
+            toast.success(
+                risNumber
+                    ? `IAR acknowledged and RIS ${risNumber} created`
+                    : 'IAR acknowledged and inventory updated'
+            );
             await loadRows(currentPage);
         } catch (error: unknown) {
             const maybeAxios = error as { response?: { data?: { message?: string } } };
