@@ -33,6 +33,10 @@ export interface RisItem {
     stock_available: boolean;
     quantity_issued: number;
     issue_remarks: string;
+    brand?: string | null;
+    model?: string | null;
+    serial?: string | null;
+    property_numbers?: string[];
 }
 
 export interface RisRecord {

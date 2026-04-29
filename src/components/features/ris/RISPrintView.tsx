@@ -27,6 +27,65 @@ const asImageSrc = (value: string | null | undefined) => {
     return `data:image/png;base64,${v}`;
 };
 
+const parseTrailingNumber = (value: string): { prefix: string; number: number; width: number } | null => {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(.*?)(\d+)$/);
+    if (!match) return null;
+
+    const numberText = match[2];
+    return {
+        prefix: match[1],
+        number: Number(numberText),
+        width: numberText.length,
+    };
+};
+
+const formatStockRange = (values: string[]) => {
+    const unique = Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+    if (unique.length === 0) return '';
+    if (unique.length === 1) return unique[0];
+
+    const parsed = unique.map((value) => ({ value, parsed: parseTrailingNumber(value) }));
+    const firstParsed = parsed[0].parsed;
+    const canCompact = !!firstParsed && parsed.every((item) => item.parsed && item.parsed.prefix === firstParsed.prefix && item.parsed.width === firstParsed.width);
+
+    if (!canCompact) {
+        return unique.slice().sort((a, b) => a.localeCompare(b)).join(', ');
+    }
+
+    const sorted = parsed
+        .map((item) => ({ parsed: item.parsed! }))
+        .sort((a, b) => a.parsed.number - b.parsed.number);
+
+    const blocks: string[] = [];
+    let start = sorted[0].parsed.number;
+    let previous = sorted[0].parsed.number;
+
+    const pushBlock = (rangeStart: number, rangeEnd: number) => {
+        const startFull = `${firstParsed.prefix}${String(rangeStart).padStart(firstParsed.width, '0')}`;
+        if (rangeStart === rangeEnd) {
+            blocks.push(startFull);
+            return;
+        }
+
+        const endSuffix = String(rangeEnd).padStart(firstParsed.width, '0');
+        blocks.push(`${startFull}/${endSuffix}`);
+    };
+
+    for (let i = 1; i < sorted.length; i++) {
+        const current = sorted[i].parsed.number;
+        if (current !== previous + 1) {
+            pushBlock(start, previous);
+            start = current;
+        }
+        previous = current;
+    }
+
+    pushBlock(start, previous);
+
+    return blocks.join(', ');
+};
+
 export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(({ ris }, ref) => {
     const rowsNeeded = 20;
 
@@ -46,6 +105,10 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
     const receivedDate = text(formatPHDate(ris.signatures.received_by?.acknowledged_at ?? null), docDate);
 
     const officeText = text(req?.Office ?? req?.office ?? req?.department?.DepartmentName ?? '', '');
+    const stockNoTextForItem = (item: RisRecord['items'][number]) => {
+        const propertyNumbers = item.property_numbers?.length ? item.property_numbers : (item.stock_no ? [item.stock_no] : []);
+        return formatStockRange(propertyNumbers) || text(item.stock_no, '');
+    };
 
     return (
         <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
@@ -76,16 +139,49 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
 
             <div className="grid grid-cols-2 gap-6 text-xs mb-2">
                 <div className="space-y-1">
-                    <div className="flex items-end gap-2"><div className="whitespace-nowrap">Entity Name :</div><div className="flex-1 border-b border-black pb-0.5">{text(ris.entity_name, 'N/A')}</div></div>
-                    <div className="flex items-end gap-2"><div className="whitespace-nowrap">Division :</div><div className="flex-1 border-b border-black pb-0.5">{text(ris.division, 'N/A')}</div></div>
-                    <div className="flex items-end gap-2"><div className="whitespace-nowrap">Office :</div><div className="flex-1 border-b border-black pb-0.5">{officeText}</div></div>
+                    <div className="flex items-end gap-2">
+                        <div className="whitespace-nowrap">Entity Name :</div>
+                        <div className="flex-1 border-b border-black pb-0.5">
+                            CITY GOVERNMENT OF EL SALVADOR
+                        </div>
+                    </div>
+
+                    {/* DIVISION - BLANK */}
+                    <div className="flex items-end gap-2">
+                        <div className="whitespace-nowrap">Division :</div>
+                        <div className="flex-1 border-b border-black pb-0.5"></div>
+                    </div>
+
+                    <div className="flex items-end gap-2">
+                        <div className="whitespace-nowrap">Office :</div>
+                        <div className="flex-1 border-b border-black pb-0.5">
+                            {officeText}
+                        </div>
+                    </div>
                 </div>
+
                 <div className="space-y-1">
-                    <div className="flex items-end gap-2 justify-end"><div className="whitespace-nowrap">Fund Cluster :</div><div className="w-52 border-b border-black pb-0.5 text-right">{text(ris.fund_cluster, 'N/A')}</div></div>
-                    <div className="flex items-end gap-2 justify-end"><div className="whitespace-nowrap">Responsibility Center Code :</div><div className="w-52 border-b border-black pb-0.5 text-right">{text(ris.responsibility_center_code, 'N/A')}</div></div>
-                    <div className="flex items-end gap-2 justify-end"><div className="whitespace-nowrap">RIS No. :</div><div className="w-52 border-b border-black pb-0.5 text-right">{text(ris.ris_number, '0000-00-0000')}</div></div>
+                    {/* FUND CLUSTER - BLANK */}
+                    <div className="flex items-end gap-2 justify-end">
+                        <div className="whitespace-nowrap">Fund Cluster :</div>
+                        <div className="w-52 border-b border-black pb-0.5 text-right"></div>
+                    </div>
+
+                    {/* RCC - BLANK */}
+                    <div className="flex items-end gap-2 justify-end">
+                        <div className="whitespace-nowrap">Responsibility Center Code :</div>
+                        <div className="w-52 border-b border-black pb-0.5 text-right"></div>
+                    </div>
+
+                    <div className="flex items-end gap-2 justify-end">
+                        <div className="whitespace-nowrap">RIS No. :</div>
+                        <div className="w-52 border-b border-black pb-0.5 text-right">
+                            {text(ris.ris_number, '0000-00-0000')}
+                        </div>
+                    </div>
                 </div>
             </div>
+
 
             <table className="w-full ris-table text-[11px]">
                 <colgroup>
@@ -117,9 +213,9 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
                 </thead>
                 <tbody>
                     {(() => {
-                        const rows = (ris.items ?? []).slice(0, rowsNeeded).map((item) => (
-                            <tr key={item.id}>
-                                <td className="px-1 py-1">{text(item.stock_no, '')}</td>
+                        const rows = (ris.items ?? []).slice(0, rowsNeeded).map((item, idx) => (
+                            <tr key={`${idx}:${[item.stock_no, item.description, item.unit, item.issue_remarks].map((value) => String(value ?? '').trim()).join('|')}`}>
+                                <td className="px-1 py-1">{text(stockNoTextForItem(item), '')}</td>
                                 <td className="px-1 py-1 text-center">{text(item.unit, '')}</td>
                                 <td className="px-1 py-1">{text(item.description, '')}</td>
                                 <td className="px-1 py-1 text-center">{item.quantity_requested ?? ''}</td>
