@@ -65,7 +65,14 @@ function safeDate(dateValue: string | null | undefined): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function createdTimeForDr(dr: any): number {
+type DeliveryReceiptTimeSource = Partial<{
+    created_at: string | null;
+    CreatedDate: string | null;
+    createdAt: string | null;
+    DateReceived: string | null;
+}> | null | undefined;
+
+function createdTimeForDr(dr: DeliveryReceiptTimeSource): number {
     if (!dr) return 0;
     const candidates = [
         dr.created_at,

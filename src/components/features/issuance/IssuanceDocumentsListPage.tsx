@@ -97,7 +97,15 @@ function safeDate(dateValue: string | null | undefined): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function createdTime(value: any): number {
+type CreatedTimeSource = Partial<{
+    created_at: string | null;
+    CreatedDate: string | null;
+    createdAt: string | null;
+    IssuanceDate: string | null;
+    RequestDate: string | null;
+}> | null | undefined;
+
+function createdTime(value: CreatedTimeSource): number {
     if (!value) return 0;
     const candidates = [
         value.created_at,
