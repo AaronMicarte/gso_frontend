@@ -309,6 +309,7 @@ export function RpcInventoryPage() {
             const preview = await previewRpcScan(selectedCycleId, {
                 property_id: target.propertyId,
                 inventory_detail_id: target.inventoryDetailId,
+                property_number: !target.propertyId && !target.inventoryDetailId ? rawValue : undefined,
                 qr_value: rawValue,
             });
 
@@ -333,14 +334,32 @@ export function RpcInventoryPage() {
             setScanRemarks('');
             setPreviewOpen(true);
         } catch (error: unknown) {
-            const message =
-                typeof error === 'object' &&
-                    error !== null &&
-                    'response' in error &&
-                    typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
-                    ? (error as { response: { data: { message: string } } }).response.data.message
-                    : 'Unable to preview scan';
-            toast.error(message);
+            let errorMessage = 'Unable to preview scan';
+            let errorDetails = '';
+
+            if (typeof error === 'object' && error !== null && 'response' in error) {
+                const axiosError = error as { response?: { status?: number; data?: { message?: string; cycle_id?: number; received?: Record<string, unknown>; input?: Record<string, unknown> } } };
+                const status = axiosError.response?.status;
+                const data = axiosError.response?.data;
+
+                errorMessage = (typeof data?.message === 'string' ? data.message : `Request failed with status ${status}`);
+
+                // Add diagnostic info if it's a 404 or 422
+                if (status === 404) {
+                    if (data?.cycle_id) {
+                        errorDetails = `Cycle ID ${data.cycle_id} not found. Make sure you've created a cycle first.`;
+                    } else {
+                        errorDetails = data?.input ? JSON.stringify(data.input, null, 2) : 'Property not found in database.';
+                    }
+                } else if (status === 422) {
+                    errorDetails = data?.received ? JSON.stringify(data.received, null, 2) : 'Invalid input provided.';
+                }
+            }
+
+            toast.error(errorMessage, {
+                description: errorDetails ? `${errorDetails}` : undefined,
+            });
+
             if (scanMode === 'camera') {
                 void startCamera();
             }
@@ -496,7 +515,7 @@ export function RpcInventoryPage() {
             const preview = await previewRpcScan(selectedCycleId, {
                 property_id: parsed?.propertyId,
                 inventory_detail_id: parsed?.inventoryDetailId,
-                property_number: parsed ? undefined : rawInput,
+                property_number: !parsed || (!parsed.propertyId && !parsed.inventoryDetailId) ? rawInput : undefined,
                 qr_value: rawInput,
             });
 
@@ -521,14 +540,31 @@ export function RpcInventoryPage() {
             setScanRemarks('');
             setPreviewOpen(true);
         } catch (error: unknown) {
-            const message =
-                typeof error === 'object' &&
-                    error !== null &&
-                    'response' in error &&
-                    typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
-                    ? (error as { response: { data: { message: string } } }).response.data.message
-                    : 'Unable to preview scan';
-            toast.error(message);
+            let errorMessage = 'Unable to preview scan';
+            let errorDetails = '';
+
+            if (typeof error === 'object' && error !== null && 'response' in error) {
+                const axiosError = error as { response?: { status?: number; data?: { message?: string; cycle_id?: number; received?: Record<string, unknown>; input?: Record<string, unknown> } } };
+                const status = axiosError.response?.status;
+                const data = axiosError.response?.data;
+
+                errorMessage = (typeof data?.message === 'string' ? data.message : `Request failed with status ${status}`);
+
+                // Add diagnostic info if it's a 404 or 422
+                if (status === 404) {
+                    if (data?.cycle_id) {
+                        errorDetails = `Cycle ID ${data.cycle_id} not found. Make sure you've created a cycle first.`;
+                    } else {
+                        errorDetails = 'Property not found in database. Verify the QR code or property ID.';
+                    }
+                } else if (status === 422) {
+                    errorDetails = 'Invalid input provided.';
+                }
+            }
+
+            toast.error(errorMessage, {
+                description: errorDetails ? `${errorDetails}` : undefined,
+            });
         } finally {
             await minDelay;
             setPreviewProcessing(false);
@@ -852,6 +888,27 @@ export function RpcInventoryPage() {
                         </div>
                     )}
                 </section>
+
+                {!selectedCycle && cycles.length === 0 && !loadingCycles && (
+                    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 md:p-6 space-y-4">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                                <h3 className="font-semibold text-amber-900">No Inventory Cycles Available</h3>
+                                <p className="text-sm text-amber-800 mt-2">
+                                    To begin RPC (RPCPPE/RPCSEP) scanning, you need to create an inventory cycle for the current year.
+                                </p>
+                                <button
+                                    onClick={handleCreateCurrentCycle}
+                                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Create Current Year Cycle
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                )}
 
                 {selectedCycle ? (
                     <>
