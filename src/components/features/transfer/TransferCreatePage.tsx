@@ -48,6 +48,13 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
     const requestingDepartmentComboboxRef = useRef<HTMLDivElement | null>(null);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [paginationMeta, setPaginationMeta] = useState<{
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    } | null>(null);
 
     const [fromDepartmentId, setFromDepartmentId] = useState<number | ''>('');
     const [toDepartmentId, setToDepartmentId] = useState<number | ''>('');
@@ -77,49 +84,35 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
     const loadAvailableItems = useCallback(async () => {
         if (!fromDepartmentId || !fromEndUserId) {
             setAvailableItems([]);
+            setPaginationMeta(null);
             return;
         }
 
         try {
             setItemLoading(true);
-            const firstPage = await transferAPI.getAvailableItems({
+            const response = await transferAPI.getAvailableItems({
                 search: searchTerm || undefined,
                 from_department_id: Number(fromDepartmentId),
                 from_end_user_id: Number(fromEndUserId),
-                per_page: 100,
-                page: 1,
+                per_page: 10,
+                page: currentPage,
             });
 
-            const allItems: TransferableItem[] = [...(firstPage.data || [])];
-            const lastPage = Math.max(1, Number(firstPage.last_page || 1));
-
-            if (lastPage > 1) {
-                const pagePromises: Array<Promise<{ data: TransferableItem[] }>> = [];
-                for (let page = 2; page <= lastPage; page++) {
-                    pagePromises.push(
-                        transferAPI.getAvailableItems({
-                            search: searchTerm || undefined,
-                            from_department_id: Number(fromDepartmentId),
-                            from_end_user_id: Number(fromEndUserId),
-                            per_page: 100,
-                            page,
-                        })
-                    );
-                }
-
-                const pages = await Promise.all(pagePromises);
-                for (const pageData of pages) {
-                    allItems.push(...(pageData.data || []));
-                }
-            }
-
-            setAvailableItems(allItems);
+            setAvailableItems(response.data || []);
+            setPaginationMeta({
+                current_page: response.current_page || 1,
+                last_page: response.last_page || 1,
+                per_page: response.per_page || 10,
+                total: response.total || 0,
+            });
         } catch {
             toast.error('Failed to load transfer items');
+            setAvailableItems([]);
+            setPaginationMeta(null);
         } finally {
             setItemLoading(false);
         }
-    }, [fromDepartmentId, fromEndUserId, searchTerm]);
+    }, [fromDepartmentId, fromEndUserId, searchTerm, currentPage]);
 
     useEffect(() => {
         loadHelpers();
@@ -199,7 +192,9 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
     useEffect(() => {
         setSelectedGroups([]);
         setAvailableQuantities({});
-    }, [fromDepartmentId, fromEndUserId]);
+        setCurrentPage(1);
+        setPaginationMeta(null);
+    }, [fromDepartmentId, fromEndUserId])
 
     type GroupedAvailableItem = {
         key: string;
@@ -210,23 +205,23 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
         unitName: string;
     };
 
-    const buildItemDescription = (item: TransferableItem) => (
+    const buildItemDescription = useCallback((item: TransferableItem) => (
         item.ItemDescription || item.InventoryDescription || item.AssignedDescription || 'Item'
-    );
+    ), []);
 
-    const buildFullSpecs = (item: TransferableItem) => (
+    const buildFullSpecs = useCallback((item: TransferableItem) => (
         [item.Brand, item.ModelNumber, item.SerialNumber ? `SN: ${item.SerialNumber}` : null]
             .filter(Boolean)
             .join(' | ')
-    );
+    ), []);
 
-    const buildGroupKey = (item: TransferableItem) => {
+    const buildGroupKey = useCallback((item: TransferableItem) => {
         const serialKey = item.SerialNumber || 'no-serial';
         const brandKey = item.Brand || 'no-brand';
         const modelKey = item.ModelNumber || 'no-model';
         const descKey = buildItemDescription(item);
         return `${serialKey}||${brandKey}||${modelKey}||${descKey}`;
-    };
+    }, [buildItemDescription]);
 
     const groupedAvailableItems = useMemo(() => {
         const groups = new Map<string, GroupedAvailableItem>();
@@ -258,7 +253,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
             .sort((a, b) =>
                 a.article.toLowerCase().localeCompare(b.article.toLowerCase())
             );
-    }, [availableItems]);
+    }, [availableItems, buildGroupKey, buildItemDescription, buildFullSpecs]);
 
 
     useEffect(() => {
@@ -777,7 +772,10 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                         type="text"
                                         placeholder="Search items"
                                         value={searchTerm}
-                                        onChange={(event) => setSearchTerm(event.target.value)}
+                                        onChange={(event) => {
+                                            setSearchTerm(event.target.value);
+                                            setCurrentPage(1);
+                                        }}
                                         className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                                     />
                                 </div>
@@ -854,6 +852,36 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                             </div>
                                         );
                                     })}
+                                </div>
+                            )}
+
+                            {/* Pagination */}
+                            {paginationMeta && paginationMeta.last_page > 1 && (
+                                <div className="border-t border-slate-200 pt-4 mt-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-sm text-slate-500">
+                                            Showing {((paginationMeta.current_page - 1) * paginationMeta.per_page) + 1} to {Math.min(paginationMeta.current_page * paginationMeta.per_page, paginationMeta.total)} of {paginationMeta.total} items
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                                disabled={currentPage === 1 || itemLoading}
+                                                className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Previous
+                                            </button>
+                                            <span className="text-sm text-slate-600">
+                                                Page {paginationMeta.current_page} of {paginationMeta.last_page}
+                                            </span>
+                                            <button
+                                                onClick={() => setCurrentPage(Math.min(paginationMeta.last_page, currentPage + 1))}
+                                                disabled={currentPage === paginationMeta.last_page || itemLoading}
+                                                className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
