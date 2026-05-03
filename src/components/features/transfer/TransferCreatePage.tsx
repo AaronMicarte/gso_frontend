@@ -216,11 +216,12 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
     ), []);
 
     const buildGroupKey = useCallback((item: TransferableItem) => {
-        const serialKey = item.SerialNumber || 'no-serial';
+        const articleKey = item.ArticleName || 'no-article';
         const brandKey = item.Brand || 'no-brand';
         const modelKey = item.ModelNumber || 'no-model';
         const descKey = buildItemDescription(item);
-        return `${serialKey}||${brandKey}||${modelKey}||${descKey}`;
+        const unitKey = item.UnitName || 'unit';
+        return `${articleKey}||${brandKey}||${modelKey}||${descKey}||${unitKey}`;
     }, [buildItemDescription]);
 
     const groupedAvailableItems = useMemo(() => {
@@ -295,10 +296,8 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
 
         setAvailableQuantities((prev) => ({ ...prev, [key]: nextValue }));
 
-        // If this group is already selected, update its selected quantity live
         setSelectedGroups((prev) => prev.map((entry) => {
             if (entry.key !== key) return entry;
-            // clamp to available max
             const clamped = Math.min(Math.max(nextValue, 1), maxQty);
             return { ...entry, quantity: clamped };
         }));
@@ -860,7 +859,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                 <div className="border-t border-slate-200 pt-4 mt-4">
                                     <div className="flex items-center justify-between">
                                         <div className="text-sm text-slate-500">
-                                            Showing {((paginationMeta.current_page - 1) * paginationMeta.per_page) + 1} to {Math.min(paginationMeta.current_page * paginationMeta.per_page, paginationMeta.total)} of {paginationMeta.total} items
+                                            Showing {((paginationMeta.current_page - 1) * paginationMeta.per_page) + 1} to {Math.min(paginationMeta.current_page * paginationMeta.per_page, paginationMeta.total)} of {paginationMeta.total} groups
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
