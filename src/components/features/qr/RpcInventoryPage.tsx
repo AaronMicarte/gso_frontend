@@ -33,6 +33,21 @@ type PreviewAssetState = RpcInventoryPreviewAsset & {
     candidates: RpcInventoryPreviewCandidate[];
 };
 
+type GroupedScanRow = {
+    primaryScan: RpcInventoryScanRecord;
+    groupScans: RpcInventoryScanRecord[];
+    propertyNumbersPreview: string;
+    scansCount: number;
+    createdMonth: string;
+};
+
+type EditScanItem = {
+    scanId: number;
+    propertyNumber: string;
+    conditionId: number;
+    included: boolean;
+};
+
 type ParsedRpcScanTarget = {
     propertyId?: number;
     inventoryDetailId?: number;
@@ -119,8 +134,8 @@ export function RpcInventoryPage() {
     const [scanRemarks, setScanRemarks] = useState('');
 
     const [editOpen, setEditOpen] = useState(false);
-    const [editingScan, setEditingScan] = useState<RpcInventoryScanRecord | null>(null);
-    const [editConditionId, setEditConditionId] = useState<number>(0);
+    const [editingGroup, setEditingGroup] = useState<GroupedScanRow | null>(null);
+    const [editingItems, setEditingItems] = useState<EditScanItem[]>([]);
     const [editRemarks, setEditRemarks] = useState('');
 
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -147,13 +162,123 @@ export function RpcInventoryPage() {
         return Array.from(unique).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     }, [scans]);
 
-    const filteredScans = useMemo(() => {
-        if (propertyTypeFilter === 'ALL') {
-            return scans;
+    // Group sibling assets like mobile app does
+    const buildScanGroupKey = (scan: RpcInventoryScanRecord): string => {
+        return [
+            scan.rpc_type ?? '',
+            scan.article ?? '',
+            scan.description ?? '',
+            scan.accountable_officer ?? '',
+            scan.property_type ?? '',
+            scan.unit_of_measure ?? '',
+            scan.unit_value ?? '',
+        ]
+            .map((part) => String(part).trim().toLowerCase())
+            .join('|');
+    };
+
+    const buildPropertyNumbersPreview = (groupScans: RpcInventoryScanRecord[]): string => {
+        const propertyNumbers = Array.from(
+            new Set(
+                groupScans
+                    .map((scan) => scan.property_number?.trim())
+                    .filter((num) => num && num.length > 0) as string[]
+            )
+        ).sort();
+
+        if (propertyNumbers.length === 0) {
+            return `${groupScans.length} item${groupScans.length === 1 ? '' : 's'}`;
         }
 
-        return scans.filter((scan) => (scan.property_type || '').trim() === propertyTypeFilter);
-    }, [scans, propertyTypeFilter]);
+        if (propertyNumbers.length <= 5) {
+            return propertyNumbers.join(', ');
+        }
+
+        return `${propertyNumbers[0]} + ${propertyNumbers.length - 1} more`;
+    };
+
+    const formatCreatedMonth = (value?: string | null): string => {
+        if (!value) return '-';
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '-';
+
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'long',
+            year: 'numeric',
+        }).format(date);
+    };
+
+    const formatCycleDate = (value?: string | null): string => {
+        if (!value) return '-';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '-';
+
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'long',
+            year: 'numeric',
+        }).format(date);
+    };
+
+    const groupedScans = useMemo<GroupedScanRow[]>(() => {
+        let filtered = scans;
+
+        if (typeFilter !== 'ALL') {
+            filtered = filtered.filter((scan) => scan.rpc_type === typeFilter);
+        }
+
+        if (propertyTypeFilter !== 'ALL') {
+            filtered = filtered.filter((scan) => (scan.property_type || '').trim() === propertyTypeFilter);
+        }
+
+        const searchTerm = search.trim().toLowerCase();
+        if (searchTerm.length > 0) {
+            filtered = filtered.filter((scan) => {
+                const haystack = [
+                    scan.property_number,
+                    scan.article,
+                    scan.description,
+                    scan.accountable_officer,
+                ]
+                    .map((value) => (value || '').trim().toLowerCase())
+                    .join(' ');
+
+                return haystack.includes(searchTerm);
+            });
+        }
+
+        const grouped = new Map<string, RpcInventoryScanRecord[]>();
+        for (const scan of filtered) {
+            const key = buildScanGroupKey(scan);
+            const bucket = grouped.get(key);
+            if (bucket) {
+                bucket.push(scan);
+            } else {
+                grouped.set(key, [scan]);
+            }
+        }
+
+        return Array.from(grouped.values()).map((groupedList) => {
+            const sorted = [...groupedList].sort(
+                (a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime()
+            );
+            const oldestScan = [...sorted].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            )[0];
+            return {
+                primaryScan: sorted[0],
+                groupScans: sorted,
+                propertyNumbersPreview: buildPropertyNumbersPreview(sorted),
+                scansCount: sorted.length,
+                createdMonth: formatCreatedMonth(oldestScan?.created_month || oldestScan?.created_at),
+            };
+        });
+    }, [scans, propertyTypeFilter, search, typeFilter]);
+
+    const handleRefreshAll = async () => {
+        await loadCycles();
+        await loadScans();
+    };
 
     const loadCycles = async () => {
         try {
@@ -331,7 +456,15 @@ export function RpcInventoryPage() {
             if (conditions.length > 0) {
                 setConditionId(conditions[0].ConditionID);
             }
-            setScanRemarks('');
+
+            // Initialize remarks based on first available remark from sibling scans in group
+            const siblingScans = scans
+                .filter((scan) => scan.inventory_detail_id === preview.asset.inventory_detail_id ||
+                    preview.candidates.some((c) => c.inventory_detail_id === scan.inventory_detail_id))
+                .sort((a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime());
+
+            const remarksFromSiblings = siblingScans.map(s => s.remarks).filter(r => r && r.trim());
+            setScanRemarks(remarksFromSiblings[0] || '');
             setPreviewOpen(true);
         } catch (error: unknown) {
             let errorMessage = 'Unable to preview scan';
@@ -427,36 +560,56 @@ export function RpcInventoryPage() {
         }
     };
 
-    const handleOpenEdit = (scan: RpcInventoryScanRecord) => {
-        setEditingScan(scan);
-        setEditConditionId(scan.condition_id);
-        setEditRemarks(scan.remarks ?? '');
+    const handleOpenEdit = (group: GroupedScanRow) => {
+        setEditingGroup(group);
+        setEditingItems(
+            group.groupScans.map((scan) => ({
+                scanId: scan.id,
+                propertyNumber: scan.property_number || '-',
+                conditionId: scan.condition_id,
+                included: true,
+            }))
+        );
+        const remarkSeed = group.groupScans.find((scan) => (scan.remarks || '').trim().length > 0)?.remarks ?? '';
+        setEditRemarks(remarkSeed);
         setEditOpen(true);
     };
 
-    const handleUpdateScan = async () => {
-        if (!editingScan) return;
-        if (!editConditionId) {
-            toast.error('Select a condition first.');
-            return;
-        }
-        if (editRemarks.length > 255) {
-            toast.error('Remarks must be 255 characters or less.');
-            return;
-        }
+    const handleUpdateGroupScans = async () => {
+        if (!editingGroup) return;
+
+        const selectedItems = editingItems.filter((item) => item.included);
+        const removedItems = editingItems.filter((item) => !item.included);
+        const sharedRemarks = editRemarks.trim();
 
         try {
-            await updateRpcScan(editingScan.id, {
-                condition_id: editConditionId,
-                quantity_per_count: 1,
-                remarks: editRemarks.trim() || null,
-            });
-            toast.success('Scan updated.');
+            const updateJobs = selectedItems.map((item) =>
+                updateRpcScan(item.scanId, {
+                    condition_id: item.conditionId,
+                    quantity_per_count: 1,
+                    remarks: sharedRemarks || null,
+                })
+            );
+            const removeJobs = removedItems.map((item) => deleteRpcScan(item.scanId));
+
+            await Promise.all([...updateJobs, ...removeJobs]);
+
+            const updatedCount = selectedItems.length;
+            const removedCount = removedItems.length;
+            if (updatedCount > 0 && removedCount > 0) {
+                toast.success(`${updatedCount} updated, ${removedCount} removed from scan.`);
+            } else if (removedCount > 0) {
+                toast.success(removedCount > 1 ? `${removedCount} scans removed from scan.` : 'Scan removed from group.');
+            } else {
+                toast.success(updatedCount > 1 ? `${updatedCount} scans updated.` : 'Scan updated.');
+            }
             setEditOpen(false);
-            setEditingScan(null);
+            setEditingGroup(null);
+            setEditingItems([]);
+            setEditRemarks('');
             await loadScans();
         } catch {
-            toast.error('Failed to update scan');
+            toast.error('Failed to update selected scans');
         }
     };
 
@@ -466,7 +619,7 @@ export function RpcInventoryPage() {
     };
 
     const handleConfirmDeleteScan = async () => {
-        if (!deletingScan) return;
+        if (!deletingScan || !selectedCycleId) return;
 
         try {
             setDeletingScanLoading(true);
@@ -474,10 +627,24 @@ export function RpcInventoryPage() {
             toast.success('Scan removed.');
             setDeleteDialogOpen(false);
             setDeletingScan(null);
-            await loadScans();
-            await loadCycles();
-        } catch {
-            toast.error('Failed to remove scan');
+
+            // Ensure UI updates immediately by removing from local state
+            setScans((prevScans) => prevScans.filter((scan) => scan.id !== deletingScan.id));
+
+            // Then reload from server to ensure consistency
+            await Promise.all([
+                loadScans(),
+                loadCycles(),
+            ]);
+        } catch (error: unknown) {
+            const errorMessage =
+                typeof error === 'object' &&
+                    error !== null &&
+                    'response' in error &&
+                    typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+                    ? (error as { response: { data: { message: string } } }).response.data.message
+                    : 'Failed to remove scan';
+            toast.error(errorMessage);
         } finally {
             setDeletingScanLoading(false);
         }
@@ -537,7 +704,15 @@ export function RpcInventoryPage() {
             if (conditions.length > 0) {
                 setConditionId(conditions[0].ConditionID);
             }
-            setScanRemarks('');
+
+            // Initialize remarks based on first available remark from sibling scans in group
+            const siblingScans = scans
+                .filter((scan) => scan.inventory_detail_id === preview.asset.inventory_detail_id ||
+                    preview.candidates.some((c) => c.inventory_detail_id === scan.inventory_detail_id))
+                .sort((a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime());
+
+            const remarksFromSiblings = siblingScans.map(s => s.remarks).filter(r => r && r.trim());
+            setScanRemarks(remarksFromSiblings[0] || '');
             setPreviewOpen(true);
         } catch (error: unknown) {
             let errorMessage = 'Unable to preview scan';
@@ -744,46 +919,28 @@ export function RpcInventoryPage() {
 
                 <Dialog
                     open={editOpen}
-                    onOpenChange={setEditOpen}
+                    onOpenChange={(open) => {
+                        setEditOpen(open);
+                        if (!open) {
+                            setEditingGroup(null);
+                            setEditingItems([]);
+                            setEditRemarks('');
+                        }
+                    }}
                     title="Edit Scanned Asset"
-                    onConfirm={handleUpdateScan}
+                    onConfirm={handleUpdateGroupScans}
                     confirmText="Save Changes"
                     cancelText="Cancel"
-                    contentClassName="max-w-xl"
+                    contentClassName="max-w-3xl"
                 >
-                    {editingScan ? (
-                        <div className="space-y-3">
+                    {editingGroup ? (
+                        <div className="space-y-4">
                             <div className="text-sm text-slate-600">
-                                {editingScan.article || '-'} - {editingScan.property_number || '-'}
+                                {editingGroup.primaryScan.article || editingGroup.primaryScan.description || '-'}
                             </div>
 
                             <label className="text-sm block">
-                                <span className="block text-slate-600 mb-1">Condition</span>
-                                <select
-                                    value={editConditionId}
-                                    onChange={(e) => setEditConditionId(Number(e.target.value))}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                                >
-                                    {conditions.map((condition) => (
-                                        <option key={condition.ConditionID} value={condition.ConditionID}>
-                                            {condition.ConditionName}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <label className="text-sm block">
-                                <span className="block text-slate-600 mb-1">Quantity Counted</span>
-                                <input
-                                    type="number"
-                                    value={1}
-                                    readOnly
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-100 text-slate-700"
-                                />
-                            </label>
-
-                            <label className="text-sm block">
-                                <span className="block text-slate-600 mb-1">Remarks</span>
+                                <span className="block text-slate-600 mb-1">Shared Remark</span>
                                 <input
                                     type="text"
                                     value={editRemarks}
@@ -792,6 +949,70 @@ export function RpcInventoryPage() {
                                     placeholder="optional"
                                 />
                             </label>
+
+                            <div className="rounded-lg border border-slate-200 overflow-hidden">
+                                <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    <div>Property Number</div>
+                                    <div>Condition</div>
+                                    <div>Status</div>
+                                </div>
+                                <div className="divide-y divide-slate-100 max-h-[360px] overflow-auto">
+                                    {editingItems.map((item) => {
+                                        const isEnabled = item.included;
+
+                                        return (
+                                            <div
+                                                key={item.scanId}
+                                                className={`grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] gap-3 px-4 py-3 items-center ${isEnabled ? 'bg-white' : 'bg-slate-50 text-slate-400'}`}
+                                            >
+                                                <div className="space-y-1">
+                                                    <div className="font-semibold text-slate-900">{item.propertyNumber}</div>
+                                                </div>
+
+                                                <select
+                                                    value={item.conditionId}
+                                                    onChange={(e) => {
+                                                        const nextConditionId = Number(e.target.value);
+                                                        setEditingItems((prev) =>
+                                                            prev.map((entry) =>
+                                                                entry.scanId === item.scanId
+                                                                    ? { ...entry, conditionId: nextConditionId }
+                                                                    : entry
+                                                            )
+                                                        );
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                                >
+                                                    {conditions.map((condition) => (
+                                                        <option key={condition.ConditionID} value={condition.ConditionID}>
+                                                            {condition.ConditionName}
+                                                        </option>
+                                                    ))}
+                                                </select>
+
+                                                <button
+                                                    type="button"
+                                                    className={`px-3 py-2 rounded-lg border text-sm font-medium ${isEnabled
+                                                        ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                                                        : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                                                        }`}
+                                                    onClick={() => {
+                                                        setEditingItems((prev) =>
+                                                            prev.map((entry) =>
+                                                                entry.scanId === item.scanId
+                                                                    ? { ...entry, included: !entry.included }
+                                                                    : entry
+                                                            )
+                                                        );
+                                                    }}
+                                                >
+                                                    {isEnabled ? 'Remove from scan' : 'Restore to scan'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     ) : null}
                 </Dialog>
@@ -831,7 +1052,7 @@ export function RpcInventoryPage() {
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" className="w-auto" onClick={() => void loadCycles()} isLoading={loadingCycles}>
+                            <Button size="sm" variant="outline" className="w-auto" onClick={() => void handleRefreshAll()} isLoading={loadingCycles}>
                                 <RefreshCw className="w-4 h-4" />
                             </Button>
                             <Button size="sm" className="w-auto bg-[var(--primary)] hover:bg-[var(--primary-hover)]" onClick={() => void handleCreateCurrentCycle()}>
@@ -868,6 +1089,7 @@ export function RpcInventoryPage() {
                                     >
                                         <div className={`text-[11px] uppercase tracking-wide ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>{cycle.status}</div>
                                         <div className="font-semibold mt-1 line-clamp-2">{cycle.cycle_label}</div>
+                                        <div className={`mt-1 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>{formatCycleDate(cycle.started_at)}</div>
                                         <div className={`mt-3 text-sm grid grid-cols-3 gap-2 ${isSelected ? 'text-slate-100' : 'text-slate-600'}`}>
                                             <div>
                                                 <div className="text-[10px] uppercase">Total</div>
@@ -986,6 +1208,7 @@ export function RpcInventoryPage() {
                             <aside className="xl:col-span-4 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
                                 <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Cycle Snapshot</div>
                                 <div className="mt-2 font-semibold text-slate-900">{selectedCycle.cycle_label}</div>
+                                <div className="mt-1 text-sm text-slate-500">{formatCycleDate(selectedCycle.started_at)}</div>
                                 <div className="mt-4 grid grid-cols-3 gap-2">
                                     <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                                         <div className="text-[10px] uppercase text-slate-500">Total</div>
@@ -1040,9 +1263,6 @@ export function RpcInventoryPage() {
                                             </option>
                                         ))}
                                     </select>
-                                    <Button size="sm" variant="outline" className="w-auto" onClick={() => void loadScans()}>
-                                        Refresh
-                                    </Button>
                                 </div>
                             </div>
 
@@ -1051,11 +1271,11 @@ export function RpcInventoryPage() {
                                     <thead className="bg-slate-100 text-slate-700">
                                         <tr>
                                             <th className="text-left px-4 py-3">Type</th>
-                                            <th className="text-left px-4 py-3">Property Number</th>
+                                            <th className="text-left px-4 py-3">Property Numbers</th>
                                             <th className="text-left px-4 py-3">Article</th>
                                             <th className="text-left px-4 py-3">Officer</th>
                                             <th className="text-left px-4 py-3">Condition</th>
-                                            <th className="text-left px-4 py-3">Count</th>
+                                            <th className="text-left px-4 py-3">Scans</th>
                                             <th className="text-right px-4 py-3">Actions</th>
                                         </tr>
                                     </thead>
@@ -1066,43 +1286,55 @@ export function RpcInventoryPage() {
                                                     Loading scanned assets...
                                                 </td>
                                             </tr>
-                                        ) : filteredScans.length === 0 ? (
+                                        ) : groupedScans.length === 0 ? (
                                             <tr>
                                                 <td className="px-4 py-8 text-center text-slate-500" colSpan={7}>
                                                     No scanned assets yet for this cycle.
                                                 </td>
                                             </tr>
                                         ) : (
-                                            filteredScans.map((scan) => (
-                                                <tr key={scan.id} className="hover:bg-slate-50">
-                                                    <td className="px-4 py-3 font-medium">{scan.rpc_type}</td>
-                                                    <td className="px-4 py-3">{scan.property_number || '-'}</td>
-                                                    <td className="px-4 py-3">{scan.article || scan.description || '-'}</td>
-                                                    <td className="px-4 py-3">{scan.accountable_officer || '-'}</td>
-                                                    <td className="px-4 py-3">{scan.condition?.ConditionName || '-'}</td>
-                                                    <td className="px-4 py-3">{scan.quantity_per_count}</td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <div className="inline-flex gap-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenEdit(scan)}
-                                                                className="p-2 rounded-md border border-slate-200 hover:bg-slate-100"
-                                                                title="Edit"
-                                                            >
-                                                                <Edit3 className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteScan(scan)}
-                                                                className="p-2 rounded-md border border-rose-200 text-rose-600 hover:bg-rose-50"
-                                                                title="Remove"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
+                                            groupedScans.map((group) => {
+                                                const scan = group.primaryScan;
+                                                return (
+                                                    <tr key={`${group.propertyNumbersPreview}-${scan.id}`} className="hover:bg-slate-50">
+                                                        <td className="px-4 py-3 font-medium">{scan.rpc_type}</td>
+                                                        <td className="px-4 py-3 font-semibold text-slate-800">{group.propertyNumbersPreview}</td>
+                                                        <td className="px-4 py-3">{scan.article || scan.description || '-'}</td>
+                                                        <td className="px-4 py-3">{scan.accountable_officer || '-'}</td>
+
+                                                        <td className="px-4 py-3">{scan.condition?.ConditionName || '-'}</td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            {group.scansCount > 1 ? (
+                                                                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                                                                    {group.scansCount}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-700">1</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <div className="inline-flex gap-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenEdit(group)}
+                                                                    className="p-2 rounded-md border border-slate-200 hover:bg-slate-100"
+                                                                    title="Edit"
+                                                                >
+                                                                    <Edit3 className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteScan(scan)}
+                                                                    className="p-2 rounded-md border border-rose-200 text-rose-600 hover:bg-rose-50"
+                                                                    title="Remove"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
                                         )}
                                     </tbody>
                                 </table>

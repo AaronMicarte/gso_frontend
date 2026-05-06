@@ -89,6 +89,8 @@ export interface RpcInventoryScanRecord {
     quantity_per_count: number;
     remarks: string | null;
     accountable_officer: string | null;
+    department_name?: string | null;
+    created_month?: string | null;
     property_type?: string | null;
     created_at: string;
     updated_at: string;
