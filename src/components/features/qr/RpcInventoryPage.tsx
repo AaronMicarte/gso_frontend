@@ -34,9 +34,11 @@ type PreviewAssetState = RpcInventoryPreviewAsset & {
 };
 
 type GroupedScanRow = {
+    key: string;
     primaryScan: RpcInventoryScanRecord;
     groupScans: RpcInventoryScanRecord[];
     propertyNumbersPreview: string;
+    propertyNumbersFull: string[];
     scansCount: number;
     createdMonth: string;
 };
@@ -139,8 +141,9 @@ export function RpcInventoryPage() {
     const [editRemarks, setEditRemarks] = useState('');
 
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [deletingScan, setDeletingScan] = useState<RpcInventoryScanRecord | null>(null);
-    const [deletingScanLoading, setDeletingScanLoading] = useState(false);
+    const [deletingGroup, setDeletingGroup] = useState<GroupedScanRow | null>(null);
+    const [deletingGroupLoading, setDeletingGroupLoading] = useState(false);
+    const [expandedPropertyGroups, setExpandedPropertyGroups] = useState<Set<string>>(new Set());
 
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const controlsRef = useRef<IScannerControls | null>(null);
@@ -162,13 +165,28 @@ export function RpcInventoryPage() {
         return Array.from(unique).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     }, [scans]);
 
+    // Normalize accountable officer by removing duplicate department suffixes
+    const normalizeAccountableOfficer = (value?: string | null): string => {
+        if (!value) return '';
+        const parts = value.split('-').map((p) => p.trim());
+        const seen = new Set<string>();
+        const unique: string[] = [];
+        for (const part of parts) {
+            if (!seen.has(part)) {
+                unique.push(part);
+                seen.add(part);
+            }
+        }
+        return unique.join(' - ');
+    };
+
     // Group sibling assets like mobile app does
     const buildScanGroupKey = (scan: RpcInventoryScanRecord): string => {
         return [
             scan.rpc_type ?? '',
             scan.article ?? '',
             scan.description ?? '',
-            scan.accountable_officer ?? '',
+            normalizeAccountableOfficer(scan.accountable_officer),
             scan.property_type ?? '',
             scan.unit_of_measure ?? '',
             scan.unit_value ?? '',
@@ -177,24 +195,28 @@ export function RpcInventoryPage() {
             .join('|');
     };
 
-    const buildPropertyNumbersPreview = (groupScans: RpcInventoryScanRecord[]): string => {
-        const propertyNumbers = Array.from(
+    const extractPropertyNumbers = (groupScans: RpcInventoryScanRecord[]): string[] => {
+        return Array.from(
             new Set(
                 groupScans
                     .map((scan) => scan.property_number?.trim())
                     .filter((num) => num && num.length > 0) as string[]
             )
         ).sort();
+    };
+
+    const buildPropertyNumbersPreview = (groupScans: RpcInventoryScanRecord[]): string => {
+        const propertyNumbers = extractPropertyNumbers(groupScans);
 
         if (propertyNumbers.length === 0) {
             return `${groupScans.length} item${groupScans.length === 1 ? '' : 's'}`;
         }
 
-        if (propertyNumbers.length <= 5) {
+        if (propertyNumbers.length <= 3) {
             return propertyNumbers.join(', ');
         }
 
-        return `${propertyNumbers[0]} + ${propertyNumbers.length - 1} more`;
+        return `${propertyNumbers.slice(0, 3).join(', ')} ...`;
     };
 
     const formatCreatedMonth = (value?: string | null): string => {
@@ -258,17 +280,20 @@ export function RpcInventoryPage() {
             }
         }
 
-        return Array.from(grouped.values()).map((groupedList) => {
+        return Array.from(grouped.entries()).map(([key, groupedList]) => {
             const sorted = [...groupedList].sort(
                 (a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime()
             );
             const oldestScan = [...sorted].sort(
                 (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
             )[0];
+            const propertyNumbers = extractPropertyNumbers(sorted);
             return {
+                key,
                 primaryScan: sorted[0],
                 groupScans: sorted,
                 propertyNumbersPreview: buildPropertyNumbersPreview(sorted),
+                propertyNumbersFull: propertyNumbers,
                 scansCount: sorted.length,
                 createdMonth: formatCreatedMonth(oldestScan?.created_month || oldestScan?.created_at),
             };
@@ -558,6 +583,7 @@ export function RpcInventoryPage() {
         } finally {
             setSubmittingScan(false);
         }
+
     };
 
     const handleOpenEdit = (group: GroupedScanRow) => {
@@ -613,23 +639,26 @@ export function RpcInventoryPage() {
         }
     };
 
-    const handleDeleteScan = (scan: RpcInventoryScanRecord) => {
-        setDeletingScan(scan);
+    const handleDeleteGroup = (group: GroupedScanRow) => {
+        setDeletingGroup(group);
         setDeleteDialogOpen(true);
     };
 
-    const handleConfirmDeleteScan = async () => {
-        if (!deletingScan || !selectedCycleId) return;
+    const handleConfirmDeleteGroup = async () => {
+        if (!deletingGroup || !selectedCycleId) return;
 
         try {
-            setDeletingScanLoading(true);
-            await deleteRpcScan(deletingScan.id);
-            toast.success('Scan removed.');
+            setDeletingGroupLoading(true);
+            // Delete all scans in the group
+            await Promise.all(deletingGroup.groupScans.map((scan) => deleteRpcScan(scan.id)));
+            toast.success(`Removed ${deletingGroup.scansCount} scan${deletingGroup.scansCount === 1 ? '' : 's'}.`);
             setDeleteDialogOpen(false);
-            setDeletingScan(null);
+            setDeletingGroup(null);
 
             // Ensure UI updates immediately by removing from local state
-            setScans((prevScans) => prevScans.filter((scan) => scan.id !== deletingScan.id));
+            setScans((prevScans) =>
+                prevScans.filter((scan) => !deletingGroup.groupScans.find((gs) => gs.id === scan.id))
+            );
 
             // Then reload from server to ensure consistency
             await Promise.all([
@@ -643,10 +672,10 @@ export function RpcInventoryPage() {
                     'response' in error &&
                     typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
                     ? (error as { response: { data: { message: string } } }).response.data.message
-                    : 'Failed to remove scan';
+                    : 'Failed to remove scan group';
             toast.error(errorMessage);
         } finally {
-            setDeletingScanLoading(false);
+            setDeletingGroupLoading(false);
         }
     };
 
@@ -1022,21 +1051,21 @@ export function RpcInventoryPage() {
                     onOpenChange={(open) => {
                         setDeleteDialogOpen(open);
                         if (!open) {
-                            setDeletingScan(null);
+                            setDeletingGroup(null);
                         }
                     }}
-                    title="Remove Scanned Asset"
-                    description="This will remove the scanned asset from the selected cycle."
-                    onConfirm={handleConfirmDeleteScan}
+                    title="Remove Scanned Assets Group"
+                    description="This will remove all scanned assets in this group from the selected cycle."
+                    onConfirm={handleConfirmDeleteGroup}
                     confirmText="Remove"
                     cancelText="Cancel"
-                    loading={deletingScanLoading}
+                    loading={deletingGroupLoading}
                     contentClassName="max-w-md"
                 >
                     <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-                        {deletingScan
-                            ? `Remove ${deletingScan.property_number || '-'} (${deletingScan.article || deletingScan.description || 'Asset'}) from this cycle?`
-                            : 'Remove this scanned asset from the current cycle?'}
+                        {deletingGroup
+                            ? `Remove ${deletingGroup.scansCount} scanned asset${deletingGroup.scansCount === 1 ? '' : 's'} (${deletingGroup.propertyNumbersPreview}) from this cycle?`
+                            : 'Remove this scanned asset group from the current cycle?'}
                     </div>
                 </Dialog>
 
@@ -1273,7 +1302,7 @@ export function RpcInventoryPage() {
                                             <th className="text-left px-4 py-3">Type</th>
                                             <th className="text-left px-4 py-3">Property Numbers</th>
                                             <th className="text-left px-4 py-3">Article</th>
-                                            <th className="text-left px-4 py-3">Officer</th>
+                                            <th className="text-left px-4 py-3">End User</th>
                                             <th className="text-left px-4 py-3">Condition</th>
                                             <th className="text-left px-4 py-3">Scans</th>
                                             <th className="text-right px-4 py-3">Actions</th>
@@ -1296,11 +1325,34 @@ export function RpcInventoryPage() {
                                             groupedScans.map((group) => {
                                                 const scan = group.primaryScan;
                                                 return (
-                                                    <tr key={`${group.propertyNumbersPreview}-${scan.id}`} className="hover:bg-slate-50">
+                                                    <tr key={`${group.key}`} className="hover:bg-slate-50">
                                                         <td className="px-4 py-3 font-medium">{scan.rpc_type}</td>
-                                                        <td className="px-4 py-3 font-semibold text-slate-800">{group.propertyNumbersPreview}</td>
+                                                        <td className="px-4 py-3 font-semibold text-slate-800">
+                                                            <div
+                                                                className="flex items-center gap-2 cursor-pointer"
+                                                                onClick={() => {
+                                                                    setExpandedPropertyGroups((prev) => {
+                                                                        const next = new Set(prev);
+                                                                        if (next.has(group.key)) {
+                                                                            next.delete(group.key);
+                                                                        } else {
+                                                                            next.add(group.key);
+                                                                        }
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                                role="button"
+                                                                tabIndex={0}
+                                                            >
+                                                                <span>
+                                                                    {expandedPropertyGroups.has(group.key)
+                                                                        ? group.propertyNumbersFull.join(', ')
+                                                                        : group.propertyNumbersPreview}
+                                                                </span>
+                                                            </div>
+                                                        </td>
                                                         <td className="px-4 py-3">{scan.article || scan.description || '-'}</td>
-                                                        <td className="px-4 py-3">{scan.accountable_officer || '-'}</td>
+                                                        <td className="px-4 py-3">{normalizeAccountableOfficer(scan.accountable_officer) || '-'}</td>
 
                                                         <td className="px-4 py-3">{scan.condition?.ConditionName || '-'}</td>
                                                         <td className="px-4 py-3 text-center">
@@ -1324,7 +1376,7 @@ export function RpcInventoryPage() {
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => handleDeleteScan(scan)}
+                                                                    onClick={() => handleDeleteGroup(group)}
                                                                     className="p-2 rounded-md border border-rose-200 text-rose-600 hover:bg-rose-50"
                                                                     title="Remove"
                                                                 >
