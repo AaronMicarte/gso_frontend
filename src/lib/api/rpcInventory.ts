@@ -2,6 +2,7 @@ import type { AxiosResponse } from 'axios';
 import apiClient from './client';
 import type {
     RpcInventoryCondition,
+    RpcInventoryAuditLogPaginated,
     RpcInventoryCyclesResponse,
     RpcInventoryReportResponse,
     RpcInventoryScanPreviewResponse,
@@ -74,5 +75,16 @@ export async function listRpcConditions() {
 
 export async function getRpcInventoryReport(cycleId: number) {
     const res: AxiosResponse<RpcInventoryReportResponse> = await apiClient.get(`/rpc-inventory/cycles/${cycleId}/report`);
+    return res.data;
+}
+
+export async function getRpcInventoryCycleAuditLogs(
+    cycleId: number,
+    params?: { page?: number; per_page?: number }
+) {
+    const res: AxiosResponse<RpcInventoryAuditLogPaginated> = await apiClient.get(
+        `/rpc-inventory/cycles/${cycleId}/audit-logs`,
+        { params }
+    );
     return res.data;
 }

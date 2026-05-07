@@ -28,6 +28,7 @@ apiClient.interceptors.request.use(
         if (token) {
             config.headers['X-XSRF-TOKEN'] = token;
         }
+        config.headers['X-Client-Source'] = 'web';
         return config;
     },
     (error) => Promise.reject(error)

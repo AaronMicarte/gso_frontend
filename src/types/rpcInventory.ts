@@ -129,6 +129,48 @@ export interface RpcInventoryReportBucket {
     total_count: number;
 }
 
+export interface RpcInventoryAuditLogPerformer {
+    UserID: number;
+    FullName: string;
+}
+
+export interface RpcInventoryAuditLogScan {
+    id: number;
+    property_number: string | null;
+    inventory_detail_id: number;
+    condition_id?: number | null;
+}
+
+export interface RpcInventoryAuditLog {
+    AuditID: number;
+    rpc_inventory_cycle_id: number;
+    rpc_inventory_scan_id: number | null;
+    action: string;
+    source: string;
+    performed_by_user_id: number;
+    performed_by_device_id: string | null;
+    inventory_detail_id: number | null;
+    property_id: number | null;
+    property_number: string | null;
+    condition_id: number | null;
+    previous_condition_id: number | null;
+    previous_remarks: string | null;
+    new_remarks: string | null;
+    details: Record<string, unknown> | null;
+    created_at: string;
+    updated_at: string;
+    performed_by?: RpcInventoryAuditLogPerformer | null;
+    scan?: RpcInventoryAuditLogScan | null;
+}
+
+export interface RpcInventoryAuditLogPaginated {
+    data: RpcInventoryAuditLog[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+}
+
 export interface RpcInventoryReportResponse {
     cycle: RpcInventoryCycle;
     generated_at: string;

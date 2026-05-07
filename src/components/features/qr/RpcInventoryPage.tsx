@@ -7,9 +7,11 @@ import type { IScannerControls } from '@zxing/browser';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { useAuth } from '@/lib/providers/AuthProvider';
 import {
     createCurrentRpcInventoryCycle,
     deleteRpcScan,
+    getRpcInventoryCycleAuditLogs,
     getRpcInventoryCycleScans,
     listRpcConditions,
     listRpcInventoryCycles,
@@ -19,6 +21,7 @@ import {
 } from '@/lib/api/rpcInventory';
 import type {
     RpcInventoryCondition,
+    RpcInventoryAuditLog,
     RpcInventoryCycle,
     RpcInventoryPreviewAsset,
     RpcInventoryPreviewCandidate,
@@ -110,6 +113,9 @@ function parseRpcScanTarget(raw: string): ParsedRpcScanTarget | null {
 }
 
 export function RpcInventoryPage() {
+    const { user } = useAuth();
+    const isAdmin = user?.UserRoleID === 1;
+
     const [cycles, setCycles] = useState<RpcInventoryCycle[]>([]);
     const [selectedCycleId, setSelectedCycleId] = useState<number | null>(null);
 
@@ -120,10 +126,18 @@ export function RpcInventoryPage() {
 
     const [loadingCycles, setLoadingCycles] = useState(false);
     const [loadingScans, setLoadingScans] = useState(false);
+    const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
     const [submittingScan, setSubmittingScan] = useState(false);
     const [previewProcessing, setPreviewProcessing] = useState(false);
 
     const [scans, setScans] = useState<RpcInventoryScanRecord[]>([]);
+    const [auditLogs, setAuditLogs] = useState<RpcInventoryAuditLog[]>([]);
+    const [scansPage, setScansPage] = useState(1);
+    const [auditPage, setAuditPage] = useState(1);
+    const [auditLastPage, setAuditLastPage] = useState(1);
+    const [auditTotal, setAuditTotal] = useState(0);
+    const [selectedAuditLog, setSelectedAuditLog] = useState<RpcInventoryAuditLog | null>(null);
+    const [expandedAuditFields, setExpandedAuditFields] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState<'ALL' | RpcType>('ALL');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('ALL');
@@ -242,6 +256,195 @@ export function RpcInventoryPage() {
         }).format(date);
     };
 
+    const formatAuditActionLabel = (action: string): string => {
+        return action
+            .replace(/^scan_/, 'scan ')
+            .replace(/^cycle_/, 'cycle ')
+            .replace(/^sync_/, 'sync ')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    const conditionLabelById = useMemo(() => {
+        return new Map(conditions.map((condition) => [condition.ConditionID, condition.ConditionName]));
+    }, [conditions]);
+
+    const formatAuditFieldValue = (key: string, value: unknown): string | null => {
+        if (value === null || value === undefined || value === '') return '-';
+
+        if (Array.isArray(value)) {
+            const items = value
+                .map((item) => formatAuditFieldValue(key, item))
+                .filter((item): item is string => Boolean(item));
+
+            return items.length > 0 ? items.join(', ') : null;
+        }
+
+        if (typeof value === 'object') {
+            const entries = Object.entries(value as Record<string, unknown>)
+                .map(([nestedKey, nestedValue]) => {
+                    const formattedNestedValue = formatAuditFieldValue(nestedKey, nestedValue);
+                    return formattedNestedValue ? `${formatAuditFieldLabel(nestedKey)}: ${formattedNestedValue}` : null;
+                })
+                .filter((item): item is string => Boolean(item));
+
+            return entries.length > 0 ? entries.join(' | ') : null;
+        }
+
+        const normalizedKey = key.toLowerCase();
+        const stringValue = String(value).trim();
+
+        if (['inventory_detail_id', 'property_id', 'rpc_inventory_scan_id', 'performed_by_user_id', 'performed_by_device_id', 'client_uuid'].includes(normalizedKey)) {
+            return null;
+        }
+
+        if (normalizedKey === 'condition_id' || normalizedKey.endsWith('_condition_id')) {
+            const conditionId = Number(stringValue);
+            return Number.isFinite(conditionId) ? conditionLabelById.get(conditionId) ?? 'Unknown condition' : null;
+        }
+
+        if (normalizedKey === 'source') {
+            return stringValue.charAt(0).toUpperCase() + stringValue.slice(1);
+        }
+
+        if (normalizedKey === 'scanned_at') {
+            const date = new Date(stringValue);
+            if (!Number.isNaN(date.getTime())) {
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                });
+            }
+        }
+
+        return stringValue;
+    };
+
+    const formatAuditFieldLabel = (key: string): string => {
+        if (key === 'condition_id') return 'Condition';
+        if (key === 'previous_condition_id') return 'Before condition';
+        if (key === 'new_condition_id') return 'After condition';
+        if (key === 'property_number') return 'Property #';
+        if (key === 'property_numbers') return 'Property numbers';
+        if (key === 'sync_source') return 'Source';
+        if (key === 'total') return 'Total';
+        if (key === 'created') return 'Created';
+        if (key === 'duplicates') return 'Duplicates';
+        if (key === 'errors') return 'Errors';
+        if (key === 'remarks') return 'Remarks';
+        if (key === 'rpc_type') return 'RPC Type';
+        if (key === 'scanned_at') return 'Scanned at';
+        return key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    const summarizeAuditLog = (log: RpcInventoryAuditLog): string => {
+        const details = log.details || {};
+        const entries = [] as string[];
+
+        if (typeof log.action === 'string' && log.action.startsWith('sync_batch')) {
+            const created = typeof details.created === 'number' ? details.created : Number(details.created ?? 0);
+            const duplicates = typeof details.duplicates === 'number' ? details.duplicates : Number(details.duplicates ?? 0);
+            const errors = typeof details.errors === 'number' ? details.errors : Number(details.errors ?? 0);
+            entries.push(`${created || 0} created`, `${duplicates || 0} duplicates`, `${errors || 0} errors`);
+            return entries.join(' • ');
+        }
+
+        const propertyNumber = log.property_number || log.scan?.property_number;
+        if (propertyNumber) {
+            entries.push(`Property # ${propertyNumber}`);
+        }
+
+        const currentCondition =
+            formatAuditFieldValue('condition_id', log.condition_id) ||
+            formatAuditFieldValue('condition_id', log.scan?.condition_id ?? null);
+        if (currentCondition) {
+            entries.push(`Condition ${currentCondition}`);
+        }
+
+        const remarks = log.new_remarks || log.previous_remarks || (typeof details.remarks === 'string' ? details.remarks : null);
+        if (remarks) {
+            entries.push(`Remarks ${remarks}`);
+        }
+
+        const source = typeof details.source === 'string' ? details.source : log.source;
+        if (source) {
+            entries.push(`Source ${source.charAt(0).toUpperCase() + source.slice(1)}`);
+        }
+
+        return entries.length > 0 ? entries.join(' • ') : 'View details';
+    };
+
+    const formatDetailEntries = (log: RpcInventoryAuditLog): Array<{ key: string; label: string; value: string }> => {
+        const details = log.details || {};
+        const entries: Array<{ key: string; label: string; value: string }> = [];
+
+        if (log.action === 'scan_updated') {
+            const before = details.before as Record<string, unknown> | undefined;
+            const after = details.after as Record<string, unknown> | undefined;
+
+            const beforeCondition = before ? formatAuditFieldValue('previous_condition_id', before.condition_id) : null;
+            const afterCondition = after ? formatAuditFieldValue('condition_id', after.condition_id) : null;
+            const beforeRemarks = before && typeof before.remarks === 'string' ? before.remarks : null;
+            const afterRemarks = after && typeof after.remarks === 'string' ? after.remarks : null;
+
+            if (beforeCondition) entries.push({ key: 'before_condition_id', label: 'Before condition', value: beforeCondition });
+            if (afterCondition) entries.push({ key: 'new_condition_id', label: 'After condition', value: afterCondition });
+            if (beforeRemarks) entries.push({ key: 'previous_remarks', label: 'Before remarks', value: beforeRemarks });
+            if (afterRemarks) entries.push({ key: 'remarks', label: 'After remarks', value: afterRemarks });
+            return entries;
+        }
+
+        if (typeof log.action === 'string' && log.action.startsWith('sync_batch')) {
+            const propertyNumbers = Array.isArray(details.property_numbers) ? details.property_numbers.filter((value): value is string => typeof value === 'string') : [];
+            if (propertyNumbers.length > 0) {
+                entries.push({ key: 'property_numbers', label: 'Property numbers', value: propertyNumbers.join(', ') });
+            }
+            if (typeof details.total === 'number' || typeof details.total === 'string') {
+                entries.push({ key: 'total', label: 'Total', value: String(details.total) });
+            }
+            if (typeof details.created === 'number' || typeof details.created === 'string') {
+                entries.push({ key: 'created', label: 'Created', value: String(details.created) });
+            }
+            if (typeof details.duplicates === 'number' || typeof details.duplicates === 'string') {
+                entries.push({ key: 'duplicates', label: 'Duplicates', value: String(details.duplicates) });
+            }
+            if (typeof details.errors === 'number' || typeof details.errors === 'string') {
+                entries.push({ key: 'errors', label: 'Errors', value: String(details.errors) });
+            }
+            if (typeof details.status === 'string') {
+                entries.push({ key: 'status', label: 'Status', value: details.status.replace(/_/g, ' ') });
+            }
+            if (typeof details.source === 'string') {
+                entries.push({ key: 'source', label: 'Source', value: details.source.charAt(0).toUpperCase() + details.source.slice(1) });
+            }
+            return entries;
+        }
+
+        const pairs: Array<[string, unknown]> = [
+            ['property_number', log.property_number],
+            ['condition_id', log.condition_id],
+            ['previous_condition_id', log.previous_condition_id],
+            ['previous_remarks', log.previous_remarks],
+            ['new_remarks', log.new_remarks],
+            ['rpc_type', details.rpc_type],
+            ['remarks', details.remarks],
+            ['source', details.source ?? log.source],
+            ['scanned_at', details.scanned_at],
+        ];
+
+        pairs.forEach(([key, value]) => {
+            const formattedValue = formatAuditFieldValue(key, value);
+            if (formattedValue) {
+                entries.push({ key, label: formatAuditFieldLabel(key), value: formattedValue });
+            }
+        });
+
+        return entries;
+    };
+
     const groupedScans = useMemo<GroupedScanRow[]>(() => {
         let filtered = scans;
 
@@ -300,9 +503,18 @@ export function RpcInventoryPage() {
         });
     }, [scans, propertyTypeFilter, search, typeFilter]);
 
+    const SCANNED_ASSETS_PER_PAGE = 15;
+    const scannedAssetsLastPage = Math.max(1, Math.ceil(groupedScans.length / SCANNED_ASSETS_PER_PAGE));
+
+    const pagedGroupedScans = useMemo<GroupedScanRow[]>(() => {
+        const start = (scansPage - 1) * SCANNED_ASSETS_PER_PAGE;
+        return groupedScans.slice(start, start + SCANNED_ASSETS_PER_PAGE);
+    }, [groupedScans, scansPage]);
+
     const handleRefreshAll = async () => {
         await loadCycles();
         await loadScans();
+        await loadAuditLogs();
     };
 
     const loadCycles = async () => {
@@ -350,6 +562,30 @@ export function RpcInventoryPage() {
         }
     };
 
+    const loadAuditLogs = async () => {
+        if (!selectedCycleId || !isAdmin) {
+            setAuditLogs([]);
+            setAuditTotal(0);
+            setAuditLastPage(1);
+            return;
+        }
+
+        try {
+            setLoadingAuditLogs(true);
+            const response = await getRpcInventoryCycleAuditLogs(selectedCycleId, {
+                page: auditPage,
+                per_page: 20,
+            });
+            setAuditLogs(response.data);
+            setAuditTotal(response.total);
+            setAuditLastPage(Math.max(1, response.last_page));
+        } catch {
+            toast.error('Failed to load audit trail');
+        } finally {
+            setLoadingAuditLogs(false);
+        }
+    };
+
     useEffect(() => {
         void loadCycles();
         void loadConditions();
@@ -359,8 +595,26 @@ export function RpcInventoryPage() {
     useEffect(() => {
         if (!selectedCycleId) return;
         void loadScans();
+        setScansPage(1);
+        setAuditPage(1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCycleId, typeFilter]);
+
+    useEffect(() => {
+        setScansPage(1);
+    }, [search, propertyTypeFilter]);
+
+    useEffect(() => {
+        if (!selectedCycleId) return;
+        void loadAuditLogs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCycleId, auditPage, isAdmin]);
+
+    useEffect(() => {
+        if (scansPage > scannedAssetsLastPage) {
+            setScansPage(scannedAssetsLastPage);
+        }
+    }, [scannedAssetsLastPage, scansPage]);
 
     useEffect(() => {
         setPropertyTypeFilter('ALL');
@@ -565,6 +819,8 @@ export function RpcInventoryPage() {
             setSelectedInventoryDetailIds([]);
             await loadScans();
             await loadCycles();
+            setAuditPage(1);
+            await loadAuditLogs();
             if (scanMode === 'camera') {
                 void startCamera();
             }
@@ -607,9 +863,16 @@ export function RpcInventoryPage() {
         const selectedItems = editingItems.filter((item) => item.included);
         const removedItems = editingItems.filter((item) => !item.included);
         const sharedRemarks = editRemarks.trim();
+        const selectedById = new Map(editingGroup.groupScans.map((scan) => [scan.id, scan]));
+        const changedItems = selectedItems.filter((item) => {
+            const original = selectedById.get(item.scanId);
+            if (!original) return true;
+
+            return original.condition_id !== item.conditionId || (original.remarks || '') !== sharedRemarks;
+        });
 
         try {
-            const updateJobs = selectedItems.map((item) =>
+            const updateJobs = changedItems.map((item) =>
                 updateRpcScan(item.scanId, {
                     condition_id: item.conditionId,
                     quantity_per_count: 1,
@@ -618,9 +881,14 @@ export function RpcInventoryPage() {
             );
             const removeJobs = removedItems.map((item) => deleteRpcScan(item.scanId));
 
+            if (updateJobs.length === 0 && removeJobs.length === 0) {
+                toast.success('No changes detected.');
+                return;
+            }
+
             await Promise.all([...updateJobs, ...removeJobs]);
 
-            const updatedCount = selectedItems.length;
+            const updatedCount = changedItems.length;
             const removedCount = removedItems.length;
             if (updatedCount > 0 && removedCount > 0) {
                 toast.success(`${updatedCount} updated, ${removedCount} removed from scan.`);
@@ -634,6 +902,8 @@ export function RpcInventoryPage() {
             setEditingItems([]);
             setEditRemarks('');
             await loadScans();
+            setAuditPage(1);
+            await loadAuditLogs();
         } catch {
             toast.error('Failed to update selected scans');
         }
@@ -665,6 +935,8 @@ export function RpcInventoryPage() {
                 loadScans(),
                 loadCycles(),
             ]);
+            setAuditPage(1);
+            await loadAuditLogs();
         } catch (error: unknown) {
             const errorMessage =
                 typeof error === 'object' &&
@@ -1322,7 +1594,7 @@ export function RpcInventoryPage() {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            groupedScans.map((group) => {
+                                            pagedGroupedScans.map((group) => {
                                                 const scan = group.primaryScan;
                                                 return (
                                                     <tr key={`${group.key}`} className="hover:bg-slate-50">
@@ -1391,11 +1663,244 @@ export function RpcInventoryPage() {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {groupedScans.length > SCANNED_ASSETS_PER_PAGE && (
+                                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+                                    <div className="text-sm text-slate-600">
+                                        Showing {((scansPage - 1) * SCANNED_ASSETS_PER_PAGE) + 1} to {Math.min(scansPage * SCANNED_ASSETS_PER_PAGE, groupedScans.length)} of {groupedScans.length} groups
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setScansPage((prev) => Math.max(1, prev - 1))}
+                                            disabled={scansPage === 1}
+                                            className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm disabled:opacity-50"
+                                        >
+                                            Previous
+                                        </button>
+                                        <span className="text-sm text-slate-600">Page {scansPage} of {scannedAssetsLastPage}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setScansPage((prev) => Math.min(scannedAssetsLastPage, prev + 1))}
+                                            disabled={scansPage === scannedAssetsLastPage}
+                                            className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm disabled:opacity-50"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
+
+                        {isAdmin && (
+                            <div className="mt-6 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/70">
+                                    <div>
+                                        <div className="font-semibold text-slate-900">Audit Trail</div>
+                                        <div className="text-xs text-slate-500">Authenticated user actions, sync events, edits, and deletions for this cycle.</div>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        className="w-auto"
+                                        onClick={() => {
+                                            setAuditPage(1);
+                                            void loadAuditLogs();
+                                        }}
+                                        disabled={loadingAuditLogs}
+                                    >
+                                        {loadingAuditLogs ? 'Refreshing...' : 'Refresh'}
+                                    </Button>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-100 text-slate-700">
+                                            <tr>
+                                                <th className="text-left px-4 py-3">Timestamp</th>
+                                                <th className="text-left px-4 py-3">Action</th>
+                                                <th className="text-left px-4 py-3">User</th>
+                                                <th className="text-left px-4 py-3">Property #</th>
+                                                <th className="text-left px-4 py-3">Source</th>
+                                                <th className="text-left px-4 py-3">Details</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200">
+                                            {loadingAuditLogs ? (
+                                                <tr>
+                                                    <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                                                        Loading audit trail...
+                                                    </td>
+                                                </tr>
+                                            ) : auditLogs.length === 0 ? (
+                                                <tr>
+                                                    <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                                                        No audit entries yet for this cycle.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                auditLogs.map((log) => {
+                                                    const actor = log.performed_by?.FullName || `User ${log.performed_by_user_id}`;
+                                                    const propertyNumber = log.property_number || log.scan?.property_number || '-';
+                                                    const summary = summarizeAuditLog(log);
+
+                                                    return (
+                                                        <tr
+                                                            key={log.AuditID}
+                                                            className="hover:bg-slate-50 cursor-pointer"
+                                                            onClick={() => {
+                                                                setSelectedAuditLog(log);
+                                                                setExpandedAuditFields(new Set());
+                                                            }}
+                                                        >
+                                                            <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                                                                {new Date(log.created_at).toLocaleString('en-US', {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    year: 'numeric',
+                                                                    hour: 'numeric',
+                                                                    minute: '2-digit',
+                                                                })}
+                                                            </td>
+                                                            <td className="px-4 py-3 font-medium text-slate-900">{formatAuditActionLabel(log.action)}</td>
+                                                            <td className="px-4 py-3 text-slate-700">{actor}</td>
+                                                            <td className="px-4 py-3 text-slate-700">{propertyNumber}</td>
+                                                            <td className="px-4 py-3 text-slate-700">{formatAuditFieldValue('source', log.source ?? log.details?.source) || '-'}</td>
+                                                            <td className="px-4 py-3 text-slate-600 text-sm leading-5">
+                                                                <span className="block max-w-[520px] truncate" title={summary}>
+                                                                    {summary}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {auditTotal > 20 && (
+                                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+                                        <div className="text-sm text-slate-600">
+                                            Showing {((auditPage - 1) * 20) + 1} to {Math.min(auditPage * 20, auditTotal)} of {auditTotal} audit entries
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setAuditPage((prev) => Math.max(1, prev - 1))}
+                                                disabled={auditPage === 1 || loadingAuditLogs}
+                                                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm disabled:opacity-50"
+                                            >
+                                                Previous
+                                            </button>
+                                            <span className="text-sm text-slate-600">Page {auditPage} of {auditLastPage}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setAuditPage((prev) => Math.min(auditLastPage, prev + 1))}
+                                                disabled={auditPage === auditLastPage || loadingAuditLogs}
+                                                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm disabled:opacity-50"
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <Dialog
+                            title={selectedAuditLog ? formatAuditActionLabel(selectedAuditLog.action) : 'Audit details'}
+                            description={selectedAuditLog ? new Date(selectedAuditLog.created_at).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                            }) : undefined}
+                            open={Boolean(selectedAuditLog)}
+                            onOpenChange={(open) => {
+                                if (!open) {
+                                    setSelectedAuditLog(null);
+                                }
+                            }}
+                            onConfirm={() => setSelectedAuditLog(null)}
+                            confirmText="Close"
+                            hideConfirm
+                            contentClassName="max-w-2xl"
+                        >
+                            {selectedAuditLog && (
+                                <div className="space-y-3 text-sm">
+                                    <div className="grid grid-cols-1 gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
+                                        <div>
+                                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">User</div>
+                                            <div className="text-slate-900">{selectedAuditLog.performed_by?.FullName || 'Unknown user'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property #</div>
+                                            <div className="text-slate-900">{selectedAuditLog.property_number || selectedAuditLog.scan?.property_number || 'Not available'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Source</div>
+                                            <div className="text-slate-900">{formatAuditFieldValue('source', selectedAuditLog.source ?? selectedAuditLog.details?.source) || 'Not available'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action</div>
+                                            <div className="text-slate-900">{formatAuditActionLabel(selectedAuditLog.action)}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {(() => {
+                                            const allEntries = formatDetailEntries(selectedAuditLog);
+                                            let entriesToShow = allEntries;
+
+                                            if (selectedAuditLog.action === 'scan_deleted') {
+                                                entriesToShow = allEntries.filter((e) => ['property_number'].includes(e.key));
+                                            } else if (selectedAuditLog.action === 'scan_created') {
+                                                entriesToShow = allEntries.filter((e) => !['before_condition_id', 'previous_condition_id', 'previous_remarks', 'new_remarks', 'scanned_at'].includes(e.key));
+                                            }
+
+                                            if (entriesToShow.length === 0) {
+                                                return <div className="text-slate-500">No additional details.</div>;
+                                            }
+
+                                            return entriesToShow.map((entry) => {
+                                                const fieldKey = `${selectedAuditLog.AuditID}:${entry.key}`;
+                                                const expanded = expandedAuditFields.has(fieldKey);
+                                                const longValue = entry.value.length > 120;
+                                                return (
+                                                    <button
+                                                        key={fieldKey}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setExpandedAuditFields((prev) => {
+                                                                const next = new Set(prev);
+                                                                if (next.has(fieldKey)) {
+                                                                    next.delete(fieldKey);
+                                                                } else {
+                                                                    next.add(fieldKey);
+                                                                }
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left"
+                                                    >
+                                                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{entry.label}</div>
+                                                        <div className={`text-slate-900 ${!expanded && longValue ? 'truncate' : ''}`}>
+                                                            {expanded || !longValue ? entry.value : `${entry.value.slice(0, 117)}...`}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
+                                </div>
+                            )}
+                        </Dialog>
                     </>
                 ) : (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-600">
-                        No cycle selected. Create a current-year cycle to start scanning.
+                        No cycle selected.
                     </div>
                 )}
 
