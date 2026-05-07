@@ -18,6 +18,26 @@ const formatDate = (value: string) => {
     return format(zoned, 'MMMM dd, yyyy');
 };
 
+const formatPrintEndUser = (accountableOfficer?: string | null, department?: string | null) => {
+    const officer = (accountableOfficer || '').trim();
+    const dept = (department || '').trim();
+
+    if (!officer) {
+        return '';
+    }
+
+    if (!dept) {
+        return officer;
+    }
+
+    const suffix = ` - ${dept}`;
+    if (officer.toLowerCase().endsWith(suffix.toLowerCase())) {
+        return officer.slice(0, -suffix.length).trim();
+    }
+
+    return officer;
+};
+
 const currency = (value: number) => {
     return Number(value || 0).toLocaleString('en-PH', {
         minimumFractionDigits: 2,
@@ -263,7 +283,7 @@ export function RpcInventoryPrintView({
                                                 <td className="border border-black px-1 py-1 text-center">{row?.shortage_overage_qty ?? ''}</td>
                                                 <td className="border border-black px-1 py-1 text-right">{row ? currency(row.shortage_overage_value || 0) : ''}</td>
                                                 <td className="border border-black px-1 py-1">{row?.remarks || ''}</td>
-                                                <td className="border border-black px-1 py-1">{row?.accountable_officer || ''}</td>
+                                                <td className="border border-black px-1 py-1">{row ? formatPrintEndUser(row.accountable_officer, row.department) : ''}</td>
                                                 <td className="border border-black px-1 py-1">{row?.department || ''}</td>
                                             </tr>
                                         ))}
