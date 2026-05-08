@@ -1570,8 +1570,8 @@ export function RpcInventoryPage() {
                             </div>
 
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-slate-100 text-slate-700">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                         <tr>
                                             <th className="text-left px-4 py-3">Type</th>
                                             <th className="text-left px-4 py-3">Property Numbers</th>
@@ -1631,7 +1631,7 @@ export function RpcInventoryPage() {
                                                         <td className="px-4 py-3">{scan.condition?.ConditionName || '-'}</td>
                                                         <td className="px-4 py-3 text-center">
                                                             {group.scansCount > 1 ? (
-                                                                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                                                                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
                                                                     {group.scansCount}
                                                                 </span>
                                                             ) : (
@@ -1651,7 +1651,7 @@ export function RpcInventoryPage() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleDeleteGroup(group)}
-                                                                    className="p-2 rounded-md border border-rose-200 text-rose-600 hover:bg-rose-50"
+                                                                    className="p-2 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
                                                                     title="Remove"
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
@@ -1716,8 +1716,8 @@ export function RpcInventoryPage() {
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-slate-100 text-slate-700">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                                             <tr>
                                                 <th className="text-left px-4 py-3">Timestamp</th>
                                                 <th className="text-left px-4 py-3">Action</th>
