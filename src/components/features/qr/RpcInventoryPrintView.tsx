@@ -45,6 +45,20 @@ const currency = (value: number) => {
     });
 };
 
+const normalizeSortText = (value?: string | null) => (value || '').trim().toLocaleLowerCase();
+
+const compareReportRows = (left: RpcInventoryReportRow, right: RpcInventoryReportRow) => {
+    const leftKey = [left.article, left.description].map(normalizeSortText).join(' | ');
+    const rightKey = [right.article, right.description].map(normalizeSortText).join(' | ');
+
+    const byItem = leftKey.localeCompare(rightKey, undefined, { sensitivity: 'base' });
+    if (byItem !== 0) {
+        return byItem;
+    }
+
+    return normalizeSortText(left.property_number).localeCompare(normalizeSortText(right.property_number), undefined, { sensitivity: 'base' });
+};
+
 const ROWS_PER_PAGE = 14;
 
 export function RpcInventoryPrintView({
@@ -88,7 +102,7 @@ export function RpcInventoryPrintView({
     const printableGroups = orderedPropertyTypes.length > 0
         ? orderedPropertyTypes.map((propertyType) => {
             const sortedRows = [...(groupedRows[propertyType] || [])]
-                .sort((a, b) => (a.property_number || '').localeCompare(b.property_number || '', undefined, { sensitivity: 'base' }));
+                .sort(compareReportRows);
 
             const pages: RpcInventoryReportRow[][] = [];
             for (let start = 0; start < sortedRows.length; start += ROWS_PER_PAGE) {

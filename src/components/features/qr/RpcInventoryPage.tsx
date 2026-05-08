@@ -344,11 +344,18 @@ export function RpcInventoryPage() {
         const details = log.details || {};
         const entries = [] as string[];
 
-        if (typeof log.action === 'string' && log.action.startsWith('sync_batch')) {
+        if (typeof log.action === 'string' && (log.action.startsWith('sync_batch') || log.action === 'scan_created_bulk')) {
             const created = typeof details.created === 'number' ? details.created : Number(details.created ?? 0);
             const duplicates = typeof details.duplicates === 'number' ? details.duplicates : Number(details.duplicates ?? 0);
             const errors = typeof details.errors === 'number' ? details.errors : Number(details.errors ?? 0);
             entries.push(`${created || 0} created`, `${duplicates || 0} duplicates`, `${errors || 0} errors`);
+            // Prefer showing a short list of property numbers when available
+            const propertyNumbers = Array.isArray(details.property_numbers) ? details.property_numbers.filter((v): v is string => typeof v === 'string') : [];
+            if (propertyNumbers.length > 0) {
+                const preview = propertyNumbers.length <= 3 ? propertyNumbers.join(', ') : `${propertyNumbers.slice(0, 3).join(', ')} ...`;
+                entries.unshift(`Property # ${preview}`);
+            }
+
             return entries.join(' • ');
         }
 
@@ -397,7 +404,7 @@ export function RpcInventoryPage() {
             return entries;
         }
 
-        if (typeof log.action === 'string' && log.action.startsWith('sync_batch')) {
+        if (typeof log.action === 'string' && (log.action.startsWith('sync_batch') || log.action === 'scan_created_bulk')) {
             const propertyNumbers = Array.isArray(details.property_numbers) ? details.property_numbers.filter((value): value is string => typeof value === 'string') : [];
             if (propertyNumbers.length > 0) {
                 entries.push({ key: 'property_numbers', label: 'Property numbers', value: propertyNumbers.join(', ') });
@@ -420,6 +427,10 @@ export function RpcInventoryPage() {
             if (typeof details.source === 'string') {
                 entries.push({ key: 'source', label: 'Source', value: details.source.charAt(0).toUpperCase() + details.source.slice(1) });
             }
+            // Show RPC types if provided (plural)
+            if (Array.isArray(details.rpc_types) && details.rpc_types.length > 0) {
+                entries.push({ key: 'rpc_types', label: 'RPC Type', value: (details.rpc_types as string[]).join(', ') });
+            }
             return entries;
         }
 
@@ -435,7 +446,19 @@ export function RpcInventoryPage() {
             ['scanned_at', details.scanned_at],
         ];
 
+        // For bulk actions and synced scan entries, hide fields that are not relevant
+        const action = String(log.action ?? '');
+        const hideKeysForBulk = new Set([
+            'previous_condition_id',
+            'previous_remarks',
+            'new_remarks',
+            'scanned_at',
+        ]);
+
+        const shouldHideBulkFields = action === 'scan_created_bulk' || action === 'scan_synced' || action.startsWith('sync_batch');
+
         pairs.forEach(([key, value]) => {
+            if (shouldHideBulkFields && hideKeysForBulk.has(key)) return;
             const formattedValue = formatAuditFieldValue(key, value);
             if (formattedValue) {
                 entries.push({ key, label: formatAuditFieldLabel(key), value: formattedValue });
@@ -1741,7 +1764,9 @@ export function RpcInventoryPage() {
                                             ) : (
                                                 auditLogs.map((log) => {
                                                     const actor = log.performed_by?.FullName || `User ${log.performed_by_user_id}`;
-                                                    const propertyNumber = log.property_number || log.scan?.property_number || '-';
+                                                    const details = log.details ?? {};
+                                                    const pnums = Array.isArray(details.property_numbers) ? details.property_numbers.filter((v): v is string => typeof v === 'string') : [];
+                                                    const propertyNumber = pnums.length === 1 ? pnums[0] : (pnums.length > 1 ? 'Batched' : (log.property_number || log.scan?.property_number || '-'));
                                                     const summary = summarizeAuditLog(log);
 
                                                     return (
@@ -1837,7 +1862,15 @@ export function RpcInventoryPage() {
                                         </div>
                                         <div>
                                             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property #</div>
-                                            <div className="text-slate-900">{selectedAuditLog.property_number || selectedAuditLog.scan?.property_number || 'Not available'}</div>
+                                            <div className="text-slate-900">
+                                                {(() => {
+                                                    const details = selectedAuditLog.details ?? {};
+                                                    const pnums = Array.isArray(details.property_numbers) ? details.property_numbers.filter((v: unknown): v is string => typeof v === 'string') : [];
+                                                    if (pnums.length === 1) return pnums[0];
+                                                    if (pnums.length > 1) return 'Batched';
+                                                    return selectedAuditLog.property_number || selectedAuditLog.scan?.property_number || 'Not available';
+                                                })()}
+                                            </div>
                                         </div>
                                         <div>
                                             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Source</div>
