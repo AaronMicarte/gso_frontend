@@ -1435,27 +1435,6 @@ export function RpcInventoryPage() {
                     )}
                 </section>
 
-                {!selectedCycle && cycles.length === 0 && !loadingCycles && (
-                    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 md:p-6 space-y-4">
-                        <div className="flex items-start gap-3">
-                            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                                <h3 className="font-semibold text-amber-900">No Inventory Cycles Available</h3>
-                                <p className="text-sm text-amber-800 mt-2">
-                                    To begin RPC (RPCPPE/RPCSEP) scanning, you need to create an inventory cycle for the current year.
-                                </p>
-                                <button
-                                    onClick={handleCreateCurrentCycle}
-                                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Create Current Year Cycle
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-                )}
-
                 {selectedCycle ? (
                     <>
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
