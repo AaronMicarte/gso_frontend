@@ -23,7 +23,9 @@ export interface Activity {
     type: ActivityType;
     action: string;
     description: string;
-    user: string;
+    user?: string;
+    performed_by?: string;
+    meta?: Record<string, unknown> | null;
     timestamp: string;
     timeAgo: string;
     ip_address?: string | null;

@@ -140,6 +140,13 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                         const ActivityIcon = getActivityIcon(activity.type, activity.action);
                         const iconColor = getActivityColor(activity.type, activity.action);
 
+                        const performedBy = activity.performed_by ?? activity.user ?? '';
+                        const meta = activity.meta ?? {};
+                        const detailsParts: string[] = [];
+                        if (performedBy) detailsParts.push(performedBy);
+                        if (meta?.drNumber) detailsParts.push(String(meta.drNumber));
+                        if (meta?.supplier) detailsParts.push(String(meta.supplier));
+
                         return (
                             <div key={activity.id} className="p-4 hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center gap-3">
@@ -151,7 +158,13 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                                             {activity.action}
                                         </p>
                                         <p className="text-xs text-slate-500 truncate">
-                                            {activity.description} • {activity.user}
+                                            {activity.description}
+                                            {detailsParts.length > 0 && (
+                                                <>
+                                                    {' '}
+                                                    • {detailsParts.join(' • ')}
+                                                </>
+                                            )}
                                             {activity.type === 'login' && activity.ip_address && (
                                                 <span className="ml-1 text-slate-400">
                                                     ({activity.ip_address})
