@@ -67,7 +67,7 @@ export function QrScanDetailPage() {
     const issuance = latest?.issuance;
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const qrValue = property.qrCode?.QRCodeData ?? `${origin}/qr/scan/${property.PropertyID}`;
+    const qrValue = `${origin}/qr/scan/${property.PropertyID}`;
 
     return (
         <div className="p-6 space-y-6">
