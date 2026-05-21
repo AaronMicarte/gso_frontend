@@ -15,16 +15,13 @@ import {
     Trash2,
     Clock,
     UserPlus,
-    PackagePlus,
     FileText,
     BarChart3,
-    LogIn,
-    LogOut,
-    XCircle,
     FileCheck,
     RefreshCw,
     LucideIcon,
 } from 'lucide-react';
+import { formatActivityAction, getActivityVisual } from '@/lib/activityPresentation';
 
 // Stat card component with Lucide icons
 interface StatCardProps {
@@ -65,34 +62,6 @@ function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href 
     }
 
     return content;
-}
-
-// Activity icon mapper
-function getActivityIcon(type: string, action: string): LucideIcon {
-    if (type === 'login') {
-        if (action.includes('logged in')) return LogIn;
-        if (action.includes('logged out')) return LogOut;
-        if (action.includes('Failed')) return XCircle;
-    }
-    if (type === 'delivery_receipt') return FileCheck;
-    if (type === 'issuance') return PackagePlus;
-    if (type === 'audit' || type === 'asset_audit') return PackagePlus;
-    if (type === 'rpc_audit') return ClipboardList;
-    return Clock;
-}
-
-// Activity color mapper
-function getActivityColor(type: string, action: string): string {
-    if (type === 'login') {
-        if (action.includes('logged in')) return 'text-green-500';
-        if (action.includes('logged out')) return 'text-blue-500';
-        if (action.includes('Failed')) return 'text-red-500';
-    }
-    if (type === 'delivery_receipt') return 'text-amber-500';
-    if (type === 'issuance') return 'text-indigo-500';
-    if (type === 'asset_audit' || type === 'audit') return 'text-indigo-500';
-    if (type === 'rpc_audit') return 'text-purple-500';
-    return 'text-slate-500';
 }
 
 // Recent activity component
@@ -141,8 +110,8 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                     </div>
                 ) : (
                     activities.map((activity) => {
-                        const ActivityIcon = getActivityIcon(activity.type, activity.action);
-                        const iconColor = getActivityColor(activity.type, activity.action);
+                        const visual = getActivityVisual(activity);
+                        const ActivityIcon = visual.icon;
 
                         const performedBy = activity.performed_by ?? activity.user ?? '';
                         const meta = activity.meta ?? {};
@@ -157,20 +126,16 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                         const refNumber = getMetaAny(['drNumber', 'dr_number', 'transfer_number', 'borrow_number', 'propertyNumber', 'property_number', 'iarNumber', 'iar_number', 'reference']);
 
                         const actionLabel = (() => {
-                            const a = (activity.action || '').toString();
-                            if (/logged in/i.test(a)) return 'User logged in';
-                            if (/logged out/i.test(a)) return 'User logged out';
-                            if (/failed/i.test(a)) return 'Failed login attempt';
-                            if (/created/i.test(a) && refNumber) return `Created — ${refNumber}`;
-                            if (refNumber) return `${a} — ${refNumber}`;
-                            return a;
+                            const baseLabel = formatActivityAction(activity);
+                            if (refNumber) return `${baseLabel} — ${refNumber}`;
+                            return baseLabel;
                         })();
 
                         return (
                             <div key={activity.id} className="p-4 hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2 rounded-full bg-slate-100`}>
-                                        <ActivityIcon className={`w-4 h-4 ${iconColor}`} />
+                                        <ActivityIcon className={`w-4 h-4 ${visual.iconColorClass}`} />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-slate-800 truncate">

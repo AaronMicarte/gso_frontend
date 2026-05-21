@@ -7,31 +7,11 @@ import {
     RefreshCw,
     Clock,
     Activity,
-    FileText,
-    LogIn,
-    LogOut,
-    Package,
-    Clipboard,
-    User,
-    CheckCircle,
-    AlertCircle,
-    Tag,
-    Box,
-    ChevronLeft,
-    ChevronRight,
 } from 'lucide-react';
 import { format, toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
-
-const actionBadgeStyles: Record<string, string> = {
-    created: 'bg-blue-100 text-blue-800',
-    approved: 'bg-green-100 text-green-800',
-    transfer: 'bg-purple-100 text-purple-800',
-    borrow: 'bg-orange-100 text-orange-800',
-    return: 'bg-amber-100 text-amber-800',
-    signed: 'bg-slate-100 text-slate-800',
-};
+import { formatActivityAction, getActivityVisual } from '@/lib/activityPresentation';
 
 export function ActivityLogsPage() {
     const [page, setPage] = useState(1);
@@ -111,54 +91,9 @@ export function ActivityLogsPage() {
             .slice(0, 2);
     };
 
-    const getActionBadgeColor = (action: string): string => {
-        const actionKey = action.toLowerCase();
-
-        if (actionKey.includes('created')) return actionBadgeStyles.created;
-        if (actionKey.includes('approved')) return actionBadgeStyles.approved;
-        if (actionKey.includes('transfer')) return actionBadgeStyles.transfer;
-        if (actionKey.includes('borrow')) return actionBadgeStyles.borrow;
-        if (actionKey.includes('return')) return actionBadgeStyles.return;
-        if (actionKey.includes('signed')) return actionBadgeStyles.signed;
-
-        return actionBadgeStyles.signed;
-    };
-
-    const simplifyActionKey = (action: string) => {
-        const k = action.toLowerCase();
-        if (k.includes('created')) return 'Created';
-        if (k.includes('created_from_dr')) return 'Created (from DR)';
-        if (k.includes('approved')) return 'Approved';
-        if (k.includes('transfer')) return 'Transfer';
-        if (k.includes('borrow')) return 'Borrow';
-        if (k.includes('return')) return 'Return';
-        if (k.includes('signed')) return 'Signed';
-        if (k.includes('login') || k.includes('logged in')) return 'Login';
-        if (k.includes('logout') || k.includes('logged out')) return 'Logout';
-        return action.charAt(0).toUpperCase() + action.slice(1);
-    };
-
-    const getActionIcon = (log: { action?: string; entity_type?: string; }) => {
-        const a = (log.action || '').toLowerCase();
-        const e = (log.entity_type || '').toLowerCase();
-
-        if (a.includes('login') || a.includes('logged in')) return LogIn;
-        if (a.includes('logout') || a.includes('logged out')) return LogOut;
-        if (a.includes('created') && e.includes('delivery')) return FileText;
-        if (a.includes('created') && e.includes('delivery_receipt')) return FileText;
-        if (e.includes('inventory') || e.includes('inventory_detail') || e.includes('property')) return Box;
-        if (e.includes('asset') || e.includes('assetrequest')) return Package;
-        if (a.includes('approved') || a.includes('approved_for')) return CheckCircle;
-        if (a.includes('failed') || a.includes('error')) return AlertCircle;
-        if (e.includes('user') || e.includes('auth')) return User;
-        if (e.includes('transfer') || a.includes('transfer')) return Clipboard;
-        if (e.includes('tag') || e.includes('article')) return Tag;
-
-        return Activity;
-    };
-
     const formatActionLabel = (log: {
         action?: string;
+        action_key?: string;
         entity_label?: string;
         entity_type?: string;
         meta?: Record<string, unknown> | null;
@@ -172,11 +107,13 @@ export function ActivityLogsPage() {
         };
 
         const idOrNumber = getAny(['dr_number', 'drNumber', 'transfer_number', 'borrow_number', 'property_number', 'propertyNumber', 'iar_number', 'iarNumber', 'reference']);
-        const entity = log.entity_label || (log.entity_type || '').replace(/_/g, ' ');
-        const actionText = simplifyActionKey(log.action || '');
+        const actionText = formatActivityAction({
+            action: log.action,
+            action_key: log.action_key,
+            entity_type: log.entity_type,
+        });
 
         if (idOrNumber) return `${actionText} — ${idOrNumber}`;
-        if (entity) return `${actionText} — ${entity}`;
         return actionText;
     };
 
@@ -291,24 +228,29 @@ export function ActivityLogsPage() {
                                     </tr>
                                 ) : (
                                     tableRows.map((log) => {
-                                        const Icon = getActionIcon(log);
-                                        const ActionIcon = Icon as any;
+                                        const visual = getActivityVisual({
+                                            action: log.action,
+                                            action_key: log.action_key,
+                                            entity_type: log.entity_type,
+                                            type: log.type,
+                                        });
+                                        const ActionIcon = visual.icon;
                                         return (
                                             <tr key={log.id} className="hover:bg-slate-50">
                                                 <td className="px-6 py-4 whitespace-nowrap align-top">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="flex items-center">
-                                                            <ActionIcon className="w-5 h-5 text-slate-600" />
+                                                        <div className={`p-2 rounded-l-full flex items-center justify-center ${visual.badgeClass}`}>
+                                                            <ActionIcon className="w-5 h-5" />
                                                         </div>
                                                         <div className="flex flex-col">
-                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionBadgeColor(log.action)}`}>
-                                                                {simplifyActionKey(log.action || '')}
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-r-full rounded-l-none ${visual.badgeClass}`}>
+                                                                {formatActivityAction({
+                                                                    action: log.action,
+                                                                    action_key: log.action_key,
+                                                                    entity_type: log.entity_type,
+                                                                    type: log.type,
+                                                                })}
                                                             </span>
-                                                            {log.entity_label && (
-                                                                <span className="text-[11px] uppercase tracking-wide text-slate-500">
-                                                                    {log.entity_label}
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>
@@ -345,11 +287,13 @@ export function ActivityLogsPage() {
                                                         {(log.entity_label || log.entity_type.replace(/_/g, ' ')).toUpperCase()}
                                                     </span>
                                                 </td>
-                                                {process.env.NODE_ENV === 'development' && (
-                                                    <td className="px-6 py-4 text-xs text-slate-500 truncate" title={log.ip_address || ''}>
-                                                        {log.ip_address || '—'}
-                                                    </td>
-                                                )}
+                                                {
+                                                    process.env.NODE_ENV === 'development' && (
+                                                        <td className="px-6 py-4 text-xs text-slate-500 truncate" title={log.ip_address || ''}>
+                                                            {log.ip_address || '—'}
+                                                        </td>
+                                                    )
+                                                }
                                             </tr>
                                         );
                                     })
@@ -387,6 +331,6 @@ export function ActivityLogsPage() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

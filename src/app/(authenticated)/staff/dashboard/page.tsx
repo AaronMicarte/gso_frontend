@@ -14,17 +14,14 @@ import {
     Wrench,
     Trash2,
     Clock,
-    PackagePlus,
     FileText,
     BarChart3,
-    LogIn,
-    LogOut,
-    XCircle,
     FileCheck,
     RefreshCw,
     Database,
     LucideIcon,
 } from 'lucide-react';
+import { formatActivityAction, getActivityVisual } from '@/lib/activityPresentation';
 
 // Stat card component with Lucide icons
 interface StatCardProps {
@@ -65,30 +62,6 @@ function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href 
     }
 
     return content;
-}
-
-// Activity icon mapper
-function getActivityIcon(type: string, action: string): LucideIcon {
-    if (type === 'login') {
-        if (action.includes('logged in')) return LogIn;
-        if (action.includes('logged out')) return LogOut;
-        if (action.includes('Failed')) return XCircle;
-    }
-    if (type === 'delivery_receipt') return FileCheck;
-    if (type === 'issuance') return PackagePlus;
-    return Clock;
-}
-
-// Activity color mapper
-function getActivityColor(type: string, action: string): string {
-    if (type === 'login') {
-        if (action.includes('logged in')) return 'text-green-500';
-        if (action.includes('logged out')) return 'text-blue-500';
-        if (action.includes('Failed')) return 'text-red-500';
-    }
-    if (type === 'delivery_receipt') return 'text-amber-500';
-    if (type === 'issuance') return 'text-indigo-500';
-    return 'text-slate-500';
 }
 
 // Recent activity component
@@ -137,18 +110,19 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                     </div>
                 ) : (
                     activities.map((activity) => {
-                        const ActivityIcon = getActivityIcon(activity.type, activity.action);
-                        const iconColor = getActivityColor(activity.type, activity.action);
+                        const visual = getActivityVisual(activity);
+                        const ActivityIcon = visual.icon;
+                        const actionLabel = formatActivityAction(activity);
 
                         return (
                             <div key={activity.id} className="p-4 hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2 rounded-full bg-slate-100`}>
-                                        <ActivityIcon className={`w-4 h-4 ${iconColor}`} />
+                                        <ActivityIcon className={`w-4 h-4 ${visual.iconColorClass}`} />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-slate-800 truncate">
-                                            {activity.action}
+                                            {actionLabel}
                                         </p>
                                         <p className="text-xs text-slate-500 truncate">
                                             {activity.description} • {activity.user}

@@ -31,7 +31,10 @@ export interface Activity {
     id: string;
     type: ActivityType;
     action: string;
+    action_key?: string;
     description: string;
+    entity_type?: string;
+    entity_label?: string;
     user?: string;
     performed_by?: string;
     meta?: Record<string, unknown> | null;
