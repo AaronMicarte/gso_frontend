@@ -16,7 +16,16 @@ export interface DashboardStatsResponse {
 }
 
 // Activity types for recent activity feed
-export type ActivityType = 'login' | 'delivery_receipt' | 'property_transfer' | 'property_borrow' | 'issuance';
+export type ActivityType =
+    | 'login'
+    | 'delivery_receipt'
+    | 'property_transfer'
+    | 'property_borrow'
+    | 'issuance'
+    | 'audit'
+    | 'rpc_audit'
+    | 'asset_audit'
+    | string; // allow unknown/custom types from backend
 
 export interface Activity {
     id: string;

@@ -7,6 +7,18 @@ import {
     RefreshCw,
     Clock,
     Activity,
+    FileText,
+    LogIn,
+    LogOut,
+    Package,
+    Clipboard,
+    User,
+    CheckCircle,
+    AlertCircle,
+    Tag,
+    Box,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-react';
 import { format, toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
@@ -78,11 +90,18 @@ export function ActivityLogsPage() {
 
         const possibleKeys = [
             'drNumber',
+            'dr_number',
             'iarNumber',
+            'iar_number',
             'propertyNumber',
+            'property_number',
             'propertyTag',
+            'property_tag',
             'supplier',
             'reference',
+            'transfer_number',
+            'borrow_number',
+            'borrowNumber',
         ];
 
         return possibleKeys
@@ -103,6 +122,62 @@ export function ActivityLogsPage() {
         if (actionKey.includes('signed')) return actionBadgeStyles.signed;
 
         return actionBadgeStyles.signed;
+    };
+
+    const simplifyActionKey = (action: string) => {
+        const k = action.toLowerCase();
+        if (k.includes('created')) return 'Created';
+        if (k.includes('created_from_dr')) return 'Created (from DR)';
+        if (k.includes('approved')) return 'Approved';
+        if (k.includes('transfer')) return 'Transfer';
+        if (k.includes('borrow')) return 'Borrow';
+        if (k.includes('return')) return 'Return';
+        if (k.includes('signed')) return 'Signed';
+        if (k.includes('login') || k.includes('logged in')) return 'Login';
+        if (k.includes('logout') || k.includes('logged out')) return 'Logout';
+        return action.charAt(0).toUpperCase() + action.slice(1);
+    };
+
+    const getActionIcon = (log: { action?: string; entity_type?: string; }) => {
+        const a = (log.action || '').toLowerCase();
+        const e = (log.entity_type || '').toLowerCase();
+
+        if (a.includes('login') || a.includes('logged in')) return LogIn;
+        if (a.includes('logout') || a.includes('logged out')) return LogOut;
+        if (a.includes('created') && e.includes('delivery')) return FileText;
+        if (a.includes('created') && e.includes('delivery_receipt')) return FileText;
+        if (e.includes('inventory') || e.includes('inventory_detail') || e.includes('property')) return Box;
+        if (e.includes('asset') || e.includes('assetrequest')) return Package;
+        if (a.includes('approved') || a.includes('approved_for')) return CheckCircle;
+        if (a.includes('failed') || a.includes('error')) return AlertCircle;
+        if (e.includes('user') || e.includes('auth')) return User;
+        if (e.includes('transfer') || a.includes('transfer')) return Clipboard;
+        if (e.includes('tag') || e.includes('article')) return Tag;
+
+        return Activity;
+    };
+
+    const formatActionLabel = (log: {
+        action?: string;
+        entity_label?: string;
+        entity_type?: string;
+        meta?: Record<string, unknown> | null;
+    }) => {
+        const meta = log.meta || {};
+        const getAny = (keys: string[]) => {
+            for (const k of keys) {
+                if (meta[k]) return String(meta[k]);
+            }
+            return null;
+        };
+
+        const idOrNumber = getAny(['dr_number', 'drNumber', 'transfer_number', 'borrow_number', 'property_number', 'propertyNumber', 'iar_number', 'iarNumber', 'reference']);
+        const entity = log.entity_label || (log.entity_type || '').replace(/_/g, ' ');
+        const actionText = simplifyActionKey(log.action || '');
+
+        if (idOrNumber) return `${actionText} — ${idOrNumber}`;
+        if (entity) return `${actionText} — ${entity}`;
+        return actionText;
     };
 
     return (
@@ -215,60 +290,69 @@ export function ActivityLogsPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    tableRows.map((log) => (
-                                        <tr key={log.id} className="hover:bg-slate-50">
-                                            <td className="px-6 py-4 whitespace-nowrap align-top">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionBadgeColor(log.action)}`}>
-                                                        {log.action}
-                                                    </span>
-                                                    {log.entity_label && (
-                                                        <span className="text-[11px] uppercase tracking-wide text-slate-500">
-                                                            {log.entity_label}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-900 max-w-xs truncate align-top" title={log.summary || log.description}>
-                                                <div className="space-y-1">
-                                                    <div className="truncate font-medium text-slate-800">
-                                                        {log.summary || log.description}
-                                                    </div>
-                                                    {(log.summary && log.description && log.summary !== log.description) && (
-                                                        <div className="text-xs text-slate-500 truncate">{log.description}</div>
-                                                    )}
-                                                    {getAuditMetaHighlights(log).length > 0 && (
-                                                        <div className="flex items-center gap-1.5">
-                                                            {getAuditMetaHighlights(log).map((value) => (
-                                                                <span key={`${log.id}-${value}`} className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                                                                    {value}
-                                                                </span>
-                                                            ))}
+                                    tableRows.map((log) => {
+                                        const Icon = getActionIcon(log);
+                                        const ActionIcon = Icon as any;
+                                        return (
+                                            <tr key={log.id} className="hover:bg-slate-50">
+                                                <td className="px-6 py-4 whitespace-nowrap align-top">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center">
+                                                            <ActionIcon className="w-5 h-5 text-slate-600" />
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-700">
-                                                {log.performed_by || 'System'}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
-                                                <div title={log.timestamp} className="leading-tight">
-                                                    <div className="font-medium text-slate-700">{formatTimestamp(log.timestamp)}</div>
-                                                    <div className="text-xs text-slate-500">{log.time_ago}</div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap align-top">
-                                                <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">
-                                                    {(log.entity_label || log.entity_type.replace(/_/g, ' ')).toUpperCase()}
-                                                </span>
-                                            </td>
-                                            {process.env.NODE_ENV === 'development' && (
-                                                <td className="px-6 py-4 text-xs text-slate-500 truncate" title={log.ip_address || ''}>
-                                                    {log.ip_address || '—'}
+                                                        <div className="flex flex-col">
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionBadgeColor(log.action)}`}>
+                                                                {simplifyActionKey(log.action || '')}
+                                                            </span>
+                                                            {log.entity_label && (
+                                                                <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                                                                    {log.entity_label}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </td>
-                                            )}
-                                        </tr>
-                                    ))
+                                                <td className="px-6 py-4 text-sm text-slate-900 max-w-xs truncate align-top" title={log.summary || log.description}>
+                                                    <div className="space-y-1">
+                                                        <div className="truncate font-medium text-slate-800">
+                                                            {formatActionLabel(log) || log.summary || log.description}
+                                                        </div>
+                                                        {(log.summary && log.description && log.summary !== log.description) && (
+                                                            <div className="text-xs text-slate-500 truncate">{log.description}</div>
+                                                        )}
+                                                        {getAuditMetaHighlights(log).length > 0 && (
+                                                            <div className="flex items-center gap-1.5">
+                                                                {getAuditMetaHighlights(log).map((value) => (
+                                                                    <span key={`${log.id}-${value}`} className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                                                        {value}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-700">
+                                                    {log.performed_by || 'System'}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
+                                                    <div title={log.timestamp} className="leading-tight">
+                                                        <div className="font-medium text-slate-700">{formatTimestamp(log.timestamp)}</div>
+                                                        <div className="text-xs text-slate-500">{log.time_ago}</div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap align-top">
+                                                    <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">
+                                                        {(log.entity_label || log.entity_type.replace(/_/g, ' ')).toUpperCase()}
+                                                    </span>
+                                                </td>
+                                                {process.env.NODE_ENV === 'development' && (
+                                                    <td className="px-6 py-4 text-xs text-slate-500 truncate" title={log.ip_address || ''}>
+                                                        {log.ip_address || '—'}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

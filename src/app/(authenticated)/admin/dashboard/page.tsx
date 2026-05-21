@@ -76,6 +76,8 @@ function getActivityIcon(type: string, action: string): LucideIcon {
     }
     if (type === 'delivery_receipt') return FileCheck;
     if (type === 'issuance') return PackagePlus;
+    if (type === 'audit' || type === 'asset_audit') return PackagePlus;
+    if (type === 'rpc_audit') return ClipboardList;
     return Clock;
 }
 
@@ -88,6 +90,8 @@ function getActivityColor(type: string, action: string): string {
     }
     if (type === 'delivery_receipt') return 'text-amber-500';
     if (type === 'issuance') return 'text-indigo-500';
+    if (type === 'asset_audit' || type === 'audit') return 'text-indigo-500';
+    if (type === 'rpc_audit') return 'text-purple-500';
     return 'text-slate-500';
 }
 
@@ -142,10 +146,25 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
 
                         const performedBy = activity.performed_by ?? activity.user ?? '';
                         const meta = activity.meta ?? {};
-                        const detailsParts: string[] = [];
-                        if (performedBy) detailsParts.push(performedBy);
-                        if (meta?.drNumber) detailsParts.push(String(meta.drNumber));
-                        if (meta?.supplier) detailsParts.push(String(meta.supplier));
+
+                        const getMetaAny = (keys: string[]) => {
+                            for (const k of keys) {
+                                if (meta[k]) return String(meta[k]);
+                            }
+                            return null;
+                        };
+
+                        const refNumber = getMetaAny(['drNumber', 'dr_number', 'transfer_number', 'borrow_number', 'propertyNumber', 'property_number', 'iarNumber', 'iar_number', 'reference']);
+
+                        const actionLabel = (() => {
+                            const a = (activity.action || '').toString();
+                            if (/logged in/i.test(a)) return 'User logged in';
+                            if (/logged out/i.test(a)) return 'User logged out';
+                            if (/failed/i.test(a)) return 'Failed login attempt';
+                            if (/created/i.test(a) && refNumber) return `Created — ${refNumber}`;
+                            if (refNumber) return `${a} — ${refNumber}`;
+                            return a;
+                        })();
 
                         return (
                             <div key={activity.id} className="p-4 hover:bg-slate-50 transition-colors">
@@ -155,20 +174,18 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-slate-800 truncate">
-                                            {activity.action}
+                                            {actionLabel}
                                         </p>
                                         <p className="text-xs text-slate-500 truncate">
                                             {activity.description}
-                                            {detailsParts.length > 0 && (
+                                            {performedBy && (
                                                 <>
                                                     {' '}
-                                                    • {detailsParts.join(' • ')}
+                                                    • {performedBy}
                                                 </>
                                             )}
                                             {activity.type === 'login' && activity.ip_address && (
-                                                <span className="ml-1 text-slate-400">
-                                                    ({activity.ip_address})
-                                                </span>
+                                                <span className="ml-1 text-slate-400">({activity.ip_address})</span>
                                             )}
                                         </p>
                                     </div>
