@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Camera, Edit3, Plus, QrCode, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, Camera, Edit3, Plus, QrCode, RefreshCw, Search, Trash2, Lock, Unlock } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { useAuth } from '@/lib/providers/AuthProvider';
+import { RpcCloseCycleModal } from './RpcCloseCycleModal';
+import { RpcReopenCycleModal } from './RpcReopenCycleModal';
+import { RpcCycleStatusBanner } from './RpcCycleStatusBanner';
+import { useRpcCycleActions, ClosureSummary, ReopenRequestResponse } from '@/hooks/useRpcCycleActions';
 import {
     createCurrentRpcInventoryCycle,
     deleteRpcScan,
@@ -115,9 +119,15 @@ function parseRpcScanTarget(raw: string): ParsedRpcScanTarget | null {
 export function RpcInventoryPage() {
     const { user } = useAuth();
     const isAdmin = user?.UserRoleID === 1;
+    const { getClosureSummary, getReopenRequest } = useRpcCycleActions();
 
     const [cycles, setCycles] = useState<RpcInventoryCycle[]>([]);
     const [selectedCycleId, setSelectedCycleId] = useState<number | null>(null);
+
+    const [showCloseModal, setShowCloseModal] = useState(false);
+    const [showReopenModal, setShowReopenModal] = useState(false);
+    const [closeSummary, setCloseSummary] = useState<ClosureSummary | null>(null);
+    const [reopenInfo, setReopenInfo] = useState<ReopenRequestResponse | null>(null);
 
     const [conditions, setConditions] = useState<RpcInventoryCondition[]>([]);
 
@@ -723,6 +733,46 @@ export function RpcInventoryPage() {
             await loadCycles();
         } catch {
             toast.error('Failed to create current cycle');
+        }
+    };
+
+    const handleRequestClose = async () => {
+        if (!selectedCycleId) return;
+        try {
+            const summary = await getClosureSummary(selectedCycleId);
+            setCloseSummary(summary);
+            setShowCloseModal(true);
+        } catch {
+            toast.error('Failed to prepare cycle closure');
+        }
+    };
+
+    const handleCloseSuccess = async () => {
+        setShowCloseModal(false);
+        toast.success('Cycle closed successfully');
+        await loadCycles();
+        if (selectedCycleId) {
+            await loadScans();
+        }
+    };
+
+    const handleRequestReopen = async () => {
+        if (!selectedCycleId) return;
+        try {
+            const info = await getReopenRequest(selectedCycleId);
+            setReopenInfo(info);
+            setShowReopenModal(true);
+        } catch {
+            toast.error('Failed to prepare cycle reopening');
+        }
+    };
+
+    const handleReopenSuccess = async () => {
+        setShowReopenModal(false);
+        toast.success('Cycle reopened successfully');
+        await loadCycles();
+        if (selectedCycleId) {
+            await loadScans();
         }
     };
 
@@ -1437,6 +1487,13 @@ export function RpcInventoryPage() {
 
                 {selectedCycle ? (
                     <>
+                        <RpcCycleStatusBanner
+                            status={selectedCycle.status as 'active' | 'closed' | 'permanently_locked'}
+                            closedAt={selectedCycle.closed_at}
+                            reopenCount={selectedCycle.reopen_count}
+                            closeReason={selectedCycle.close_reason}
+                        />
+
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
                             <div className="xl:col-span-8 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 space-y-4 shadow-sm">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1459,6 +1516,27 @@ export function RpcInventoryPage() {
                                         >
                                             Generate RPCSEP Report
                                         </Link>
+                                        {isAdmin && selectedCycle.status === 'active' && (
+                                            <Button
+                                                onClick={handleRequestClose}
+                                                size="sm"
+                                                className="bg-orange-600 hover:bg-orange-700 text-white"
+                                            >
+                                                <Lock className="w-4 h-4 mr-1" />
+                                                Close Cycle
+                                            </Button>
+                                        )}
+                                        {isAdmin && selectedCycle.status === 'closed' && (
+                                            <Button
+                                                onClick={handleRequestReopen}
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-green-600 text-green-600 hover:bg-green-50"
+                                            >
+                                                <Unlock className="w-4 h-4 mr-1" />
+                                                Reopen Cycle
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1909,6 +1987,28 @@ export function RpcInventoryPage() {
                                 </div>
                             )}
                         </Dialog>
+
+                        {showCloseModal && closeSummary && (
+                            <RpcCloseCycleModal
+                                cycleId={selectedCycleId!}
+                                cycleName={selectedCycle.cycle_label}
+                                summary={closeSummary}
+                                onClose={() => setShowCloseModal(false)}
+                                onSuccess={handleCloseSuccess}
+                            />
+                        )}
+
+                        {showReopenModal && reopenInfo && (
+                            <RpcReopenCycleModal
+                                cycleId={selectedCycleId!}
+                                cycleName={selectedCycle.cycle_label}
+                                closedAt={reopenInfo.closed_at}
+                                closeReason={reopenInfo.close_reason}
+                                reopenCount={reopenInfo.reopen_count}
+                                onClose={() => setShowReopenModal(false)}
+                                onSuccess={handleReopenSuccess}
+                            />
+                        )}
                     </>
                 ) : (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-600">

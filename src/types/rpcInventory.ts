@@ -8,6 +8,12 @@ export interface RpcInventoryCycle {
     status: string;
     started_at?: string | null;
     closed_at?: string | null;
+    close_reason?: string | null;
+    closed_by_user_id?: number | null;
+    reopened_at?: string | null;
+    reopened_by_user_id?: number | null;
+    reopen_reason?: string | null;
+    reopen_count?: number;
     scans_count: number;
     rpcppe_count: number;
     rpcsep_count: number;

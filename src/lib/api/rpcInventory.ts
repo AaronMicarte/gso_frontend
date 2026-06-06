@@ -88,3 +88,28 @@ export async function getRpcInventoryCycleAuditLogs(
     );
     return res.data;
 }
+
+export async function getClosureSummary(cycleId: number) {
+    const res = await apiClient.get(`/rpc-inventory/cycles/${cycleId}/closure-summary`);
+    return res.data;
+}
+
+export async function closeRpcCycle(cycleId: number, reason: string) {
+    const res = await apiClient.post(`/rpc-inventory/cycles/${cycleId}/close`, {
+        close_reason: reason,
+    });
+    return res.data;
+}
+
+export async function getReopenRequest(cycleId: number) {
+    const res = await apiClient.post(`/rpc-inventory/cycles/${cycleId}/reopen-request`);
+    return res.data;
+}
+
+export async function reopenRpcCycle(cycleId: number, payload: { password: string; reason: string }) {
+    const res = await apiClient.post(`/rpc-inventory/cycles/${cycleId}/reopen`, {
+        password: payload.password,
+        reopen_reason: payload.reason,
+    });
+    return res.data;
+}
