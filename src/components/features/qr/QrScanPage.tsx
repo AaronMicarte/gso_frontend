@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import type { IScannerControls } from '@zxing/browser';
 import { Dialog } from '@/components/ui/Dialog';
 import { useInventory } from '@/lib/hooks/useInventory';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 type ScanMode = 'paste' | 'camera';
 
@@ -84,6 +85,12 @@ export function QrScanPage() {
     const target = useMemo(() => parseScanTarget(input), [input]);
 
     const inventoryQuery = useInventory(scannedInventoryId ?? 0);
+    const { user } = useAuth();
+    const inventoryRoutePrefix = user?.UserRoleID === 1
+        ? '/admin'
+        : user?.UserRoleID === 4
+            ? '/department_head'
+            : '/staff';
 
     const goToTarget = (scanTarget: Exclude<ScanTarget, null>) => {
         if (scanTarget.kind === 'property') {
@@ -137,7 +144,7 @@ export function QrScanPage() {
                         const parsed = parseScanTarget(text);
                         if (!parsed) {
                             toast.error('Unsupported QR', {
-                                description: 'This QR does not match a PropertyID, /qr/scan/{id}, or /admin/inventory/{id}.',
+                                description: 'This QR does not match a PropertyID, /qr/scan/{id}, or /inventory/{id}.',
                             });
                             return;
                         }
@@ -224,7 +231,7 @@ export function QrScanPage() {
                 loading={inventoryQuery.isLoading}
                 onConfirm={() => {
                     if (!scannedInventoryId) return;
-                    router.push(`/admin/inventory/${scannedInventoryId}`);
+                    router.push(`${inventoryRoutePrefix}/inventory/${scannedInventoryId}`);
                 }}
                 contentClassName="max-w-2xl"
             >
@@ -327,7 +334,7 @@ export function QrScanPage() {
                                 variant="primary"
                                 onClick={() => {
                                     if (!scannedInventoryId) return;
-                                    router.push(`/admin/inventory/${scannedInventoryId}`);
+                                    router.push(`${inventoryRoutePrefix}/inventory/${scannedInventoryId}`);
                                 }}
                             >
                                 View Full Record

@@ -1429,9 +1429,11 @@ export function RpcInventoryPage() {
                             <Button size="sm" variant="outline" className="w-auto" onClick={() => void handleRefreshAll()} isLoading={loadingCycles}>
                                 <RefreshCw className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" className="w-auto bg-[var(--primary)] hover:bg-[var(--primary-hover)]" onClick={() => void handleCreateCurrentCycle()}>
-                                <Plus className="w-4 h-4" /> Add New (Current Year)
-                            </Button>
+                            {isAdmin && (
+                                <Button size="sm" className="w-auto bg-[var(--primary)] hover:bg-[var(--primary-hover)]" onClick={() => void handleCreateCurrentCycle()}>
+                                    <Plus className="w-4 h-4" /> Add New (Current Year)
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </section>

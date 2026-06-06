@@ -21,22 +21,22 @@ export const getIARs = async (filters?: IARFilters): Promise<{
     if (filters?.per_page) params.append('per_page', filters.per_page.toString());
     if (filters?.page) params.append('page', filters.page.toString());
 
-    const response = await apiClient.get(`/admin/procurement/inspection-acceptance-reports?${params.toString()}`);
+    const response = await apiClient.get(`/procurement/inspection-acceptance-reports?${params.toString()}`);
     return response.data.data;
 };
 
 export const getIAR = async (id: number): Promise<IAR> => {
-    const response = await apiClient.get(`/admin/procurement/inspection-acceptance-reports/${id}`);
+    const response = await apiClient.get(`/procurement/inspection-acceptance-reports/${id}`);
     return response.data.data;
 };
 
 export const createIAR = async (data: CreateIARPayload): Promise<IAR> => {
-    const response = await apiClient.post('/admin/procurement/inspection-acceptance-reports', data);
+    const response = await apiClient.post('/procurement/inspection-acceptance-reports', data);
     return response.data.data;
 };
 
 export const updateIAR = async (id: number, data: UpdateIARPayload): Promise<IAR> => {
-    const response = await apiClient.put(`/admin/procurement/inspection-acceptance-reports/${id}`, data);
+    const response = await apiClient.put(`/procurement/inspection-acceptance-reports/${id}`, data);
     return response.data.data;
 };
 
@@ -53,22 +53,22 @@ export const uploadIARSignature = async (id: number, role: 'inspected' | 'accept
         form.append('signature', signature);
     }
     if (source) form.append('source', source);
-    const response = await apiClient.post(`/admin/procurement/inspection-acceptance-reports/${id}/signatures`, form, {
+    const response = await apiClient.post(`/procurement/inspection-acceptance-reports/${id}/signatures`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data.data;
 };
 
 export const deleteIAR = async (id: number): Promise<void> => {
-    await apiClient.delete(`/admin/procurement/inspection-acceptance-reports/${id}`);
+    await apiClient.delete(`/procurement/inspection-acceptance-reports/${id}`);
 };
 
 export const getConditions = async (): Promise<{ ConditionID: number; ConditionName: string }[]> => {
-    const response = await apiClient.get('/admin/procurement/inspection-acceptance-reports-helpers/conditions');
+    const response = await apiClient.get('/procurement/inspection-acceptance-reports-helpers/conditions');
     return response.data.data;
 };
 
 export const getUsers = async (): Promise<{ UserID: number; FullName: string }[]> => {
-    const response = await apiClient.get('/admin/procurement/inspection-acceptance-reports-helpers/users');
+    const response = await apiClient.get('/procurement/inspection-acceptance-reports-helpers/users');
     return response.data.data;
 };

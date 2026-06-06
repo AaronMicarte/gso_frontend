@@ -69,360 +69,197 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
     const isGSOStaff = user.UserRoleID === 2 || user.UserRoleID === 6;
     const isDepartmentHead = user.UserRoleID === 4;
 
-    const sections: NavSection[] = [
-        // MAIN - Everyone sees dashboard + notifications
+    const allowedRoles = isAdmin ? ['admin'] : isDepartmentHead ? ['department_head'] : isGSOStaff ? ['staff'] : [];
+
+    const ALL_SECTIONS: Array<NavSection & { roles?: ('admin' | 'staff' | 'department_head')[] }> = [
         {
+            // MAIN - Everyone
+            items: [
+                { label: 'Dashboard', href: `${baseRoute}/dashboard`, icon: LayoutDashboard },
+                { label: 'Notifications', href: `${baseRoute}/notifications`, icon: Bell, badge: unreadCount },
+            ],
+            roles: ['admin', 'staff', 'department_head'],
+        },
+        {
+            section: 'DELIVERY',
             items: [
                 {
-                    label: 'Dashboard',
-                    href: `${baseRoute}/dashboard`,
-                    icon: LayoutDashboard
-                },
-                {
-                    label: 'Notifications',
-                    href: `${baseRoute}/notifications`,
-                    icon: Bell,
-                    badge: unreadCount,
+                    label: 'Delivery', icon: Truck, children: [
+                        { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
+                    ]
                 },
             ],
+            roles: ['admin', 'staff'],
         },
-    ];
-
-    // 🔴 ADMIN (Full System Access)
-    if (isAdmin) {
-        sections.push(
-            {
-                section: 'DELIVERY',
-                items: [
+        {
+            section: 'PROPERTY MANAGEMENT',
+            items: isAdmin
+                ? [
                     {
-                        label: 'Delivery',
-                        icon: Truck,
-                        children: [
-                            { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'PROPERTY MANAGEMENT',
-                items: [
-                    {
-                        label: 'Inventory',
-                        icon: Box,
-                        children: [
+                        label: 'Inventory', icon: Box, children: [
                             { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
                             { label: 'All Items', href: `${baseRoute}/inventory/all-items`, icon: Package },
                             { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: FileType },
                             { label: 'Property Status', href: `${baseRoute}/masterdata/property-statuses`, icon: Tag },
                         ]
-                    }
+                    },
                 ]
-            },
-            {
-                section: 'ISSUANCE & ASSIGNMENT',
-                items: [
-                    // {
-                    //     label: 'Asset Requests',
-                    //     icon: FileText,
-                    //     children: [
-                    //         { label: 'All Requests', href: `${baseRoute}/asset-requests`, icon: FileText },
-                    //     ]
-                    // },
-                    // {
-                    //     label: 'RIS (Requisition)',
-                    //     icon: FileText,
-                    //     children: [
-                    //         { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
-                    //     ]
-                    // },
+                : [
                     {
-                        label: 'Property Issuance',
-                        icon: FileText,
-                        children: [
+                        label: 'Inventory', icon: Box, children: [
+                            { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
+                            { label: 'All Items', href: `${baseRoute}/inventory/all-items`, icon: Package },
+                        ]
+                    },
+                ],
+            roles: ['admin', 'staff'],
+        },
+        {
+            section: 'ISSUANCE & ASSIGNMENT',
+            items: isAdmin
+                ? [
+                    {
+                        label: 'Property Issuance', icon: FileText, children: [
                             { label: 'For Issuance', href: `${baseRoute}/issuance`, icon: FileText },
                             { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
                             { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
                             { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
                             { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
                         ]
-                    }
+                    },
                 ]
-            },
-            {
-                section: 'TRANSFER & DISPOSAL',
-                items: [
+                : [
                     {
-                        label: 'Transfer & Disposal',
-                        icon: ArrowRightLeft,
-                        children: [
-                            { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
-                            { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
-                            { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
-                            { label: 'IIRUP', href: `${baseRoute}/iirup`, icon: FileWarning },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'MAINTENANCE',
-                items: [
-                    { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench }
-                ]
-            },
-            {
-                section: 'PHYSICAL INVENTORY',
-                items: [
-                    {
-                        label: 'Physical Count',
-                        icon: ClipboardList,
-                        children: [
-                            { label: 'Count Sessions', href: `${baseRoute}/physical-count/sessions`, icon: ClipboardList },
-                            { label: 'Count Records', href: `${baseRoute}/physical-count/records`, icon: FileBarChart },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'QR MANAGEMENT',
-                items: [
-                    {
-                        label: 'QR Codes',
-                        icon: QrCode,
-                        children: [
-                            { label: 'Generate QR', href: `/qr/generate`, icon: QrCode },
-                            { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
-                            { label: 'RPCPPE / RPCSEP', href: `/qr/rpc-inventory`, icon: ClipboardList },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'USER MANAGEMENT',
-                items: [
-                    {
-                        label: 'Users & Roles',
-                        icon: Users,
-                        children: [
-                            { label: 'Users', href: `${baseRoute}/users`, icon: Users },
-                            { label: 'Roles', href: `${baseRoute}/masterdata/user-roles`, icon: Shield },
-                            { label: 'Departments', href: `${baseRoute}/masterdata/departments`, icon: Building2 },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'MASTER DATA',
-                items: [
-                    {
-                        label: 'Configuration',
-                        icon: FolderTree,
-                        children: [
-                            { label: 'Articles', href: `${baseRoute}/masterdata/articles`, icon: Package },
-                            { label: 'Conditions', href: `${baseRoute}/masterdata/conditions`, icon: Activity },
-                            { label: 'Disposal Methods', href: `${baseRoute}/masterdata/disposal-methods`, icon: Trash2 },
-                            { label: 'Property Classifications', href: `${baseRoute}/masterdata/property-classifications`, icon: Tag },
-                            { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: Box },
-                            { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
-                            { label: 'Repair Vendors', href: `${baseRoute}/masterdata/vendors`, icon: Wrench },
-                            { label: 'Units of Measure', href: `${baseRoute}/masterdata/units-of-measure`, icon: Ruler },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'REPORTS',
-                items: [
-                    {
-                        label: 'Reports',
-                        icon: FileBarChart,
-                        children: [
-                            { label: 'Analytics', href: `${baseRoute}/reports/analytics`, icon: FileBarChart },
-                            { label: 'Printable Forms', href: `${baseRoute}/reports/standard`, icon: FileText },
-                            { label: 'Exports (CSV)', href: `${baseRoute}/reports/custom`, icon: FileText },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'SECURITY',
-                items: [
-                    {
-                        label: 'Security & Audit',
-                        icon: ShieldCheck,
-                        children: [
-                            { label: 'Security Center', href: `${baseRoute}/security`, icon: Shield },
-                            { label: 'Turnstile', href: `${baseRoute}/security/turnstile`, icon: ShieldCheck },
-                            { label: 'Login Audit', href: `${baseRoute}/security/login-audit`, icon: ShieldCheck },
-                            { label: 'Activity Logs', href: `${baseRoute}/security/activity-logs`, icon: FileClock },
-                            { label: 'System Settings', href: `${baseRoute}/settings`, icon: Settings },
-                        ]
-                    }
-                ]
-            }
-        );
-    }
-
-
-    // 🟡 GSO STAFF (Operational Level)
-    if (isGSOStaff) {
-        sections.push(
-            {
-                section: 'PROPERTY MANAGEMENT',
-                items: [
-                    { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
-                    { label: 'Property Details', href: `${baseRoute}/property-details`, icon: FileText },
-                ]
-            },
-            {
-                section: 'DELIVERY',
-                items: [
-                    {
-                        label: 'Delivery',
-                        icon: Truck,
-                        children: [
-                            { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'ISSUANCE & DISTRIBUTION',
-                items: [
-                    {
-                        label: 'Property Issuance',
-                        icon: FileText,
-                        children: [
+                        label: 'Property Issuance', icon: FileText, children: [
                             { label: 'Issuance Requests', href: `${baseRoute}/issuance`, icon: FileText },
-                            { label: 'Create Request', href: `${baseRoute}/issuance/new`, icon: Plus },
                             { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
                             { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
                             { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
                         ]
-                    }
-                ]
-            },
-            {
-                section: 'OPERATIONS',
-                items: [
-                    { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
-                    { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
-                    { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
-                    { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
-                    { label: 'Job Orders', href: `${baseRoute}/job-orders`, icon: Wrench },
-                    { label: 'Physical Count', href: `${baseRoute}/physical-count`, icon: ClipboardList },
-                ]
-            },
-            {
-                section: 'QR OPERATIONS',
-                items: [
-                    {
-                        label: 'QR Management',
-                        icon: QrCode,
-                        children: [
-                            { label: 'Generate QR', href: `/qr/generate`, icon: QrCode },
-                            { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
-                            { label: 'RPCPPE / RPCSEP', href: `/qr/rpc-inventory`, icon: ClipboardList },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'REPORTS',
-                items: [
-                    { label: 'View Reports', href: `${baseRoute}/reports`, icon: FileBarChart },
-                    { label: 'Quick Reports', href: `${baseRoute}/reports/quick`, icon: FileText },
-                ]
-            },
-            {
-                section: 'MASTER DATA',
-                items: [
-                    {
-                        label: 'Master Data',
-                        icon: FolderTree,
-                        children: [
-                            { label: 'End Users', href: `${baseRoute}/masterdata/end-users`, icon: Users },
-                            { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
-                            { label: 'Repair Vendors', href: `${baseRoute}/masterdata/vendors`, icon: Wrench },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'ACCOUNT',
-                items: [
-                    { label: 'Settings', href: `${baseRoute}/settings`, icon: Settings },
-                ]
-            }
-        );
-    }
+                    },
+                ],
+            roles: ['admin', 'staff'],
+        },
+        {
+            section: 'TRANSFER & DISPOSAL',
+            items: [
+                {
+                    label: 'Transfer & Disposal', icon: ArrowRightLeft, children: [
+                        { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
+                        { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
+                        { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
+                        { label: 'IIRUP', href: `${baseRoute}/iirup`, icon: FileWarning },
+                    ]
+                },
+            ],
+            roles: ['admin', 'staff'],
+        },
+        {
+            section: 'MAINTENANCE',
+            items: [
+                { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
+            ],
+            roles: ['admin', 'staff', 'department_head'],
+        },
+        {
+            section: 'PHYSICAL INVENTORY',
+            items: [
+                {
+                    label: 'Physical Count', icon: ClipboardList, children: [
+                        { label: 'Count Sessions', href: `${baseRoute}/physical-count/sessions`, icon: ClipboardList },
+                        { label: 'Count Records', href: `${baseRoute}/physical-count/records`, icon: FileBarChart },
+                    ]
+                },
+            ],
+            roles: ['admin', 'staff'],
+        },
+        {
+            section: 'QR MANAGEMENT',
+            items: [
+                {
+                    label: 'QR Codes', icon: QrCode, children: [
+                        { label: 'Generate QR', href: `/qr/generate`, icon: QrCode },
+                        { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
+                        { label: 'RPCPPE / RPCSEP', href: `/qr/rpc-inventory`, icon: ClipboardList },
+                    ]
+                },
+            ],
+            roles: ['admin', 'staff'],
+        },
+        {
+            section: 'USER MANAGEMENT',
+            items: [
+                {
+                    label: 'Users & Roles', icon: Users, children: [
+                        { label: 'Users', href: `${baseRoute}/users`, icon: Users },
+                        { label: 'Roles', href: `${baseRoute}/masterdata/user-roles`, icon: Shield },
+                        { label: 'Departments', href: `${baseRoute}/masterdata/departments`, icon: Building2 },
+                    ]
+                },
+            ],
+            roles: ['admin'],
+        },
+        {
+            section: 'MASTER DATA',
+            items: [
+                {
+                    label: 'Configuration', icon: FolderTree, children: [
+                        { label: 'Articles', href: `${baseRoute}/masterdata/articles`, icon: Package },
+                        { label: 'Conditions', href: `${baseRoute}/masterdata/conditions`, icon: Activity },
+                        { label: 'Disposal Methods', href: `${baseRoute}/masterdata/disposal-methods`, icon: Trash2 },
+                        { label: 'Property Classifications', href: `${baseRoute}/masterdata/property-classifications`, icon: Tag },
+                        { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: Box },
+                        { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
+                        { label: 'Repair Vendors', href: `${baseRoute}/masterdata/vendors`, icon: Wrench },
+                        { label: 'Units of Measure', href: `${baseRoute}/masterdata/units-of-measure`, icon: Ruler },
+                    ]
+                },
+            ],
+            roles: ['admin', 'staff'],
+        },
+        {
+            section: 'REPORTS',
+            items: [
+                {
+                    label: 'Reports', icon: FileBarChart, children: [
+                        { label: 'Analytics', href: `${baseRoute}/reports/analytics`, icon: FileBarChart },
+                        { label: 'Printable Forms', href: `${baseRoute}/reports/standard`, icon: FileText },
+                        { label: 'Exports (CSV)', href: `${baseRoute}/reports/custom`, icon: FileText },
+                    ]
+                },
+            ],
+            roles: ['admin', 'staff'],
+        },
+        {
+            section: 'SECURITY',
+            items: [
+                {
+                    label: 'Security & Audit', icon: ShieldCheck, children: [
+                        { label: 'Security Center', href: `${baseRoute}/security`, icon: Shield },
+                        { label: 'Turnstile', href: `${baseRoute}/security/turnstile`, icon: ShieldCheck },
+                        { label: 'Login Audit', href: `${baseRoute}/security/login-audit`, icon: ShieldCheck },
+                        { label: 'Activity Logs', href: `${baseRoute}/security/activity-logs`, icon: FileClock },
+                        { label: 'System Settings', href: `${baseRoute}/settings`, icon: Settings },
+                    ]
+                },
+            ],
+            roles: ['admin'],
+        },
+        {
+            section: 'ACCOUNT',
+            items: [
+                { label: 'Settings', href: `${baseRoute}/settings`, icon: Settings },
+            ],
+            roles: ['admin', 'staff', 'department_head'],
+        },
+    ];
 
-    // 🟢 DEPARTMENT HEAD (Limited Property Oversight)
-    if (isDepartmentHead) {
-        sections.push(
-            {
-                section: 'PROPERTY OVERSIGHT',
-                items: [
-                    { label: 'Property Oversight', href: `${baseRoute}/properties`, icon: Building2 },
-                    { label: 'Received Items', href: `${baseRoute}/received-items`, icon: Package },
-                    { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
-                    { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
-                ]
-            },
-            {
-                section: 'TRANSFER REQUESTS',
-                items: [
-                    {
-                        label: 'Property Transfers',
-                        icon: ArrowRightLeft,
-                        children: [
-                            { label: 'My Requests', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
-                            { label: 'Incoming Requests', href: `${baseRoute}/transfer/incoming`, icon: FileClock },
-                        ]
-                    }
-                ]
-            },
-            {
-                section: 'BORROW REQUESTS',
-                items: [
-                    {
-                        label: 'Property Borrowing',
-                        icon: CalendarClock,
-                        children: [
-                            { label: 'My Requests', href: `${baseRoute}/borrow`, icon: CalendarClock },
-                            { label: 'Incoming Requests', href: `${baseRoute}/borrow/incoming`, icon: FileClock },
-                        ]
-                    }
-                ]
-            },
-            // {
-            //     section: 'ACCOUNTABILITY DOCUMENTS',
-            //     items: [
-            //         {
-            //             label: 'Issued Documents',
-            //             icon: FileText,
-            //             children: [
-            //                 { label: 'All Issuances', href: `${baseRoute}/issuance`, icon: FileText },
-            //             ]
-            //         }
-            //     ]
-            // },
-            // {
-            //     section: 'REPORTS',
-            //     items: [
-            //         // Keep reports minimal until role-specific reporting is implemented.
-            //         { label: 'Issuance Documents', href: `${baseRoute}/issuance`, icon: FileBarChart },
-            //     ]
-            // },
-            {
-                section: 'ACCOUNT',
-                items: [
-                    { label: 'Settings', href: `${baseRoute}/settings`, icon: Settings },
-                ]
-            }
-        );
-    }
-
-    return sections;
+    return ALL_SECTIONS.filter((section) => {
+        if (!section.roles) {
+            return true;
+        }
+        return section.roles.some((role) => allowedRoles.includes(role));
+    }).map(({ roles, ...section }) => section as NavSection);
 }
 
 // Collapsible menu item component

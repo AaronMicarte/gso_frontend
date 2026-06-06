@@ -260,14 +260,10 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     };
 
     const canViewDetails = () => {
-        const recipientUserId = getRecipientUserId();
-        return user && (
-            user.UserRoleID === 1 || // Admin
-            user.UserID === issuance?.IssuedBy || // Issuer
-            (!!recipientUserId && user.UserID === recipientUserId) ||
-            (!recipientUserId && canAcknowledgeDepartment())
-        );
+        // Allow any authenticated user to view issuance details so staff can access print views.
+        return Boolean(user);
     };
+
 
     const canShowQr = issuance?.Status !== 'pending_acknowledgment';
 

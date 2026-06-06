@@ -22,7 +22,7 @@ export const getDeliveryReceipts = async (filters?: DeliveryReceiptFilters): Pro
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.status) params.append('status', filters.status);
 
-    const response = await apiClient.get(`/admin/procurement/delivery-receipts?${params.toString()}`);
+    const response = await apiClient.get(`/procurement/delivery-receipts?${params.toString()}`);
     const payload = response.data?.data;
 
     // Backend returns a Laravel paginator object where pagination fields live at root,
@@ -48,7 +48,7 @@ export const getDeliveryReceipts = async (filters?: DeliveryReceiptFilters): Pro
 };
 
 export const getDeliveryReceipt = async (id: number): Promise<DeliveryReceipt> => {
-    const response = await apiClient.get(`/admin/procurement/delivery-receipts/${id}`);
+    const response = await apiClient.get(`/procurement/delivery-receipts/${id}`);
     const deliveryReceipt = response.data.data;
     if (response.data.dr_picture_url) {
         deliveryReceipt.dr_picture_url = response.data.dr_picture_url;
@@ -57,7 +57,7 @@ export const getDeliveryReceipt = async (id: number): Promise<DeliveryReceipt> =
 };
 
 export const createDeliveryReceipt = async (data: FormData): Promise<DeliveryReceipt> => {
-    const response = await apiClient.post('/admin/procurement/delivery-receipts', data, {
+    const response = await apiClient.post('/procurement/delivery-receipts', data, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
     const deliveryReceipt = response.data.data;
@@ -70,7 +70,7 @@ export const createDeliveryReceipt = async (data: FormData): Promise<DeliveryRec
 export const updateDeliveryReceipt = async (id: number, data: FormData): Promise<DeliveryReceipt> => {
     // Laravel requires POST with _method=PUT for multipart/form-data updates
     data.append('_method', 'PUT');
-    const response = await apiClient.post(`/admin/procurement/delivery-receipts/${id}`, data, {
+    const response = await apiClient.post(`/procurement/delivery-receipts/${id}`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
     const deliveryReceipt = response.data.data;
@@ -82,27 +82,27 @@ export const updateDeliveryReceipt = async (id: number, data: FormData): Promise
 };
 
 export const deleteDeliveryReceipt = async (id: number): Promise<void> => {
-    await apiClient.delete(`/admin/procurement/delivery-receipts/${id}`);
+    await apiClient.delete(`/procurement/delivery-receipts/${id}`);
 };
 
 export const getSuppliers = async (): Promise<{ SupplierID: number; SupplierName: string }[]> => {
-    const response = await apiClient.get('/admin/procurement/delivery-receipts-helpers/suppliers');
+    const response = await apiClient.get('/procurement/delivery-receipts-helpers/suppliers');
     return response.data.data;
 };
 
 export const getPropertyTypes = async (): Promise<{ PropertyTypeID: number; PropertyName: string }[]> => {
-    const response = await apiClient.get('/admin/procurement/delivery-receipts-helpers/property-types');
+    const response = await apiClient.get('/procurement/delivery-receipts-helpers/property-types');
     return response.data.data;
 };
 
 export const getDeliveryReceiptRequesters = async (filters?: { department_id?: number }): Promise<{ UserID: number; FullName: string; DepartmentID: number; DepartmentName?: string | null }[]> => {
     const params = new URLSearchParams();
     if (filters?.department_id) params.append('department_id', String(filters.department_id));
-    const response = await apiClient.get(`/admin/procurement/delivery-receipts-helpers/requesters?${params.toString()}`);
+    const response = await apiClient.get(`/procurement/delivery-receipts-helpers/requesters?${params.toString()}`);
     return response.data.data;
 };
 
 export const rejectDeliveryReceipt = async (id: number): Promise<DeliveryReceipt> => {
-    const response = await apiClient.patch(`/admin/procurement/delivery-receipts/${id}/reject`);
+    const response = await apiClient.patch(`/procurement/delivery-receipts/${id}/reject`);
     return response.data.data;
 };

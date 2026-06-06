@@ -117,7 +117,7 @@ export const getInventories = async (params?: { page?: number; per_page?: number
     if (params?.sort_by) qs.append('sort_by', params.sort_by);
     if (params?.sort_dir) qs.append('sort_dir', params.sort_dir);
 
-    const response: AxiosResponse<InventoryListResponse> = await apiClient.get(`/admin/inventory?${qs.toString()}`);
+    const response: AxiosResponse<InventoryListResponse> = await apiClient.get(`/inventory?${qs.toString()}`);
     return response.data;
 };
 
@@ -129,7 +129,7 @@ export const getAllInventoryItems = async (params?: { page?: number; per_page?: 
     if (params?.property_status_id) qs.append('property_status_id', String(params.property_status_id));
     if (params?.property_type_id) qs.append('property_type_id', String(params.property_type_id));
 
-    const response: AxiosResponse<InventoryItemsListResponse> = await apiClient.get(`/admin/inventory/all-items?${qs.toString()}`);
+    const response: AxiosResponse<InventoryItemsListResponse> = await apiClient.get(`/inventory/all-items?${qs.toString()}`);
     return response.data;
 };
 
@@ -144,7 +144,7 @@ export const ingestFromIar = async (iarId: number): Promise<unknown> => {
 };
 
 export const getInventory = async (id: number): Promise<InventoryResponse> => {
-    const response: AxiosResponse<InventoryResponse> = await apiClient.get(`/admin/inventory/${id}`);
+    const response: AxiosResponse<InventoryResponse> = await apiClient.get(`/inventory/${id}`);
     return response.data;
 };
 
@@ -159,16 +159,16 @@ export const postGenerateQr = async (id: number, force = false): Promise<unknown
 };
 
 export const updateInventoryDetail = async (id: number, data: { Description?: string }): Promise<unknown> => {
-    const response: AxiosResponse<unknown> = await apiClient.put(`/admin/inventory/details/${id}`, data);
+    const response: AxiosResponse<unknown> = await apiClient.put(`/inventory/details/${id}`, data);
     return response.data;
 };
 
 export const getInventoryDetailHistory = async (id: number): Promise<InventoryHistoryResponse> => {
-    const response: AxiosResponse<InventoryHistoryResponse> = await apiClient.get(`/admin/inventory/details/${id}/history`);
+    const response: AxiosResponse<InventoryHistoryResponse> = await apiClient.get(`/inventory/details/${id}/history`);
     return response.data;
 };
 
 export const getInventoryPropertyCard = async (id: number): Promise<PropertyCardResponse> => {
-    const response: AxiosResponse<PropertyCardResponse> = await apiClient.get(`/admin/inventory/details/${id}/property-card`);
+    const response: AxiosResponse<PropertyCardResponse> = await apiClient.get(`/inventory/details/${id}/property-card`);
     return response.data;
 };
