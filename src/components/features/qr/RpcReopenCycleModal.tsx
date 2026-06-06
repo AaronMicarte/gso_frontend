@@ -32,8 +32,8 @@ export function RpcReopenCycleModal({
     const [error, setError] = useState<string | null>(null);
     const [confirmed, setConfirmed] = useState(false);
 
-    const canReopen = reopenCount < 2;
-    const reopensRemaining = 2 - reopenCount;
+    const canReopen = (reopenCount ?? 0) < 2;
+    const reopensRemaining = 2 - (reopenCount ?? 0);
 
     const handleReopen = async () => {
         if (!password.trim()) {
@@ -58,7 +58,22 @@ export function RpcReopenCycleModal({
             const result = await reopenRpcCycle(cycleId, { password, reason: reopenReason });
             onSuccess(result);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to reopen inventory cycle');
+            // Try to parse server validation errors (axios-style)
+            // @ts-ignore
+            const resp = err && typeof err === 'object' ? (err as any).response : null;
+            if (resp && resp.data) {
+                const data = resp.data;
+                if (data.errors) {
+                    const first = Object.values(data.errors)[0];
+                    setError(Array.isArray(first) ? String(first[0]) : String(first));
+                } else if (data.message) {
+                    setError(String(data.message));
+                } else {
+                    setError('Failed to reopen inventory cycle');
+                }
+            } else {
+                setError(err instanceof Error ? err.message : 'Failed to reopen inventory cycle');
+            }
         } finally {
             setLoading(false);
         }
@@ -88,7 +103,7 @@ export function RpcReopenCycleModal({
                         </div>
                         <div className='flex justify-between'>
                             <span className='text-gray-600'>Closed At:</span>
-                            <span className='font-semibold'>{new Date(closedAt).toLocaleString()}</span>
+                            <span className='font-semibold'>{closedAt ? new Date(closedAt).toLocaleString() : '—'}</span>
                         </div>
                         <div className='flex justify-between'>
                             <span className='text-gray-600'>Close Reason:</span>
@@ -96,8 +111,8 @@ export function RpcReopenCycleModal({
                         </div>
                         <div className='flex justify-between pt-2 border-t border-gray-300'>
                             <span className='text-gray-600'>Current Reopen Count:</span>
-                            <span className={`font-semibold ${reopenCount >= 2 ? 'text-red-600' : 'text-gray-900'}`}>
-                                {reopenCount} / 2
+                            <span className={`font-semibold ${(reopenCount ?? 0) >= 2 ? 'text-red-600' : 'text-gray-900'}`}>
+                                {(reopenCount ?? 0)} / 2
                             </span>
                         </div>
                     </div>
