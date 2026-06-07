@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { AlertTriangle, Camera, Edit3, Plus, QrCode, RefreshCw, Search, Trash2, Lock, Unlock } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
 import { toast } from 'sonner';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import type { RpcInventoryAuditLogPaginated } from '@/types/rpcInventory';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { useAuth } from '@/lib/providers/AuthProvider';
@@ -16,13 +18,13 @@ import {
     createCurrentRpcInventoryCycle,
     deleteRpcScan,
     getRpcInventoryCycleAuditLogs,
-    getRpcInventoryCycleScans,
     listRpcConditions,
     listRpcInventoryCycles,
     previewRpcScan,
     storeRpcScan,
     updateRpcScan,
 } from '@/lib/api/rpcInventory';
+import { useRpcInventoryScans } from '@/lib/hooks/useRpcInventoryScans';
 import type {
     RpcInventoryCondition,
     RpcInventoryAuditLog,
@@ -135,17 +137,13 @@ export function RpcInventoryPage() {
     const [scanInput, setScanInput] = useState('');
 
     const [loadingCycles, setLoadingCycles] = useState(false);
-    const [loadingScans, setLoadingScans] = useState(false);
-    const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
     const [submittingScan, setSubmittingScan] = useState(false);
     const [previewProcessing, setPreviewProcessing] = useState(false);
 
-    const [scans, setScans] = useState<RpcInventoryScanRecord[]>([]);
-    const [auditLogs, setAuditLogs] = useState<RpcInventoryAuditLog[]>([]);
+    // `scans` are loaded via `useRpcInventoryScans` (react-query) and cached per filters
     const [scansPage, setScansPage] = useState(1);
+
     const [auditPage, setAuditPage] = useState(1);
-    const [auditLastPage, setAuditLastPage] = useState(1);
-    const [auditTotal, setAuditTotal] = useState(0);
     const [selectedAuditLog, setSelectedAuditLog] = useState<RpcInventoryAuditLog | null>(null);
     const [expandedAuditFields, setExpandedAuditFields] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState('');
@@ -179,15 +177,24 @@ export function RpcInventoryPage() {
         [cycles, selectedCycleId]
     );
 
-    const availablePropertyTypes = useMemo(() => {
-        const unique = new Set(
-            scans
-                .map((scan) => (scan.property_type || '').trim())
-                .filter((name) => name.length > 0)
-        );
+    const cycleDisplayLabel = useMemo(() => {
+        if (!selectedCycle) return '';
+        // Prefer RPCPPE label for display to match calendar-year naming (fallback to cycle_label)
+        // Backend provides `rpcppe_label` and `rpcsep_label` for clarity.
+        // Use rpcppe_label by default as requirements ask RPCPPE to be calendar-year only.
+        // Keep `cycle_label` as fallback for backward compatibility.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyC: any = selectedCycle as any;
+        return anyC.rpcppe_label ?? anyC.cycle_label ?? '';
+    }, [selectedCycle]);
 
-        return Array.from(unique).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    }, [scans]);
+
+
+
+
+
+
+
 
     // Normalize accountable officer by removing duplicate department suffixes
     const normalizeAccountableOfficer = (value?: string | null): string => {
@@ -478,6 +485,32 @@ export function RpcInventoryPage() {
         return entries;
     };
 
+    const scanFilters = useMemo(() => ({
+        cycleId: selectedCycleId,
+        search: search.trim() || undefined,
+        type: typeFilter === 'ALL' ? undefined : typeFilter,
+        per_page: 100,
+    }), [selectedCycleId, search, typeFilter]);
+
+    const {
+        data: scansQueryData,
+        isLoading: isLoadingScans,
+        isFetching: isFetchingScans,
+        refetch: refetchScans,
+    } = useRpcInventoryScans(scanFilters as { cycleId?: number | null; search?: string; type?: string; per_page?: number; page?: number });
+
+    const scans: RpcInventoryScanRecord[] = scansQueryData?.data ?? [];
+
+    const availablePropertyTypes = useMemo<string[]>(() => {
+        const unique = new Set<string>(
+            scans
+                .map((scan) => (scan.property_type || '').trim())
+                .filter((name) => name.length > 0)
+        );
+
+        return Array.from(unique).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }, [scans]);
+
     const groupedScans = useMemo<GroupedScanRow[]>(() => {
         let filtered = scans;
 
@@ -536,7 +569,8 @@ export function RpcInventoryPage() {
         });
     }, [scans, propertyTypeFilter, search, typeFilter]);
 
-    const SCANNED_ASSETS_PER_PAGE = 15;
+    const SCANNED_ASSETS_PER_PAGE = 10;
+    const AUDIT_PER_PAGE = 15;
     const scannedAssetsLastPage = Math.max(1, Math.ceil(groupedScans.length / SCANNED_ASSETS_PER_PAGE));
 
     const pagedGroupedScans = useMemo<GroupedScanRow[]>(() => {
@@ -547,7 +581,7 @@ export function RpcInventoryPage() {
     const handleRefreshAll = async () => {
         await loadCycles();
         await loadScans();
-        await loadAuditLogs();
+        await refetchAudit();
     };
 
     const loadCycles = async () => {
@@ -578,46 +612,42 @@ export function RpcInventoryPage() {
     };
 
     const loadScans = async () => {
-        if (!selectedCycleId) return;
-
         try {
-            setLoadingScans(true);
-            const data = await getRpcInventoryCycleScans(selectedCycleId, {
-                search: search.trim() || undefined,
-                type: typeFilter === 'ALL' ? undefined : typeFilter,
-                per_page: 100,
-            });
-            setScans(data.data);
+            await refetchScans();
         } catch {
-            toast.error('Failed to load scanned assets');
-        } finally {
-            setLoadingScans(false);
+            toast.error('Failed to load scans');
         }
     };
 
-    const loadAuditLogs = async () => {
-        if (!selectedCycleId || !isAdmin) {
-            setAuditLogs([]);
-            setAuditTotal(0);
-            setAuditLastPage(1);
-            return;
-        }
 
-        try {
-            setLoadingAuditLogs(true);
+
+    const {
+        data: auditData,
+        isFetching: isFetchingAudit,
+        refetch: refetchAudit,
+    } = useQuery<RpcInventoryAuditLogPaginated, unknown>({
+        queryKey: ['rpc-inventory-audit', selectedCycleId, auditPage],
+        queryFn: async () => {
+            if (!selectedCycleId || !isAdmin) {
+                return {
+                    data: [],
+                    current_page: 1,
+                    last_page: 1,
+                    per_page: AUDIT_PER_PAGE,
+                    total: 0,
+                } as RpcInventoryAuditLogPaginated;
+            }
+
             const response = await getRpcInventoryCycleAuditLogs(selectedCycleId, {
                 page: auditPage,
-                per_page: 20,
+                per_page: AUDIT_PER_PAGE,
             });
-            setAuditLogs(response.data);
-            setAuditTotal(response.total);
-            setAuditLastPage(Math.max(1, response.last_page));
-        } catch {
-            toast.error('Failed to load audit trail');
-        } finally {
-            setLoadingAuditLogs(false);
-        }
-    };
+
+            return response;
+        },
+        enabled: Boolean(selectedCycleId && isAdmin),
+        placeholderData: keepPreviousData,
+    });
 
     useEffect(() => {
         void loadCycles();
@@ -627,21 +657,17 @@ export function RpcInventoryPage() {
 
     useEffect(() => {
         if (!selectedCycleId) return;
-        void loadScans();
+        // scans are fetched by react-query via `useRpcInventoryScans` when filters change
         setScansPage(1);
         setAuditPage(1);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [selectedCycleId, typeFilter]);
 
     useEffect(() => {
         setScansPage(1);
     }, [search, propertyTypeFilter]);
 
-    useEffect(() => {
-        if (!selectedCycleId) return;
-        void loadAuditLogs();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCycleId, auditPage, isAdmin]);
+    // auditData is loaded by react-query; it will refetch when `selectedCycleId` or `auditPage` change
 
     useEffect(() => {
         if (scansPage > scannedAssetsLastPage) {
@@ -653,16 +679,14 @@ export function RpcInventoryPage() {
         setPropertyTypeFilter('ALL');
     }, [selectedCycleId]);
 
+
     const startCamera = async () => {
         try {
-            stopCamera();
-            if (!videoRef.current) return;
-
             const { BrowserQRCodeReader } = await import('@zxing/browser');
             const reader = new BrowserQRCodeReader();
             scanLockedRef.current = false;
 
-            const controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+            const controls = await reader.decodeFromVideoDevice(undefined, videoRef.current!, (result) => {
                 if (!result) return;
                 if (scanLockedRef.current) return;
                 scanLockedRef.current = true;
@@ -893,7 +917,7 @@ export function RpcInventoryPage() {
             await loadScans();
             await loadCycles();
             setAuditPage(1);
-            await loadAuditLogs();
+            await refetchAudit();
             if (scanMode === 'camera') {
                 void startCamera();
             }
@@ -976,7 +1000,7 @@ export function RpcInventoryPage() {
             setEditRemarks('');
             await loadScans();
             setAuditPage(1);
-            await loadAuditLogs();
+            await refetchAudit();
         } catch {
             toast.error('Failed to update selected scans');
         }
@@ -998,18 +1022,13 @@ export function RpcInventoryPage() {
             setDeleteDialogOpen(false);
             setDeletingGroup(null);
 
-            // Ensure UI updates immediately by removing from local state
-            setScans((prevScans) =>
-                prevScans.filter((scan) => !deletingGroup.groupScans.find((gs) => gs.id === scan.id))
-            );
-
             // Then reload from server to ensure consistency
             await Promise.all([
                 loadScans(),
                 loadCycles(),
             ]);
             setAuditPage(1);
-            await loadAuditLogs();
+            await refetchAudit();
         } catch (error: unknown) {
             const errorMessage =
                 typeof error === 'object' &&
@@ -1501,7 +1520,7 @@ export function RpcInventoryPage() {
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div>
                                         <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Scanner</div>
-                                        <div className="font-semibold text-slate-900 text-lg">{selectedCycle.cycle_label}</div>
+                                        <div className="font-semibold text-slate-900 text-lg">{cycleDisplayLabel}</div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Link
@@ -1590,7 +1609,7 @@ export function RpcInventoryPage() {
 
                             <aside className="xl:col-span-4 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
                                 <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Cycle Snapshot</div>
-                                <div className="mt-2 font-semibold text-slate-900">{selectedCycle.cycle_label}</div>
+                                <div className="mt-2 font-semibold text-slate-900">{cycleDisplayLabel}</div>
                                 <div className="mt-1 text-sm text-slate-500">{formatCycleDate(selectedCycle.started_at)}</div>
                                 <div className="mt-4 grid grid-cols-3 gap-2">
                                     <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
@@ -1663,7 +1682,7 @@ export function RpcInventoryPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
-                                        {loadingScans ? (
+                                        {isLoadingScans && scans.length === 0 ? (
                                             <tr>
                                                 <td className="px-4 py-8 text-center text-slate-500" colSpan={7}>
                                                     Loading scanned assets...
@@ -1755,7 +1774,7 @@ export function RpcInventoryPage() {
                                         <button
                                             type="button"
                                             onClick={() => setScansPage((prev) => Math.max(1, prev - 1))}
-                                            disabled={scansPage === 1}
+                                            disabled={scansPage === 1 || isFetchingScans}
                                             className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm disabled:opacity-50"
                                         >
                                             Previous
@@ -1764,7 +1783,7 @@ export function RpcInventoryPage() {
                                         <button
                                             type="button"
                                             onClick={() => setScansPage((prev) => Math.min(scannedAssetsLastPage, prev + 1))}
-                                            disabled={scansPage === scannedAssetsLastPage}
+                                            disabled={scansPage === scannedAssetsLastPage || isFetchingScans}
                                             className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm disabled:opacity-50"
                                         >
                                             Next
@@ -1787,11 +1806,11 @@ export function RpcInventoryPage() {
                                         className="w-auto"
                                         onClick={() => {
                                             setAuditPage(1);
-                                            void loadAuditLogs();
+                                            void refetchAudit();
                                         }}
-                                        disabled={loadingAuditLogs}
+                                        disabled={isFetchingAudit}
                                     >
-                                        {loadingAuditLogs ? 'Refreshing...' : 'Refresh'}
+                                        {isFetchingAudit ? 'Refreshing...' : 'Refresh'}
                                     </Button>
                                 </div>
 
@@ -1808,20 +1827,20 @@ export function RpcInventoryPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200">
-                                            {loadingAuditLogs ? (
+                                            {isFetchingAudit && !(auditData && auditData.data && auditData.data.length > 0) ? (
                                                 <tr>
                                                     <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
                                                         Loading audit trail...
                                                     </td>
                                                 </tr>
-                                            ) : auditLogs.length === 0 ? (
+                                            ) : (auditData?.data?.length ?? 0) === 0 ? (
                                                 <tr>
                                                     <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
                                                         No audit entries yet for this cycle.
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                auditLogs.map((log) => {
+                                                (auditData?.data ?? []).map((log: RpcInventoryAuditLog) => {
                                                     const actor = log.performed_by?.FullName || `User ${log.performed_by_user_id}`;
                                                     const details = log.details ?? {};
                                                     const pnums = Array.isArray(details.property_numbers) ? details.property_numbers.filter((v): v is string => typeof v === 'string') : [];
@@ -1863,25 +1882,25 @@ export function RpcInventoryPage() {
                                     </table>
                                 </div>
 
-                                {auditTotal > 20 && (
+                                {(auditData?.total ?? 0) > AUDIT_PER_PAGE && (
                                     <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
                                         <div className="text-sm text-slate-600">
-                                            Showing {((auditPage - 1) * 20) + 1} to {Math.min(auditPage * 20, auditTotal)} of {auditTotal} audit entries
+                                            Showing {((auditPage - 1) * AUDIT_PER_PAGE) + 1} to {Math.min(auditPage * AUDIT_PER_PAGE, auditData?.total ?? 0)} of {auditData?.total ?? 0} audit entries
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 type="button"
                                                 onClick={() => setAuditPage((prev) => Math.max(1, prev - 1))}
-                                                disabled={auditPage === 1 || loadingAuditLogs}
+                                                disabled={auditPage === 1 || isFetchingAudit}
                                                 className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm disabled:opacity-50"
                                             >
                                                 Previous
                                             </button>
-                                            <span className="text-sm text-slate-600">Page {auditPage} of {auditLastPage}</span>
+                                            <span className="text-sm text-slate-600">Page {auditPage} of {Math.max(1, auditData?.last_page ?? 1)}</span>
                                             <button
                                                 type="button"
-                                                onClick={() => setAuditPage((prev) => Math.min(auditLastPage, prev + 1))}
-                                                disabled={auditPage === auditLastPage || loadingAuditLogs}
+                                                onClick={() => setAuditPage((prev) => Math.min(Math.max(1, auditData?.last_page ?? 1), prev + 1))}
+                                                disabled={auditPage === Math.max(1, auditData?.last_page ?? 1) || isFetchingAudit}
                                                 className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm disabled:opacity-50"
                                             >
                                                 Next
@@ -1993,7 +2012,7 @@ export function RpcInventoryPage() {
                         {showCloseModal && closeSummary && (
                             <RpcCloseCycleModal
                                 cycleId={selectedCycleId!}
-                                cycleName={selectedCycle.cycle_label}
+                                cycleName={cycleDisplayLabel}
                                 summary={closeSummary}
                                 onClose={() => setShowCloseModal(false)}
                                 onSuccess={handleCloseSuccess}
@@ -2003,7 +2022,7 @@ export function RpcInventoryPage() {
                         {showReopenModal && reopenInfo && (
                             <RpcReopenCycleModal
                                 cycleId={selectedCycleId!}
-                                cycleName={selectedCycle.cycle_label}
+                                cycleName={cycleDisplayLabel}
                                 closedAt={reopenInfo.closed_at}
                                 closeReason={reopenInfo.close_reason}
                                 reopenCount={reopenInfo.reopen_count}

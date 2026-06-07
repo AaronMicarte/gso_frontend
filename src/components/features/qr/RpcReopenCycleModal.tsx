@@ -59,10 +59,10 @@ export function RpcReopenCycleModal({
             onSuccess(result);
         } catch (err: unknown) {
             // Try to parse server validation errors (axios-style)
-            // @ts-ignore
-            const resp = err && typeof err === 'object' ? (err as any).response : null;
-            if (resp && resp.data) {
-                const data = resp.data;
+            const resp = err && typeof err === 'object' && 'response' in err ? (err as { response?: unknown }).response : null;
+            if (resp && typeof resp === 'object' && resp !== null && 'data' in (resp as Record<string, unknown>)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const data = (resp as any).data;
                 if (data.errors) {
                     const first = Object.values(data.errors)[0];
                     setError(Array.isArray(first) ? String(first[0]) : String(first));
