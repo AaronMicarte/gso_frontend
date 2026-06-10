@@ -114,7 +114,9 @@ const HistoryItem = ({ item }: { item: InventoryHistoryItem }) => {
             <div className="flex-1">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
-                        <span className={`text-[10px] uppercase rounded px-2 py-0.5 ${palette.badge}`}>{item.type}</span>
+                        {((item.type || '').toLowerCase() !== 'audit') && (
+                            <span className={`text-[10px] uppercase rounded px-2 py-0.5 ${palette.badge}`}>{item.type}</span>
+                        )}
                         <div className="text-sm font-semibold text-slate-900">{item.title}</div>
                     </div>
                     <div className="text-xs text-slate-500">{formatManilaDateTime(item.occurred_at)}</div>
@@ -130,23 +132,62 @@ const HistoryItem = ({ item }: { item: InventoryHistoryItem }) => {
 export function InventoryHistoryDialog({ inventoryDetailId, itemName }: { inventoryDetailId: number; itemName: string }) {
     const [open, setOpen] = useState(false);
     const { data, isLoading, isError } = useInventoryDetailHistory(inventoryDetailId, open);
-    const history = (data?.history ?? [])
-        .map((item, index) => ({ item, index }))
-        .filter(({ item }, idx, arr) => {
+    const history = (() => {
+        const entries = (data?.history ?? []).map((item, index) => ({ item, index }));
+
+        // First, remove exact duplicates (including type) by fingerprint
+        const seen = new Set<string>();
+        const uniqueExact: Array<{ item: InventoryHistoryItem; index: number }> = [];
+        for (const candidate of entries) {
+            const item = candidate.item;
             const fingerprint = `${item.type}|${item.action}|${item.occurred_at}|${item.actor?.id ?? 0}|${item.title}|${item.description ?? ''}|${JSON.stringify(item.meta ?? {})}`;
-            return arr.findIndex((candidate) => {
-                const c = candidate.item;
-                const cf = `${c.type}|${c.action}|${c.occurred_at}|${c.actor?.id ?? 0}|${c.title}|${c.description ?? ''}|${JSON.stringify(c.meta ?? {})}`;
-                return cf === fingerprint;
-            }) === idx;
-        })
-        .sort((a, b) => {
+            if (seen.has(fingerprint)) continue;
+            seen.add(fingerprint);
+
+            // Exclude audit detail/master-detail rows early
+            if ((item.type || '').toLowerCase() === 'audit') {
+                const meta = item.meta ?? {};
+                if (Array.isArray((meta as any).details) && (meta as any).details.length > 0) continue;
+                if (Array.isArray((meta as any).items) && (meta as any).items.length > 0) continue;
+                if (Array.isArray((meta as any).entries) && (meta as any).entries.length > 0) continue;
+            }
+
+            uniqueExact.push(candidate);
+        }
+
+        // Collapse duplicates that only differ by `type` (e.g., audit vs transfer entries)
+        // Prefer non-audit entries when both exist for the same logical event.
+        const grouped = new Map<string, { item: InventoryHistoryItem; index: number }>();
+        for (const { item, index } of uniqueExact) {
+            const keyWithoutType = `${item.action}|${item.occurred_at}|${item.actor?.id ?? 0}|${item.title}|${item.description ?? ''}|${JSON.stringify(item.meta ?? {})}`;
+            const existing = grouped.get(keyWithoutType);
+            if (!existing) {
+                grouped.set(keyWithoutType, { item, index });
+                continue;
+            }
+
+            // If existing is audit but current is not, replace it (prefer non-audit)
+            if ((existing.item.type || '').toLowerCase() === 'audit' && (item.type || '').toLowerCase() !== 'audit') {
+                grouped.set(keyWithoutType, { item, index });
+                continue;
+            }
+
+            // Otherwise keep the earliest kept (existing)
+        }
+
+        const collapsed = Array.from(grouped.values());
+
+        // Sort by occurred_at desc, fallback to original index
+        collapsed.sort((a, b) => {
             const timeA = new Date(a.item.occurred_at).getTime();
             const timeB = new Date(b.item.occurred_at).getTime();
             if (Number.isNaN(timeA) || Number.isNaN(timeB)) return b.index - a.index;
             return timeB - timeA || b.index - a.index;
-        })
-        .map(({ item }) => item);
+        });
+
+        // Return items but exclude any 'audit' type entries entirely for the Item History view
+        return collapsed.map(({ item }) => item).filter((it) => (it.type || '').toLowerCase() !== 'audit');
+    })();
 
     return (
         <Dialog.Root open={open} onOpenChange={setOpen}>
