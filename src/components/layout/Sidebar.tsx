@@ -162,23 +162,10 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             roles: ['admin', 'staff', 'department_head'],
         },
         {
-            section: 'PHYSICAL INVENTORY',
-            items: [
-                {
-                    label: 'Physical Count', icon: ClipboardList, children: [
-                        { label: 'Count Sessions', href: `${baseRoute}/physical-count/sessions`, icon: ClipboardList },
-                        { label: 'Count Records', href: `${baseRoute}/physical-count/records`, icon: FileBarChart },
-                    ]
-                },
-            ],
-            roles: ['admin', 'staff'],
-        },
-        {
             section: 'QR MANAGEMENT',
             items: [
                 {
                     label: 'QR Codes', icon: QrCode, children: [
-                        { label: 'Generate QR', href: `/qr/generate`, icon: QrCode },
                         { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
                         { label: 'RPCPPE / RPCSEP', href: `/qr/rpc-inventory`, icon: ClipboardList },
                     ]
