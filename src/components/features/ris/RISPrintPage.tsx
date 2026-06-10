@@ -71,12 +71,6 @@ export function RISPrintPage() {
 
             {/* Print-only strong borders applied here so RISPrintView source remains unchanged */}
             <div className="ris-print-root">
-                <style dangerouslySetInnerHTML={{
-                    __html: `@media print {
-                        .ris-print-root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    }`
-                }} />
-
                 <RISPrintView ref={printRef} ris={ris} />
             </div>
         </div>

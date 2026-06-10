@@ -120,16 +120,6 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
 
     return (
         <div className="print-scope min-h-screen bg-slate-100 py-6">
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                    @media print {
-                        .issuance-doc-break {
-                            break-before: page;
-                            page-break-before: always;
-                        }
-                    }
-                `
-            }} />
 
             <div className="no-print max-w-4xl mx-auto px-4 mb-4 flex items-center justify-between">
                 <Link href={backHref} className="text-sm text-[var(--primary)] underline">

@@ -45,28 +45,7 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
     );
 
     return (
-        <div ref={ref} className="print-container gso-print-doc bg-white p-6 max-w-4xl mx-auto text-black">
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                    @media print {
-                        .print-container {
-                            padding: 0;
-                            max-width: none;
-                            margin: 0;
-                            font-size: 12px;
-                            line-height: 1.3;
-                            font-family: Arial, Helvetica, sans-serif;
-                        }
-                        .no-print {
-                            display: none !important;
-                        }
-                    }
-                    @page {
-                        size: A4;
-                        margin: 10mm;
-                    }
-                `
-            }} />
+        <div ref={ref} className="gso-print-doc bg-white p-6 max-w-4xl mx-auto text-black">
 
             <div className="gso-print-title mb-1">Property Transfer Report</div>
 

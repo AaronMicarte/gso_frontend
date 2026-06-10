@@ -163,63 +163,12 @@ export function RpcInventoryPrintView({
     const totalPages = printablePages.length;
 
     return (
-        <div className="print-sheet bg-white text-black p-4">
+        <div className="gso-print-doc bg-white text-black p-4">
             <style>{`
-                .print-sheet {
-                    font-family: 'Times New Roman', serif;
-                    font-size: 11px;
-                    line-height: 1.15;
-                }
-
-                .report-page {
-                    break-inside: avoid;
-                    page-break-inside: avoid;
-                    min-height: calc(210mm - 20mm);
-                    display: flex;
-                    flex-direction: column;
-                    box-sizing: border-box;
-                }
-
-                .report-page + .report-page {
-                    break-before: page;
-                    page-break-before: always;
-                }
-
-                .page-footer {
-                    text-align: center;
-                    font-size: 10px;
-                    padding-top: 12px;
-                    margin-top: auto;
-                }
-
-                @media print {
-                    body * { visibility: hidden !important; }
-                    .print-sheet, .print-sheet * { visibility: visible !important; }
-                    .print-sheet {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        margin: 0;
-                        padding: 0;
-                    }
-                    .report-page {
-                        page-break-inside: avoid;
-                        display: flex;
-                        flex-direction: column;
-                        break-inside: avoid;
-                    }
-                    .page-footer {
-                        page-break-inside: avoid;
-                        break-inside: avoid;
-                        display: block;
-                    }
-                }
-
-                @page {
-                    size: A4 landscape;
-                    margin: 10mm;
-                }
+                .print-sheet { font-family: 'Times New Roman', serif; font-size: 11px; line-height: 1.15; }
+                .report-page { break-inside: avoid; page-break-inside: avoid; min-height: calc(210mm - 20mm); display: flex; flex-direction: column; box-sizing: border-box; }
+                .report-page + .report-page { break-before: page; page-break-before: always; }
+                .page-footer { text-align: center; font-size: 10px; padding-top: 12px; margin-top: auto; }
             `}</style>
 
             {printablePages.map((page, pageIndex) => {

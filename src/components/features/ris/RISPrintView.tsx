@@ -111,29 +111,7 @@ export const RISPrintView = React.forwardRef<HTMLDivElement, RISPrintViewProps>(
     };
 
     return (
-        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                    /* Base styles (screen + print) */
-                    .ris-table, .ris-sign-table { width: 100%; border-collapse: collapse; }
-                    .ris-table th, .ris-table td, .ris-sign-table th, .ris-sign-table td { border: 1px solid #000; }
-                    .ris-table th { font-weight: 700; }
-                    .ris-requisition-label { font-style: italic; font-weight: 600; text-align: center; }
-                    .ris-yesno { text-align: center; }
-                    .ris-sign-name { text-transform: uppercase; font-weight: 600; }
-                    .ris-sign-img { height: 44px; display: flex; align-items: flex-end; justify-content: center; }
-                    .ris-label-col { width: 90px; font-weight: 600; }
-
-                    @media print {
-                        .print-container { padding: 0; max-width: none; margin: 0; font-size: 12px; font-family: Arial, Helvetica, sans-serif; color: #000; -webkit-print-color-adjust: exact; }
-                        .no-print { display: none !important; }
-
-                        .ris-table th, .ris-table td, .ris-sign-table th, .ris-sign-table td { padding: 6px 6px; vertical-align: middle; }
-                        .ris-yesno { font-size: 14px; }
-                    }
-                    @page { size: A4; margin: 10mm; }
-                `,
-            }} />
+        <div ref={ref} className="gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
 
             <div className="gso-print-title">Requisition and Issue Slip</div>
 

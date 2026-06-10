@@ -27,28 +27,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
     const supplierCustodian = dr.requestedByUser?.FullName || dr.RequestedByName || '';
 
     return (
-        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
-            <style
-                dangerouslySetInnerHTML={{
-                    __html: `
-                        @media print {
-                            .print-container {
-                                padding: 0;
-                                max-width: none;
-                                margin: 0;
-                                font-size: 12px;
-                                line-height: 1.3;
-                                font-family: Arial, Helvetica, sans-serif;
-                            }
-                            .no-print { display: none !important; }
-                        }
-                        @page {
-                            size: A4;
-                            margin: 10mm;
-                        }
-                    `
-                }}
-            />
+        <div ref={ref} className="gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
 
             <div className="text-[11px]">
                 <div className="gso-print-title">Inspection and Acceptance Report</div>

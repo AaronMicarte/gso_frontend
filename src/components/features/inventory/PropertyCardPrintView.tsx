@@ -17,28 +17,7 @@ const formatManilaDate = (value?: string | null) => {
 
 export function PropertyCardPrintView({ data }: PropertyCardPrintViewProps) {
     return (
-        <div className="print-container gso-print-doc bg-white p-8 max-w-6xl mx-auto text-black" style={{ fontFamily: 'Times New Roman, serif' }}>
-            <style
-                dangerouslySetInnerHTML={{
-                    __html: `
-                        @media print {
-                            .print-container {
-                                padding: 0;
-                                max-width: none;
-                                margin: 0;
-                                font-size: 12px;
-                                line-height: 1.25;
-                                font-family: 'Times New Roman', serif;
-                            }
-                            .no-print { display: none !important; }
-                        }
-                        @page {
-                            size: A4 landscape;
-                            margin: 8mm;
-                        }
-                    `,
-                }}
-            />
+        <div className="gso-print-doc bg-white p-8 max-w-6xl mx-auto text-black" style={{ fontFamily: 'Times New Roman, serif' }}>
 
             <div className="text-center text-2xl font-bold mb-2">PROPERTY CARD</div>
 

@@ -161,7 +161,52 @@ html.reduce-motion *::after {
   }
 }
 
+/* NOTE: Most browsers automatically add a header/footer with date, URL,
+   and page numbers when printing from the browser. That setting is
+   controlled by the user's print dialog ("Headers and footers").
+   We set the page margin to 0 to reduce visible browser margins;
+   to fully remove the browser-added header/footer the user must
+   disable headers/footers in the print dialog or use server-side
+   PDF generation (e.g. Puppeteer) which can disable headers.
+*/
 @page {
   size: A4;
-  margin: 10mm;
+  margin: 0;
+}
+
+/* Ensure printed content is aligned to page edges when using
+   the print-scope active pattern. Individual print views can add
+   internal padding to `.print-scope` if needed. */
+.print-scope {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10mm;
+}
+
+@media print {
+  .print-page-break {
+    page-break-after: always;
+  }
+
+  .par-signature-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .dr-signature-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+@media print {
+  .issuance-doc-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .ris-print-root {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

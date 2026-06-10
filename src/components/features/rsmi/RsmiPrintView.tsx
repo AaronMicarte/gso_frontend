@@ -166,48 +166,11 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
         }
 
         return (
-            <div ref={ref} className="print-container bg-white p-2 max-w-[1200px] mx-auto text-black">
+            <div ref={ref} className="gso-print-doc bg-white p-2 max-w-[1200px] mx-auto text-black">
                 <style>{`
-                    .print-container {
-                        font-family: 'Times New Roman', serif;
-                        font-size: 12px;
-                        line-height: 1.1;
-                    }
-
-                    @media print {
-                        body * {
-                            visibility: hidden !important;
-                        }
-                        .print-container,
-                        .print-container * {
-                            visibility: visible !important;
-                        }
-                        .print-container {
-                            padding: 0;
-                            margin: 0;
-                            max-width: none;
-                            width: 100%;
-                        }
-                        ${batchMode
-                        ? ''
-                        : `
-                        .print-container {
-                            position: absolute;
-                            left: 0;
-                            top: 0;
-                        }
-                        `
-                    }
-                        .rsmi-main-table thead {
-                            display: table-row-group;
-                        }
-                        .no-print { display: none !important; }
-                    }
-
-                    @page {
-                        size: A4 landscape;
-                        margin: 8mm;
-                    }
+                    .gso-print-doc { font-family: 'Times New Roman', serif; font-size: 12px; line-height: 1.1; }
+                    .rsmi-main-table thead { display: table-row-group; }
+                    .no-print { display: none !important; }
                 `}</style>
 
                 <div className="text-center font-bold text-[20px] mb-2 tracking-wide">REPORT OF SUPPLIES AND MATERIALS ISSUED</div>

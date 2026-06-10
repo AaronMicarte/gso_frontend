@@ -114,7 +114,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
 
     const receivedBySignature = runtimePrintSignature || issuance.AcknowledgmentSignature || issuance.signature_url;
     const issuerSignatureUrl = issuance.IssuerSignature
-        || issuance.request?.signatures?.find(s => s.role === 'issuer')?.url
+        || issuance.request?.signatures?.find((s: any) => s.role === 'issuer')?.url
         || null;
 
     const details = issuance.details ?? [];
@@ -141,7 +141,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         docDate
     );
 
-    const groupedRows = details.reduce<Map<string, GroupedIcsRow>>((map, detail, index) => {
+    const groupedRows = details.reduce<Map<string, GroupedIcsRow>>((map: Map<string, GroupedIcsRow>, detail: any, index: number) => {
         const inv = detail.inventoryDetail;
         const pInv = inv?.propertyInventory;
 
@@ -202,7 +202,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         return map;
     }, new Map());
 
-    const rows = Array.from(groupedRows.values()).sort((a, b) => {
+    const rows = (Array.from(groupedRows.values()) as GroupedIcsRow[]).sort((a, b) => {
         if (a.maxSequence !== b.maxSequence) {
             return b.maxSequence - a.maxSequence;
         }
@@ -215,37 +215,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         : 0;
 
     return (
-        <div ref={ref} className="print-container gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
-            {/* Print-specific styles */}
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                    @media print {
-                        .print-container {
-                            padding: 0;
-                            max-width: none;
-                            margin: 0;
-                            font-size: 12px;
-                            line-height: 1.3;
-                            font-family: Arial, Helvetica, sans-serif;
-                        }
-                        .no-print {
-                            display: none !important;
-                        }
-                        .print-page-break {
-                            page-break-after: always;
-                        }
-
-                        .ics-signature-block {
-                            break-inside: avoid;
-                            page-break-inside: avoid;
-                        }
-                    }
-                    @page {
-                        size: A4;
-                        margin: 10mm;
-                    }
-                `
-            }} />
+        <div ref={ref} className="gso-print-doc bg-white p-8 max-w-4xl mx-auto text-black">
 
             <>
                 {/* Header */}
