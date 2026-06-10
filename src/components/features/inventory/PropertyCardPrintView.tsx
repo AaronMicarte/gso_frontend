@@ -45,13 +45,13 @@ export function PropertyCardPrintView({ data }: PropertyCardPrintViewProps) {
                         </td>
                     </tr>
                     <tr>
-                        <th className="border border-black px-2 py-1">Date</th>
-                        <th className="border border-black px-2 py-1">Reference/PAR No.</th>
-                        <th className="border border-black px-2 py-1">Receipt Qty.</th>
-                        <th className="border border-black px-2 py-1">Issue/Transfer/Disposal Qty.</th>
-                        <th className="border border-black px-2 py-1">Office/Officer</th>
-                        <th className="border border-black px-2 py-1">Balance Qty.</th>
-                        <th className="border border-black px-2 py-1">Amount</th>
+                        <th className="border border-black px-2 py-1 whitespace-nowrap">Date</th>
+                        <th className="border border-black px-2 py-1 whitespace-nowrap">Reference/PAR No.</th>
+                        <th className="border border-black px-2 py-1 whitespace-nowrap">Receipt Qty.</th>
+                        <th className="border border-black px-2 py-1 whitespace-nowrap">Issue/Transfer/Disposal Qty.</th>
+                        <th className="border border-black px-2 py-1 whitespace-nowrap">Office/Officer</th>
+                        <th className="border border-black px-2 py-1 whitespace-nowrap">Balance Qty.</th>
+                        <th className="border border-black px-2 py-1 whitespace-nowrap">Amount</th>
                         <th colSpan={2} className="border border-black px-2 py-1">Remarks</th>
                     </tr>
 
