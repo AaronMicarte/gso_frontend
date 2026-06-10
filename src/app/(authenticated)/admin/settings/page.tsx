@@ -8,7 +8,6 @@ export default function AdminSettingsPage() {
             landingOptions={[
                 { label: 'Admin Dashboard', route: '/admin/dashboard' },
                 { label: 'User Management', route: '/admin/users' },
-                { label: 'Security Center', route: '/admin/security' },
                 { label: 'Turnstile Console', route: '/admin/security/turnstile' },
                 { label: 'Delivery Receipts', route: '/admin/delivery-receipts' },
             ]}

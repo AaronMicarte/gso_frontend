@@ -235,7 +235,6 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             items: [
                 {
                     label: 'Security & Audit', icon: ShieldCheck, children: [
-                        { label: 'Security Center', href: `${baseRoute}/security`, icon: Shield },
                         { label: 'Turnstile', href: `${baseRoute}/security/turnstile`, icon: ShieldCheck },
                         { label: 'Login Audit', href: `${baseRoute}/security/login-audit`, icon: ShieldCheck },
                         { label: 'Activity Logs', href: `${baseRoute}/security/activity-logs`, icon: FileClock },
