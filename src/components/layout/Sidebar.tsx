@@ -80,6 +80,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             ],
             roles: ['admin', 'staff', 'department_head'],
         },
+
         {
             section: 'DELIVERY',
             items: [
@@ -93,26 +94,30 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
         },
         {
             section: 'PROPERTY MANAGEMENT',
-            items: isAdmin
+            items: isDepartmentHead
                 ? [
                     {
-                        label: 'Inventory', icon: Box, children: [
-                            { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
-                            { label: 'All Items', href: `${baseRoute}/inventory/all-items`, icon: Package },
-                            { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: FileType },
-                            { label: 'Property Status', href: `${baseRoute}/masterdata/property-statuses`, icon: Tag },
+                        label: 'Inventory',
+                        icon: Box,
+                        children: [
+                            { label: 'Properties', href: `${baseRoute}/properties`, icon: FileType },
+                            { label: 'Received Items', href: `${baseRoute}/received-items`, icon: Truck },
+
+
                         ]
                     },
                 ]
                 : [
                     {
-                        label: 'Inventory', icon: Box, children: [
+                        label: 'Inventory',
+                        icon: Box,
+                        children: [
                             { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
                             { label: 'All Items', href: `${baseRoute}/inventory/all-items`, icon: Package },
                         ]
                     },
                 ],
-            roles: ['admin', 'staff'],
+            roles: ['admin', 'staff', 'department_head'],
         },
         {
             section: 'ISSUANCE & ASSIGNMENT',
@@ -152,7 +157,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                     ]
                 },
             ],
-            roles: ['admin', 'staff'],
+            roles: ['admin', 'staff', 'department_head'],
         },
         {
             section: 'MAINTENANCE',
@@ -196,6 +201,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                         { label: 'Disposal Methods', href: `${baseRoute}/masterdata/disposal-methods`, icon: Trash2 },
                         { label: 'Property Classifications', href: `${baseRoute}/masterdata/property-classifications`, icon: Tag },
                         { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: Box },
+                        { label: 'Property Status', href: `${baseRoute}/masterdata/property-statuses`, icon: Tag },
                         { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
                         { label: 'Repair Vendors', href: `${baseRoute}/masterdata/vendors`, icon: Wrench },
                         { label: 'Units of Measure', href: `${baseRoute}/masterdata/units-of-measure`, icon: Ruler },
