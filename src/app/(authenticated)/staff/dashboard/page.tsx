@@ -151,7 +151,6 @@ function QuickActions() {
     const actions = [
         { label: 'New Delivery Receipt', href: '/staff/delivery-receipts/new', icon: FileText, color: 'text-blue-500' },
         { label: 'View Issuance Requests', href: '/staff/issuance', icon: FileCheck, color: 'text-green-500' },
-        { label: 'View Master Data', href: '/staff/masterdata', icon: Database, color: 'text-amber-500' },
         { label: 'View Delivery Receipts', href: '/staff/delivery-receipts', icon: ClipboardList, color: 'text-purple-500' },
     ];
 
@@ -289,7 +288,7 @@ export default function StaffDashboardPage() {
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 min-h-screen" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
             {/* Header */}
             <div className="mb-6 sm:mb-8">
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-800">

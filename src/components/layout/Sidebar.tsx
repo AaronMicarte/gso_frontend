@@ -202,7 +202,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                     ]
                 },
             ],
-            roles: ['admin', 'staff'],
+            roles: ['admin'],
         },
         {
             section: 'REPORTS',
