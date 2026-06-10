@@ -300,23 +300,6 @@ export function IssuanceDocumentsListPage({
         loadDocuments(page);
     };
 
-    const handleDownloadDocument = async (issuance: AssetIssuance) => {
-        try {
-            const blob = await issuanceAPI.generateDocument(issuance.IssuanceID, issuance.DocumentType);
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `${issuance.DocumentNumber}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            toast.success(`Downloaded ${issuance.DocumentNumber}`);
-        } catch {
-            toast.error('Failed to download document');
-        }
-    };
 
     const filteredRows = useMemo(() => {
         if (!searchTerm) return rows;
@@ -487,13 +470,6 @@ export function IssuanceDocumentsListPage({
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </Link>
-                                                <button
-                                                    onClick={() => handleDownloadDocument(issuance)}
-                                                    className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                    title={`Download ${issuance.DocumentType}`}
-                                                >
-                                                    <Download className="w-4 h-4" />
-                                                </button>
                                             </div>
                                         </div>
                                     </div>

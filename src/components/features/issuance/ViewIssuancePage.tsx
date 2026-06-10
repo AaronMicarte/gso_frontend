@@ -330,18 +330,6 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                     </div>
                     <div className="flex items-center space-x-3">
                         <button
-                            onClick={handleDownloadDocument}
-                            disabled={!canShowQr}
-                            className={`inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] ${canShowQr
-                                ? 'text-slate-700 hover:bg-slate-50'
-                                : 'text-slate-400 cursor-not-allowed opacity-70'
-                                }`}
-                        >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download {issuance.DocumentType}
-                        </button>
-
-                        <button
                             onClick={handleOpenPrintView}
                             disabled={!canShowQr}
                             className={`inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] ${canShowQr
