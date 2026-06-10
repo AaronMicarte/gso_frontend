@@ -60,7 +60,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         && transfer?.Status === 'approved'
         && (transfer?.ReleasingDecision ?? 'pending') === 'pending';
     const canCompleteTransfer = isPrivilegedUser
-        && transfer?.Status === 'approved';
+        && transfer?.Status === 'approved'
+        && Boolean(transfer?.ReleasingReviewedAt);
     const isReleasingDepartmentViewer = user?.UserRoleID === 4
         && !isPrivilegedUser
         && Number(user?.DepartmentID ?? 0) === Number(transfer?.FromDepartmentID ?? 0);
