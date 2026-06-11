@@ -42,20 +42,24 @@ const drItemSchema = z.object({
         }
     }
 
-    // serial number implies quantity must equal 1
-    if ((data.serial_number || '').trim() !== '' && (data.quantity_delivered !== 1 || data.quantity_requested !== 1)) {
-        if (data.quantity_delivered !== 1) {
+    // serial_number may contain multiple comma-separated serials; require quantities to match count
+    const serials = String(data.serial_number || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    if (serials.length > 0) {
+        if (data.quantity_delivered !== serials.length) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['quantity_delivered'],
-                message: 'Quantity must be 1 when a serial number is provided',
+                message: `Quantity delivered must equal number of serial numbers (${serials.length})`,
             });
         }
-        if (data.quantity_requested !== 1) {
+        if (data.quantity_requested !== serials.length) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['quantity_requested'],
-                message: 'Quantity must be 1 when a serial number is provided',
+                message: `Quantity requested must equal number of serial numbers (${serials.length})`,
             });
         }
     }

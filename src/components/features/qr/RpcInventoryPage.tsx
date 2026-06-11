@@ -1583,7 +1583,7 @@ export function RpcInventoryPage() {
                                         <input
                                             value={scanInput}
                                             onChange={(e) => setScanInput(e.target.value)}
-                                            placeholder="Property ID, Property Number, or /qr/scan/{id} URL"
+                                            placeholder="Property Number (e.g. 2026-000003)"
                                             className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl"
                                         />
                                         <Button

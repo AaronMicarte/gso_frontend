@@ -166,16 +166,6 @@ export default function DepartmentHeadDashboard() {
                             </div>
                         </Link>
                     </div>
-
-                    <div className="mt-4">
-                        <Link
-                            href="/qr/scan"
-                            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-700"
-                        >
-                            <QrCode className="w-4 h-4" />
-                            Scan & Verify (QR)
-                        </Link>
-                    </div>
                 </div>
 
                 {/* Recent Activity */}

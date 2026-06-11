@@ -15,7 +15,7 @@ const itemSchema = z.object({
     item_description: z.string().max(1000, 'Item description is too long').optional().or(z.literal('')),
     brand: z.string().max(100, 'Brand is too long').optional().or(z.literal('')),
     model_number: z.string().max(100, 'Model number is too long').optional().or(z.literal('')),
-    serial_number: z.string().max(100, 'Serial number is too long').optional().or(z.literal('')),
+    serial_number: z.string().max(1000, 'Serial number is too long').optional().or(z.literal('')),
     property_type_id: z.number().int().min(1, 'Property type is required'),
     unit_of_measure_id: z.number().int().min(1, 'Unit is required'),
     quantity_delivered: z.number().int().min(1, 'Quantity must be at least 1'),
@@ -34,19 +34,24 @@ const itemSchema = z.object({
         }
     }
 
-    if ((data.serial_number || '').trim() !== '' && (data.quantity_delivered !== 1 || data.quantity_requested !== 1)) {
-        if (data.quantity_delivered !== 1) {
+    // serial_number may contain multiple comma-separated serials; require quantities to match count
+    const serials = String(data.serial_number || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    if (serials.length > 0) {
+        if (data.quantity_delivered !== serials.length) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['quantity_delivered'],
-                message: 'Quantity must be 1 when a serial number is provided',
+                message: `Quantity delivered must equal number of serial numbers (${serials.length})`,
             });
         }
-        if (data.quantity_requested !== 1) {
+        if (data.quantity_requested !== serials.length) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['quantity_requested'],
-                message: 'Quantity must be 1 when a serial number is provided',
+                message: `Quantity requested must equal number of serial numbers (${serials.length})`,
             });
         }
     }
@@ -105,17 +110,24 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
         return `/${raw}`;
     };
 
-    // if user types or picks a serial, enforce both quantities to 1
+    // Support multiple serial inputs (stored as comma-separated string in form field)
+    const [serials, setSerials] = useState<string[]>(() => {
+        const raw = String(initialValues.serial_number ?? '');
+        return raw.split(',').map(s => s.trim()).filter(Boolean).length > 0 ? raw.split(',').map(s => s.trim()).filter(Boolean) : [''];
+    });
+
     useEffect(() => {
-        if (serialNumber && serialNumber.trim() !== '') {
-            if (quantity !== 1) {
-                setValue('quantity_delivered', 1, { shouldValidate: true, shouldDirty: true });
-            }
-            if (requested !== 1) {
-                setValue('quantity_requested', 1, { shouldValidate: true, shouldDirty: true });
-            }
+        // keep form's serial_number in sync as comma-separated list
+        const joined = serials.map(s => s.trim()).filter(Boolean).join(',');
+        setValue('serial_number', joined, { shouldValidate: true, shouldDirty: true });
+
+        const count = serials.map(s => s.trim()).filter(Boolean).length;
+        if (count > 0) {
+            if (quantity !== count) setValue('quantity_delivered', count, { shouldValidate: true, shouldDirty: true });
+            if (requested !== count) setValue('quantity_requested', count, { shouldValidate: true, shouldDirty: true });
         }
-    }, [serialNumber, quantity, requested, setValue]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [serials]);
 
     useEffect(() => {
         if (quantity === requested) {
@@ -207,6 +219,10 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                 setArticleQuery('');
                 setValue('article_id', 0);
             }
+            // sync serials array from initial values when modal opens
+            const rawSerials = String(initialValues.serial_number ?? '');
+            const parsed = rawSerials.split(',').map(s => s.trim()).filter(Boolean);
+            setSerials(parsed.length > 0 ? parsed : ['']);
             setArticleTouched(false);
         }
         prevOpenRef.current = open;
@@ -392,34 +408,6 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                     />
                 </div>
 
-                {/* Brand / Model / Serial (optional) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-semibold text-slate-900">Brand</label>
-                        <Input
-                            {...register('brand')}
-                            placeholder="Manufacturer or brand"
-                            error={errors.brand?.message}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-semibold text-slate-900">Model</label>
-                        <Input
-                            {...register('model_number')}
-                            placeholder="Model number"
-                            error={errors.model_number?.message}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-semibold text-slate-900">Serial #</label>
-                        <Input
-                            {...register('serial_number')}
-                            placeholder="Serial number"
-                            error={errors.serial_number?.message}
-                        />
-                    </div>
-                </div>
-
                 {/* Property Type & Unit of Measure */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -450,6 +438,62 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                                 <option key={u.id} value={u.id}>{u.name}</option>
                             ))}
                         </select>
+                    </div>
+                </div>
+
+                {/* Brand / Model / Serial (optional) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-900">Brand</label>
+                        <Input
+                            {...register('brand')}
+                            placeholder="Manufacturer or brand"
+                            error={errors.brand?.message}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-900">Model</label>
+                        <Input
+                            {...register('model_number')}
+                            placeholder="Model number"
+                            error={errors.model_number?.message}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-900">Serial #</label>
+                        <div className="space-y-2">
+                            {serials.map((s, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                    <Input
+                                        value={s}
+                                        onChange={(e) => setSerials(prev => prev.map((p, i) => i === idx ? e.target.value : p))}
+                                        placeholder={idx === 0 ? 'Serial number' : `Serial ${idx + 1}`}
+                                        className="flex-1"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                        onClick={() => setSerials(prev => prev.concat(['']))}
+                                        title="Add serial"
+                                    >
+                                        +
+                                    </button>
+                                    {serials.length > 1 && (
+                                        <button
+                                            type="button"
+                                            className="px-2 py-1 rounded border border-rose-200 text-rose-600 hover:bg-rose-50"
+                                            onClick={() => setSerials(prev => prev.filter((_, i) => i !== idx))}
+                                            title="Remove"
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                            {errors.serial_number && (
+                                <p className="text-sm text-[var(--error)]">{errors.serial_number.message}</p>
+                            )}
+                        </div>
                     </div>
                 </div>
 
