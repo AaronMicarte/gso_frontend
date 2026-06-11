@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import { DeliveryReceipt } from '@/types/procurement';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -96,20 +97,22 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                             const propertyNumbers = (item?.propertyNumbers && item.propertyNumbers.length > 0)
                                 ? item.propertyNumbers
                                 : (item?.inventoryDetails?.map((inv) => inv.PropertyNumber).filter(Boolean) ?? []);
+                            const compressedPropertyNumbers = Array.isArray(propertyNumbers)
+                                ? compressPropertyNumbers(propertyNumbers.join('/'))
+                                : compressPropertyNumbers(propertyNumbers as any);
                             const description = item
                                 ? [
                                     item.article?.ArticleName,
                                     item.ItemDescription,
                                     item.Brand ? `Brand: ${item.Brand}` : null,
                                     item.ModelNumber ? `Model: ${item.ModelNumber}` : null,
-                                    item.SerialNumber ? `SN: ${item.SerialNumber}` : null,
                                 ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0).join(' / ')
                                 : '';
 
                             return (
                                 <tr key={`iar-row-${idx}`}>
                                     <td className="h-8 border-b border-black border-r border-black px-1 py-1 align-top whitespace-pre-line">
-                                        {propertyNumbers.join('\n')}
+                                        {compressedPropertyNumbers}
                                     </td>
                                     <td className="h-8 border-b border-black border-r border-black px-1 py-1">{description}</td>
                                     <td className="h-8 border-b border-black border-r border-black px-1 py-1 text-center">{item?.unitOfMeasure?.UnitName || ''}</td>

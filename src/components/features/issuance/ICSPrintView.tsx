@@ -3,6 +3,7 @@ import { AssetIssuance } from '@/types/assetIssuance';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import Image from 'next/image';
+import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 
 interface ICSPrintViewProps {
     issuance: AssetIssuance;
@@ -22,8 +23,9 @@ interface GroupedIcsRow {
     maxSequence: number;
 }
 
+// small local helper to extract trailing numeric part for ordering
 function parseTrailingNumber(value: string): { prefix: string; number: number; width: number } | null {
-    const trimmed = value.trim();
+    const trimmed = String(value ?? '').trim();
     const match = trimmed.match(/^(.*?)(\d+)$/);
     if (!match) return null;
     const numberText = match[2];
@@ -34,56 +36,7 @@ function parseTrailingNumber(value: string): { prefix: string; number: number; w
     };
 }
 
-function formatRange(values: string[]): string {
-    const unique = Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
-    if (unique.length === 0) return '';
-    if (unique.length === 1) return unique[0];
-
-    const parsed = unique.map((value) => ({ value, parsed: parseTrailingNumber(value) }));
-    const firstParsed = parsed[0].parsed;
-    const canCompact = !!firstParsed && parsed.every((item) => (
-        item.parsed
-        && item.parsed.prefix === firstParsed.prefix
-        && item.parsed.width === firstParsed.width
-    ));
-
-    if (canCompact) {
-        const sorted = parsed
-            .map((item) => ({
-                parsed: item.parsed!,
-            }))
-            .sort((a, b) => a.parsed.number - b.parsed.number);
-
-        const blocks: string[] = [];
-        let start = sorted[0].parsed.number;
-        let previous = sorted[0].parsed.number;
-
-        const pushBlock = (rangeStart: number, rangeEnd: number) => {
-            const startFull = `${firstParsed.prefix}${String(rangeStart).padStart(firstParsed.width, '0')}`;
-            if (rangeStart === rangeEnd) {
-                blocks.push(startFull);
-                return;
-            }
-            const endSuffix = String(rangeEnd).padStart(firstParsed.width, '0');
-            blocks.push(`${startFull}/${endSuffix}`);
-        };
-
-        for (let i = 1; i < sorted.length; i++) {
-            const current = sorted[i].parsed.number;
-            if (current !== previous + 1) {
-                pushBlock(start, previous);
-                start = current;
-            }
-            previous = current;
-        }
-
-        pushBlock(start, previous);
-
-        return blocks.join(', ');
-    }
-
-    return unique.slice().sort((a, b) => a.localeCompare(b)).join(', ');
-}
+// use shared helper `compressPropertyNumbers` for consistent formatting
 
 export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(({ issuance, printSignature }, ref) => {
     const formatDate = (dateString?: string) => {
@@ -153,8 +106,8 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
             'ITEM'
         );
         const brandModel = [pInv?.Brand, pInv?.ModelNumber].filter(Boolean).join(' ');
-        const serial = ensureText(pInv?.SerialNumber, '');
-        const description = [itemName, brandModel, serial ? `SN: ${serial}` : ''].filter(Boolean).join(' / ');
+        // exclude serial from description so items with different serials group together
+        const description = [itemName, brandModel].filter(Boolean).join(' / ');
 
         const inventoryItemNo = ensureText(
             pInv?.InventoryNumber || inv?.InventoryNumber || inv?.PropertyNumber || inv?.InventoryDetailID,
@@ -266,7 +219,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                                 <td className="border border-black px-1 py-1 text-right">{row.unitCost.toFixed(2)}</td>
                                 <td className="border border-black px-1 py-1 text-right">{row.totalCost.toFixed(2)}</td>
                                 <td className="border border-black px-1 py-1 align-top whitespace-pre-line">{row.description}</td>
-                                <td className="border border-black px-1 py-1 text-center">{formatRange(row.inventoryNumbers)}</td>
+                                <td className="border border-black px-1 py-1 text-center">{compressPropertyNumbers(row.inventoryNumbers.join('/'))}</td>
                                 <td className="border border-black px-1 py-1 text-center">{row.dateAcquired}</td>
                                 <td className="border border-black px-1 py-1 text-center">{row.estimatedUsefulLife}</td>
                             </tr>

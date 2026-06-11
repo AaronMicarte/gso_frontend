@@ -28,17 +28,17 @@ const buildItemDescription = (item: BorrowableItem) => (
 );
 
 const buildFullSpecs = (item: BorrowableItem) => (
-    [item.Brand, item.ModelNumber, item.SerialNumber ? `SN: ${item.SerialNumber}` : null]
+    [item.Brand, item.ModelNumber]
         .filter(Boolean)
         .join(' | ')
 );
 
 const buildGroupKey = (item: BorrowableItem) => {
-    const serialKey = item.SerialNumber || 'no-serial';
+    // Group by brand, model and description only — exclude serial so identical items combine
     const brandKey = item.Brand || 'no-brand';
     const modelKey = item.ModelNumber || 'no-model';
     const descKey = buildItemDescription(item);
-    return `${serialKey}||${brandKey}||${modelKey}||${descKey}`;
+    return `${brandKey}||${modelKey}||${descKey}`;
 };
 
 export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
@@ -794,6 +794,9 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                 </div>
 
                                 <div className="flex flex-wrap gap-2">
+                                    <span className="inline-flex items-center rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-100">
+                                        All Semi Expe
+                                    </span>
                                     {allowedTypes.map((type) => (
                                         <span
                                             key={type.PropertyTypeID}

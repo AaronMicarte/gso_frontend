@@ -1,4 +1,5 @@
 import React from 'react';
+import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import { IAR } from '@/types/iar';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -103,18 +104,24 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
                         </tr>
                     </thead>
                     <tbody>
-                        {iar.details?.map((d, i) => (
-                            <tr key={i}>
-                                <td className="border border-black text-center">{i + 1}</td>
-                                <td className="border border-black p-1">{d.drDetail?.ItemDescription}</td>
-                                <td className="border border-black text-center">{d.drDetail?.UnitName}</td>
-                                <td className="border border-black text-center">{d.drDetail?.QuantityDelivered}</td>
-                                <td className="border border-black text-right">
-                                    {((d.drDetail?.QuantityDelivered || 0) * (d.drDetail?.UnitCost || 0))
-                                        .toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                                </td>
-                            </tr>
-                        ))}
+                        {iar.details?.map((d, i) => {
+                            const drDetailAny: any = d.drDetail as any;
+                            const propertyNumbers = drDetailAny?.propertyNumbers ?? (drDetailAny?.inventory_details?.map((inv: any) => inv.PropertyNumber).filter(Boolean) ?? []);
+                            const propNumStr = Array.isArray(propertyNumbers) ? propertyNumbers.join('/') : (propertyNumbers || '');
+                            const compressed = compressPropertyNumbers(propNumStr);
+                            return (
+                                <tr key={i}>
+                                    <td className="border border-black text-center">{compressed || (i + 1)}</td>
+                                    <td className="border border-black p-1">{d.drDetail?.ItemDescription}</td>
+                                    <td className="border border-black text-center">{d.drDetail?.UnitName}</td>
+                                    <td className="border border-black text-center">{d.drDetail?.QuantityDelivered}</td>
+                                    <td className="border border-black text-right">
+                                        {((d.drDetail?.QuantityDelivered || 0) * (d.drDetail?.UnitCost || 0))
+                                            .toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                    </td>
+                                </tr>
+                            );
+                        })}
 
                         <tr>
                             <td colSpan={4} className="border border-black text-right font-bold">TOTAL</td>

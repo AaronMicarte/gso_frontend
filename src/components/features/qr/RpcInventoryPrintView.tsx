@@ -1,4 +1,5 @@
 import React from 'react';
+import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import type { RpcType, RpcInventoryReportRow } from '@/types/rpcInventory';
@@ -237,7 +238,7 @@ export function RpcInventoryPrintView({
                                             <tr key={`${page.propertyType}-${row?.property_number || 'empty'}-${index}`}>
                                                 <td className="border border-black px-1 py-1">{row?.article || ''}</td>
                                                 <td className="border border-black px-1 py-1">{row?.description || ''}</td>
-                                                <td className="border border-black px-1 py-1">{row?.property_number || ''}</td>
+                                                <td className="border border-black px-1 py-1">{row ? compressPropertyNumbers(row.property_number) : ''}</td>
                                                 <td className="border border-black px-1 py-1 text-center">{row?.unit_of_measure || ''}</td>
                                                 <td className="border border-black px-1 py-1 text-right">{row ? currency(row.unit_value || 0) : ''}</td>
                                                 <td className="border border-black px-1 py-1 text-right">{row ? currency((row.unit_value || 0) * (row.quantity_per_card || 0)) : ''}</td>

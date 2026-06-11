@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Dialog as ConfirmDialog } from '@/components/ui/Dialog';
 
 import transferAPI from '@/lib/api/transfer';
+import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import { PropertyTransfer, PropertyTransferItem, TransferStatus } from '@/types/propertyTransfer';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -85,20 +86,22 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
             const article = displaySafeText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article');
             const description = displaySafeText(item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description, 'Unspecified item');
             const unit = displaySafeText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'unit');
-            const fullSpecs = [
+            // display full specs without serial (SN is not part of specs)
+            const fullSpecsDisplay = [
                 item.inventoryDetail?.Brand,
                 item.inventoryDetail?.ModelNumber,
-                (item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber)
-                    ? `SN: ${item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber}`
-                    : null,
             ].filter(Boolean).join(' | ') || 'Missing full specs';
-            const groupKey = `${article}||${description}||${fullSpecs}||${unit}`;
+            const fullSpecsKey = [
+                item.inventoryDetail?.Brand,
+                item.inventoryDetail?.ModelNumber,
+            ].filter(Boolean).join(' | ') || 'Missing full specs';
+            const groupKey = `${article}||${description}||${fullSpecsKey}||${unit}`;
 
             if (!groups.has(groupKey)) {
                 groups.set(groupKey, {
                     key: groupKey,
                     label: `${article} · ${description} (${unit})`,
-                    fullSpecs,
+                    fullSpecs: fullSpecsDisplay,
                     propertyNumbers: [],
                     requestedQty: 0,
                     itemIds: [],
@@ -140,14 +143,16 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
             const article = displaySafeText(item.inventoryDetail?.drDetail?.article?.ArticleName, 'Missing article');
             const itemDescription = displaySafeText(item.inventoryDetail?.drDetail?.ItemDescription || item.inventoryDetail?.Description, 'Missing item description');
             const unit = displaySafeText(item.inventoryDetail?.unitOfMeasure?.UnitName, 'Missing unit');
-            const fullSpecs = [
+            // display full specs without serial (SN is not part of specs)
+            const fullSpecsDisplay2 = [
                 item.inventoryDetail?.Brand,
                 item.inventoryDetail?.ModelNumber,
-                (item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber)
-                    ? `SN: ${item.inventoryDetail?.SerialNumber || item.inventoryDetail?.drDetail?.SerialNumber}`
-                    : null,
             ].filter(Boolean).join(' | ') || 'Missing full specs';
-            const key = `${article}||${itemDescription}||${fullSpecs}||${unit}`;
+            const fullSpecsKey2 = [
+                item.inventoryDetail?.Brand,
+                item.inventoryDetail?.ModelNumber,
+            ].filter(Boolean).join(' | ') || 'Missing full specs';
+            const key = `${article}||${itemDescription}||${fullSpecsKey2}||${unit}`;
 
             if (!groups.has(key)) {
                 groups.set(key, {
@@ -156,7 +161,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                     approvedQty: 0,
                     article,
                     itemDescription,
-                    fullSpecs,
+                    fullSpecs: fullSpecsDisplay2,
                     unit,
                     propertyNumbers: [],
                     statusClass: 'bg-amber-100 text-amber-700',
@@ -951,7 +956,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                                 </div>
                                             ) : (
                                                 <details>
-                                                    <summary className="cursor-pointer text-slate-700">Multiple ({row.propertyNumbers.length})</summary>
+                                                    <summary className="cursor-pointer text-slate-700">
+                                                        {compressPropertyNumbers(row.propertyNumbers.map((p) => p.propertyNumber).join('/'))}
+                                                    </summary>
                                                     <div className="mt-2 space-y-2 text-xs text-slate-500">
                                                         {row.propertyNumbers.map((entry, idx) => (
                                                             <div key={`${row.key}-property-${entry.propertyNumber}-${idx}`} className="flex flex-wrap items-center justify-between gap-2">

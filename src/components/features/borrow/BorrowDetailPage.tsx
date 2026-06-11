@@ -116,9 +116,6 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
             const fullSpecs = [
                 item.inventoryDetail?.Brand,
                 item.inventoryDetail?.ModelNumber,
-                item.inventoryDetail?.SerialNumber
-                    ? `SN: ${item.inventoryDetail.SerialNumber}`
-                    : null,
             ].filter(Boolean).join(' | ') || 'Missing full specs';
             const groupKey = `${article}||${description}||${fullSpecs}||${unit}`;
 
@@ -171,9 +168,6 @@ export function BorrowDetailPage({ baseRoute }: BorrowDetailPageProps) {
             const fullSpecs = [
                 item.inventoryDetail?.Brand,
                 item.inventoryDetail?.ModelNumber,
-                item.inventoryDetail?.SerialNumber
-                    ? `SN: ${item.inventoryDetail.SerialNumber}`
-                    : null,
             ].filter(Boolean).join(' | ') || 'Missing full specs';
             const key = `${article}||${itemDescription}||${fullSpecs}||${unit}`;
 
