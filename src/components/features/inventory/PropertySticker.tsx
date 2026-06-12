@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
-import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
+import React, { useCallback, useState } from 'react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { QrCode, X, Printer } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { toPng } from 'html-to-image';
 
 interface PropertyStickerProps {
     propertyNumber: string;
@@ -33,32 +32,45 @@ export function PropertySticker({
     acquisitionDate = '-',
     unitCost
 }: PropertyStickerProps) {
-    const viewRef = useRef<HTMLDivElement>(null);
-    const printRef = useRef<HTMLDivElement>(null);
-    const printButtonRef = useRef<HTMLButtonElement>(null);
     const [open, setOpen] = useState(false);
-    const [isPrinting, setIsPrinting] = useState(false);
 
     const resolvedItemName = itemName || description || '-';
     const resolvedCategory = category || classification || '-';
     const resolvedDate = date || acquisitionDate || '-';
 
-    const handlePrint = useCallback(async () => {
-        const nodeToPrint = printRef.current ?? viewRef.current;
-        if (!nodeToPrint || isPrinting) return;
+    const escapeHtml = (s: string) =>
+        s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
 
-        // Open the print window synchronously (still inside the click gesture).
-        // If we wait for async work first, many browsers will show an about:blank window.
+    const handlePrint = useCallback(() => {
+        // Render the QR code to a canvas off the visible tree, then grab its data URL.
+        const qrCanvas = document.createElement('canvas');
+        const qrContainer = document.createElement('div');
+        qrContainer.style.position = 'fixed';
+        qrContainer.style.left = '-9999px';
+        document.body.appendChild(qrContainer);
+
+        // Use a temporary React-free render via QRCodeCanvas isn't possible outside React,
+        // so instead we read the already-rendered QR canvas from the dialog.
+        const existingCanvas = document.querySelector<HTMLCanvasElement>(
+            '[data-sticker-qr="true"] canvas'
+        );
+
+        let qrDataUrl = '';
+        if (existingCanvas) {
+            qrDataUrl = existingCanvas.toDataURL('image/png');
+        }
+        document.body.removeChild(qrContainer);
+        void qrCanvas;
+
         const printWindow = window.open('', 'gso-property-sticker-print');
         if (!printWindow) return;
-        try {
-            printWindow.focus();
-        } catch {
-            // ignore
-        }
 
-        printWindow.document.open();
-        printWindow.document.write(`
+        const html = `
 <!doctype html>
 <html>
     <head>
@@ -66,189 +78,118 @@ export function PropertySticker({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Property Sticker</title>
         <style>
-            @page { size: A4; margin: 10mm; }
-            html, body { height: 100%; font-family: Helvetica, Arial, sans-serif; }
-            body { margin: 0; display: flex; align-items: center; justify-content: center; background: #fff; }
-            img { max-width: 100%; height: auto; }
-            .loading { font-family: Helvetica, Arial, sans-serif; color: #334155; }
-        </style>
-    </head>
-    <body>
-        <div class="loading">Preparing sticker…</div>
-    </body>
-</html>`);
-        printWindow.document.close();
-
-        try {
-            setIsPrinting(true);
-
-            const printButtonEl = printButtonRef.current;
-            const previousVisibility = printButtonEl?.style.visibility;
-            if (printButtonEl) printButtonEl.style.visibility = 'hidden';
-
-            // Ensure fonts/layout are fully settled before snapshotting.
-            if (document.fonts?.ready) {
-                await document.fonts.ready;
+            @page { size: A4 landscape; margin: 10mm;}
+            * { box-sizing: border-box; }
+            html, body { height: 100%; margin: 0; }
+            body {
+                font-family: Helvetica, Arial, sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #fff;
             }
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
-            const rect = nodeToPrint.getBoundingClientRect();
-            const width = Math.max(1, Math.ceil(rect.width || nodeToPrint.scrollWidth));
-            const height = Math.max(1, Math.ceil(rect.height || nodeToPrint.scrollHeight));
-
-            const dataUrl = await toPng(nodeToPrint, {
-                cacheBust: true,
-                pixelRatio: 2,
-                backgroundColor: '#ffffff',
-                width,
-                height,
-            });
-
-            if (printButtonEl) printButtonEl.style.visibility = previousVisibility ?? '';
-
-            // Replace the loading content with the final image, then print after it loads.
-            if (printWindow.closed) return;
-
-            printWindow.document.open();
-            printWindow.document.write(`
-<!doctype html>
-<html>
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Property Sticker</title>
-        <style>
-            @page { size: A4; margin: 10mm; }
-            html, body { height: 100%; }
-            body { margin: 0; display: flex; align-items: center; justify-content: center; background: #fff; }
-            img { max-width: 100%; height: auto; }
+            .sticker {
+                 display: grid;
+                 grid-template-columns: 1fr 320px;
+                 gap: 40px;
+                 align-items: start;
+                 padding: 40px;
+                 max-width: 900px;
+                 border: 2px solid #94a3b8;
+            }
+            .title {
+                font-size: 28px;
+                font-weight: 800;
+                letter-spacing: 0.05em;
+                color: #2563eb;
+                margin-bottom: 40px;
+            }
+            .field {
+                display: flex;
+                align-items: flex-end;
+                gap: 16px;
+                margin-bottom: 24px;
+                color: #2563eb;
+                font-size: 18px;
+            }
+            .field-label {
+                width: 112px;
+                flex-shrink: 0;
+            }
+            .field-value {
+                flex: 1;
+                border-bottom: 1px solid #60a5fa;
+                padding-bottom: 4px;
+                color: #0f172a;
+            }
+            .qr-wrap {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .qr-box {
+                background: #fff;
+                padding: 16px;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+                border: 1px solid #e2e8f0;
+            }
+            .qr-box img {
+                width: 260px;
+                height: 260px;
+                display: block;
+            }
         </style>
     </head>
     <body>
-        <img id="sticker" alt="Property Sticker" />
-    </body>
-</html>`);
-            printWindow.document.close();
-
-            const img = printWindow.document.getElementById('sticker') as HTMLImageElement | null;
-            if (!img) return;
-
-            img.onload = () => {
-                try {
-                    printWindow.onafterprint = () => {
-                        try {
-                            printWindow.close();
-                        } catch {
-                            // ignore
-                        }
-                    };
-
-                    printWindow.focus();
-                    printWindow.print();
-                } catch {
-                    // ignore
-                }
-            };
-            img.onerror = () => {
-                try {
-                    const body = printWindow.document.body;
-                    body.innerHTML = '<div style="font-family:Arial,Helvetica,sans-serif;color:#b91c1c;padding:16px;">Failed to render sticker image for printing.</div>';
-                } catch {
-                    // ignore
-                }
-            };
-            img.src = dataUrl;
-        } finally {
-            const printButtonEl = printButtonRef.current;
-            if (printButtonEl) printButtonEl.style.visibility = '';
-            setIsPrinting(false);
-        }
-    }, [isPrinting]);
-
-    const StickerContent = useCallback(
-        ({ showPrintButton }: { showPrintButton: boolean }) => (
-            <div className="p-10" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-10 items-start">
-                    <div>
-                        <div className="text-3xl font-extrabold tracking-wide text-blue-600 mb-10">
-                            ITEM {propertyNumber}
-                        </div>
-
-                        <div className="space-y-6 text-blue-600">
-                            <div className="flex items-end gap-4">
-                                <div className="w-28 text-lg">Name:</div>
-                                <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
-                                    {custodianName || '-'}
-                                </div>
-                            </div>
-
-                            <div className="flex items-end gap-4">
-                                <div className="w-28 text-lg">Article:</div>
-                                <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
-                                    {resolvedItemName}
-                                </div>
-                            </div>
-
-                            <div className="flex items-end gap-4">
-                                <div className="w-28 text-lg">Classification:</div>
-                                <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
-                                    {resolvedCategory}
-                                </div>
-                            </div>
-
-                            <div className="flex items-end gap-4">
-                                <div className="w-28 text-lg">PR Number:</div>
-                                <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
-                                    {propertyNumber}
-                                </div>
-                            </div>
-
-                            <div className="flex items-end gap-4">
-                                <div className="w-28 text-lg">Date:</div>
-                                <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
-                                    {resolvedDate}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center">
-                        <div className="bg-white p-4 shadow-lg border border-slate-200">
-                            {showPrintButton ? (
-                                <QRCodeCanvas value={url} size={260} level="H" includeMargin={true} />
-                            ) : (
-                                <QRCodeSVG value={url} width={260} height={260} level="H" includeMargin={true} />
-                            )}
-                        </div>
-
-                        {showPrintButton ? (
-                            <button
-                                ref={printButtonRef}
-                                type="button"
-                                onClick={handlePrint}
-                                disabled={isPrinting}
-                                className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-                            >
-                                <Printer className="w-4 h-4" />
-                                Print Property Sticker
-                            </button>
-                        ) : null}
-                    </div>
+        <div class="sticker">
+            <div>
+                <div class="title">ITEM ${escapeHtml(propertyNumber)}</div>
+                <div class="field">
+                    <div class="field-label">Name:</div>
+                    <div class="field-value">${escapeHtml(custodianName || '-')}</div>
+                </div>
+                <div class="field">
+                    <div class="field-label">Article:</div>
+                    <div class="field-value">${escapeHtml(resolvedItemName)}</div>
+                </div>
+                <div class="field">
+                    <div class="field-label">Classification:</div>
+                    <div class="field-value">${escapeHtml(resolvedCategory)}</div>
+                </div>
+                <div class="field">
+                    <div class="field-label">PR Number:</div>
+                    <div class="field-value">${escapeHtml(propertyNumber)}</div>
+                </div>
+                <div class="field">
+                    <div class="field-label">Date:</div>
+                    <div class="field-value">${escapeHtml(resolvedDate)}</div>
                 </div>
             </div>
-        ),
-        [
-            custodianName,
-            handlePrint,
-            isPrinting,
-            propertyNumber,
-            resolvedCategory,
-            resolvedDate,
-            resolvedItemName,
-            url,
-        ]
-    );
+            <div class="qr-wrap">
+                <div class="qr-box">
+                    ${qrDataUrl
+                ? `<img src="${qrDataUrl}" alt="QR Code" />`
+                : `<div style="width:260px;height:260px;display:flex;align-items:center;justify-content:center;color:#94a3b8;">QR unavailable</div>`
+            }
+                </div>
+            </div>
+        </div>
+        <script>
+            window.onload = function () {
+                window.focus();
+                window.print();
+            };
+            window.onafterprint = function () {
+                window.close();
+            };
+        </script>
+    </body>
+</html>`;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+    }, [propertyNumber, custodianName, resolvedItemName, resolvedCategory, resolvedDate]);
 
     return (
         <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -271,19 +212,72 @@ export function PropertySticker({
                         </button>
                     </Dialog.Close>
 
-                    <div ref={viewRef}>{StickerContent({ showPrintButton: true })}</div>
+                    <div className="p-10" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
+                        <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-10 items-start">
+                            <div>
+                                <div className="text-3xl font-extrabold tracking-wide text-blue-600 mb-10">
+                                    ITEM {propertyNumber}
+                                </div>
+
+                                <div className="space-y-6 text-blue-600">
+                                    <div className="flex items-end gap-4">
+                                        <div className="w-28 text-lg">Name:</div>
+                                        <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
+                                            {custodianName || '-'}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-end gap-4">
+                                        <div className="w-28 text-lg">Article:</div>
+                                        <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
+                                            {resolvedItemName}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-end gap-4">
+                                        <div className="w-28 text-lg">Classification:</div>
+                                        <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
+                                            {resolvedCategory}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-end gap-4">
+                                        <div className="w-28 text-lg">PR Number:</div>
+                                        <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
+                                            {propertyNumber}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-end gap-4">
+                                        <div className="w-28 text-lg">Date:</div>
+                                        <div className="flex-1 border-b border-blue-400 pb-1 text-slate-900 text-lg">
+                                            {resolvedDate}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col items-center">
+                                <div
+                                    className="bg-white p-4 shadow-lg border border-slate-200"
+                                    data-sticker-qr="true"
+                                >
+                                    <QRCodeCanvas value={url} size={260} level="H" includeMargin={true} />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handlePrint}
+                                    className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    Print Property Sticker
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </Dialog.Content>
             </Dialog.Portal>
-
-            {/* Offscreen render for reliable screenshot-to-print */}
-            <div
-                aria-hidden="true"
-                style={{ position: 'fixed', left: 0, top: 0, opacity: 0, pointerEvents: 'none' }}
-            >
-                <div ref={printRef} className="max-w-5xl bg-white">
-                    {StickerContent({ showPrintButton: false })}
-                </div>
-            </div>
         </Dialog.Root>
     );
 }
