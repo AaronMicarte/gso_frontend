@@ -247,17 +247,36 @@ export function RpcInventoryPrintView({
                                                 <td className="border border-black px-1 py-1 text-center">{row?.shortage_overage_qty ?? ''}</td>
                                                 <td className="border border-black px-1 py-1 text-right">{row ? currency(row.shortage_overage_value || 0) : ''}</td>
                                                 <td className="border border-black px-1 py-1">
-                                                    {row ? (
-                                                        // Prefer a grouped remark for the aggregated row when present.
-                                                        // The backend sets `remarks` to the group-level remark where available.
-                                                        (row.remarks && row.remarks !== '-')
-                                                            ? row.remarks
-                                                            : (row.property_remarks && Object.keys(row.property_remarks).length > 0
-                                                                ? Object.entries(row.property_remarks)
-                                                                    .map(([pn, rm]) => `${pn}: ${rm ?? '-'}`)
-                                                                    .join('; ')
-                                                                : '')
-                                                    ) : ''}
+                                                    {row ? (() => {
+                                                        // Prefer an explicit grouped remark when present.
+                                                        if (row.remarks && row.remarks !== '-') {
+                                                            return row.remarks;
+                                                        }
+
+                                                        // Derive Not Found counts from expected vs scanned totals for grouped rows.
+                                                        const expected = Number(row.quantity_per_card || 0);
+                                                        const counted = Number(row.quantity_per_count || 0);
+                                                        const notFound = expected - counted;
+
+                                                        if (expected > 0) {
+                                                            if (notFound <= 0) {
+                                                                return '';
+                                                            }
+                                                            if (notFound === expected) {
+                                                                return 'Not Found';
+                                                            }
+                                                            return `${notFound} Not Found`;
+                                                        }
+
+                                                        // Fallback: show per-property remarks when available.
+                                                        if (row.property_remarks && Object.keys(row.property_remarks).length > 0) {
+                                                            return Object.entries(row.property_remarks)
+                                                                .map(([pn, rm]) => `${pn}: ${rm ?? '-'}`)
+                                                                .join('; ');
+                                                        }
+
+                                                        return '';
+                                                    })() : ''}
                                                 </td>
                                                 <td className="border border-black px-1 py-1">{row ? formatPrintEndUser(row.accountable_officer, row.department) : ''}</td>
                                                 <td className="border border-black px-1 py-1">{row?.department || ''}</td>

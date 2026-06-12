@@ -122,6 +122,10 @@ export interface RpcInventoryReportRow {
     shortage_overage_qty: number;
     shortage_overage_value: number;
     remarks: string | null;
+    /**
+     * Optional map of individual property number => remark for grouped rows.
+     */
+    property_remarks?: Record<string, string | null> | null;
     accountable_officer: string;
     department: string;
     condition?: string | null;

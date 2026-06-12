@@ -463,7 +463,6 @@ export function RpcInventoryPage() {
             ['previous_remarks', log.previous_remarks],
             ['new_remarks', log.new_remarks],
             ['rpc_type', details.rpc_type],
-            ['remarks', details.remarks],
             ['source', details.source ?? log.source],
             ['scanned_at', details.scanned_at],
         ];
@@ -1204,7 +1203,7 @@ export function RpcInventoryPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <label className="text-sm">
                                     <span className="block text-slate-600 mb-1">Condition</span>
                                     <select
@@ -1226,16 +1225,6 @@ export function RpcInventoryPage() {
                                         value={selectedInventoryDetailIds.length}
                                         readOnly
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-100 text-slate-700"
-                                    />
-                                </label>
-                                <label className="text-sm md:col-span-1">
-                                    <span className="block text-slate-600 mb-1">Remarks</span>
-                                    <input
-                                        type="text"
-                                        value={scanRemarks}
-                                        onChange={(e) => setScanRemarks(e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                                        placeholder="optional"
                                     />
                                 </label>
                             </div>
@@ -1277,17 +1266,6 @@ export function RpcInventoryPage() {
                             <div className="text-sm text-slate-600">
                                 {editingGroup.primaryScan.article || editingGroup.primaryScan.description || '-'}
                             </div>
-
-                            <label className="text-sm block">
-                                <span className="block text-slate-600 mb-1">Shared Remark</span>
-                                <input
-                                    type="text"
-                                    value={editRemarks}
-                                    onChange={(e) => setEditRemarks(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                                    placeholder="optional"
-                                />
-                            </label>
 
                             <div className="rounded-lg border border-slate-200 overflow-hidden">
                                 <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
