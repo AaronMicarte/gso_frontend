@@ -147,9 +147,13 @@ export function InventoryHistoryDialog({ inventoryDetailId, itemName }: { invent
             // Exclude audit detail/master-detail rows early
             if ((item.type || '').toLowerCase() === 'audit') {
                 const meta = item.meta ?? {};
-                if (Array.isArray((meta as any).details) && (meta as any).details.length > 0) continue;
-                if (Array.isArray((meta as any).items) && (meta as any).items.length > 0) continue;
-                if (Array.isArray((meta as any).entries) && (meta as any).entries.length > 0) continue;
+                const metaRecord = meta as Record<string, unknown>;
+                const metaDetails = metaRecord['details'];
+                const metaItems = metaRecord['items'];
+                const metaEntries = metaRecord['entries'];
+                if (Array.isArray(metaDetails) && metaDetails.length > 0) continue;
+                if (Array.isArray(metaItems) && metaItems.length > 0) continue;
+                if (Array.isArray(metaEntries) && metaEntries.length > 0) continue;
             }
 
             uniqueExact.push(candidate);

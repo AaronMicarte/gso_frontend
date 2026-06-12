@@ -105,8 +105,19 @@ export const IARPrintView = React.forwardRef<HTMLDivElement, IARPrintViewProps>(
                     </thead>
                     <tbody>
                         {iar.details?.map((d, i) => {
-                            const drDetailAny: any = d.drDetail as any;
-                            const propertyNumbers = drDetailAny?.propertyNumbers ?? (drDetailAny?.inventory_details?.map((inv: any) => inv.PropertyNumber).filter(Boolean) ?? []);
+                            const drDetail = d.drDetail as Record<string, unknown> | undefined;
+                            const propertyNumbersRaw = drDetail?.['propertyNumbers'];
+                            let propertyNumbers: string[] | string = [];
+                            if (Array.isArray(propertyNumbersRaw)) {
+                                propertyNumbers = propertyNumbersRaw.filter((v): v is string => typeof v === 'string');
+                            } else if (Array.isArray(drDetail?.['inventory_details'])) {
+                                const invArr = drDetail!['inventory_details'] as unknown[];
+                                propertyNumbers = invArr
+                                    .map((inv) => (inv && typeof inv === 'object' && 'PropertyNumber' in (inv as Record<string, unknown>)) ? String((inv as Record<string, unknown>)['PropertyNumber']) : '')
+                                    .filter((v) => v);
+                            } else {
+                                propertyNumbers = String(propertyNumbersRaw || '');
+                            }
                             const propNumStr = Array.isArray(propertyNumbers) ? propertyNumbers.join('/') : (propertyNumbers || '');
                             const compressed = compressPropertyNumbers(propNumStr);
                             return (

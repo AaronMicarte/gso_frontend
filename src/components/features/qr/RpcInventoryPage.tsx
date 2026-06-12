@@ -69,9 +69,14 @@ function parseRpcScanTarget(raw: string): ParsedRpcScanTarget | null {
     const value = raw.trim();
     if (!value) return null;
 
-    const direct = Number(value);
-    if (Number.isInteger(direct) && direct > 0) {
-        return { propertyId: direct };
+    // Treat pure-digit input as a PropertyID only when it does not have leading zeros.
+    // If it starts with '0' it's likely a property number suffix (e.g., '000188'),
+    // so don't interpret it as a numeric DB ID.
+    if (/^\d+$/.test(value) && !value.startsWith('0')) {
+        const direct = Number(value);
+        if (Number.isInteger(direct) && direct > 0) {
+            return { propertyId: direct };
+        }
     }
 
     const parsePath = (pathname: string, search = ''): ParsedRpcScanTarget | null => {
@@ -888,15 +893,10 @@ export function RpcInventoryPage() {
 
         const candidates = previewAsset.candidates ?? [];
         const unscannedIds = new Set(candidates.filter((candidate) => !candidate.is_scanned).map((candidate) => candidate.inventory_detail_id));
-        const selectedIds = Array.from(new Set(selectedInventoryDetailIds.filter((id) => unscannedIds.has(id))));
+        const detailId = previewAsset.inventory_detail_id;
 
-        if (selectedIds.length === 0) {
-            toast.error('Select at least one unscanned property number.');
-            return;
-        }
-
-        if (selectedIds.length > (previewAsset.group_remaining_count ?? 0)) {
-            toast.error('Selected quantity exceeds remaining count for this asset group.');
+        if (!detailId || !unscannedIds.has(detailId)) {
+            toast.error('This property is already scanned or unavailable.');
             return;
         }
 
@@ -905,12 +905,11 @@ export function RpcInventoryPage() {
             await storeRpcScan(selectedCycleId, {
                 property_id: previewAsset.property_id ?? undefined,
                 inventory_detail_id: previewAsset.inventory_detail_id,
-                selected_inventory_detail_ids: selectedIds,
                 condition_id: conditionId,
                 quantity_per_count: 1,
                 remarks: scanRemarks.trim() || undefined,
             });
-            toast.success(selectedIds.length > 1 ? `${selectedIds.length} scans recorded.` : 'Scan recorded.');
+            toast.success('Scan recorded.');
             setPreviewOpen(false);
             setPreviewAsset(null);
             setSelectedInventoryDetailIds([]);
@@ -1242,68 +1241,15 @@ export function RpcInventoryPage() {
                             </div>
 
                             <div className="rounded-lg border border-slate-200 p-3 space-y-3">
-                                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                                    <div className="text-slate-700">
-                                        <span className="font-semibold">Property Numbers in Group:</span>{' '}
-                                        {previewAsset.group_total_count} total, {previewAsset.group_remaining_count} remaining
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                                            disabled={previewAsset.group_remaining_count === 0}
-                                            onClick={() => {
-                                                const ids = (previewAsset.candidates ?? [])
-                                                    .filter((candidate) => !candidate.is_scanned)
-                                                    .map((candidate) => candidate.inventory_detail_id);
-                                                setSelectedInventoryDetailIds(ids);
-                                            }}
-                                        >
-                                            Select All Remaining
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-700 hover:bg-slate-50"
-                                            onClick={() => setSelectedInventoryDetailIds([])}
-                                        >
-                                            Clear
-                                        </button>
-                                    </div>
+                                <div className="text-sm text-slate-700">
+                                    <span className="font-semibold">Property Number:</span>{' '}
+                                    {(previewAsset.candidates ?? [])[0]?.property_number ?? previewAsset.property_number ?? '-'}
                                 </div>
 
-                                <div className="max-h-44 overflow-auto rounded border border-slate-200 divide-y divide-slate-100">
-                                    {(previewAsset.candidates ?? []).map((candidate) => {
-                                        const disabled = candidate.is_scanned;
-                                        const checked = selectedInventoryDetailIds.includes(candidate.inventory_detail_id);
-
-                                        return (
-                                            <label
-                                                key={candidate.inventory_detail_id}
-                                                className={`flex items-center justify-between gap-3 px-3 py-2 text-sm ${disabled ? 'bg-slate-50 text-slate-400' : 'text-slate-800'}`}
-                                            >
-                                                <span className="flex items-center gap-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        disabled={disabled}
-                                                        checked={checked}
-                                                        onChange={(e) => {
-                                                            const next = new Set(selectedInventoryDetailIds);
-                                                            if (e.target.checked) {
-                                                                next.add(candidate.inventory_detail_id);
-                                                            } else {
-                                                                next.delete(candidate.inventory_detail_id);
-                                                            }
-                                                            setSelectedInventoryDetailIds(Array.from(next));
-                                                        }}
-                                                    />
-                                                    <span className="font-medium">{candidate.property_number || '-'}</span>
-                                                </span>
-                                                <span className={`text-xs ${disabled ? 'text-rose-500' : 'text-emerald-600'}`}>
-                                                    {disabled ? 'already scanned' : 'available'}
-                                                </span>
-                                            </label>
-                                        );
-                                    })}
+                                <div className="text-sm">
+                                    <span className={`text-xs ${(previewAsset.candidates ?? [])[0]?.is_scanned ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                        {(previewAsset.candidates ?? [])[0]?.is_scanned ? 'already scanned' : 'available'}
+                                    </span>
                                 </div>
                             </div>
                         </div>

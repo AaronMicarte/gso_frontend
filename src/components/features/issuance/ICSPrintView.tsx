@@ -1,5 +1,5 @@
 import React from 'react';
-import { AssetIssuance } from '@/types/assetIssuance';
+import { AssetIssuance, IssuanceDetail } from '@/types/assetIssuance';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import Image from 'next/image';
@@ -67,7 +67,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
 
     const receivedBySignature = runtimePrintSignature || issuance.AcknowledgmentSignature || issuance.signature_url;
     const issuerSignatureUrl = issuance.IssuerSignature
-        || issuance.request?.signatures?.find((s: any) => s.role === 'issuer')?.url
+        || issuance.request?.signatures?.find((s) => s.role === 'issuer')?.url
         || null;
 
     const details = issuance.details ?? [];
@@ -94,7 +94,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         docDate
     );
 
-    const groupedRows = details.reduce<Map<string, GroupedIcsRow>>((map: Map<string, GroupedIcsRow>, detail: any, index: number) => {
+    const groupedRows = details.reduce<Map<string, GroupedIcsRow>>((map: Map<string, GroupedIcsRow>, detail: IssuanceDetail, index: number) => {
         const inv = detail.inventoryDetail;
         const pInv = inv?.propertyInventory;
 

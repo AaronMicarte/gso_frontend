@@ -99,7 +99,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                                 : (item?.inventoryDetails?.map((inv) => inv.PropertyNumber).filter(Boolean) ?? []);
                             const compressedPropertyNumbers = Array.isArray(propertyNumbers)
                                 ? compressPropertyNumbers(propertyNumbers.join('/'))
-                                : compressPropertyNumbers(propertyNumbers as any);
+                                : compressPropertyNumbers(String(propertyNumbers || ''));
                             const description = item
                                 ? [
                                     item.article?.ArticleName,

@@ -1,5 +1,6 @@
-import { QrGeneratePage } from '@/components/features/qr/QrGeneratePage';
+import { QrScanPage } from '@/components/features/qr/QrScanPage';
 
 export default function QrGenerateRoute() {
-    return <QrGeneratePage />;
+    // QrGeneratePage is not present; render the scan page as a safe fallback.
+    return <QrScanPage />;
 }

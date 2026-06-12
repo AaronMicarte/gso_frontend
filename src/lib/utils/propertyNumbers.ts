@@ -68,5 +68,5 @@ export function compressPropertyNumbers(raw: string | null | undefined): string 
         resultParts.push(...nonNumeric);
     }
 
-    return resultParts.join(' / ');
+    return resultParts.join('/');
 }

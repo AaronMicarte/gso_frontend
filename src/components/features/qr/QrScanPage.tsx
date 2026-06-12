@@ -20,9 +20,14 @@ function parseScanTarget(raw: string): ScanTarget {
     const value = raw.trim();
     if (value === '') return null;
 
-    const direct = Number(value);
-    if (Number.isInteger(direct) && direct > 0) {
-        return { kind: 'property', propertyId: direct };
+    // Treat pure-digit input as a PropertyID only when it does not have leading zeros.
+    // If it starts with '0' it's likely a property number suffix (e.g., '000188'),
+    // so don't interpret it as a numeric DB ID.
+    if (/^\d+$/.test(value) && !value.startsWith('0')) {
+        const direct = Number(value);
+        if (Number.isInteger(direct) && direct > 0) {
+            return { kind: 'property', propertyId: direct };
+        }
     }
 
     const parsePath = (pathname: string, search = ''): ScanTarget => {
