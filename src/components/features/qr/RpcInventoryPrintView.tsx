@@ -35,7 +35,8 @@ const formatPrintEndUser = (accountableOfficer?: string | null, department?: str
 };
 
 const currency = (value: number) => {
-    return Number(value || 0).toLocaleString('en-PH', {
+    // Math.abs handles stripping the raw negative math minus signs
+    return Number(Math.abs(value || 0)).toLocaleString('en-PH', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
@@ -74,7 +75,7 @@ export function RpcInventoryPrintView({
     const assumedMonthYear = format(toZonedTime(new Date(generatedAt), 'Asia/Manila'), 'MMMM yyyy').toUpperCase();
 
     const groupedRows = rows.reduce<Record<string, RpcInventoryReportRow[]>>((acc, row) => {
-        const key = (row.property_type || '-').trim() || '-';
+        const key = (row.property_type || '').trim();
         if (!acc[key]) acc[key] = [];
         acc[key].push(row);
         return acc;
@@ -104,24 +105,24 @@ export function RpcInventoryPrintView({
         })
         : [
             {
-                propertyType: '-',
+                propertyType: '',
                 pages: [
                     [
                         {
-                            property_type: '-',
-                            article: '-',
+                            property_type: '',
+                            article: '',
                             description: 'No rows available for this cycle and report type.',
-                            property_number: '-',
-                            unit_of_measure: '-',
+                            property_number: '',
+                            unit_of_measure: '',
                             unit_value: 0,
                             quantity_per_card: 0,
                             quantity_per_count: 0,
                             shortage_overage_qty: 0,
                             shortage_overage_value: 0,
-                            remarks: '-',
-                            accountable_officer: '-',
-                            department: '-',
-                            condition: '-',
+                            remarks: '',
+                            accountable_officer: '',
+                            department: '',
+                            condition: '',
                             is_scanned: false,
                         },
                     ],
@@ -218,25 +219,25 @@ export function RpcInventoryPrintView({
                                 <table className="w-full border-collapse text-[10px]">
                                     <thead>
                                         <tr>
-                                            <th rowSpan={2} className="border border-black px-1 py-1">Article</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1">Description</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1">PROPERTY NUMBER</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1">Unit of Measure</th>
-                                            <th colSpan={2} className="border border-black px-1 py-1">UNIT VALUE</th>
-                                            <th className="border border-black px-1 py-1">BALANCE PER CARD</th>
-                                            <th className="border border-black px-1 py-1">ON HAND PER COUNT</th>
-                                            <th colSpan={2} className="border border-black px-1 py-1">SHORTAGE/OVERAGE</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1">Remarks</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1">End User</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1">Department</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Article</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Description</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">PROPERTY NUMBER</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Unit of Measure</th>
+                                            <th colSpan={2} className="border border-black px-1 py-1 font-normal">UNIT VALUE</th>
+                                            <th className="border border-black px-1 py-1 font-normal">BALANCE PER CARD</th>
+                                            <th className="border border-black px-1 py-1 font-normal">ON HAND PER COUNT</th>
+                                            <th colSpan={2} className="border border-black px-1 py-1 font-normal">SHORTAGE/OVERAGE</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Remarks</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">End User</th>
+                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Department</th>
                                         </tr>
                                         <tr>
-                                            <th className="border border-black px-1 py-1">Unit Cost</th>
-                                            <th className="border border-black px-1 py-1">Total Cost</th>
-                                            <th className="border border-black px-1 py-1">(Quantity)</th>
-                                            <th className="border border-black px-1 py-1">(Quantity)</th>
-                                            <th className="border border-black px-1 py-1">Quantity</th>
-                                            <th className="border border-black px-1 py-1">Value</th>
+                                            <th className="border border-black px-1 py-1 font-normal">Unit Cost</th>
+                                            <th className="border border-black px-1 py-1 font-normal">Total Cost</th>
+                                            <th className="border border-black px-1 py-1 font-normal">(Quantity)</th>
+                                            <th className="border border-black px-1 py-1 font-normal">(Quantity)</th>
+                                            <th className="border border-black px-1 py-1 font-normal">Quantity</th>
+                                            <th className="border border-black px-1 py-1 font-normal">Value</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -250,7 +251,11 @@ export function RpcInventoryPrintView({
                                                 <td className="border border-black px-1 py-1 text-right">{row ? currency((row.unit_value || 0) * (row.quantity_per_card || 0)) : ''}</td>
                                                 <td className="border border-black px-1 py-1 text-center">{row?.quantity_per_card ?? ''}</td>
                                                 <td className="border border-black px-1 py-1 text-center">{row?.quantity_per_count ?? ''}</td>
-                                                <td className="border border-black px-1 py-1 text-center">{row?.shortage_overage_qty ?? ''}</td>
+                                                <td className="border border-black px-1 py-1 text-center">
+                                                    {row?.shortage_overage_qty !== undefined && row?.shortage_overage_qty !== null
+                                                        ? Math.abs(row.shortage_overage_qty)
+                                                        : ''}
+                                                </td>
                                                 <td className="border border-black px-1 py-1 text-right">{row ? currency(row.shortage_overage_value || 0) : ''}</td>
                                                 <td className="border border-black px-1 py-1">
                                                     {row ? (() => {
@@ -268,7 +273,7 @@ export function RpcInventoryPrintView({
 
                                                         if (row.property_remarks && Object.keys(row.property_remarks).length > 0) {
                                                             return Object.entries(row.property_remarks)
-                                                                .map(([pn, rm]) => `${pn}: ${rm ?? '-'}`)
+                                                                .map(([pn, rm]) => `${pn}: ${rm ?? ''}`)
                                                                 .join('; ');
                                                         }
 
@@ -281,15 +286,11 @@ export function RpcInventoryPrintView({
                                         ))}
                                         {page.isLastPageOfType && (
                                             <tr>
-                                                {/* Columns 1 to 3: Empty layout buffers */}
                                                 <td colSpan={3} className="px-1 py-1"></td>
-                                                {/* Column 4: Unit of Measure placement */}
-                                                <td className="px-1 py-1 text-center">TOTAL</td>
-                                                {/* Columns 5 & 6: Combined block spanning Unit Cost and Total Cost headers */}
-                                                <td colSpan={2} className="px-1 py-1 text-center">{currency(page.subtotals.totalUnitValue)}</td>
-                                                {/* Remaining layout item values */}
-                                                <td className="px-1 py-1 text-center">{page.subtotals.totalQuantityPerCard}</td>
-                                                <td className="px-1 py-1 text-center">{page.subtotals.totalQuantityPerCount}</td>
+                                                <td className="px-1 py-1 text-center font-normal">TOTAL</td>
+                                                <td colSpan={2} className="px-1 py-1 text-center font-normal">{currency(page.subtotals.totalUnitValue)}</td>
+                                                <td className="px-1 py-1 text-center font-normal">{page.subtotals.totalQuantityPerCard}</td>
+                                                <td className="px-1 py-1 text-center font-normal">{page.subtotals.totalQuantityPerCount}</td>
                                                 <td colSpan={5} className="px-1 py-1"></td>
                                             </tr>
                                         )}
