@@ -152,53 +152,51 @@ export function RpcInventoryPrintView({
     return (
         <div className="gso-print-doc bg-white text-black p-4">
             <style>{`
-                .print-sheet { font-family: 'Times New Roman', serif; font-size: 11px; line-height: 1.15; }
-                .report-page { break-inside: avoid; page-break-inside: avoid; min-height: calc(210mm - 20mm); display: flex; flex-direction: column; box-sizing: border-box; }
-                .report-page + .report-page { break-before: page; page-break-before: always; }
-                .page-footer { text-align: center; font-size: 10px; padding-top: 12px; margin-top: auto; }
-                
-                @media print {
-                    @page { 
-                        margin: 10mm 15mm; 
-                    }
-                    
-                    /* 1. Hide absolutely everything at the root body layer first */
-                    body * {
-                        visibility: hidden !important;
-                    }
-                    
-                    /* 2. ONLY permit the print document container and its child elements to exist */
-                    .gso-print-doc, .gso-print-doc * {
-                        visibility: visible !important;
-                    }
-                    
-                    /* 3. Force the document container to sit cleanly at the top-left layout origin */
-                    .gso-print-doc {
-                        position: absolute !important;
-                        left: 0 !important;
-                        top: 0 !important;
-                        width: 100% !important;
-                        background: #fff !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
-                    }
+    .print-sheet { font-family: 'Times New Roman', serif; font-size: 11px; line-height: 1.15; }
+    .report-page { break-inside: avoid; page-break-inside: avoid; min-height: calc(210mm - 20mm); display: flex; flex-direction: column; box-sizing: border-box; }
+    .report-page + .report-page { break-before: page; page-break-before: always; }
+    .page-footer { text-align: center; font-size: 10px; padding-top: 12px; margin-top: auto; }
+    
+    @media print {
+        @page { 
+            size: 13in 8.5in;
+            margin: 10mm 15mm; 
+        }
+        
+        body * {
+            visibility: hidden !important;
+        }
+        
+        .gso-print-doc, .gso-print-doc * {
+            visibility: visible !important;
+        }
+        
+        .gso-print-doc {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: #fff !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
 
-                    /* 4. Total annihilation targeting the DevTools components explicitly */
-                    #tsqd-parent,
-                    [id*="tsqd"],
-                    [id*="tanstack"],
-                    [class*="tanstack"],
-                    [class*="TanStack"],
-                    tsqd-devtools,
-                    button {
-                        display: none !important;
-                        opacity: 0 !important;
-                        visibility: hidden !important;
-                        width: 0 !important;
-                        height: 0 !important;
-                    }
-                }
-            `}</style>
+        #tsqd-parent,
+        [id*="tsqd"],
+        [id*="tanstack"],
+        [class*="tanstack"],
+        [class*="TanStack"],
+        tsqd-devtools,
+        button {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+    }
+`}</style>
+
             {printablePages.map((page, pageIndex) => {
                 return (
                     <section key={`${page.propertyType}-${pageIndex}`} className="report-page">
@@ -283,8 +281,13 @@ export function RpcInventoryPrintView({
                                         ))}
                                         {page.isLastPageOfType && (
                                             <tr>
-                                                <td colSpan={5} className="px-1 py-1 text-right">TOTAL</td>
-                                                <td className="px-1 py-1 text-right">{currency(page.subtotals.totalUnitValue)}</td>
+                                                {/* Columns 1 to 3: Empty layout buffers */}
+                                                <td colSpan={3} className="px-1 py-1"></td>
+                                                {/* Column 4: Unit of Measure placement */}
+                                                <td className="px-1 py-1 text-center">TOTAL</td>
+                                                {/* Columns 5 & 6: Combined block spanning Unit Cost and Total Cost headers */}
+                                                <td colSpan={2} className="px-1 py-1 text-center">{currency(page.subtotals.totalUnitValue)}</td>
+                                                {/* Remaining layout item values */}
                                                 <td className="px-1 py-1 text-center">{page.subtotals.totalQuantityPerCard}</td>
                                                 <td className="px-1 py-1 text-center">{page.subtotals.totalQuantityPerCount}</td>
                                                 <td colSpan={5} className="px-1 py-1"></td>
