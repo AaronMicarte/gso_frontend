@@ -35,7 +35,6 @@ const formatPrintEndUser = (accountableOfficer?: string | null, department?: str
 };
 
 const currency = (value: number) => {
-    // Math.abs handles stripping the raw negative math minus signs
     return Number(Math.abs(value || 0)).toLocaleString('en-PH', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -160,7 +159,8 @@ export function RpcInventoryPrintView({
     
     @media print {
         @page { 
-            size: 13in 8.5in;
+            /* Added explicit landscape property rule alongside standard size footprint dimensions */
+            size: 13in 8.5in landscape;
             margin: 10mm 15mm; 
         }
         
