@@ -159,7 +159,6 @@ export function RpcInventoryPrintView({
     
     @media print {
         @page { 
-            /* Added explicit landscape property rule alongside standard size footprint dimensions */
             size: 13in 8.5in landscape;
             margin: 10mm 15mm; 
         }
@@ -204,14 +203,15 @@ export function RpcInventoryPrintView({
                         <div className="page-content">
                             <div className="text-center">
                                 <div className="font-bold text-[14px]">{title}</div>
-                                <div className="font-semibold text-[12px]">{page.propertyType}</div>
+                                <div className="font-bold text-[12px]">{page.propertyType}</div>
                                 <div className="text-[11px]">{subtitle}</div>
-                                <div className="text-[11px]">As of {reportAsOfDate}</div>
+                                {/* Added font-bold explicitly to "As of [Date]" layout block */}
+                                <div className="font-bold text-[11px]">As of {reportAsOfDate}</div>
                             </div>
 
                             <div className="mt-2 text-[11px] w-full">
                                 <div className="text-center leading-tight">
-                                    For which <span className="font-semibold">NILO SABAYANON,</span> <span className="font-semibold">OIC-CGSO,</span> <span className="font-semibold">LOCAL GOVERNMENT UNIT OF ELSALVADOR CITY</span> is accountable, having assumed such accountability on <span className="font-semibold">{assumedMonthYear}</span>.
+                                    For which <span className="font-bold">NILO SABAYANON,</span> <span className="font-bold">OIC-CGSO,</span> <span className="font-bold">LOCAL GOVERNMENT UNIT OF ELSALVADOR CITY</span> is accountable, having assumed such accountability on <span className="font-bold">{assumedMonthYear}</span>.
                                 </div>
                             </div>
 
