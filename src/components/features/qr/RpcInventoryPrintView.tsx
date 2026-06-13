@@ -23,13 +23,8 @@ const formatPrintEndUser = (accountableOfficer?: string | null, department?: str
     const officer = (accountableOfficer || '').trim();
     const dept = (department || '').trim();
 
-    if (!officer) {
-        return '';
-    }
-
-    if (!dept) {
-        return officer;
-    }
+    if (!officer) return '';
+    if (!dept) return officer;
 
     const suffix = ` - ${dept}`;
     if (officer.toLowerCase().endsWith(suffix.toLowerCase())) {
@@ -53,9 +48,7 @@ const compareReportRows = (left: RpcInventoryReportRow, right: RpcInventoryRepor
     const rightKey = [right.article, right.description].map(normalizeSortText).join(' | ');
 
     const byItem = leftKey.localeCompare(rightKey, undefined, { sensitivity: 'base' });
-    if (byItem !== 0) {
-        return byItem;
-    }
+    if (byItem !== 0) return byItem;
 
     return normalizeSortText(left.property_number).localeCompare(normalizeSortText(right.property_number), undefined, { sensitivity: 'base' });
 };
@@ -82,9 +75,7 @@ export function RpcInventoryPrintView({
 
     const groupedRows = rows.reduce<Record<string, RpcInventoryReportRow[]>>((acc, row) => {
         const key = (row.property_type || '-').trim() || '-';
-        if (!acc[key]) {
-            acc[key] = [];
-        }
+        if (!acc[key]) acc[key] = [];
         acc[key].push(row);
         return acc;
     }, {});
@@ -102,18 +93,14 @@ export function RpcInventoryPrintView({
 
     const printableGroups = orderedPropertyTypes.length > 0
         ? orderedPropertyTypes.map((propertyType) => {
-            const sortedRows = [...(groupedRows[propertyType] || [])]
-                .sort(compareReportRows);
+            const sortedRows = [...(groupedRows[propertyType] || [])].sort(compareReportRows);
 
             const pages: RpcInventoryReportRow[][] = [];
             for (let start = 0; start < sortedRows.length; start += ROWS_PER_PAGE) {
                 pages.push(sortedRows.slice(start, start + ROWS_PER_PAGE));
             }
 
-            return {
-                propertyType,
-                pages,
-            };
+            return { propertyType, pages };
         })
         : [
             {
@@ -144,7 +131,6 @@ export function RpcInventoryPrintView({
 
     const printablePages = printableGroups.flatMap((group) => {
         const totalPagesForType = group.pages.length;
-        // Calculate subtotals for this property type
         const allRowsForType = group.pages.flat();
         const subtotals = {
             totalUnitValue: allRowsForType.reduce((sum, row) => sum + ((row.unit_value || 0) * (row.quantity_per_card || 0)), 0),
@@ -170,10 +156,50 @@ export function RpcInventoryPrintView({
                 .report-page { break-inside: avoid; page-break-inside: avoid; min-height: calc(210mm - 20mm); display: flex; flex-direction: column; box-sizing: border-box; }
                 .report-page + .report-page { break-before: page; page-break-before: always; }
                 .page-footer { text-align: center; font-size: 10px; padding-top: 12px; margin-top: auto; }
-            `}</style>
+                
+                @media print {
+                    @page { 
+                        margin: 10mm 15mm; 
+                    }
+                    
+                    /* 1. Hide absolutely everything at the root body layer first */
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    
+                    /* 2. ONLY permit the print document container and its child elements to exist */
+                    .gso-print-doc, .gso-print-doc * {
+                        visibility: visible !important;
+                    }
+                    
+                    /* 3. Force the document container to sit cleanly at the top-left layout origin */
+                    .gso-print-doc {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        background: #fff !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                    }
 
+                    /* 4. Total annihilation targeting the DevTools components explicitly */
+                    #tsqd-parent,
+                    [id*="tsqd"],
+                    [id*="tanstack"],
+                    [class*="tanstack"],
+                    [class*="TanStack"],
+                    tsqd-devtools,
+                    button {
+                        display: none !important;
+                        opacity: 0 !important;
+                        visibility: hidden !important;
+                        width: 0 !important;
+                        height: 0 !important;
+                    }
+                }
+            `}</style>
             {printablePages.map((page, pageIndex) => {
-                const isLastPageOverall = pageIndex === totalPages - 1;
                 return (
                     <section key={`${page.propertyType}-${pageIndex}`} className="report-page">
                         <div className="page-content">
@@ -184,28 +210,10 @@ export function RpcInventoryPrintView({
                                 <div className="text-[11px]">As of {reportAsOfDate}</div>
                             </div>
 
-                            {/* Accountability Section - Two rows: text above, labels below */}
                             <div className="mt-2 text-[11px] w-full">
-                                {/* Row 1: Accountability Statement */}
                                 <div className="text-center leading-tight">
                                     For which <span className="font-semibold">NILO SABAYANON,</span> <span className="font-semibold">OIC-CGSO,</span> <span className="font-semibold">LOCAL GOVERNMENT UNIT OF ELSALVADOR CITY</span> is accountable, having assumed such accountability on <span className="font-semibold">{assumedMonthYear}</span>.
                                 </div>
-
-                                {/* Row 2: Labels Below */}
-                                {/* <div className="text-center text-[10px] mt-2 flex justify-center gap-8">
-                                <div className="w-32 text-center">
-                                    <div>(Name of Accountable officer)</div>
-                                </div>
-                                <div className="w-28 text-center">
-                                    <div>(Official Designation)</div>
-                                </div>
-                                <div className="w-40 text-center">
-                                    <div>(LGU)</div>
-                                </div>
-                                <div className="w-24 text-center">
-                                    <div>(Date of Assumption)</div>
-                                </div>
-                            </div> */}
                             </div>
 
                             <div className="mt-3 overflow-hidden">
@@ -248,27 +256,18 @@ export function RpcInventoryPrintView({
                                                 <td className="border border-black px-1 py-1 text-right">{row ? currency(row.shortage_overage_value || 0) : ''}</td>
                                                 <td className="border border-black px-1 py-1">
                                                     {row ? (() => {
-                                                        // Prefer an explicit grouped remark when present.
-                                                        if (row.remarks && row.remarks !== '-') {
-                                                            return row.remarks;
-                                                        }
+                                                        if (row.remarks && row.remarks !== '-') return row.remarks;
 
-                                                        // Derive Not Found counts from expected vs scanned totals for grouped rows.
                                                         const expected = Number(row.quantity_per_card || 0);
                                                         const counted = Number(row.quantity_per_count || 0);
                                                         const notFound = expected - counted;
 
                                                         if (expected > 0) {
-                                                            if (notFound <= 0) {
-                                                                return '';
-                                                            }
-                                                            if (notFound === expected) {
-                                                                return 'Not Found';
-                                                            }
+                                                            if (notFound <= 0) return '';
+                                                            if (notFound === expected) return 'Not Found';
                                                             return `${notFound} Not Found`;
                                                         }
 
-                                                        // Fallback: show per-property remarks when available.
                                                         if (row.property_remarks && Object.keys(row.property_remarks).length > 0) {
                                                             return Object.entries(row.property_remarks)
                                                                 .map(([pn, rm]) => `${pn}: ${rm ?? '-'}`)
@@ -296,36 +295,26 @@ export function RpcInventoryPrintView({
                             </div>
 
                             {page.isLastPageOfType && (
-                                <>
-                                    <div className="mt-6 grid grid-cols-3 gap-6 text-[11px]">
-                                        <div>
-                                            <div>Prepared by:</div>
-                                            <div className="h-10" />
-                                            <div className="border-b border-black" />
-                                            <div className="text-center">Supply Officer</div>
-                                        </div>
-                                        <div>
-                                            <div>Certified Correct by:</div>
-                                            <div className="h-10" />
-                                            <div className="border-b border-black" />
-                                            <div className="text-center">City Accountant</div>
-                                        </div>
-                                        <div>
-                                            <div>Approved by:</div>
-                                            <div className="h-10" />
-                                            <div className="border-b border-black" />
-                                            <div className="text-center">City Mayor</div>
-                                        </div>
+                                <div className="mt-6 grid grid-cols-3 gap-6 text-[11px]">
+                                    <div>
+                                        <div>Prepared by:</div>
+                                        <div className="h-10" />
+                                        <div className="border-b border-black" />
+                                        <div className="text-center">Supply Officer</div>
                                     </div>
-                                </>
-                            )}
-
-                            {isLastPageOverall && (
-                                <>
-                                    {/* <div className="mt-2 text-[11px]">
-                                        <span className="font-semibold">Summary:</span> Scanned {scannedCount} of {totalCount} items.
-                                    </div> */}
-                                </>
+                                    <div>
+                                        <div>Certified Correct by:</div>
+                                        <div className="h-10" />
+                                        <div className="border-b border-black" />
+                                        <div className="text-center">City Accountant</div>
+                                    </div>
+                                    <div>
+                                        <div>Approved by:</div>
+                                        <div className="h-10" />
+                                        <div className="border-b border-black" />
+                                        <div className="text-center">City Mayor</div>
+                                    </div>
+                                </div>
                             )}
                         </div>
 
