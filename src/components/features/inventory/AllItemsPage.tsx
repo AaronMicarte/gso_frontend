@@ -72,16 +72,8 @@ export function AllItemsPage() {
         toast.success('Items refreshed');
     };
 
-    const filteredDetails = (() => {
-        if (!data?.data) return [];
-
-        return [...(data.data || [])].sort((a, b) => {
-            const aTime = a.CreatedDate ? new Date(a.CreatedDate).getTime() : 0;
-            const bTime = b.CreatedDate ? new Date(b.CreatedDate).getTime() : 0;
-            if (aTime !== bTime) return bTime - aTime;
-            return b.InventoryDetailID - a.InventoryDetailID;
-        });
-    })();
+    // The server now returns items ordered by creation timestamp (newest first).
+    const filteredDetails = data?.data ? [...data.data] : [];
 
     const toggleDescriptionExpansion = (inventoryDetailId: number) => {
         setExpandedDescriptions(prev => {
