@@ -210,3 +210,10 @@ html.reduce-motion *::after {
     print-color-adjust: exact;
   }
 }
+
+@media print {
+  @page {
+    size: auto;
+    margin: 10mm;
+  }
+}

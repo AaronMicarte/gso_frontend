@@ -1,4 +1,5 @@
 import React from 'react';
+import { Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import type { RsmiReport, RsmiReportItem } from '@/types/rsmi';
@@ -165,12 +166,16 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
             recapitulation.push({ stock_no: '', quantity: 0 });
         }
 
+        const year = format(toZonedTime(new Date(report.report_date || new Date()), 'Asia/Manila'), 'yyyy');
+        const reportDateLabel = `DECEMBER 31, ${year}`;
+
         return (
             <div ref={ref} className="gso-print-doc bg-white p-2 max-w-[1200px] mx-auto text-black">
                 <style>{`
                     .gso-print-doc { font-family: 'Times New Roman', serif; font-size: 12px; line-height: 1.1; }
                     .rsmi-main-table thead { display: table-row-group; }
-                    .no-print { display: none !important; }
+                    .print-toolbar { display: block; text-align: right; margin-bottom: 8px; }
+                    @media print { .print-toolbar { display: none !important; } }
                 `}</style>
 
                 <div className="text-center font-bold text-[20px] mb-2 tracking-wide">REPORT OF SUPPLIES AND MATERIALS ISSUED</div>
@@ -193,7 +198,7 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                         </div>
                         <div className="flex items-end justify-end gap-2">
                             <span className="font-bold">Date :</span>
-                            <span className="border-b border-black w-[230px] h-[20px]">{text(report.report_date_label, formatPHDate(report.report_date))}</span>
+                            <span className="border-b border-black w-[230px] h-[20px]">{reportDateLabel}</span>
                         </div>
                     </div>
                 </div>
