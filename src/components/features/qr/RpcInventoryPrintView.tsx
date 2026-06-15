@@ -70,8 +70,9 @@ export function RpcInventoryPrintView({
             : 'REPORT ON THE PHYSICAL COUNT OF SEMI-EXPENDABLE PROPERTY';
 
     const subtitle = type === 'RPCPPE' ? '(Type of Property, Plant and Equipment)' : '(Type of Semi-Expendable Property)';
-    const reportAsOfDate = formatDate(generatedAt);
-    const assumedMonthYear = format(toZonedTime(new Date(generatedAt), 'Asia/Manila'), 'MMMM yyyy').toUpperCase();
+    const year = format(toZonedTime(new Date(generatedAt || new Date()), 'Asia/Manila'), 'yyyy');
+    const reportAsOfDate = `DECEMBER 31, ${year}`;
+    const assumedMonthYear = `DECEMBER ${year}`.toUpperCase();
 
     const groupedRows = rows.reduce<Record<string, RpcInventoryReportRow[]>>((acc, row) => {
         const key = (row.property_type || '').trim();

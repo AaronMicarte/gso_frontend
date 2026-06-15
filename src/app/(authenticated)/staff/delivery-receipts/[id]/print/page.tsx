@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
 import { DeliveryReceipt } from '@/types/procurement';
 import { DRPrintView } from '@/components/features/delivery-receipts/DRPrintView';
+import exportDRToExcel from '@/components/features/delivery-receipts/DRExport';
 
 export default function StaffDeliveryReceiptPrintPage() {
     const params = useParams();
@@ -75,12 +76,20 @@ export default function StaffDeliveryReceiptPrintPage() {
                 <Link href={`/staff/delivery-receipts/${dr.DRID}`} className="text-sm text-[var(--primary)] underline">
                     Back to DR
                 </Link>
-                <button
-                    onClick={() => window.print()}
-                    className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)]"
-                >
-                    Print
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => exportDRToExcel(dr!)}
+                        className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--secondary)] hover:bg-[var(--secondary-dark)]"
+                    >
+                        Export Excel
+                    </button>
+                    <button
+                        onClick={() => window.print()}
+                        className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)]"
+                    >
+                        Print
+                    </button>
+                </div>
             </div>
 
             <DRPrintView dr={dr} />
