@@ -510,7 +510,7 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                             disabled={!!serialNumber && serialNumber.trim() !== ''}
                         />
                     </div>
-                    <div className="space-y-2">
+                    {/* <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-900">Quantity Delivered</label>
                         <Input
                             {...register('quantity_delivered', { valueAsNumber: true })}
@@ -520,7 +520,7 @@ export function ItemDetailsModal({ open, onOpenChange, initialValues, articles, 
                             error={errors.quantity_delivered?.message}
                             disabled={!!serialNumber && serialNumber.trim() !== ''}
                         />
-                    </div>
+                    </div> */}
 
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
