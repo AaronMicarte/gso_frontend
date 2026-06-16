@@ -166,8 +166,9 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
             recapitulation.push({ stock_no: '', quantity: 0 });
         }
 
-        const year = format(toZonedTime(new Date(report.report_date || new Date()), 'Asia/Manila'), 'yyyy');
-        const reportDateLabel = `DECEMBER 31, ${year}`;
+        const reportDateLabel = (report.report_date_label && String(report.report_date_label).trim().length > 0)
+            ? String(report.report_date_label).toUpperCase()
+            : format(toZonedTime(new Date(report.report_date || new Date()), 'Asia/Manila'), 'MMMM d, yyyy').toUpperCase();
 
         return (
             <div ref={ref} className="gso-print-doc bg-white p-2 max-w-[1200px] mx-auto text-black">

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Printer } from 'lucide-react';
@@ -76,6 +78,32 @@ const formatStockRange = (values: string[]): string => {
     return unique.slice().sort((a, b) => a.localeCompare(b)).join(', ');
 };
 
+const formatRangeLabel = (startDate: string, endDate: string) => {
+    const start = toZonedTime(new Date(`${startDate}T00:00:00`), 'Asia/Manila');
+    const end = toZonedTime(new Date(`${endDate}T00:00:00`), 'Asia/Manila');
+
+    // same day
+    if (startDate === endDate) {
+        return format(start, 'MMMM d, yyyy').toUpperCase();
+    }
+
+    const sameMonth = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
+    const sameYear = start.getFullYear() === end.getFullYear();
+
+    if (sameMonth && sameYear) {
+        // June 1–16, 2026 (en-dash, no spaces)
+        return `${format(start, 'MMMM')} ${start.getDate()}–${end.getDate()}, ${format(start, 'yyyy')}`.toUpperCase();
+    }
+
+    if (sameYear) {
+        // June 1 – July 25, 2026 (space around dash)
+        return `${format(start, 'MMMM d')} – ${format(end, 'MMMM d')}, ${format(start, 'yyyy')}`.toUpperCase();
+    }
+
+    // different years: December 15, 2025 – January 10, 2026
+    return `${format(start, 'MMMM d, yyyy')} – ${format(end, 'MMMM d, yyyy')}`.toUpperCase();
+};
+
 const buildCombinedReport = (reports: RsmiReport[], startDate: string, endDate: string): RsmiReport | null => {
     if (reports.length === 0) return null;
 
@@ -135,12 +163,13 @@ const buildCombinedReport = (reports: RsmiReport[], startDate: string, endDate: 
         .sort((a, b) => a.stock_no.localeCompare(b.stock_no));
 
     const first = reports[0];
+    const rangeLabel = formatRangeLabel(startDate, endDate);
 
     return {
         id: first.id,
         serial_no: `${first.serial_no}`,
         report_date: first.report_date,
-        report_date_label: `${startDate} to ${endDate}`,
+        report_date_label: rangeLabel,
         entity_name: first.entity_name,
         fund_cluster: first.fund_cluster,
         items: combinedItems,
@@ -226,8 +255,7 @@ export function RsmiRangePrintPage() {
                 </button>
                 <div className="flex items-center gap-2">
                     <div className="text-sm text-slate-600">
-                        Range: <span className="font-medium text-slate-900">{startDate}</span> to{' '}
-                        <span className="font-medium text-slate-900">{endDate}</span>
+                        Range: <span className="font-medium text-slate-900">{combinedReport?.report_date_label ?? `${startDate} to ${endDate}`}</span>
                     </div>
                     <button
                         onClick={() => window.print()}
