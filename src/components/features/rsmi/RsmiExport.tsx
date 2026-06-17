@@ -232,6 +232,10 @@ export async function exportRsmiToExcel(
         };
     }
 
+    // Ensure the merged A8:F8 has a visible left border (fixes missing left edge)
+    const a8Cell = ws.getCell(8, 1);
+    a8Cell.border = { ...(a8Cell.border || {}), left: thn() };
+
     const colHeaders: [string, string][] = [
         ['A9:A10', 'RIS No.'], ['B9:B10', 'Responsibility Center Code'], ['C9:C10', 'Stock No.'],
         ['D9:D10', 'Item'], ['E9:E10', 'Unit'], ['F9:F10', 'Quantity\nIssued'],
