@@ -102,7 +102,8 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
         const itemMap = new Map<string, { item: RsmiReportItem; stockNos: string[] }>();
 
         for (const item of details) {
-            const key = [item.ris_no, item.responsibility_center_code, item.item_description, item.unit].join('||');
+            const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+            const key = [item.ris_no, item.responsibility_center_code, desc, item.unit].join('||');
             const existing = itemMap.get(key);
 
             if (existing) {
@@ -114,6 +115,8 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                 itemMap.set(key, {
                     item: {
                         ...item,
+                        // preserve combined description
+                        item_description: desc,
                         quantity_issued: Number(item.quantity_issued ?? 0),
                     },
                     stockNos: item.stock_no ? [item.stock_no] : [],
@@ -139,7 +142,8 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
         const recapMap = new Map<string, { stockNos: string[]; quantity: number }>();
 
         for (const item of details) {
-            const key = [item.item_description, item.unit].join('||');
+            const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+            const key = [desc, item.unit].join('||');
             const existing = recapMap.get(key);
 
             if (existing) {

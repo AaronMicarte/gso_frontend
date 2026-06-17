@@ -111,7 +111,8 @@ const buildCombinedReport = (reports: RsmiReport[], startDate: string, endDate: 
 
     for (const report of reports) {
         for (const item of report.items ?? []) {
-            const key = [item.ris_no, item.responsibility_center_code, item.item_description, item.unit].join('||');
+            const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+            const key = [item.ris_no, item.responsibility_center_code, desc, item.unit].join('||');
             const existing = itemMap.get(key);
 
             if (existing) {
@@ -123,6 +124,8 @@ const buildCombinedReport = (reports: RsmiReport[], startDate: string, endDate: 
                 itemMap.set(key, {
                     item: {
                         ...item,
+                        // ensure combined description is preserved in the merged item
+                        item_description: desc,
                         id: itemMap.size + 1,
                         quantity_issued: Number(item.quantity_issued ?? 0),
                     },
@@ -130,14 +133,15 @@ const buildCombinedReport = (reports: RsmiReport[], startDate: string, endDate: 
                 });
             }
 
-            const recapExisting = recapMap.get(key);
+            const recapKey = [[item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', '), item.unit].join('||');
+            const recapExisting = recapMap.get(recapKey);
             if (recapExisting) {
                 recapExisting.quantity += Number(item.quantity_issued ?? 0);
                 if (item.stock_no) {
                     recapExisting.stockNos.push(item.stock_no);
                 }
             } else {
-                recapMap.set(key, {
+                recapMap.set(recapKey, {
                     stockNos: item.stock_no ? [item.stock_no] : [],
                     quantity: Number(item.quantity_issued ?? 0),
                 });

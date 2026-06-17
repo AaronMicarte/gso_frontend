@@ -96,21 +96,27 @@ export async function exportRsmiToExcel(
     const itemMap = new Map<string, { item: RsmiReportItem; stockNos: string[] }>();
 
     for (const item of details) {
-        const key = [item.ris_no, item.responsibility_center_code, item.item_description, item.unit].join('||');
+        const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+        const key = [item.ris_no, item.responsibility_center_code, desc, item.unit].join('||');
         const existing = itemMap.get(key);
         if (existing) {
             existing.item.quantity_issued += Number(item.quantity_issued ?? 0);
             if (item.stock_no) existing.stockNos.push(item.stock_no);
         } else {
             itemMap.set(key, {
-                item: { ...item, quantity_issued: Number(item.quantity_issued ?? 0) },
+                item: { ...item, item_description: desc, quantity_issued: Number(item.quantity_issued ?? 0) },
                 stockNos: item.stock_no ? [item.stock_no] : [],
             });
         }
     }
 
     const baseDetails = [...itemMap.values()]
-        .map(({ item, stockNos }) => ({ ...item, stock_no: formatStockRange(stockNos) }))
+        .map(({ item, stockNos }) => ({
+            ...item,
+            // combine description, brand, model into a single display string
+            item_description: [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', '),
+            stock_no: formatStockRange(stockNos)
+        }))
         .sort((a, b) => {
             const r = String(a.ris_no ?? '').localeCompare(String(b.ris_no ?? ''));
             return r !== 0 ? r : String(a.stock_no ?? '').localeCompare(String(b.stock_no ?? ''));
@@ -130,7 +136,8 @@ export async function exportRsmiToExcel(
 
     const recapMap = new Map<string, { stockNos: string[]; quantity: number }>();
     for (const item of details) {
-        const key = [item.item_description, item.unit].join('||');
+        const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+        const key = [desc, item.unit].join('||');
         const existing = recapMap.get(key);
         if (existing) {
             existing.quantity += Number(item.quantity_issued ?? 0);

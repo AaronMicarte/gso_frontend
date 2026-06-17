@@ -5,6 +5,8 @@ export interface RsmiReportItem {
     responsibility_center_code: string;
     stock_no: string;
     item_description: string;
+    brand?: string | null;
+    model?: string | null;
     unit: string;
     quantity_issued: number;
     uacs_object_code?: string;
