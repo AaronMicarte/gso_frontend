@@ -209,11 +209,11 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                         <col className="w-[13%]" />
                         <col className="w-[17%]" />
                         <col className="w-[12%]" />
-                        <col className="w-[14%]" />
-                        <col className="w-[11%]" />
+                        <col className="w-[18%]" />
                         <col className="w-[10%]" />
-                        <col className="w-[12%]" />
-                        <col className="w-[11%]" />
+                        <col className="w-[10%]" />
+                        <col className="w-[10%]" />
+                        <col className="w-[10%]" />
                     </colgroup>
                     <thead>
                         <tr>
@@ -224,6 +224,7 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                                 To be filled up by the Accounting Division/Unit
                             </th>
                         </tr>
+
                         <tr>
                             <th className="border border-black py-1">RIS No.</th>
                             <th className="border border-black py-1">Responsibility Center Code</th>
@@ -255,18 +256,17 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                             <td colSpan={2} className="border border-black text-center font-bold py-1">Recapitulation:</td>
                             <td className="border border-black" />
                             <td className="border border-black" />
-                            <td className="border border-black" />
-                            <td colSpan={2} className="border border-black text-center font-bold py-1">Recapitulation:</td>
+                            <td colSpan={3} className="border border-black text-center font-bold py-1">Recapitulation:</td>
                         </tr>
                         <tr>
                             <td className="border border-black" />
-                            <td className="border border-black py-1">Stock No.</td>
-                            <td className="border border-black py-1">Quantity</td>
+                            <td className="border border-black py-1 text-center">Stock No.</td>
+                            <td className="border border-black py-1 text-center">Quantity</td>
                             <td className="border border-black" />
                             <td className="border border-black" />
-                            <td className="border border-black" />
-                            <td className="border border-black py-1">Unit Cost</td>
-                            <td className="border border-black py-1">Total Cost</td>
+                            <td className="border border-black py-1 text-center">Unit Cost</td>
+                            <td className="border border-black py-1 text-center">Total Cost</td>
+                            <td className="border border-black py-1 text-center">UACS Object Code</td>
                         </tr>
                         {recapitulation.map((row, idx) => (
                             <tr key={`${row.stock_no}-${idx}`}>
@@ -287,7 +287,7 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
                                 <td className="border border-black" />
                                 <td className="border border-black" />
                                 <td className="border border-black" />
-                                <td className="border border-black" />
+                                <td className="border border-black h-[24px]" />
                                 <td className="border border-black h-[24px]" />
                                 <td className="border border-black h-[24px]" />
                             </tr>

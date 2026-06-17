@@ -7,11 +7,13 @@ export interface RsmiReportItem {
     item_description: string;
     unit: string;
     quantity_issued: number;
+    uacs_object_code?: string;
 }
 
 export interface RsmiRecapitulationItem {
     stock_no: string;
     quantity: number;
+    uacs_object_code?: string;
 }
 
 export interface RsmiReport {

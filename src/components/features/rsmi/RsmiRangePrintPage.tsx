@@ -5,7 +5,9 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, FileSpreadsheet } from 'lucide-react'; // Added spreadsheet icon
+// Changed import from 'RsmiExport' component to function name
+import { exportRsmiToExcel } from './RsmiExport';
 import { toast } from 'sonner';
 import { getRsmiReport, listRsmiReports } from '@/lib/api/rsmi';
 import type { RsmiRecapitulationItem, RsmiReport, RsmiReportItem } from '@/types/rsmi';
@@ -91,16 +93,13 @@ const formatRangeLabel = (startDate: string, endDate: string) => {
     const sameYear = start.getFullYear() === end.getFullYear();
 
     if (sameMonth && sameYear) {
-        // June 1–16, 2026 (en-dash, no spaces)
         return `${format(start, 'MMMM')} ${start.getDate()}–${end.getDate()}, ${format(start, 'yyyy')}`.toUpperCase();
     }
 
     if (sameYear) {
-        // June 1 – July 25, 2026 (space around dash)
         return `${format(start, 'MMMM d')} – ${format(end, 'MMMM d')}, ${format(start, 'yyyy')}`.toUpperCase();
     }
 
-    // different years: December 15, 2025 – January 10, 2026
     return `${format(start, 'MMMM d, yyyy')} – ${format(end, 'MMMM d, yyyy')}`.toUpperCase();
 };
 
@@ -186,6 +185,7 @@ export function RsmiRangePrintPage() {
 
     const [combinedReport, setCombinedReport] = useState<RsmiReport | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false); // Local handler state tracking running exports
     const { user } = useAuth();
 
     const isRangeValid = useMemo(() => {
@@ -220,57 +220,184 @@ export function RsmiRangePrintPage() {
                     return;
                 }
 
+
+
                 const detailedReports = await Promise.all(list.map((entry) => getRsmiReport(entry.id)));
+
                 detailedReports.sort((a, b) => a.report_date.localeCompare(b.report_date));
+
                 setCombinedReport(buildCombinedReport(detailedReports, startDate, endDate));
+
             } catch {
+
                 toast.error('Failed to load RSMI reports for the selected range');
+
                 setCombinedReport(null);
+
             } finally {
+
                 setLoading(false);
+
             }
+
         };
 
+
+
         run();
+
     }, [endDate, isRangeValid, startDate]);
+
+
+
+    // Wrapper trigger function to safely request the Excel compilation layout
+
+    const handleExcelExport = async () => {
+
+        if (!combinedReport) return;
+
+        try {
+
+            setIsExporting(true);
+
+            await exportRsmiToExcel(combinedReport, user?.FullName ?? '');
+
+            toast.success('Range Excel file generated and downloaded successfully.');
+
+        } catch (error) {
+
+            console.error(error);
+
+            toast.error('Failed to generate range spreadsheet file.');
+
+        } finally {
+
+            setIsExporting(false);
+
+        }
+
+    };
+
+
 
     if (loading) return null;
 
+
+
     if (!isRangeValid) {
+
         return (
+
             <div className="p-6">
+
                 <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900">
+
                     <ArrowLeft className="h-4 w-4" /> Back
+
                 </button>
+
                 <div className="mt-4 text-slate-700">Invalid RSMI date range.</div>
+
             </div>
+
         );
+
     }
 
+
+
     return (
+
         <div className="print-scope p-4">
+
             <div className="no-print flex items-center justify-between mb-4">
+
                 <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900">
+
                     <ArrowLeft className="h-4 w-4" /> Back
+
                 </button>
+
                 <div className="flex items-center gap-2">
-                    <div className="text-sm text-slate-600">
+
+                    <div className="text-sm text-slate-600 mr-2">
+
                         Range: <span className="font-medium text-slate-900">{combinedReport?.report_date_label ?? `${startDate} to ${endDate}`}</span>
+
                     </div>
-                    <button
-                        onClick={() => window.print()}
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90"
-                    >
-                        <Printer className="h-4 w-4" /> Print
-                    </button>
+
+                    <div className="flex items-center gap-2">
+
+                        {/* Fixed broken <RsmiExport /> component with operational action button */}
+
+                        <button
+
+                            onClick={handleExcelExport}
+
+                            disabled={isExporting || !combinedReport}
+
+                            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-50 border border-green-200 rounded-lg shadow-sm transition-colors"
+
+                        >
+
+                            {isExporting ? (
+
+                                <>
+
+                                    <span className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
+
+                                    Exporting...
+
+                                </>
+
+                            ) : (
+
+                                <>
+
+                                    <FileSpreadsheet className="h-4 w-4 text-green-600" />
+
+                                    Export Excel
+
+                                </>
+
+                            )}
+
+                        </button>
+
+
+
+                        <button
+
+                            onClick={() => window.print()}
+
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90"
+
+                        >
+
+                            <Printer className="h-4 w-4" /> Print
+
+                        </button>
+
+                    </div>
+
                 </div>
+
             </div>
 
+
+
             {!combinedReport ? (
+
                 <div className="text-slate-700">No RSMI reports found for this date range.</div>
+
             ) : (
+
                 <RsmiPrintView report={combinedReport} custodianName={user?.FullName ?? ''} />
+
             )}
+
         </div>
+
     );
+
 }
