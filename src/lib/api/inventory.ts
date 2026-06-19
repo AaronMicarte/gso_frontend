@@ -102,6 +102,11 @@ export type PropertyCardResponse = {
         property_number: string | null;
         description: string | null;
         unit_cost: number | null;
+        // Optional fields added by backend to surface receiving details
+        po_number?: string | null;
+        supplier?: string | null;
+        date_received?: string | null;
+        received_by?: string | null;
     };
     rows: PropertyCardRow[];
 };
@@ -121,13 +126,14 @@ export const getInventories = async (params?: { page?: number; per_page?: number
     return response.data;
 };
 
-export const getAllInventoryItems = async (params?: { page?: number; per_page?: number; search?: string; property_status_id?: number; property_type_id?: number }): Promise<InventoryItemsListResponse> => {
+export const getAllInventoryItems = async (params?: { page?: number; per_page?: number; search?: string; property_status_id?: number; property_type_id?: number; document_type?: 'PAR' | 'ICS' }): Promise<InventoryItemsListResponse> => {
     const qs = new URLSearchParams();
     if (params?.page) qs.append('page', String(params.page));
     if (params?.per_page) qs.append('per_page', String(params.per_page));
     if (params?.search) qs.append('search', params.search);
     if (params?.property_status_id) qs.append('property_status_id', String(params.property_status_id));
     if (params?.property_type_id) qs.append('property_type_id', String(params.property_type_id));
+    if (params?.document_type) qs.append('document_type', params.document_type);
 
     const response: AxiosResponse<InventoryItemsListResponse> = await apiClient.get(`/inventory/all-items?${qs.toString()}`);
     return response.data;

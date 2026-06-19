@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@radix-ui/react-tooltip
 import { PropertySticker } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 import { PropertyCardDialog } from './PropertyCardDialog';
+import { InventoryReceiptDialog } from './InventoryReceiptDialog';
 import { EditInventoryDetailModal, toInventoryDetailEditForm, type InventoryDetailEditForm } from './EditInventoryDetailModal';
 
 export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
@@ -375,9 +376,16 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                                                {d.PropertyName || 'Unknown'}
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                                    {d.PropertyName || 'Unknown'}
+                                                                </span>
+                                                                {d.DocumentType && (
+                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${d.DocumentType === 'PAR' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                                                                        {d.DocumentType}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-slate-600">
                                                             <Tooltip>
@@ -466,6 +474,12 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                         unitCost={d.UnitCost}
                                                                     />
                                                                 )}
+                                                                <InventoryReceiptDialog
+                                                                    inventoryDetailId={d.InventoryDetailID}
+                                                                    inventoryId={d.InventoryID}
+                                                                    articleName={d.dr_article_name ?? d.PropertyName}
+                                                                    unitOfMeasureId={d.UnitOfMeasureID}
+                                                                />
                                                                 <InventoryHistoryDialog
                                                                     inventoryDetailId={d.InventoryDetailID}
                                                                     itemName={getItemName(d)}

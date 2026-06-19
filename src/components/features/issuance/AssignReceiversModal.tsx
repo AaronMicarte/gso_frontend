@@ -237,7 +237,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
             const relevantRows = rows.filter(r => r.issuance_detail_id === item.id);
             if (relevantRows.length === 0) return;
 
-            let detailsPool = [...item.allDetailIds];
+            const detailsPool = [...item.allDetailIds];
 
             relevantRows.forEach(row => {
                 let assignedCountForUser = row.quantity;

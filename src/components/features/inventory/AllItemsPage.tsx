@@ -13,6 +13,7 @@ import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 import { PropertySticker } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 import { PropertyCardDialog } from './PropertyCardDialog';
+import { InventoryReceiptDialog } from './InventoryReceiptDialog';
 import { EditInventoryDetailModal, toInventoryDetailEditForm, type InventoryDetailEditForm } from './EditInventoryDetailModal';
 
 export function AllItemsPage() {
@@ -41,6 +42,7 @@ export function AllItemsPage() {
         return null;
     });
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
+    const [selectedDocumentType, setSelectedDocumentType] = useState<'PAR' | 'ICS' | null>(null);
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryDetailEditForm | null>(null);
@@ -52,7 +54,7 @@ export function AllItemsPage() {
         return () => window.clearTimeout(timeoutId);
     }, [search]);
 
-    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined });
+    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined, document_type: selectedDocumentType || undefined });
     const { data: propertyTypes } = useAllPropertyTypes();
 
     const propertyStatuses = [
@@ -69,7 +71,10 @@ export function AllItemsPage() {
     };
 
     // The server now returns items ordered by creation timestamp (newest first).
-    const filteredDetails = data?.data ? [...data.data] : [];
+    const filteredDetails = (data?.data ? [...data.data] : []).filter(item => {
+        if (selectedDocumentType) return item.DocumentType === selectedDocumentType;
+        return true;
+    });
 
     const toggleDescriptionExpansion = (inventoryDetailId: number) => {
         setExpandedDescriptions(prev => {
@@ -202,6 +207,18 @@ export function AllItemsPage() {
                                 <option key={type.id} value={type.id}>{type.name}</option>
                             ))}
                         </select>
+                        <select
+                            value={selectedDocumentType || ''}
+                            onChange={(e) => {
+                                setSelectedDocumentType(e.target.value ? (e.target.value as 'PAR' | 'ICS') : null);
+                                setPage(1);
+                            }}
+                            className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                        >
+                            <option value="">All Document Types</option>
+                            <option value="PAR">PAR</option>
+                            <option value="ICS">ICS</option>
+                        </select>
                     </div>
                 </div>
 
@@ -327,9 +344,16 @@ export function AllItemsPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                                        {item.PropertyName || 'Unknown'}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                            {item.PropertyName || 'Unknown'}
+                                                        </span>
+                                                        {item.DocumentType && (
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${item.DocumentType === 'PAR' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                                                                {item.DocumentType}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-600">
                                                     <div className="font-medium">{item.InventoryNumber || 'N/A'}</div>
@@ -404,6 +428,12 @@ export function AllItemsPage() {
                                                         <InventoryHistoryDialog
                                                             inventoryDetailId={item.InventoryDetailID}
                                                             itemName={getItemName(item)}
+                                                        />
+                                                        <InventoryReceiptDialog
+                                                            inventoryDetailId={item.InventoryDetailID}
+                                                            inventoryId={item.InventoryID}
+                                                            articleName={item.dr_article_name ?? item.PropertyName}
+                                                            unitOfMeasureId={item.UnitOfMeasureID}
                                                         />
                                                         <button
                                                             onClick={() => openEditModal(item)}
