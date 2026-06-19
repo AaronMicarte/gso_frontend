@@ -139,7 +139,8 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         );
         const brandModel = [pInv?.Brand, pInv?.ModelNumber].filter(Boolean).join(' ');
         // exclude serial from description so items with different serials group together
-        const description = [itemName, brandModel].filter(Boolean).join(' / ');
+        // separate item name, brand and model using comma instead of slash
+        const description = [itemName, brandModel].filter(Boolean).join(', ');
 
         const inventoryItemNo = ensureText(
             pInv?.InventoryNumber || inv?.InventoryNumber || inv?.PropertyNumber || inv?.InventoryDetailID,

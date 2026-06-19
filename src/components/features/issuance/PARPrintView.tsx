@@ -136,7 +136,9 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
             'ITEM'
         );
         const technical = ensureText(inv?.Description, '');
-        const description = technical ? `${itemName} - ${technical}` : itemName;
+        const brandModel = [pInv?.Brand, pInv?.ModelNumber].filter(Boolean).join(' ');
+        // combine item name, technical description, brand and model separated by commas
+        const description = [itemName, technical, brandModel].filter(Boolean).join(', ');
 
         const qty = Math.max(1, Number(detail.QuantityIssued ?? 1));
         const unit = ensureText(inv?.unitOfMeasure?.UnitName || detail.Unit || 'unit', 'unit');
