@@ -91,6 +91,67 @@ function createdTimeForDr(dr: DeliveryReceiptTimeSource): number {
     return 0;
 }
 
+function buildIssuanceItemLabel(item: {
+    Article?: string | null;
+    Brand?: string | null;
+    ModelNumber?: string | null;
+    SerialNumber?: string | null;
+    ItemDescription?: string | null;
+}) {
+    return [item.Article, item.Brand, item.ModelNumber, item.SerialNumber]
+        .filter(Boolean)
+        .join(' · ') || (item.ItemDescription || 'Item');
+}
+
+function buildDrItemLabel(item: IarIssuedItem) {
+    return [item.Brand, item.ModelNumber, item.SerialNumber]
+        .filter(Boolean)
+        .join(' · ') || (item.ItemDescription || 'Item');
+}
+
+function getAvailableDocumentTypes(row: DeliveryReceiptForIssuance): Array<'PAR' | 'ICS'> {
+    const itemsByType = row.items_by_document_type ?? {};
+    const issuanceByType = row.issuances_by_document_type ?? {};
+
+    return (['PAR', 'ICS'] as const).filter(
+        (type) => (itemsByType[type]?.length ?? 0) > 0 || !!issuanceByType[type]
+    );
+}
+
+function getSelectedDocumentType(row: DeliveryReceiptForIssuance, docTypeByDr: Record<number, 'PAR' | 'ICS'>): 'PAR' | 'ICS' {
+    const availableTypes = getAvailableDocumentTypes(row);
+    return docTypeByDr[row.DRID] ?? availableTypes[0] ?? 'PAR';
+}
+
+function filterItemsForDocumentType<T extends {
+    Article?: string | null;
+    Brand?: string | null;
+    ModelNumber?: string | null;
+    SerialNumber?: string | null;
+    ItemDescription?: string | null;
+}>(items: T[], eligibleDrItems: IarIssuedItem[]): T[] {
+    if (eligibleDrItems.length === 0) {
+        return items;
+    }
+
+    const eligibleLabels = new Set(eligibleDrItems.map(buildDrItemLabel));
+    const eligibleDescriptions = new Set(
+        eligibleDrItems
+            .map((item) => (item.ItemDescription || '').trim().toLowerCase())
+            .filter(Boolean)
+    );
+
+    return items.filter((item) => {
+        const label = buildIssuanceItemLabel(item);
+        if (eligibleLabels.has(label)) {
+            return true;
+        }
+
+        const description = (item.ItemDescription || '').trim().toLowerCase();
+        return Boolean(description) && eligibleDescriptions.has(description);
+    });
+}
+
 export function IssuanceListPage({
     baseRoute,
     pageTitle,
@@ -199,17 +260,20 @@ export function IssuanceListPage({
     };
 
     const handlePrint = (row: DeliveryReceiptForIssuance) => {
-        const existing = row.issuances_by_document_type?.PAR ?? row.issuances_by_document_type?.ICS;
+        const selectedType = getSelectedDocumentType(row, docTypeByDr);
+        const issuanceByType = row.issuances_by_document_type ?? {};
+        const existing = issuanceByType[selectedType];
+
         if (existing?.IssuanceID) {
-            // open assign modal for existing issuance
-            openAssignModalForIssuance(existing.IssuanceID, row);
+            openAssignModalForIssuance(existing.IssuanceID, row, selectedType);
             return;
         }
+
         issuanceAPI.ensureIssuances({ dr_id: row.DRID, iar_id: row.IARID || undefined })
             .then((response) => {
-                const ensured = response.data?.issuances_by_document_type?.PAR ?? response.data?.issuances_by_document_type?.ICS;
+                const ensured = response.data?.issuances_by_document_type?.[selectedType];
                 if (!ensured?.IssuanceID) {
-                    toast.error('Issuance document is not available yet');
+                    toast.error(`No ${selectedType} issuance document is available yet`);
                     return;
                 }
 
@@ -232,7 +296,7 @@ export function IssuanceListPage({
                     return updated;
                 });
 
-                openAssignModalForIssuance(ensured.IssuanceID, row);
+                openAssignModalForIssuance(ensured.IssuanceID, row, selectedType);
             })
             .catch(() => {
                 toast.error('Failed to prepare issuance document');
@@ -242,25 +306,80 @@ export function IssuanceListPage({
     // Assign receivers modal state
     const [assignOpen, setAssignOpen] = useState(false);
     const [assignIssuanceId, setAssignIssuanceId] = useState<number | null>(null);
-    const [assignItems, setAssignItems] = useState<Array<any>>([]);
+    const [assignDocumentType, setAssignDocumentType] = useState<'PAR' | 'ICS' | null>(null);
+    const [assignItems, setAssignItems] = useState<Array<{
+        IssuanceDetailID: number;
+        ItemDescription?: string | null;
+        QuantityIssued?: number | null;
+        Article?: string | null;
+        Brand?: string | null;
+        ModelNumber?: string | null;
+        SerialNumber?: string | null;
+    }>>([]);
 
-    const openAssignModalForIssuance = async (issuanceId: number, row: DeliveryReceiptForIssuance) => {
+    const openAssignModalForIssuance = async (
+        issuanceId: number,
+        row: DeliveryReceiptForIssuance,
+        documentType: 'PAR' | 'ICS',
+    ) => {
         try {
-            // fetch issuance details for items
             const issuance = await issuanceAPI.getById(issuanceId);
-            const items = issuance.details?.map((d: any) => ({
-                IssuanceDetailID: d.IssuanceDetailID ?? d.InventoryDetailID ?? d.InventoryDetailID,
-                ItemDescription: d.ItemDescription ?? d.inventoryDetail?.propertyInventory?.ItemDescription ?? d.inventoryDetail?.Description ?? d.inventoryDetail?.ItemName,
+            const eligibleDrItems = row.items_by_document_type?.[documentType] ?? [];
+            const mappedItems = issuance.details?.map((d: {
+                IssuanceDetailID?: number;
+                InventoryDetailID?: number;
+                ItemDescription?: string | null;
+                QuantityIssued?: number | null;
+                Quantity?: number | null;
+                inventoryDetail?: {
+                    propertyInventory?: {
+                        ItemDescription?: string | null;
+                        ItemName?: string | null;
+                        Brand?: string | null;
+                        ModelNumber?: string | null;
+                        SerialNumber?: string | null;
+                    };
+                    Description?: string | null;
+                    ItemName?: string | null;
+                    Brand?: string | null;
+                    ModelNumber?: string | null;
+                    SerialNumber?: string | null;
+                    drDetail?: {
+                        article?: {
+                            ArticleName?: string | null;
+                        };
+                    };
+                };
+            }) => ({
+                IssuanceDetailID: d.IssuanceDetailID ?? d.InventoryDetailID ?? 0,
+                ItemDescription: d.ItemDescription
+                    ?? d.inventoryDetail?.propertyInventory?.ItemDescription
+                    ?? d.inventoryDetail?.Description
+                    ?? d.inventoryDetail?.ItemName,
                 QuantityIssued: d.QuantityIssued ?? d.Quantity ?? 1,
-                Article: d.inventoryDetail?.drDetail?.article?.ArticleName ?? d.inventoryDetail?.propertyInventory?.ItemName ?? null,
+                Article: d.inventoryDetail?.drDetail?.article?.ArticleName
+                    ?? d.inventoryDetail?.propertyInventory?.ItemName
+                    ?? null,
                 Brand: d.inventoryDetail?.propertyInventory?.Brand ?? d.inventoryDetail?.Brand ?? null,
                 ModelNumber: d.inventoryDetail?.propertyInventory?.ModelNumber ?? d.inventoryDetail?.ModelNumber ?? null,
                 SerialNumber: d.inventoryDetail?.propertyInventory?.SerialNumber ?? d.inventoryDetail?.SerialNumber ?? null,
             })) || [];
+
+            const items = filterItemsForDocumentType(
+                mappedItems.filter((item) => item.IssuanceDetailID > 0),
+                eligibleDrItems,
+            );
+
+            if (items.length === 0) {
+                toast.error(`No ${documentType}-eligible items are available for assignment`);
+                return;
+            }
+
             setAssignItems(items);
             setAssignIssuanceId(issuanceId);
+            setAssignDocumentType(documentType);
             setAssignOpen(true);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load issuance for assignment');
         }
     };
@@ -319,15 +438,9 @@ export function IssuanceListPage({
                                 const hasAcknowledgedIssuance = Object.values(issuanceByType).some(
                                     (issuance) => issuance?.Status === 'acknowledged'
                                 );
-                                const itemsByType = row.items_by_document_type ?? {};
-                                // Include types that have either items or existing issuances
-                                const availableTypes = (['PAR', 'ICS'] as const).filter(
-                                    (type) => (itemsByType[type]?.length ?? 0) > 0 || !!issuanceByType[type]
-                                );
-                                const selectedType = docTypeByDr[row.DRID]
-                                    ?? availableTypes[0]
-                                    ?? 'PAR';
-                                const currentItems = itemsByType[selectedType] ?? [];
+                                const availableTypes = getAvailableDocumentTypes(row);
+                                const selectedType = getSelectedDocumentType(row, docTypeByDr);
+                                const currentItems = (row.items_by_document_type ?? {})[selectedType] ?? [];
                                 const isExpanded = expandedByDr[row.DRID] ?? false;
 
                                 const canPrint = (row.InspectionStatus === 'inspected' || hasAcknowledgedIssuance) && availableTypes.length > 0;
@@ -392,7 +505,7 @@ export function IssuanceListPage({
                                                         className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                                                     >
                                                         <FileText className="w-4 h-4" />
-                                                        Print PAR/ICS
+                                                        Print {selectedType}
                                                     </button>
                                                 )}
                                                 <button
@@ -552,13 +665,24 @@ export function IssuanceListPage({
                 open={assignOpen}
                 onOpenChange={setAssignOpen}
                 issuanceId={assignIssuanceId}
+                documentType={assignDocumentType ?? undefined}
                 items={assignItems}
-                onSaved={() => {
-                    // after saving open print page
-                    if (assignIssuanceId) {
-                        const printUrl = `${baseRoute}/${assignIssuanceId}/print`;
-                        window.open(printUrl, '_blank', 'noopener,noreferrer');
+                onSaved={({ detailIds, documentType }) => {
+                    if (!assignIssuanceId) return;
+
+                    const params = new URLSearchParams();
+                    if (documentType) {
+                        params.set('type', documentType);
                     }
+                    if (detailIds.length > 0) {
+                        params.set('details', detailIds.join(','));
+                    }
+
+                    const query = params.toString();
+                    const printUrl = query
+                        ? `${baseRoute}/${assignIssuanceId}/print?${query}`
+                        : `${baseRoute}/${assignIssuanceId}/print`;
+                    window.open(printUrl, '_blank', 'noopener,noreferrer');
                 }}
             />
         </div >

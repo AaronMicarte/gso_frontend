@@ -9,6 +9,7 @@ import issuanceAPI from '@/lib/api/issuance';
 interface ICSPrintViewProps {
     issuance: AssetIssuance;
     printSignature?: string | null;
+    selectedDetailIds?: number[];
 }
 
 interface GroupedIcsRow {
@@ -39,7 +40,7 @@ function parseTrailingNumber(value: string): { prefix: string; number: number; w
 
 // use shared helper `compressPropertyNumbers` for consistent formatting
 
-export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(({ issuance, printSignature }, ref) => {
+export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(({ issuance, printSignature, selectedDetailIds }, ref) => {
     const formatDate = (dateString?: string) => {
         if (!dateString) return '';
         return format(toZonedTime(new Date(dateString), 'Asia/Manila'), 'MM/dd/yyyy');
@@ -71,7 +72,10 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         || issuance.request?.signatures?.find((s) => s.role === 'issuer')?.url
         || null;
 
-    const details = issuance.details ?? [];
+    const allDetails = issuance.details ?? [];
+    const details = selectedDetailIds?.length
+        ? allDetails.filter((detail) => selectedDetailIds.includes(detail.IssuanceDetailID))
+        : allDetails;
 
     const entityName = 'CITY GOVERNMENT OF EL SALVADOR';
     const fundCluster = '';
@@ -81,7 +85,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
     const receivedFromOffice = ensureText(issuance.issuer?.department?.DepartmentName, 'GENERAL SERVICES OFFICE');
 
     const receivedByName = ensureText(
-        issuance.request?.requester?.FullName || issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
+        issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
         'REQUESTER'
     );
     const receivedByOffice = ensureText(
@@ -95,7 +99,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         docDate
     );
 
-    const [assignments, setAssignments] = React.useState<Array<{ receiver_name: string; quantity: number }>>([]);
+    const [assignments, setAssignments] = React.useState<Array<{ receiver_name: string }>>([]);
 
     React.useEffect(() => {
         let mounted = true;
@@ -104,12 +108,23 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         issuanceAPI.getAssignments(id).then((res) => {
             if (!mounted) return;
             const rows = res?.data ?? [];
-            setAssignments(rows.map((r: any) => ({ receiver_name: r.receiver_name, quantity: Number(r.quantity) })));
+            const mapped: Array<{ receiver_name: string }> = rows
+                .filter((row: { issuance_detail_id?: number }) => {
+                    if (!selectedDetailIds?.length) return true;
+                    return selectedDetailIds.includes(Number(row.issuance_detail_id));
+                })
+                .map((row: { receiver_name?: string }) => ({
+                    receiver_name: String(row.receiver_name || '').trim(),
+                }))
+                .filter((row: { receiver_name: string }) => row.receiver_name.length > 0);
+
+            const uniqueReceivers = [...new Set(mapped.map((row) => row.receiver_name))];
+            setAssignments(uniqueReceivers.map((receiver_name) => ({ receiver_name })));
         }).catch(() => {
             // ignore
         });
         return () => { mounted = false; };
-    }, [issuance.IssuanceID]);
+    }, [issuance.IssuanceID, selectedDetailIds]);
 
     const groupedRows = details.reduce<Map<string, GroupedIcsRow>>((map: Map<string, GroupedIcsRow>, detail: IssuanceDetail, index: number) => {
         const inv = detail.inventoryDetail;
@@ -291,11 +306,10 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                         <div className="mb-6">Received by:</div>
                         <div className="border-b border-black h-14 flex flex-col items-start justify-center px-2 gap-1">
                             {assignments.length > 0 ? (
-                                <div className="w-full">
-                                    {assignments.map((a, idx) => (
-                                        <div key={idx} className="flex items-center justify-between text-xs">
-                                            <div className="font-medium">{a.receiver_name}</div>
-                                            <div className="text-slate-600">Qty: {a.quantity}</div>
+                                <div className="w-full text-center space-y-0.5">
+                                    {assignments.map((assignment, idx) => (
+                                        <div key={idx} className="font-medium text-xs">
+                                            {assignment.receiver_name}
                                         </div>
                                     ))}
                                 </div>

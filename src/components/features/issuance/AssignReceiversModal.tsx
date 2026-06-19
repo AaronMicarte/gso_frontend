@@ -12,25 +12,33 @@ interface AssignmentRow {
     searchQuery: string;
 }
 
+export interface AssignReceiversModalItem {
+    IssuanceDetailID: number;
+    ItemDescription?: string | null;
+    QuantityIssued?: number | null;
+    Article?: string | null;
+    Brand?: string | null;
+    ModelNumber?: string | null;
+    SerialNumber?: string | null;
+}
+
+export interface AssignReceiversSaveResult {
+    detailIds: number[];
+    documentType?: 'PAR' | 'ICS';
+}
+
 interface Props {
     open: boolean;
     onOpenChange: (v: boolean) => void;
     issuanceId: number | null;
-    items: Array<{
-        IssuanceDetailID: number;
-        ItemDescription?: string | null;
-        QuantityIssued?: number | null;
-        Article?: string | null;
-        Brand?: string | null;
-        ModelNumber?: string | null;
-        SerialNumber?: string | null;
-    }>;
-    onSaved?: () => void;
+    documentType?: 'PAR' | 'ICS';
+    items: AssignReceiversModalItem[];
+    onSaved?: (result: AssignReceiversSaveResult) => void;
 }
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
-export default function AssignReceiversModal({ open, onOpenChange, issuanceId, items, onSaved }: Props) {
+export default function AssignReceiversModal({ open, onOpenChange, issuanceId, documentType, items, onSaved }: Props) {
     const [rows, setRows] = React.useState<AssignmentRow[]>([]);
     const [saving, setSaving] = React.useState(false);
     const [loadingHistory, setLoadingHistory] = React.useState(false);
@@ -252,7 +260,10 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, i
             await issuanceAPI.saveAssignments(issuanceId, { assignments: finalAssignments });
             toast.success('Receiver assignments saved successfully!');
             onOpenChange(false);
-            onSaved?.();
+            onSaved?.({
+                detailIds: [...new Set(finalAssignments.map((assignment) => assignment.issuance_detail_id))],
+                documentType,
+            });
         } catch (err) {
             toast.error('Failed to update asset assignments.');
         } finally {
@@ -267,9 +278,11 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, i
                 <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl w-full max-w-5xl p-6 flex flex-col max-h-[90vh]">
 
                     <div className="border-b border-slate-100 pb-3 mb-4">
-                        <Dialog.Title className="text-xl font-bold text-slate-900">Assign Items to Receivers</Dialog.Title>
+                        <Dialog.Title className="text-xl font-bold text-slate-900">
+                            Assign Items to Receivers{documentType ? ` (${documentType})` : ''}
+                        </Dialog.Title>
                         <Dialog.Description className="text-slate-500 text-sm mt-1">
-                            Select a receiver first, search/select their item assignment, and distribute the quantities.
+                            Select a receiver, choose {documentType ? `${documentType}-eligible ` : ''}items, and distribute quantities. Only assigned items will appear on the print view.
                         </Dialog.Description>
                     </div>
 

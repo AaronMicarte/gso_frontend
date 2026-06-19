@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import issuanceAPI from '@/lib/api/issuance';
@@ -22,13 +22,30 @@ function getIssuanceTimestamp(issuance: AssetIssuance): number {
     return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function parseSelectedDetailIds(rawValue: string | null): number[] | undefined {
+    if (!rawValue) return undefined;
+
+    const parsed = rawValue
+        .split(',')
+        .map((value) => Number(value.trim()))
+        .filter((value) => Number.isFinite(value) && value > 0);
+
+    return parsed.length > 0 ? parsed : undefined;
+}
+
 export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintViewProps) {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [issuances, setIssuances] = useState<AssetIssuance[]>([]);
     const [loading, setLoading] = useState(true);
 
     const issuanceId = params?.id ? parseInt(params.id as string) : null;
+    const requestedType = searchParams.get('type') as DocumentType | null;
+    const selectedDetailIds = useMemo(
+        () => parseSelectedDetailIds(searchParams.get('details')),
+        [searchParams],
+    );
 
     useEffect(() => {
         document.body.classList.add('print-scope-active');
@@ -63,6 +80,10 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
                         }
                         return accumulator;
                     }, [])
+                    .filter((issuance) => {
+                        if (!requestedType) return true;
+                        return issuance.DocumentType === requestedType;
+                    })
                     .sort((left, right) => {
                         const leftTime = getIssuanceTimestamp(left);
                         const rightTime = getIssuanceTimestamp(right);
@@ -82,7 +103,7 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
         };
 
         loadIssuance();
-    }, [backHref, issuanceId, router]);
+    }, [backHref, issuanceId, requestedType, router]);
 
     const printLabel = useMemo(() => {
         const types = issuances.map((issuance) => issuance.DocumentType).filter((type): type is DocumentType => type === 'PAR' || type === 'ICS');
@@ -140,9 +161,9 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
                 return (
                     <div key={issuance.IssuanceID} className={wrapperClassName}>
                         {issuance.DocumentType === 'PAR' ? (
-                            <PARPrintView issuance={issuance} />
+                            <PARPrintView issuance={issuance} selectedDetailIds={selectedDetailIds} />
                         ) : (
-                            <ICSPrintView issuance={issuance} />
+                            <ICSPrintView issuance={issuance} selectedDetailIds={selectedDetailIds} />
                         )}
                     </div>
                 );
