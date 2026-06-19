@@ -89,21 +89,42 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                 const savedRows = response?.data || response || [];
 
                 if (Array.isArray(savedRows) && savedRows.length > 0) {
-                    const loaded = savedRows.map((dbRow: any) => {
-                        // Match incoming historic DB IDs back to their UI labels
+                    // --- FIX: Aggregate rows by combination of Receiver Name + Matched Item UI ID ---
+                    const aggregatedMap: Record<string, { receiver_name: string; issuance_detail_id: string; quantity: number }> = {};
+
+                    savedRows.forEach((dbRow: any) => {
                         const foundMatch = availableItems.find(ai =>
                             ai.allDetailIds.includes(Number(dbRow.issuance_detail_id))
                         );
 
-                        return {
-                            id: uid(),
-                            receiver_name: dbRow.receiver_name || '',
-                            issuance_detail_id: foundMatch ? foundMatch.id : '',
-                            quantity: Number(dbRow.quantity || 1),
-                            isDropdownOpen: false,
-                            searchQuery: ''
-                        };
+                        const itemUiId = foundMatch ? foundMatch.id : '';
+                        const receiverName = (dbRow.receiver_name || '').trim();
+
+                        // Create a composite key to group similar allocations together
+                        const groupingKey = `${receiverName}_${itemUiId}`;
+                        const qty = Number(dbRow.quantity || 1);
+
+                        if (aggregatedMap[groupingKey]) {
+                            aggregatedMap[groupingKey].quantity += qty;
+                        } else {
+                            aggregatedMap[groupingKey] = {
+                                receiver_name: receiverName,
+                                issuance_detail_id: itemUiId,
+                                quantity: qty
+                            };
+                        }
                     });
+
+                    // Map the consolidated groups back to UI rows
+                    const loaded = Object.values(aggregatedMap).map((group) => ({
+                        id: uid(),
+                        receiver_name: group.receiver_name,
+                        issuance_detail_id: group.issuance_detail_id,
+                        quantity: group.quantity,
+                        isDropdownOpen: false,
+                        searchQuery: ''
+                    }));
+
                     setRows(loaded);
                 } else {
                     setRows([
@@ -287,7 +308,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
         <Dialog.Root open={open} onOpenChange={onOpenChange}>
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40" />
-                <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl w-full max-w-5xl p-6 flex flex-col max-h-[90vh]">
+                <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl w-full max-w-7xl p-6 flex flex-col max-h-[90vh]">
 
                     <div className="border-b border-slate-100 pb-3 mb-4">
                         <Dialog.Title className="text-xl font-bold text-slate-900">
@@ -317,7 +338,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-[300px] pb-32">
+                    <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-[300px] pb-6">
                         {loadingHistory ? (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-400 text-sm italic">
                                 <svg className="animate-spin h-6 w-6 text-slate-500 mb-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -339,12 +360,13 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                 });
 
                                 return (
-                                    <div key={row.id} className="flex flex-col md:flex-row items-start md:items-center gap-3 p-4 border border-slate-200 hover:border-slate-300 rounded-xl bg-white transition-all shadow-xs relative">
+                                    <div key={row.id} className="flex flex-col lg:flex-row items-start lg:items-center gap-4 p-4 border border-slate-200 hover:border-slate-300 rounded-xl bg-white transition-all shadow-xs relative">
                                         <span className="absolute -left-2 top-1/2 -translate-y-1/2 bg-slate-100 text-slate-500 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border border-slate-200">
                                             {idx + 1}
                                         </span>
 
-                                        <div className="w-full md:flex-1 pl-2">
+                                        {/* Receiver Input Box */}
+                                        <div className="w-full lg:w-1/4 pl-2">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Receiver Name</label>
                                             <input
                                                 type="text"
@@ -355,17 +377,18 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             />
                                         </div>
 
-                                        <div className="w-full md:w-[360px] relative">
+                                        {/* Main Combobox Column - Multi-line wrapping ready */}
+                                        <div className="w-full lg:flex-1 relative">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Assigned Asset Item</label>
 
                                             <div
                                                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white cursor-pointer flex items-center justify-between font-medium text-slate-800 min-h-[38px]"
                                                 onClick={() => updateRow(row.id, { isDropdownOpen: !row.isDropdownOpen })}
                                             >
-                                                <span className={chosenItem ? "text-slate-800 truncate block max-w-[300px]" : "text-slate-400 font-normal"}>
+                                                <span className={chosenItem ? "text-slate-800 block py-0.5 break-words whitespace-normal" : "text-slate-400 font-normal"}>
                                                     {chosenItem ? chosenItem.label : "-- Search & Select Asset Item --"}
                                                 </span>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400 shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                                 </svg>
                                             </div>
@@ -373,7 +396,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             {row.isDropdownOpen && (
                                                 <>
                                                     <div className="fixed inset-0 z-10" onClick={() => updateRow(row.id, { isDropdownOpen: false })} />
-                                                    <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-20 flex flex-col max-h-[280px]">
+                                                    <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-20 flex flex-col max-h-[320px]">
                                                         <div className="p-2 border-b border-slate-100 bg-slate-50 sticky top-0">
                                                             <input
                                                                 type="text"
@@ -385,7 +408,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                                             />
                                                         </div>
 
-                                                        <div className="overflow-y-auto max-h-60 divide-y divide-slate-50">
+                                                        <div className="overflow-y-auto max-h-64 divide-y divide-slate-100">
                                                             {filteredItems.length === 0 ? (
                                                                 <div className="p-3 text-xs text-slate-400 italic text-center">No matching items found</div>
                                                             ) : (
@@ -406,10 +429,10 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                                                                     searchQuery: ''
                                                                                 });
                                                                             }}
-                                                                            className={`w-full text-left px-3 py-2 text-xs transition-colors flex flex-col gap-0.5 ${isCurrentlySelected ? 'bg-slate-100 text-[var(--primary)] font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                                                            className={`w-full text-left px-3 py-2.5 text-xs transition-colors flex flex-col gap-1 ${isCurrentlySelected ? 'bg-slate-100 text-[var(--primary)] font-bold' : 'hover:bg-slate-50 text-slate-700'
                                                                                 } ${itemRemaining <= 0 && !isCurrentlySelected ? 'opacity-40 cursor-not-allowed bg-slate-50' : ''}`}
                                                                         >
-                                                                            <span className="font-medium truncate block">{item.label}</span>
+                                                                            <span className="font-medium block break-words whitespace-normal">{item.label}</span>
                                                                             <span className="text-[10px] text-slate-400">
                                                                                 Available Remaining: <strong className={itemRemaining > 0 ? "text-emerald-600" : "text-rose-500"}>{itemRemaining}</strong> / {item.maxQty}
                                                                             </span>
@@ -423,7 +446,8 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             )}
                                         </div>
 
-                                        <div className="w-full md:w-[110px]">
+                                        {/* Quantity Column */}
+                                        <div className="w-full lg:w-[100px]">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Quantity</label>
                                             <input
                                                 type="number"
@@ -436,7 +460,8 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             />
                                         </div>
 
-                                        <div className="w-full md:w-[140px] text-center md:text-left">
+                                        {/* Remaining Pool Badge Container */}
+                                        <div className="w-full lg:w-[130px] text-center lg:text-left">
                                             {chosenItem ? (
                                                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-center px-2">
                                                     <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Remaining Pool</div>
@@ -449,7 +474,8 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             )}
                                         </div>
 
-                                        <div className="w-full md:w-auto flex justify-end md:pt-4">
+                                        {/* Row Action Items */}
+                                        <div className="w-full lg:w-auto flex justify-end lg:pt-4">
                                             <button
                                                 type="button"
                                                 onClick={() => removeAssignmentRow(row.id)}
