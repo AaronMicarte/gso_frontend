@@ -21,6 +21,7 @@ import { AssetIssuance, AcknowledgeAssetData, InventoryDetail } from '@/types/as
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import React from 'react';
+import AssignReceiversModal, { AssignReceiversModalItem, AssignReceiversSaveResult } from './AssignReceiversModal';
 
 const statusConfig = {
     pending_acknowledgment: {
@@ -130,6 +131,34 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         }
 
         router.push(`${baseRoute}/${issuance.IssuanceID}/print`);
+    };
+
+    const [assignModalOpen, setAssignModalOpen] = useState(false);
+
+    const modalItems: AssignReceiversModalItem[] = (issuance?.details || []).map(d => {
+        const inv = d.inventoryDetail;
+        const prop = inv?.propertyInventory;
+        return {
+            IssuanceDetailID: d.IssuanceDetailID,
+            ItemDescription: prop?.ItemDescription || d.ItemDescription || null,
+            QuantityIssued: d.QuantityIssued ?? null,
+            Article: prop?.ItemName || null,
+            Brand: prop?.Brand || null,
+            ModelNumber: prop?.ModelNumber || null,
+            SerialNumber: prop?.SerialNumber || null,
+        };
+    });
+
+    const handleAssignSaved = (result: AssignReceiversSaveResult) => {
+        // Close modal and open the print view in a new tab so the user can continue working without popup blocking.
+        setAssignModalOpen(false);
+        if (!issuance) return;
+        try {
+            window.open(`${baseRoute}/${issuance.IssuanceID}/print`, '_blank');
+        } catch (err) {
+            // Fallback to router navigation
+            router.push(`${baseRoute}/${issuance.IssuanceID}/print`);
+        }
     };
 
     type InventoryDetailWithPropertyName = InventoryDetail & { PropertyName?: string };
@@ -340,6 +369,13 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                             <FileText className="w-4 h-4 mr-2" />
                             Open PAR/ICS print view
                         </button>
+                        <button
+                            onClick={() => setAssignModalOpen(true)}
+                            disabled={!issuance}
+                            className="inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md bg-white hover:bg-slate-50 text-slate-700"
+                        >
+                            Assign Receivers
+                        </button>
                         {canAcknowledge() && (
                             <div className="space-y-3">
                                 <div>
@@ -367,6 +403,15 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                         )}
                     </div>
                 </div>
+
+                <AssignReceiversModal
+                    open={assignModalOpen}
+                    onOpenChange={setAssignModalOpen}
+                    issuanceId={issuance?.IssuanceID ?? null}
+                    documentType={issuance?.DocumentType}
+                    items={modalItems}
+                    onSaved={handleAssignSaved}
+                />
 
                 {/* Status Banner */}
                 <div className={`${statusInfo.bgColor} border-l-4 border-${statusInfo.color.split('-')[1]}-400 p-4`}>
