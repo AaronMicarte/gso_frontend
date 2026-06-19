@@ -127,7 +127,7 @@ export interface RpcInventoryReportRow {
      */
     property_remarks?: Record<string, string | null> | null;
     accountable_officer: string;
-    department: string;
+    date_purchased: string;
     condition?: string | null;
     is_scanned: boolean;
 }

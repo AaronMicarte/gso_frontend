@@ -16,22 +16,41 @@ interface RpcInventoryPrintViewProps {
 
 const formatDate = (value: string) => {
     const zoned = toZonedTime(new Date(value), 'Asia/Manila');
-    return format(zoned, 'MMMM dd, yyyy');
+    return format(zoned, 'M/d/yyyy');
 };
 
-const formatPrintEndUser = (accountableOfficer?: string | null, department?: string | null) => {
-    const officer = (accountableOfficer || '').trim();
-    const dept = (department || '').trim();
+// Formats the End User depending on the report type (Always ALL CAPS, no department)
+const formatPrintEndUser = (type: RpcType, accountableOfficer?: string | null) => {
+    if (!accountableOfficer) return '';
 
-    if (!officer) return '';
-    if (!dept) return officer;
+    // Split out any appended department suffix if it exists after a hyphen
+    const cleanName = accountableOfficer.split('-')[0].trim();
 
-    const suffix = ` - ${dept}`;
-    if (officer.toLowerCase().endsWith(suffix.toLowerCase())) {
-        return officer.slice(0, -suffix.length).trim();
+    // RPCPPE: Initial style (e.g., "A. MICARTE")
+    if (type === 'RPCPPE') {
+        const nameParts = cleanName.split(/\s+/).filter(Boolean);
+
+        if (nameParts.length === 0) return '';
+        if (nameParts.length === 1) return nameParts[0].toUpperCase();
+
+        const firstInitial = `${nameParts[0][0].toUpperCase()}.`;
+        const lastNameParts = nameParts.slice(1).join(' ').toUpperCase();
+
+        return `${firstInitial} ${lastNameParts}`;
     }
 
-    return officer;
+    // RPCSEP: Full Name style in Caps (e.g., "AARON MICARTE")
+    return cleanName.toUpperCase();
+};
+
+// Extracts the department from the accountable_officer string and forces it to ALL CAPS
+const extractDepartment = (accountableOfficer?: string | null) => {
+    if (!accountableOfficer) return '';
+    const parts = accountableOfficer.split('-');
+    if (parts.length > 1) {
+        return parts.slice(1).join('-').trim().toUpperCase(); // Returns everything after the first "-" in ALL CAPS
+    }
+    return '';
 };
 
 const currency = (value: number) => {
@@ -72,7 +91,8 @@ export function RpcInventoryPrintView({
     const subtitle = type === 'RPCPPE' ? '(Type of Property, Plant and Equipment)' : '(Type of Semi-Expendable Property)';
     const year = format(toZonedTime(new Date(generatedAt || new Date()), 'Asia/Manila'), 'yyyy');
     const reportAsOfDate = `DECEMBER 31, ${year}`;
-    const assumedMonthYear = `DECEMBER ${year}`.toUpperCase();
+
+    const assumedMonthYear = "MARCH 22, 2019";
 
     const groupedRows = rows.reduce<Record<string, RpcInventoryReportRow[]>>((acc, row) => {
         const key = (row.property_type || '').trim();
@@ -121,7 +141,7 @@ export function RpcInventoryPrintView({
                             shortage_overage_value: 0,
                             remarks: '',
                             accountable_officer: '',
-                            department: '',
+                            date_purchased: '',
                             condition: '',
                             is_scanned: false,
                         },
@@ -148,7 +168,9 @@ export function RpcInventoryPrintView({
         }));
     });
 
-    const totalPages = printablePages.length;
+    // Transforms main row layout to all caps when rendering RPCPPE layout
+    const isPpe = type === 'RPCPPE';
+    const mainHeaderClass = `border border-black px-1 py-1 font-normal ${isPpe ? 'uppercase' : ''}`;
 
     return (
         <div className="gso-print-doc bg-white text-black p-4">
@@ -206,7 +228,6 @@ export function RpcInventoryPrintView({
                                 <div className="font-bold text-[14px]">{title}</div>
                                 <div className="font-bold text-[12px]">{page.propertyType}</div>
                                 <div className="text-[11px]">{subtitle}</div>
-                                {/* Added font-bold explicitly to "As of [Date]" layout block */}
                                 <div className="font-bold text-[11px]">As of {reportAsOfDate}</div>
                             </div>
 
@@ -220,19 +241,24 @@ export function RpcInventoryPrintView({
                                 <table className="w-full border-collapse text-[10px]">
                                     <thead>
                                         <tr>
-                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Article</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Description</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">PROPERTY NUMBER</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Unit of Measure</th>
-                                            <th colSpan={2} className="border border-black px-1 py-1 font-normal">UNIT VALUE</th>
-                                            <th className="border border-black px-1 py-1 font-normal">BALANCE PER CARD</th>
-                                            <th className="border border-black px-1 py-1 font-normal">ON HAND PER COUNT</th>
-                                            <th colSpan={2} className="border border-black px-1 py-1 font-normal">SHORTAGE/OVERAGE</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Remarks</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">End User</th>
-                                            <th rowSpan={2} className="border border-black px-1 py-1 font-normal">Department</th>
+                                            <th rowSpan={2} className={mainHeaderClass}>Article</th>
+                                            <th rowSpan={2} className={mainHeaderClass}>Description</th>
+                                            <th rowSpan={2} className={mainHeaderClass}>
+                                                {type === 'RPCPPE' ? 'Property Number' : 'Semi-Expendable Property No.'}
+                                            </th>
+                                            <th rowSpan={2} className={mainHeaderClass}>Unit of Measure</th>
+                                            <th colSpan={2} className={mainHeaderClass}>Unit Value</th>
+                                            <th className={mainHeaderClass}>Balance Per Card</th>
+                                            <th className={mainHeaderClass}>On Hand Per Count</th>
+                                            <th colSpan={2} className={mainHeaderClass}>Shortage/Overage</th>
+                                            <th rowSpan={2} className={mainHeaderClass}>Remarks</th>
+                                            <th rowSpan={2} className={mainHeaderClass}>End User</th>
+                                            <th rowSpan={2} className={mainHeaderClass}>
+                                                {type === 'RPCPPE' ? 'Date Purchase' : 'Department'}
+                                            </th>
                                         </tr>
                                         <tr>
+                                            {/* Sub-headers specified in image_4afe85.png maintain their case layout perfectly */}
                                             <th className="border border-black px-1 py-1 font-normal">Unit Cost</th>
                                             <th className="border border-black px-1 py-1 font-normal">Total Cost</th>
                                             <th className="border border-black px-1 py-1 font-normal">(Quantity)</th>
@@ -281,8 +307,18 @@ export function RpcInventoryPrintView({
                                                         return '';
                                                     })() : ''}
                                                 </td>
-                                                <td className="border border-black px-1 py-1">{row ? formatPrintEndUser(row.accountable_officer, row.department) : ''}</td>
-                                                <td className="border border-black px-1 py-1">{row?.department || ''}</td>
+                                                <td className="border border-black px-1 py-1">
+                                                    {row ? formatPrintEndUser(type, row.accountable_officer) : ''}
+                                                </td>
+                                                <td className="border border-black px-1 py-1 text-center">
+                                                    {row ? (
+                                                        type === 'RPCPPE' ? (
+                                                            row.date_purchased && row.date_purchased !== '-' ? formatDate(row.date_purchased) : ''
+                                                        ) : (
+                                                            extractDepartment(row.accountable_officer)
+                                                        )
+                                                    ) : ''}
+                                                </td>
                                             </tr>
                                         ))}
                                         {page.isLastPageOfType && (

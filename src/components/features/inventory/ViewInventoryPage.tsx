@@ -77,10 +77,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
     const openEditModal = (detail: {
         InventoryDetailID: number;
+        InventoryID?: number;
         Description?: string | null;
         Brand?: string | null;
         ModelNumber?: string | null;
         SerialNumber?: string | null;
+        dr_article_name?: string | null;
+        PropertyName?: string | null;
     }) => {
         setEditingItem(toInventoryDetailEditForm(detail));
         setEditModalOpen(true);
