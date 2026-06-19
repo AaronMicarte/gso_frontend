@@ -23,7 +23,7 @@ export interface AssignReceiversModalItem {
 }
 
 export interface AssignReceiversSaveResult {
-    detailIds: number[];
+    assignments: Array<{ receiver_name: string; detailIds: number[] }>;
     documentType?: 'PAR' | 'ICS';
 }
 
@@ -255,15 +255,27 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
             });
         });
 
+        // Build grouping now so parent can open print windows synchronously
+        const grouping: Record<string, Set<number>> = {};
+        finalAssignments.forEach((a) => {
+            const name = String(a.receiver_name || '').trim();
+            if (!grouping[name]) grouping[name] = new Set<number>();
+            grouping[name].add(Number(a.issuance_detail_id));
+        });
+
+        const assignments = Object.keys(grouping).map((receiver_name) => ({
+            receiver_name,
+            detailIds: Array.from(grouping[receiver_name]),
+        }));
+
+        // Notify parent immediately (still user-initiated click) so it can open windows without popup blocking
+        onSaved?.({ assignments, documentType });
+
         try {
             setSaving(true);
             await issuanceAPI.saveAssignments(issuanceId, { assignments: finalAssignments });
             toast.success('Receiver assignments saved successfully!');
             onOpenChange(false);
-            onSaved?.({
-                detailIds: [...new Set(finalAssignments.map((assignment) => assignment.issuance_detail_id))],
-                documentType,
-            });
         } catch (err) {
             toast.error('Failed to update asset assignments.');
         } finally {

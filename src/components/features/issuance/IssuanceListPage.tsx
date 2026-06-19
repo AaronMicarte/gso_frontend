@@ -134,21 +134,44 @@ function filterItemsForDocumentType<T extends {
         return items;
     }
 
-    const eligibleLabels = new Set(eligibleDrItems.map(buildDrItemLabel));
-    const eligibleDescriptions = new Set(
-        eligibleDrItems
-            .map((item) => (item.ItemDescription || '').trim().toLowerCase())
-            .filter(Boolean)
-    );
+    // Build normalized eligible markers for more tolerant matching (labels + descriptions)
+    const eligibleMarkers = eligibleDrItems.map((ei) => {
+        return {
+            label: buildDrItemLabel(ei).trim().toLowerCase(),
+            description: (ei.ItemDescription || '').trim().toLowerCase(),
+            brand: (ei.Brand || '').trim().toLowerCase(),
+            model: (ei.ModelNumber || '').trim().toLowerCase(),
+            serial: (ei.SerialNumber || '').trim().toLowerCase(),
+        };
+    });
+
+    const normalize = (s?: string | null) => (s || '').trim().toLowerCase();
 
     return items.filter((item) => {
-        const label = buildIssuanceItemLabel(item);
-        if (eligibleLabels.has(label)) {
-            return true;
+        const itemLabel = buildIssuanceItemLabel(item).trim().toLowerCase();
+        const itemDesc = normalize(item.ItemDescription);
+        const itemBrand = normalize(item.Brand);
+        const itemModel = normalize(item.ModelNumber);
+        const itemSerial = normalize(item.SerialNumber);
+
+        for (const m of eligibleMarkers) {
+            // Exact label or exact description match
+            if (m.label && m.label === itemLabel) return true;
+            if (m.description && m.description && (m.description === itemDesc)) return true;
+
+            // Substring matches (allow partial description/label overlap)
+            if (m.label && itemLabel.includes(m.label)) return true;
+            if (m.label && m.label.includes(itemLabel)) return true;
+            if (m.description && itemDesc.includes(m.description)) return true;
+            if (m.description && m.description.includes(itemDesc)) return true;
+
+            // Match by individual fields (brand/model/serial)
+            if (m.brand && itemBrand && (m.brand === itemBrand || itemBrand.includes(m.brand) || m.brand.includes(itemBrand))) return true;
+            if (m.model && itemModel && (m.model === itemModel || itemModel.includes(m.model) || m.model.includes(itemModel))) return true;
+            if (m.serial && itemSerial && (m.serial === itemSerial || itemSerial.includes(m.serial) || m.serial.includes(itemSerial))) return true;
         }
 
-        const description = (item.ItemDescription || '').trim().toLowerCase();
-        return Boolean(description) && eligibleDescriptions.has(description);
+        return false;
     });
 }
 
@@ -667,22 +690,23 @@ export function IssuanceListPage({
                 issuanceId={assignIssuanceId}
                 documentType={assignDocumentType ?? undefined}
                 items={assignItems}
-                onSaved={({ detailIds, documentType }) => {
+                onSaved={(result) => {
                     if (!assignIssuanceId) return;
 
-                    const params = new URLSearchParams();
-                    if (documentType) {
-                        params.set('type', documentType);
-                    }
-                    if (detailIds.length > 0) {
-                        params.set('details', detailIds.join(','));
-                    }
+                    const docType = result.documentType;
 
-                    const query = params.toString();
-                    const printUrl = query
-                        ? `${baseRoute}/${assignIssuanceId}/print?${query}`
-                        : `${baseRoute}/${assignIssuanceId}/print`;
-                    window.open(printUrl, '_blank', 'noopener,noreferrer');
+                    // Open one print window per receiver group
+                    (result.assignments || []).forEach((grp) => {
+                        const params = new URLSearchParams();
+                        if (docType) params.set('type', docType);
+                        if (grp.detailIds.length > 0) params.set('details', grp.detailIds.join(','));
+
+                        const query = params.toString();
+                        const printUrl = query
+                            ? `${baseRoute}/${assignIssuanceId}/print?${query}`
+                            : `${baseRoute}/${assignIssuanceId}/print`;
+                        window.open(printUrl, '_blank', 'noopener,noreferrer');
+                    });
                 }}
             />
         </div >

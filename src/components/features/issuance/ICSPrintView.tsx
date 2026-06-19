@@ -282,18 +282,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                     <div className="p-3 border-r border-black">
                         <div className="mb-6">Received from:</div>
                         <div className="border-b border-black h-14 flex items-end justify-center px-2">
-                            {issuerSignatureUrl ? (
-                                <Image
-                                    src={issuerSignatureUrl}
-                                    alt="Received from signature"
-                                    width={180}
-                                    height={60}
-                                    unoptimized
-                                    className="max-h-12 object-contain"
-                                />
-                            ) : (
-                                <span className="pb-0.5 text-center">{receivedFromName}</span>
-                            )}
+                            <span className="pb-0.5 text-center">{receivedFromName}</span>
                         </div>
                         <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name of End User</div>
                         <div className="border-b border-black mt-2 pb-1 text-center">{receivedFromOffice}</div>
@@ -304,7 +293,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
 
                     <div className="p-3">
                         <div className="mb-6">Received by:</div>
-                        <div className="border-b border-black h-14 flex flex-col items-start justify-center px-2 gap-1">
+                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
                             {assignments.length > 0 ? (
                                 <div className="w-full text-center space-y-0.5">
                                     {assignments.map((assignment, idx) => (
