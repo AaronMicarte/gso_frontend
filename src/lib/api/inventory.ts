@@ -158,7 +158,14 @@ export const postGenerateQr = async (id: number, force = false): Promise<unknown
     return response.data;
 };
 
-export const updateInventoryDetail = async (id: number, data: { Description?: string }): Promise<unknown> => {
+export type InventoryDetailEditData = {
+    Description?: string;
+    Brand?: string;
+    ModelNumber?: string;
+    SerialNumber?: string;
+};
+
+export const updateInventoryDetail = async (id: number, data: InventoryDetailEditData): Promise<unknown> => {
     const response: AxiosResponse<unknown> = await apiClient.put(`/inventory/details/${id}`, data);
     return response.data;
 };

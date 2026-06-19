@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import Image from 'next/image';
 import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
+import issuanceAPI from '@/lib/api/issuance';
 
 interface ICSPrintViewProps {
     issuance: AssetIssuance;
@@ -93,6 +94,22 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         issuance.AcknowledgedAt ? formatDate(issuance.AcknowledgedAt) : '',
         docDate
     );
+
+    const [assignments, setAssignments] = React.useState<Array<{ receiver_name: string; quantity: number }>>([]);
+
+    React.useEffect(() => {
+        let mounted = true;
+        const id = issuance.IssuanceID ?? issuance.IssuanceID;
+        if (!id) return;
+        issuanceAPI.getAssignments(id).then((res) => {
+            if (!mounted) return;
+            const rows = res?.data ?? [];
+            setAssignments(rows.map((r: any) => ({ receiver_name: r.receiver_name, quantity: Number(r.quantity) })));
+        }).catch(() => {
+            // ignore
+        });
+        return () => { mounted = false; };
+    }, [issuance.IssuanceID]);
 
     const groupedRows = details.reduce<Map<string, GroupedIcsRow>>((map: Map<string, GroupedIcsRow>, detail: IssuanceDetail, index: number) => {
         const inv = detail.inventoryDetail;
@@ -272,18 +289,29 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
 
                     <div className="p-3">
                         <div className="mb-6">Received by:</div>
-                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
-                            {receivedBySignature ? (
-                                <Image
-                                    src={receivedBySignature}
-                                    alt="Received by signature"
-                                    width={180}
-                                    height={60}
-                                    unoptimized
-                                    className="max-h-12 object-contain"
-                                />
+                        <div className="border-b border-black h-14 flex flex-col items-start justify-center px-2 gap-1">
+                            {assignments.length > 0 ? (
+                                <div className="w-full">
+                                    {assignments.map((a, idx) => (
+                                        <div key={idx} className="flex items-center justify-between text-xs">
+                                            <div className="font-medium">{a.receiver_name}</div>
+                                            <div className="text-slate-600">Qty: {a.quantity}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : (
-                                <span className="pb-0.5 text-center">{receivedByName}</span>
+                                <div className="w-full text-center">{receivedBySignature ? (
+                                    <Image
+                                        src={receivedBySignature}
+                                        alt="Received by signature"
+                                        width={180}
+                                        height={60}
+                                        unoptimized
+                                        className="max-h-12 object-contain"
+                                    />
+                                ) : (
+                                    <span className="pb-0.5 text-center">{receivedByName}</span>
+                                )}</div>
                             )}
                         </div>
                         <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name</div>

@@ -208,6 +208,17 @@ const issuanceAPI = {
         return response.data;
     },
 
+    // Assign receivers for issuance items
+    getAssignments: async (id: number) => {
+        const { data } = await apiClient.get(`/property-issuances/${id}/assignments`);
+        return data;
+    },
+
+    saveAssignments: async (id: number, payload: { assignments: Array<{ issuance_detail_id: number; receiver_name: string; quantity: number; }> }) => {
+        const { data } = await apiClient.post(`/property-issuances/${id}/assignments`, payload);
+        return data;
+    },
+
     // Get issuance statistics
     getStats: async () => {
         const { data } = await apiClient.get('/property-issuances/stats');

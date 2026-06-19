@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import issuanceAPI from '@/lib/api/issuance';
 import { CardListSkeleton } from '@/components/ui/ListSkeletons';
+import AssignReceiversModal from './AssignReceiversModal';
 
 interface DeliveryReceiptForIssuance {
     DRID: number;
@@ -200,11 +201,10 @@ export function IssuanceListPage({
     const handlePrint = (row: DeliveryReceiptForIssuance) => {
         const existing = row.issuances_by_document_type?.PAR ?? row.issuances_by_document_type?.ICS;
         if (existing?.IssuanceID) {
-            const printUrl = `${baseRoute}/${existing.IssuanceID}/print`;
-            window.open(printUrl, '_blank', 'noopener,noreferrer');
+            // open assign modal for existing issuance
+            openAssignModalForIssuance(existing.IssuanceID, row);
             return;
         }
-
         issuanceAPI.ensureIssuances({ dr_id: row.DRID, iar_id: row.IARID || undefined })
             .then((response) => {
                 const ensured = response.data?.issuances_by_document_type?.PAR ?? response.data?.issuances_by_document_type?.ICS;
@@ -223,7 +223,6 @@ export function IssuanceListPage({
                             : item
                     ));
 
-                    // Ensure newest delivery receipts remain at the top (by DateReceived desc)
                     updated.sort((a, b) => {
                         const aDate = safeDate(a.DateReceived)?.getTime() ?? 0;
                         const bDate = safeDate(b.DateReceived)?.getTime() ?? 0;
@@ -233,12 +232,37 @@ export function IssuanceListPage({
                     return updated;
                 });
 
-                const printUrl = `${baseRoute}/${ensured.IssuanceID}/print`;
-                window.open(printUrl, '_blank', 'noopener,noreferrer');
+                openAssignModalForIssuance(ensured.IssuanceID, row);
             })
             .catch(() => {
                 toast.error('Failed to prepare issuance document');
             });
+    };
+
+    // Assign receivers modal state
+    const [assignOpen, setAssignOpen] = useState(false);
+    const [assignIssuanceId, setAssignIssuanceId] = useState<number | null>(null);
+    const [assignItems, setAssignItems] = useState<Array<any>>([]);
+
+    const openAssignModalForIssuance = async (issuanceId: number, row: DeliveryReceiptForIssuance) => {
+        try {
+            // fetch issuance details for items
+            const issuance = await issuanceAPI.getById(issuanceId);
+            const items = issuance.details?.map((d: any) => ({
+                IssuanceDetailID: d.IssuanceDetailID ?? d.InventoryDetailID ?? d.InventoryDetailID,
+                ItemDescription: d.ItemDescription ?? d.inventoryDetail?.propertyInventory?.ItemDescription ?? d.inventoryDetail?.Description ?? d.inventoryDetail?.ItemName,
+                QuantityIssued: d.QuantityIssued ?? d.Quantity ?? 1,
+                Article: d.inventoryDetail?.drDetail?.article?.ArticleName ?? d.inventoryDetail?.propertyInventory?.ItemName ?? null,
+                Brand: d.inventoryDetail?.propertyInventory?.Brand ?? d.inventoryDetail?.Brand ?? null,
+                ModelNumber: d.inventoryDetail?.propertyInventory?.ModelNumber ?? d.inventoryDetail?.ModelNumber ?? null,
+                SerialNumber: d.inventoryDetail?.propertyInventory?.SerialNumber ?? d.inventoryDetail?.SerialNumber ?? null,
+            })) || [];
+            setAssignItems(items);
+            setAssignIssuanceId(issuanceId);
+            setAssignOpen(true);
+        } catch (err) {
+            toast.error('Failed to load issuance for assignment');
+        }
     };
 
     return (
@@ -523,6 +547,20 @@ export function IssuanceListPage({
                     </Dialog.Content>
                 </Dialog.Portal>
             </Dialog.Root>
+
+            <AssignReceiversModal
+                open={assignOpen}
+                onOpenChange={setAssignOpen}
+                issuanceId={assignIssuanceId}
+                items={assignItems}
+                onSaved={() => {
+                    // after saving open print page
+                    if (assignIssuanceId) {
+                        const printUrl = `${baseRoute}/${assignIssuanceId}/print`;
+                        window.open(printUrl, '_blank', 'noopener,noreferrer');
+                    }
+                }}
+            />
         </div >
     );
 }

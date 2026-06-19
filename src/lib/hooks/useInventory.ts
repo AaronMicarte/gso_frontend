@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getInventories, getInventory, postIssuance, postGenerateQr, updateInventoryDetail, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar, getAllInventoryItems, InventoryItemsListResponse, getInventoryDetailHistory, InventoryHistoryResponse, getInventoryPropertyCard, PropertyCardResponse } from '@/lib/api/inventory';
+import { getInventories, getInventory, postIssuance, postGenerateQr, updateInventoryDetail, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar, getAllInventoryItems, InventoryItemsListResponse, getInventoryDetailHistory, InventoryHistoryResponse, getInventoryPropertyCard, PropertyCardResponse, InventoryDetailEditData } from '@/lib/api/inventory';
 
 export const useInventories = (options?: { page?: number; per_page?: number; search?: string; sort_by?: 'date' | 'inventory_number'; sort_dir?: 'asc' | 'desc' }) => {
     return useQuery<InventoryListResponse>({
@@ -66,11 +66,14 @@ export const useGenerateQr = () => {
 
 export const useUpdateInventoryDetail = () => {
     const qc = useQueryClient();
-    return useMutation<unknown, Error, { id: number; data: { Description?: string } }>({
+    return useMutation<unknown, Error, { id: number; data: InventoryDetailEditData }>({
         mutationFn: ({ id, data }) => updateInventoryDetail(id, data),
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             qc.invalidateQueries({ queryKey: ['inventories'] });
             qc.invalidateQueries({ queryKey: ['inventory'] });
+            qc.invalidateQueries({ queryKey: ['all-inventory-items'] });
+            qc.invalidateQueries({ queryKey: ['inventory-detail-history', variables.id] });
+            qc.invalidateQueries({ queryKey: ['inventory-property-card', variables.id] });
         },
     });
 };

@@ -3,6 +3,7 @@ import { AssetIssuance } from '@/types/assetIssuance';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import Image from 'next/image';
+import issuanceAPI from '@/lib/api/issuance';
 import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 
 interface PARPrintViewProps {
@@ -84,6 +85,22 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
         issuance.request?.requester?.FullName || issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
         'END USER'
     );
+
+    const [assignments, setAssignments] = React.useState<Array<{ receiver_name: string; quantity: number }>>([]);
+
+    React.useEffect(() => {
+        let mounted = true;
+        const id = issuance.IssuanceID ?? issuance.IssuanceID;
+        if (!id) return;
+        issuanceAPI.getAssignments(id).then((res) => {
+            if (!mounted) return;
+            const rows = res?.data ?? [];
+            setAssignments(rows.map((r: any) => ({ receiver_name: r.receiver_name, quantity: Number(r.quantity) })));
+        }).catch(() => {
+            // ignore silently - assignments optional
+        });
+        return () => { mounted = false; };
+    }, [issuance.IssuanceID]);
 
     const issuedByName = ensureText(issuance.issuer?.FullName, 'PROPERTY CUSTODIAN');
     const issuedByOffice = ensureText(issuance.issuer?.department?.DepartmentName, 'GENERAL SERVICES OFFICE');
@@ -246,22 +263,33 @@ export const PARPrintView = React.forwardRef<HTMLDivElement, PARPrintViewProps>(
                 <div className="par-signature-block grid grid-cols-2 mt-0 text-xs border border-black border-t-0">
                     <div className="p-3 border-r border-black flex flex-col">
                         <div className="h-5 mb-3">Received by:</div>
-                        <div className="border-b border-black h-14 flex items-end justify-center px-2">
-                            {receivedBySignature ? (
-                                <Image
-                                    src={receivedBySignature}
-                                    alt="Received by signature"
-                                    width={180}
-                                    height={60}
-                                    unoptimized
-                                    className="max-h-12 object-contain"
-                                />
+                        <div className="border-b border-black h-14 flex flex-col items-start justify-center px-2 gap-1">
+                            {assignments.length > 0 ? (
+                                <div className="w-full">
+                                    {assignments.map((a, idx) => (
+                                        <div key={idx} className="flex items-center justify-between text-xs">
+                                            <div className="font-medium">{a.receiver_name}</div>
+                                            <div className="text-slate-600">Qty: {a.quantity}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : (
-                                <span className="pb-0.5 text-center">{receivedByName}</span>
+                                <div className="w-full text-center">{receivedBySignature ? (
+                                    <Image
+                                        src={receivedBySignature}
+                                        alt="Received by signature"
+                                        width={180}
+                                        height={60}
+                                        unoptimized
+                                        className="max-h-12 object-contain"
+                                    />
+                                ) : (
+                                    <span className="pb-0.5 text-center">{receivedByName}</span>
+                                )}</div>
                             )}
                         </div>
                         <div className="text-[10px] leading-tight text-center mt-0.5 px-2">
-                            Signature over Printed Name of End User
+                            Signature over Printed Name of Receiver
                         </div>
                         <div className="border-b border-black mt-1 h-6 flex items-end justify-center pb-0.5 text-center">{receivedByOffice}</div>
                         <div className="text-[10px] leading-tight text-center mt-1 h-4">Position/Office</div>

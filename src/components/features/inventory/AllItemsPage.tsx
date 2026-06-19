@@ -1,11 +1,10 @@
 'use client';
 
-import { useAllInventoryItems, useUpdateInventoryDetail } from '@/lib/hooks/useInventory';
+import { useAllInventoryItems } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
 import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import type { InventoryItem } from '@/lib/api/inventory';
@@ -14,6 +13,7 @@ import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 import { PropertySticker } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 import { PropertyCardDialog } from './PropertyCardDialog';
+import { EditInventoryDetailModal, toInventoryDetailEditForm, type InventoryDetailEditForm } from './EditInventoryDetailModal';
 
 export function AllItemsPage() {
     const searchParams = useSearchParams();
@@ -43,10 +43,7 @@ export function AllItemsPage() {
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<{ id: number; description: string } | null>(null);
-
-
-
+    const [editingItem, setEditingItem] = useState<InventoryDetailEditForm | null>(null);
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
             setDebouncedSearch(search.trim());
@@ -56,7 +53,6 @@ export function AllItemsPage() {
     }, [search]);
 
     const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined });
-    const updateInventoryDetail = useUpdateInventoryDetail();
     const { data: propertyTypes } = useAllPropertyTypes();
 
     const propertyStatuses = [
@@ -97,30 +93,9 @@ export function AllItemsPage() {
         return parts.length > 0 ? parts.join('\n') : 'No additional details';
     };
 
-    const openEditModal = (inventoryDetailId: number, currentDescription: string) => {
-        setEditingItem({ id: inventoryDetailId, description: currentDescription || '' });
+    const openEditModal = (item: InventoryItem) => {
+        setEditingItem(toInventoryDetailEditForm(item));
         setEditModalOpen(true);
-    };
-
-    const handleSaveDescription = async () => {
-        if (!editingItem) return;
-
-        try {
-            await updateInventoryDetail.mutateAsync({
-                id: editingItem.id,
-                data: { Description: editingItem.description }
-            });
-            toast.success('Description updated successfully');
-            setEditModalOpen(false);
-            setEditingItem(null);
-        } catch {
-            toast.error('Failed to update description');
-        }
-    };
-
-    const handleCancelEdit = () => {
-        setEditModalOpen(false);
-        setEditingItem(null);
     };
 
     const getStatusBadge = (statusId?: number, statusName?: string) => {
@@ -431,9 +406,9 @@ export function AllItemsPage() {
                                                             itemName={getItemName(item)}
                                                         />
                                                         <button
-                                                            onClick={() => openEditModal(item.InventoryDetailID, item.Description || '')}
+                                                            onClick={() => openEditModal(item)}
                                                             className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                            title="Edit Description"
+                                                            title="Edit item details"
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </button>
@@ -477,42 +452,11 @@ export function AllItemsPage() {
                         </div>
                     )}
 
-                    {/* Edit Description Modal */}
-                    <Dialog.Root open={editModalOpen} onOpenChange={setEditModalOpen}>
-                        <Dialog.Portal>
-                            <Dialog.Overlay className="fixed inset-0 bg-black/30 z-40" />
-                            <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-                                <Dialog.Title className="text-lg font-bold text-slate-900">Edit Item Description</Dialog.Title>
-                                <div className="space-y-4">
-                                    <textarea
-                                        value={editingItem?.description || ''}
-                                        onChange={(e) => setEditingItem(prev => prev ? { ...prev, description: e.target.value } : null)}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical min-h-[100px]"
-                                        placeholder="Enter item description..."
-                                        rows={4}
-                                        maxLength={255}
-                                    />
-                                    <div className="flex justify-end gap-2">
-                                        <Dialog.Close asChild>
-                                            <button
-                                                onClick={handleCancelEdit}
-                                                className="px-4 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </Dialog.Close>
-                                        <button
-                                            onClick={handleSaveDescription}
-                                            disabled={updateInventoryDetail.isPending}
-                                            className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
-                                        >
-                                            {updateInventoryDetail.isPending ? 'Saving...' : 'Save'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </Dialog.Content>
-                        </Dialog.Portal>
-                    </Dialog.Root>
+                    <EditInventoryDetailModal
+                        open={editModalOpen}
+                        onOpenChange={setEditModalOpen}
+                        item={editingItem}
+                    />
                 </div>
             </div>
         </div>
