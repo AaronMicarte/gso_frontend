@@ -102,7 +102,9 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
         const itemMap = new Map<string, { item: RsmiReportItem; stockNos: string[] }>();
 
         for (const item of details) {
-            const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+            const brand = (item as unknown as { brand?: string }).brand;
+            const model = (item as unknown as { model?: string }).model;
+            const desc = [item.item_description, brand, model].filter(Boolean).join(', ');
             const key = [item.ris_no, item.responsibility_center_code, desc, item.unit].join('||');
             const existing = itemMap.get(key);
 
@@ -142,7 +144,9 @@ export const RsmiPrintView = React.forwardRef<HTMLDivElement, RsmiPrintViewProps
         const recapMap = new Map<string, { stockNos: string[]; quantity: number }>();
 
         for (const item of details) {
-            const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+            const brand = (item as unknown as { brand?: string }).brand;
+            const model = (item as unknown as { model?: string }).model;
+            const desc = [item.item_description, brand, model].filter(Boolean).join(', ');
             const key = [desc, item.unit].join('||');
             const existing = recapMap.get(key);
 

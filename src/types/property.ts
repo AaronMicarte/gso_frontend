@@ -394,6 +394,41 @@ export interface PaginatedResponse<T> {
     };
 }
 
+// Combined view helper type — frontend-only augmentation for grouped inventory rows
+export interface InventoryDetailCombined {
+    InventoryDetailID: number;
+    InventoryID: number;
+    Description?: string;
+    Brand?: string;
+    ModelNumber?: string;
+    SerialNumber?: string;
+    PropertyName?: string;
+    PropertyNumber?: string;
+    ClassificationName?: string;
+    DocumentType?: 'ICS' | 'PAR';
+    Quantity: number;
+    QuantityAvailable?: number;
+    UnitOfMeasureID?: number;
+    UnitCost?: number;
+    TotalCost?: number;
+    ConditionID?: number;
+    ConditionName?: string;
+    PropertyStatusID?: number;
+    StatusName?: string;
+    custodianName?: string;
+    locationDepartment?: string;
+    currentDepartmentHead?: string | null;
+    departmentHeadVacant?: boolean;
+    accountabilityLabel?: string | null;
+    currentBorrowerName?: string | null;
+    dr_article_name?: string;
+    qrCode?: { QRCodeData?: string | null } | null;
+    qrCodeData?: string | null;
+    // Augmented fields for Combined view
+    CombinedQuantity?: number;
+    CombinedTotalCost?: number;
+}
+
 // ============================================
 // FILTERS & QUERIES
 // ============================================

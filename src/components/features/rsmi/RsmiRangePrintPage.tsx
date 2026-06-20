@@ -111,7 +111,9 @@ const buildCombinedReport = (reports: RsmiReport[], startDate: string, endDate: 
 
     for (const report of reports) {
         for (const item of report.items ?? []) {
-            const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+            const brand = (item as unknown as { brand?: string }).brand;
+            const model = (item as unknown as { model?: string }).model;
+            const desc = [item.item_description, brand, model].filter(Boolean).join(', ');
             const key = [item.ris_no, item.responsibility_center_code, desc, item.unit].join('||');
             const existing = itemMap.get(key);
 
@@ -133,7 +135,7 @@ const buildCombinedReport = (reports: RsmiReport[], startDate: string, endDate: 
                 });
             }
 
-            const recapKey = [[item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', '), item.unit].join('||');
+            const recapKey = [[item.item_description, (item as unknown as { brand?: string }).brand, (item as unknown as { model?: string }).model].filter(Boolean).join(', '), item.unit].join('||');
             const recapExisting = recapMap.get(recapKey);
             if (recapExisting) {
                 recapExisting.quantity += Number(item.quantity_issued ?? 0);

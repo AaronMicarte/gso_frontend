@@ -3,6 +3,7 @@
 import { useInventory } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitOfMeasures';
+import type { InventoryDetailCombined } from '@/types/property';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -26,6 +27,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const { data: allUnitsOfMeasure } = useAllUnitsOfMeasure();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
+    const [displayMode, setDisplayMode] = useState<'individual' | 'combined'>('individual');
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryDetailEditForm | null>(null);
@@ -35,7 +37,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         toast.success('Property record refreshed');
     };
 
-    const filteredDetails = useMemo(() => {
+    const preFiltered = useMemo(() => {
         if (!data?.details) return [];
         let filtered = data?.details || [];
 
@@ -58,6 +60,28 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
         return filtered;
     }, [data?.details, searchTerm, selectedPropertyType]);
+
+    const displayedDetails = useMemo<InventoryDetailCombined[]>(() => {
+        if (!preFiltered || displayMode === 'individual') return (preFiltered as InventoryDetailCombined[]) || [];
+
+        const map = new Map<string, InventoryDetailCombined>();
+        for (const d of preFiltered) {
+            const key = (d.dr_article_name || d.PropertyName || d.ModelNumber || d.PropertyNumber || d.SerialNumber || 'UNKNOWN').toString().trim();
+            const existing = map.get(key);
+            const unitCost = Number(d.UnitCost || 0);
+            const qty = Number(d.Quantity || 1);
+            if (!existing) {
+                map.set(key, { ...(d as InventoryDetailCombined), CombinedQuantity: qty, CombinedTotalCost: unitCost * qty });
+            } else {
+                existing.CombinedQuantity = (existing.CombinedQuantity || 0) + qty;
+                existing.CombinedTotalCost = (existing.CombinedTotalCost || 0) + (unitCost * qty);
+            }
+        }
+
+        return Array.from(map.values());
+    }, [preFiltered, displayMode]);
+
+
 
     // Guard invalid id early — prevents runtime/TS issues when params are missing
     if (!id || Number.isNaN(id)) {
@@ -278,7 +302,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg font-semibold text-slate-900">Property Items Ledger</h3>
                                     <div className="text-sm text-slate-500">
-                                        {filteredDetails.length} item{filteredDetails.length !== 1 ? 's' : ''} in this record
+                                        {displayedDetails.length} item{displayedDetails.length !== 1 ? 's' : ''} in this record
                                     </div>
                                 </div>
 
@@ -308,6 +332,14 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                             <option key={type.id} value={type.id}>{type.name}</option>
                                         ))}
                                     </select>
+                                    <select
+                                        value={displayMode}
+                                        onChange={(e) => setDisplayMode(e.target.value as 'individual' | 'combined')}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mt-2 sm:mt-0"
+                                    >
+                                        <option value="individual">Individual View</option>
+                                        <option value="combined">Combined View</option>
+                                    </select>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -324,7 +356,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200">
-                                            {filteredDetails.length === 0 ? (
+                                            {displayedDetails.length === 0 ? (
                                                 <tr>
                                                     <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                                         <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
@@ -332,36 +364,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                filteredDetails.map((d: {
-                                                    InventoryDetailID: number;
-                                                    InventoryID: number;
-                                                    Description?: string;
-                                                    Brand?: string;
-                                                    ModelNumber?: string;
-                                                    SerialNumber?: string;
-                                                    PropertyName?: string;
-                                                    PropertyNumber?: string;
-                                                    ClassificationName?: string;
-                                                    DocumentType?: 'ICS' | 'PAR';
-                                                    Quantity: number;
-                                                    QuantityAvailable?: number;
-                                                    UnitOfMeasureID?: number;
-                                                    UnitCost: number;
-                                                    TotalCost: number;
-                                                    ConditionID?: number;
-                                                    ConditionName?: string;
-                                                    PropertyStatusID?: number;
-                                                    StatusName?: string;
-                                                    custodianName?: string;
-                                                    locationDepartment?: string;
-                                                    currentDepartmentHead?: string | null;
-                                                    departmentHeadVacant?: boolean;
-                                                    accountabilityLabel?: string | null;
-                                                    currentBorrowerName?: string | null;
-                                                    dr_article_name?: string;
-                                                    qrCode?: { QRCodeData?: string | null } | null;
-                                                    qrCodeData?: string | null;
-                                                }) => (
+                                                displayedDetails.map((d: InventoryDetailCombined) => (
                                                     <tr key={d.InventoryDetailID} className="hover:bg-slate-50">
                                                         <td className="px-6 py-4">
                                                             <div>
@@ -411,7 +414,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                         <td className="px-6 py-4 text-slate-600">
                                                             <div>
                                                                 <div className="font-medium">
-                                                                    {formatQuantityCost(d.Quantity, d.UnitOfMeasureID, d.UnitCost)}
+                                                                    {formatQuantityCost(
+                                                                        d.CombinedQuantity ?? d.Quantity,
+                                                                        d.UnitOfMeasureID,
+                                                                        (d.CombinedQuantity && (d.CombinedTotalCost ?? 0) > 0)
+                                                                            ? ((d.CombinedTotalCost ?? 0) / d.CombinedQuantity)
+                                                                            : d.UnitCost
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </td>

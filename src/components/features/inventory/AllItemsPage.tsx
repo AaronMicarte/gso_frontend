@@ -3,7 +3,7 @@
 import { useAllInventoryItems } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
 import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
@@ -43,6 +43,7 @@ export function AllItemsPage() {
     });
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
     const [selectedDocumentType, setSelectedDocumentType] = useState<'PAR' | 'ICS' | null>(null);
+    const [displayMode, setDisplayMode] = useState<'individual' | 'combined'>('individual');
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryDetailEditForm | null>(null);
@@ -71,10 +72,30 @@ export function AllItemsPage() {
     };
 
     // The server now returns items ordered by creation timestamp (newest first).
-    const filteredDetails = (data?.data ? [...data.data] : []).filter(item => {
+    const preFiltered = (data?.data ? [...data.data] : []).filter(item => {
         if (selectedDocumentType) return item.DocumentType === selectedDocumentType;
         return true;
     });
+
+    type CombinedInventoryItem = InventoryItem & { CombinedQuantity?: number; CombinedTotalCost?: number };
+
+    const displayedItems = useMemo<CombinedInventoryItem[]>(() => {
+        if (displayMode === 'individual') return preFiltered as CombinedInventoryItem[];
+
+        const map = new Map<string, CombinedInventoryItem>();
+        for (const item of preFiltered) {
+            const key = (item.dr_article_name || item.PropertyName || item.ModelNumber || item.PropertyNumber || item.SerialNumber || 'UNKNOWN').toString().trim();
+            const existing = map.get(key);
+            const unitCost = Number(item.UnitCost || 0);
+            if (!existing) {
+                map.set(key, { ...(item as CombinedInventoryItem), CombinedQuantity: 1, CombinedTotalCost: unitCost });
+            } else {
+                existing.CombinedQuantity = (existing.CombinedQuantity || 1) + 1;
+                existing.CombinedTotalCost = (existing.CombinedTotalCost || 0) + unitCost;
+            }
+        }
+        return Array.from(map.values());
+    }, [preFiltered, displayMode]);
 
     const toggleDescriptionExpansion = (inventoryDetailId: number) => {
         setExpandedDescriptions(prev => {
@@ -219,6 +240,17 @@ export function AllItemsPage() {
                             <option value="PAR">PAR</option>
                             <option value="ICS">ICS</option>
                         </select>
+                        <select
+                            value={displayMode}
+                            onChange={(e) => {
+                                setDisplayMode(e.target.value as 'individual' | 'combined');
+                                setPage(1);
+                            }}
+                            className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                        >
+                            <option value="individual">Individual View</option>
+                            <option value="combined">Combined View</option>
+                        </select>
                     </div>
                 </div>
 
@@ -309,7 +341,7 @@ export function AllItemsPage() {
                             <tbody className="divide-y divide-slate-200">
                                 {isLoading ? (
                                     <TableSkeletonRows columns={7} rows={10} />
-                                ) : filteredDetails.length === 0 ? (
+                                ) : displayedItems.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
@@ -317,7 +349,7 @@ export function AllItemsPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredDetails.map((item) => {
+                                    displayedItems.map((item) => {
                                         const borrowedLabel = getBorrowedLabel(item.currentBorrowerName, item.currentBorrowerDepartment);
 
                                         return (
@@ -327,6 +359,9 @@ export function AllItemsPage() {
                                                         <div className="font-medium text-slate-900">
                                                             {getItemName(item)}
                                                         </div>
+                                                        {item.CombinedQuantity && item.CombinedQuantity > 1 && (
+                                                            <div className="mt-1 text-xs text-slate-600">{item.CombinedQuantity} items combined</div>
+                                                        )}
                                                         <div className="text-xs text-slate-500 space-y-1 mt-1">
                                                             {item.Brand && <div>Brand: {item.Brand}</div>}
                                                             {item.ModelNumber && <div>Model: {item.ModelNumber}</div>}

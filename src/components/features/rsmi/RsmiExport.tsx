@@ -96,7 +96,9 @@ export async function exportRsmiToExcel(
     const itemMap = new Map<string, { item: RsmiReportItem; stockNos: string[] }>();
 
     for (const item of details) {
-        const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+        const brand = (item as unknown as { brand?: string }).brand;
+        const model = (item as unknown as { model?: string }).model;
+        const desc = [item.item_description, brand, model].filter(Boolean).join(', ');
         const key = [item.ris_no, item.responsibility_center_code, desc, item.unit].join('||');
         const existing = itemMap.get(key);
         if (existing) {
@@ -111,12 +113,16 @@ export async function exportRsmiToExcel(
     }
 
     const baseDetails = [...itemMap.values()]
-        .map(({ item, stockNos }) => ({
-            ...item,
-            // combine description, brand, model into a single display string
-            item_description: [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', '),
-            stock_no: formatStockRange(stockNos)
-        }))
+        .map(({ item, stockNos }) => {
+            const brand = (item as unknown as { brand?: string }).brand;
+            const model = (item as unknown as { model?: string }).model;
+            return {
+                ...item,
+                // combine description, brand, model into a single display string
+                item_description: [item.item_description, brand, model].filter(Boolean).join(', '),
+                stock_no: formatStockRange(stockNos)
+            };
+        })
         .sort((a, b) => {
             const r = String(a.ris_no ?? '').localeCompare(String(b.ris_no ?? ''));
             return r !== 0 ? r : String(a.stock_no ?? '').localeCompare(String(b.stock_no ?? ''));
@@ -136,7 +142,9 @@ export async function exportRsmiToExcel(
 
     const recapMap = new Map<string, { stockNos: string[]; quantity: number }>();
     for (const item of details) {
-        const desc = [item.item_description, (item as any).brand, (item as any).model].filter(Boolean).join(', ');
+        const brand = (item as unknown as { brand?: string }).brand;
+        const model = (item as unknown as { model?: string }).model;
+        const desc = [item.item_description, brand, model].filter(Boolean).join(', ');
         const key = [desc, item.unit].join('||');
         const existing = recapMap.get(key);
         if (existing) {
@@ -272,10 +280,11 @@ export async function exportRsmiToExcel(
     // ── 3. WRITE MAIN STOCKS RECORDS GRID (Starts row 11) ────────────────────
     let currentRow = 11;
     const totalLinesToRender = displayDetails.length;
+    type CombinedReportItem = RsmiReportItem & { stock_no?: string };
 
     for (let i = 0; i < totalLinesToRender; i++) {
         ws.getRow(currentRow).height = 18;
-        const item = displayDetails[i] as any;
+        const item = displayDetails[i] as CombinedReportItem;
         const isLastRow = i === totalLinesToRender - 1;
 
         const values: (string | number)[] = [
