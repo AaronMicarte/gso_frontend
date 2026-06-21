@@ -3,45 +3,48 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { Package } from 'lucide-react';
+import { toast } from 'sonner';
 import { UnserviceableItemRow } from '@/types/propertyWaste';
-
+import { listUnserviceable } from '@/lib/api/propertyWaste';
 
 export default function IirupPage() {
     const [rows, setRows] = useState<UnserviceableItemRow[] | null>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        setLoading(true);
-        // Fetch unserviceable property reports and flatten items
-        fetch('/api/property-unserviceable?per_page=100')
-            .then((r) => r.json())
-            .then((data) => {
-                const items: UnserviceableItemRow[] = [];
-                const reports = data?.data || [];
-                for (const rpt of reports) {
-                    const createdBy = rpt?.createdBy?.FullName ?? null;
-                    for (const it of rpt.items || []) {
-                        const inv = it?.inventoryDetail ?? it?.inventory_detail ?? null;
-                        const invParent = inv?.inventory ?? null;
-                        const drArticle = inv?.drDetail?.article?.ArticleName ?? it?.ItemDescription ?? inv?.Description ?? '';
+        const load = async () => {
+            try {
+                setLoading(true);
+                const data = await listUnserviceable({ per_page: 100 });
+                const rawItems = data?.data || [];
 
-                        items.push({
-                            id: it.PropertyUnserviceableItemID ?? it.PropertyWasteItemID ?? Math.floor(Math.random() * 1000000),
-                            dateAcquired: invParent?.DateAcquired ?? invParent?.DateReceived ?? invParent?.CreatedDate ?? null,
-                            particulars: drArticle,
-                            propertyNumber: it.PropertyNumber ?? inv?.PropertyNumber ?? null,
-                            quantity: inv?.Quantity ?? 1,
-                            unitCost: inv?.UnitCost ? Number(inv.UnitCost) : null,
-                            totalCost: inv?.TotalCost ? Number(inv.TotalCost) : null,
-                            markedAt: it.created_at ?? it.createdAt ?? rpt.created_at ?? null,
-                            markedBy: it.actionedByUser?.FullName ?? it.ActionedByUserID ? null : createdBy ?? null,
-                        });
-                    }
-                }
-                setRows(items);
-            })
-            .catch(() => setRows([]))
-            .finally(() => setLoading(false));
+                const formattedItems: UnserviceableItemRow[] = rawItems.map((it: any) => {
+                    const inv = it?.inventoryDetail || null;
+
+                    return {
+                        id: it.PropertyUnserviceableItemID ?? it.PropertyWasteItemID ?? Math.floor(Math.random() * 1000000),
+                        dateAcquired: it.DateAcquired || null, // Maps the true history tracking date
+                        particulars: it.ItemDescription || inv?.Description || '-',
+                        propertyNumber: it.PropertyNumber || inv?.PropertyNumber || '-',
+                        quantity: inv?.Quantity ?? 1,
+                        unitCost: inv?.UnitCost ? Number(inv.UnitCost) : null,
+                        totalCost: inv?.TotalCost ? Number(inv.TotalCost) : null,
+                        markedAt: it.marked_at || null,
+                        markedBy: it.marked_by_fullname || null,
+                    };
+                });
+
+                setRows(formattedItems);
+            } catch (e) {
+                console.error(e);
+                toast.error('Failed to load unserviceable items');
+                setRows([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        load();
     }, []);
 
     return (
@@ -77,12 +80,18 @@ export default function IirupPage() {
                             <tbody className="divide-y divide-slate-200">
                                 {rows.map((r) => (
                                     <tr key={r.id} className="hover:bg-slate-50">
-                                        <td className="px-6 py-3 text-slate-700">{r.dateAcquired ? format(new Date(r.dateAcquired), 'MMMM dd, yyyy') : '-'}</td>
+                                        <td className="px-6 py-3 text-slate-700">
+                                            {r.dateAcquired ? format(new Date(r.dateAcquired), 'MMMM dd, yyyy') : '-'}
+                                        </td>
                                         <td className="px-6 py-3 text-slate-700">{r.particulars || '-'}</td>
                                         <td className="px-6 py-3 text-slate-700">{r.propertyNumber || '-'}</td>
                                         <td className="px-6 py-3 text-slate-700">{r.quantity ?? '-'}</td>
-                                        <td className="px-6 py-3 text-slate-700">{r.unitCost != null ? `₱${Number(r.unitCost).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
-                                        <td className="px-6 py-3 text-slate-700">{r.totalCost != null ? `₱${Number(r.totalCost).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
+                                        <td className="px-6 py-3 text-slate-700">
+                                            {r.unitCost != null ? `₱${Number(r.unitCost).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-slate-700">
+                                            {r.totalCost != null ? `₱${Number(r.totalCost).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

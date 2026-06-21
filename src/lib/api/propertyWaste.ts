@@ -1,5 +1,56 @@
-import apiClient from './client';
-import type { PropertyWasteDisposalMethod, PropertyWasteListResponse, PropertyWasteReport, PropertyWasteStatus, PropertyWasteItemStatus } from '@/types/propertyWaste';
+import type { AxiosResponse } from 'axios';
+import apiClient from '@/lib/api/client';
+import type {
+    PropertyWasteDisposalMethod,
+    PropertyWasteListResponse,
+    PropertyWasteReport,
+    PropertyWasteStatus,
+    PropertyWasteItemStatus
+} from '@/types/propertyWaste';
+
+export interface ListUnserviceableParams {
+    per_page?: number;
+    page?: number;
+}
+
+/**
+ * Fetches the flattened list of unserviceable items from the inventory detail table
+ * and maps the flat database values into the structural format expected by the frontend tables.
+ */
+export const listUnserviceable = async (params?: ListUnserviceableParams): Promise<any> => {
+    const response: AxiosResponse = await apiClient.get('/property-unserviceable', { params });
+
+    if (response.data && Array.isArray(response.data.data)) {
+        response.data.data = response.data.data.map((row: any) => ({
+            PropertyWasteItemID: row.PropertyWasteItemID || null,
+            PropertyWasteReportID: row.PropertyWasteReportID || null,
+            InventoryDetailID: row.InventoryDetailID,
+            PropertyNumber: row.PropertyNumber,
+            ItemDescription: row.Particulars,
+            ConditionID: 2,
+            Status: (row.PropertyWasteItemID ? 'method_selected' : 'pending_method') as PropertyWasteItemStatus,
+            marked_at: row.marked_at,
+            marked_by_fullname: row.marked_by_fullname,
+            DateAcquired: row.DateAcquired || row.DateReceived || row.ParentCreatedDate || null, // Cascades fallback date values
+            condition: {
+                ConditionID: 2,
+                ConditionName: row.ConditionName || 'Unserviceable'
+            },
+            inventoryDetail: {
+                InventoryDetailID: row.InventoryDetailID,
+                InventoryID: row.InventoryID,
+                PropertyNumber: row.PropertyNumber,
+                Description: row.Particulars,
+                Quantity: row.Quantity,
+                UnitCost: row.UnitCost,
+                TotalCost: row.TotalCost,
+                drDetail: null
+            }
+        }));
+    }
+
+    return response.data;
+};
 
 interface PropertyWasteFilters {
     page?: number;
