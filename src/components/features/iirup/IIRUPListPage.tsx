@@ -2,14 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { CalendarDays, Package, RefreshCw } from 'lucide-react';
+import { CalendarDays, Package, RefreshCw, Printer } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { UnserviceableItemRow } from '@/types/propertyWaste';
 import { listUnserviceable } from '@/lib/api/propertyWaste';
 
 type IirupFilterMode = 'month' | 'custom';
 
-export default function IirupPage() {
+interface IirupPageProps {
+    baseRoute?: '/admin' | '/staff';
+}
+
+export default function IirupPage({ baseRoute = '/admin' }: IirupPageProps) {
     const today = useMemo(() => new Date(), []);
     const [monthFilter, setMonthFilter] = useState(format(today, 'yyyy-MM'));
     const [filterMode, setFilterMode] = useState<IirupFilterMode>('month');
@@ -28,6 +33,20 @@ export default function IirupPage() {
         return {
             month: parsed.getMonth() + 1,
             year: parsed.getFullYear(),
+        };
+    }, [monthFilter]);
+
+    const monthRange = useMemo(() => {
+        const parts = monthFilter.split('-');
+        if (parts.length !== 2) return null;
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        if (Number.isNaN(year) || Number.isNaN(month)) return null;
+        const lastDay = new Date(year, month, 0).getDate();
+        const formattedMonth = String(month).padStart(2, '0');
+        return {
+            startDate: `${year}-${formattedMonth}-01`,
+            endDate: `${year}-${formattedMonth}-${String(lastDay).padStart(2, '0')}`,
         };
     }, [monthFilter]);
 
@@ -138,18 +157,30 @@ export default function IirupPage() {
                     </div>
 
                     {filterMode === 'month' ? (
-                        <label className="text-sm text-slate-700 inline-block">
-                            <span className="mb-1 block">Month Filter</span>
-                            <div className="relative">
-                                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <input
-                                    type="month"
-                                    value={monthFilter}
-                                    onChange={(e) => setMonthFilter(e.target.value)}
-                                    className="w-full md:w-72 pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900"
-                                />
-                            </div>
-                        </label>
+                        <div className="flex flex-col gap-3">
+                            <label className="text-sm text-slate-700 inline-block">
+                                <span className="mb-1 block">Month Filter</span>
+                                <div className="relative">
+                                    <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        type="month"
+                                        value={monthFilter}
+                                        onChange={(e) => setMonthFilter(e.target.value)}
+                                        className="w-full md:w-72 pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900"
+                                    />
+                                </div>
+                            </label>
+                            {rows && rows.length > 0 && monthRange && (
+                                <div className="flex items-center gap-3 text-sm text-slate-600">
+                                    <Link
+                                        href={`${baseRoute}/iirup/print/${monthRange.startDate}/${monthRange.endDate}?mode=month`}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 transition-colors text-sm font-medium"
+                                    >
+                                        <Printer className="w-4 h-4" /> Print Month Range
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         <div className="flex flex-col gap-3">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
@@ -187,6 +218,15 @@ export default function IirupPage() {
                                     Active range: <span className="font-medium text-slate-900">{appliedRange.startDate}</span> to{' '}
                                     <span className="font-medium text-slate-900">{appliedRange.endDate}</span>
                                 </span>
+
+                                {rows && rows.length > 0 && (
+                                    <Link
+                                        href={`${baseRoute}/iirup/print/${appliedRange.startDate}/${appliedRange.endDate}?mode=custom`}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 transition-colors text-sm font-medium"
+                                    >
+                                        <Printer className="w-4 h-4" /> Print Active Range
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     )}

@@ -153,7 +153,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                         { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
                         { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
                         { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
-                        { label: 'IIRUP', href: `${baseRoute}/iirup`, icon: FileWarning },
+                        ...((isAdmin || isGSOStaff) ? [{ label: 'IIRUP', href: `${baseRoute}/iirup`, icon: FileWarning }] : []),
                     ]
                 },
             ],
