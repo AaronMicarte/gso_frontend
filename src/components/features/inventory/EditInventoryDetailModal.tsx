@@ -107,7 +107,8 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: EditInven
                     await updateInventoryDetail.mutateAsync({ id: form.id, data: payload });
                     toast.success('Item updated successfully');
                 } else {
-                    const { SerialNumber: _serial, ModelNumber: _model, ...siblingPayload } = payload;
+                    // ModelNumber removed from extraction so it gets saved to siblings alongside description and brand
+                    const { SerialNumber: _serial, ...siblingPayload } = payload;
 
                     await Promise.all(
                         siblings.map((s) => {
@@ -193,24 +194,14 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: EditInven
                                 />
                             </div>
                             <div>
-                                <FieldLabel
-                                    htmlFor="edit-model"
-                                    badge={
-                                        isSiblingsMode ? (
-                                            <span className="text-[10px] text-amber-600 font-medium bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded normal-case tracking-normal animate-in fade-in duration-150">
-                                                Cannot bulk-edit
-                                            </span>
-                                        ) : null
-                                    }
-                                >
+                                <FieldLabel htmlFor="edit-model">
                                     Model
                                 </FieldLabel>
                                 <textarea
                                     id="edit-model"
-                                    value={isSiblingsMode ? (item?.ModelNumber ?? '') : (form?.ModelNumber ?? '')}
+                                    value={form?.ModelNumber ?? ''}
                                     onChange={(e) => updateField('ModelNumber', e.target.value)}
-                                    disabled={isSiblingsMode}
-                                    className={`${inputClass} resize-vertical min-h-[38px] max-h-[120px] disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed`}
+                                    className={`${inputClass} resize-vertical min-h-[38px] max-h-[120px]`}
                                     placeholder="e.g. XPS 15, EOS R..."
                                     rows={1}
                                     maxLength={100}
@@ -282,7 +273,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: EditInven
                                 <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-100 text-amber-800 rounded-lg px-3 py-2.5 text-xs animate-in slide-in-from-top-1 duration-150">
                                     <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                                     <p>
-                                        <span className="font-semibold">{siblingCount} other matching item{siblingCount > 1 ? 's' : ''}</span> won't receive these changes. Switch to bulk mode if they share the same description and brand.
+                                        <span className="font-semibold">{siblingCount} other matching item{siblingCount > 1 ? 's' : ''}</span> won't receive these changes. Switch to bulk mode if they share the same description, brand, and model.
                                     </p>
                                 </div>
                             )}
