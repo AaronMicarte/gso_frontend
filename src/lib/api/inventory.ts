@@ -169,6 +169,7 @@ export type InventoryDetailEditData = {
     Brand?: string;
     ModelNumber?: string;
     SerialNumber?: string;
+    Condition?: string;
 };
 
 export const updateInventoryDetail = async (id: number, data: InventoryDetailEditData): Promise<unknown> => {

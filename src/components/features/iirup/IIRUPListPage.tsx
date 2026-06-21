@@ -13,7 +13,7 @@ export default function IirupPage() {
     useEffect(() => {
         setLoading(true);
         // Fetch unserviceable property reports and flatten items
-        fetch('/api/admin/property-unserviceable?per_page=100')
+        fetch('/api/property-unserviceable?per_page=100')
             .then((r) => r.json())
             .then((data) => {
                 const items: UnserviceableItemRow[] = [];
