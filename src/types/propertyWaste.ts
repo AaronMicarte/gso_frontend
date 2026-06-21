@@ -76,3 +76,15 @@ export interface PropertyWasteListResponse {
     per_page: number;
     total: number;
 }
+// types/unserviceable.ts
+export type UnserviceableItemRow = {
+    id: number;
+    dateAcquired?: string | null;
+    particulars?: string | null;
+    propertyNumber?: string | null;
+    quantity?: number | null;
+    unitCost?: number | null;
+    totalCost?: number | null;
+    markedAt?: string | null;
+    markedBy?: string | null;
+};
