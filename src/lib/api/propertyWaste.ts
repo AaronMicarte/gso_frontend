@@ -11,6 +11,10 @@ import type {
 export interface ListUnserviceableParams {
     per_page?: number;
     page?: number;
+    start_date?: string;
+    end_date?: string;
+    month?: number;
+    year?: number;
 }
 
 /**
