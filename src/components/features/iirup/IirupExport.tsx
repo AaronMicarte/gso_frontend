@@ -49,9 +49,9 @@ export async function exportIirupToExcel(options: IirupExportOptions): Promise<v
         mode = 'custom',
         entityName = '',
         fundCluster = '',
-        accountableOfficer = '',
-        designation = '',
-        station = '',
+        accountableOfficer = 'Nilo J. Sabayanon',
+        designation = 'OIC-GSO',
+        station = 'General Services Office',
     } = options;
 
     // ── 1. Load template safely via origin URL ──
@@ -73,10 +73,24 @@ export async function exportIirupToExcel(options: IirupExportOptions): Promise<v
     ws.getCell('B6').value = `Entity Name: ${entityName || '_______________________________________'}`;
     ws.getCell('P6').value = `Fund Cluster : ${fundCluster || '_____________________'}`;
 
-    // ── 3. Row 7 Profile Coordinates Mapping ──
-    ws.getCell('B7').value = accountableOfficer;
-    ws.getCell('G7').value = designation;
-    ws.getCell('L7').value = station;
+    // ── 3. Row 7 Profile Coordinates Mapping (Clean Merged Target Workaround) ──
+    // Accountable Officer (B7 to E7 merged)
+    const cellOfficer = ws.getCell('B7');
+    cellOfficer.value = accountableOfficer;
+    ws.getRow(7).getCell('B').alignment = { horizontal: 'center', vertical: 'bottom' };
+    ws.getRow(7).getCell('B').font = { name: 'Calibri', size: 11, underline: 'single' };
+
+    // Designation (G7 to J7 merged)
+    const cellDesignation = ws.getCell('G7');
+    cellDesignation.value = designation;
+    ws.getRow(7).getCell('G').alignment = { horizontal: 'center', vertical: 'bottom' };
+    ws.getRow(7).getCell('G').font = { name: 'Calibri', size: 11, underline: 'single' };
+
+    // Station (L7 to O7 merged)
+    const cellStation = ws.getCell('L7');
+    cellStation.value = station;
+    ws.getRow(7).getCell('L').alignment = { horizontal: 'center', vertical: 'bottom' };
+    ws.getRow(7).getCell('L').font = { name: 'Calibri', size: 11, underline: 'single' };
 
     // ── 4. Fill data rows ──
     const DATA_START_ROW = 15;
@@ -86,13 +100,11 @@ export async function exportIirupToExcel(options: IirupExportOptions): Promise<v
         const row = rows[i];
         const r = DATA_START_ROW + i;
 
-        // Set cell text values securely
         ws.getCell(r, 2).value = formatPHDate(row.dateAcquired);
         ws.getCell(r, 3).value = row.particulars ?? '';
         ws.getCell(r, 4).value = row.propertyNumber ?? '';
         ws.getCell(r, 5).value = row.quantity ?? '';
 
-        // Force numeric formats to ensure calculations don't drop as strings
         const ucCell = ws.getCell(r, 6);
         ucCell.value = row.unitCost !== null && row.unitCost !== undefined ? Number(row.unitCost) : '';
         if (typeof ucCell.value === 'number') ucCell.numFmt = '#,##0.00';
@@ -102,31 +114,44 @@ export async function exportIirupToExcel(options: IirupExportOptions): Promise<v
         if (typeof tcCell.value === 'number') tcCell.numFmt = '#,##0.00';
     }
 
-    // ── 5. THE FIX: Smart Auto-Fit Data Columns (Columns 2 to 19) ──
-    // This looks ONLY at your data rows (15 to 32) so header cards do not stretch columns
-    for (let colNum = 2; colNum <= 19; colNum++) {
-        const column = ws.getColumn(colNum);
-        let maxLen = 11; // Good base baseline padding for dates and short cells
+    // ── 5. Standard Appendix 74 Proportional Column Widths ──
+    ws.getColumn(1).width = 3;   // Spacer column (A)
+    ws.getColumn(2).width = 13;  // Date Acquired (B)
+    ws.getColumn(3).width = 35;  // Particulars (C)
+    ws.getColumn(4).width = 16;  // Property No (D)
+    ws.getColumn(5).width = 8;   // Qty (E)
+    ws.getColumn(6).width = 15;  // Unit Cost (F)
+    ws.getColumn(7).width = 16;  // Total Cost (G)
 
-        // Loop through the data rows specifically to measure string sizes
-        for (let r = DATA_START_ROW; r < DATA_START_ROW + MAX_ROWS; r++) {
-            const cell = ws.getCell(r, colNum);
-            if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
-                let textValue = String(cell.value);
+    // ── 5b. Force Row Heights to expand cleanly if text wraps ──
+    for (let r = DATA_START_ROW; r < DATA_START_ROW + MAX_ROWS; r++) {
+        ws.getCell(r, 3).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
 
-                // If cell is a number and formatted with money strings, give it extra padding length
-                if (cell.numFmt && typeof cell.value === 'number') {
-                    textValue = cell.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                }
-
-                if (textValue.length > maxLen) {
-                    maxLen = textValue.length;
-                }
-            }
+        const particularsText = ws.getCell(r, 3).value;
+        if (particularsText && String(particularsText).length > 30) {
+            ws.getRow(r).height = 32;
+        } else {
+            ws.getRow(r).height = 20;
         }
-        // Set the calculated auto width plus extra safety padding cells
-        column.width = maxLen + 3;
     }
+
+    // ── 5c. THE PRINT SCALING FIX: Force sheet onto 1 Landscape Page Wide ──
+    ws.pageSetup = {
+        orientation: 'landscape',
+        paperSize: 5, // Legal paper size
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: {
+            left: 0.5, right: 0.5,
+            top: 0.5, bottom: 0.5,
+            header: 0.3, footer: 0.3
+        }
+    };
+
+    ws.views = [
+        { showGridLines: true }
+    ];
 
     // ── 6. Save and trigger automatic browser file download ──
     const outBuffer = await wb.xlsx.writeBuffer();
