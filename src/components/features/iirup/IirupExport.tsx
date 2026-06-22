@@ -41,6 +41,12 @@ const getPeriodLabel = (startDate?: string, endDate?: string, mode: 'month' | 'c
     }
 };
 
+const estimateLines = (text: string, charsPerLine: number): number => {
+    if (!text || text.trim().length === 0) return 1;
+    const segments = text.split('\n');
+    return segments.reduce((acc, seg) => acc + Math.max(1, Math.ceil(seg.length / charsPerLine)), 0);
+};
+
 export async function exportIirupToExcel(options: IirupExportOptions): Promise<void> {
     const {
         rows,
@@ -73,87 +79,112 @@ export async function exportIirupToExcel(options: IirupExportOptions): Promise<v
     ws.getCell('B6').value = `Entity Name: ${entityName || '_______________________________________'}`;
     ws.getCell('P6').value = `Fund Cluster : ${fundCluster || '_____________________'}`;
 
-    // ── 3. Row 7 Profile Coordinates Mapping (Clean Merged Target Workaround) ──
-    // Accountable Officer (B7 to E7 merged)
+    // ── 3. Row 7 Profile Coordinates Mapping ──
     const cellOfficer = ws.getCell('B7');
     cellOfficer.value = accountableOfficer;
     ws.getRow(7).getCell('B').alignment = { horizontal: 'center', vertical: 'bottom' };
     ws.getRow(7).getCell('B').font = { name: 'Calibri', size: 11, underline: 'single' };
 
-    // Designation (G7 to J7 merged)
     const cellDesignation = ws.getCell('G7');
     cellDesignation.value = designation;
     ws.getRow(7).getCell('G').alignment = { horizontal: 'center', vertical: 'bottom' };
     ws.getRow(7).getCell('G').font = { name: 'Calibri', size: 11, underline: 'single' };
 
-    // Station (L7 to O7 merged)
     const cellStation = ws.getCell('L7');
     cellStation.value = station;
     ws.getRow(7).getCell('L').alignment = { horizontal: 'center', vertical: 'bottom' };
     ws.getRow(7).getCell('L').font = { name: 'Calibri', size: 11, underline: 'single' };
 
-    // ── 4. Fill data rows ──
+    // ── 4. Column config: width + chars-per-line for wrap estimation ──
+    const COL_CONFIG: Record<number, { width: number; charsPerLine: number }> = {
+        1: { width: 3, charsPerLine: 999 }, // Spacer (A) — no wrap
+        2: { width: 13, charsPerLine: 12 }, // Date Acquired (B)
+        3: { width: 35, charsPerLine: 38 }, // Particulars (C)
+        4: { width: 16, charsPerLine: 17 }, // Property No (D)
+        5: { width: 8, charsPerLine: 7 }, // Qty (E)
+        6: { width: 15, charsPerLine: 14 }, // Unit Cost (F)
+        7: { width: 16, charsPerLine: 15 }, // Total Cost (G)
+    };
+
+    for (const [colNum, config] of Object.entries(COL_CONFIG)) {
+        ws.getColumn(Number(colNum)).width = config.width;
+    }
+
+    // ── 5. Fill data rows ──
     const DATA_START_ROW = 15;
     const MAX_ROWS = 18;
+    const LINE_HEIGHT = 15;
+    const MIN_HEIGHT = 20;
+    const PADDING = 6;
 
     for (let i = 0; i < Math.min(rows.length, MAX_ROWS); i++) {
         const row = rows[i];
         const r = DATA_START_ROW + i;
 
-        ws.getCell(r, 2).value = formatPHDate(row.dateAcquired);
-        ws.getCell(r, 3).value = row.particulars ?? '';
-        ws.getCell(r, 4).value = row.propertyNumber ?? '';
-        ws.getCell(r, 5).value = row.quantity ?? '';
+        const dateText = formatPHDate(row.dateAcquired);
+        const partText = row.particulars ?? '';
+        const propText = `PAR NO. ${row.propertyNumber ?? ''}`;
+        const qtyText = String(row.quantity ?? '');
+        const unitCost = row.unitCost !== null && row.unitCost !== undefined ? Number(row.unitCost) : '';
+        const totalCost = row.totalCost !== null && row.totalCost !== undefined ? Number(row.totalCost) : '';
+
+        // Set cell values
+        ws.getCell(r, 2).value = dateText;
+        ws.getCell(r, 3).value = partText;
+        ws.getCell(r, 4).value = propText;
+        ws.getCell(r, 5).value = qtyText;
 
         const ucCell = ws.getCell(r, 6);
-        ucCell.value = row.unitCost !== null && row.unitCost !== undefined ? Number(row.unitCost) : '';
+        ucCell.value = unitCost;
         if (typeof ucCell.value === 'number') ucCell.numFmt = '#,##0.00';
 
         const tcCell = ws.getCell(r, 7);
-        tcCell.value = row.totalCost !== null && row.totalCost !== undefined ? Number(row.totalCost) : '';
+        tcCell.value = totalCost;
         if (typeof tcCell.value === 'number') tcCell.numFmt = '#,##0.00';
-    }
 
-    // ── 5. Standard Appendix 74 Proportional Column Widths ──
-    ws.getColumn(1).width = 3;   // Spacer column (A)
-    ws.getColumn(2).width = 13;  // Date Acquired (B)
-    ws.getColumn(3).width = 35;  // Particulars (C)
-    ws.getColumn(4).width = 16;  // Property No (D)
-    ws.getColumn(5).width = 8;   // Qty (E)
-    ws.getColumn(6).width = 15;  // Unit Cost (F)
-    ws.getColumn(7).width = 16;  // Total Cost (G)
-
-    // ── 5b. Force Row Heights to expand cleanly if text wraps ──
-    for (let r = DATA_START_ROW; r < DATA_START_ROW + MAX_ROWS; r++) {
-        ws.getCell(r, 3).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-
-        const particularsText = ws.getCell(r, 3).value;
-        if (particularsText && String(particularsText).length > 30) {
-            ws.getRow(r).height = 32;
-        } else {
-            ws.getRow(r).height = 20;
+        // Apply wrapText alignment to all data cells in row — all centered
+        for (let c = 2; c <= 7; c++) {
+            ws.getCell(r, c).alignment = {
+                vertical: 'middle',
+                horizontal: 'center',
+                wrapText: true,
+            };
         }
+        // Estimate max lines across all columns to determine row height
+        const cellTexts: { col: number; text: string }[] = [
+            { col: 2, text: dateText },
+            { col: 3, text: partText },
+            { col: 4, text: propText },
+            { col: 5, text: qtyText },
+            { col: 6, text: typeof unitCost === 'number' ? unitCost.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '' },
+            { col: 7, text: typeof totalCost === 'number' ? totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '' },
+        ];
+
+        const maxLines = cellTexts.reduce((max, { col, text }) => {
+            const chars = COL_CONFIG[col]?.charsPerLine ?? 20;
+            return Math.max(max, estimateLines(text, chars));
+        }, 1);
+
+        ws.getRow(r).height = Math.max(MIN_HEIGHT, maxLines * LINE_HEIGHT + PADDING);
     }
 
-    // ── 5c. THE PRINT SCALING FIX: Force sheet onto 1 Landscape Page Wide ──
+    // ── 6. Print setup ──
     ws.pageSetup = {
         orientation: 'landscape',
-        paperSize: 5, // Legal paper size
+        paperSize: 5,
         fitToPage: true,
         fitToWidth: 1,
         fitToHeight: 0,
         margins: {
             left: 0.5, right: 0.5,
             top: 0.5, bottom: 0.5,
-            header: 0.3, footer: 0.3
-        }
+            header: 0.3, footer: 0.3,
+        },
     };
 
-    ws.views = [
-        { showGridLines: true }
-    ];
+    ws.views = [{ showGridLines: true }];
 
-    // ── 6. Save and trigger automatic browser file download ──
+    // ── 7. Save and trigger download ──
     const outBuffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([outBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const period = getPeriodLabel(startDate, endDate, mode).replace(/[/\\?%*:|"<>]/g, '-');
