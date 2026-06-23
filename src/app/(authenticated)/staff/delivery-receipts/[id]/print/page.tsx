@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
 import { DeliveryReceipt } from '@/types/procurement';
 import { DRPrintView } from '@/components/features/delivery-receipts/DRPrintView';
-import exportDRToExcel from '@/components/features/delivery-receipts/DRExport';
+import exportDRToExcel from '@/components/features/delivery-receipts/IARExport';
 
 export default function StaffDeliveryReceiptPrintPage() {
     const params = useParams();

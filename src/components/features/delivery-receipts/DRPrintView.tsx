@@ -5,7 +5,7 @@ import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import { DeliveryReceipt } from '@/types/procurement';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuth } from '@/lib/hooks/useAuth';
-import exportDRToExcel from './DRExport';
+import exportDRToExcel from './IARExport';
 
 interface DRPrintViewProps {
     dr: DeliveryReceipt;

@@ -4,22 +4,23 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { FileSpreadsheet } from 'lucide-react';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
 import { DeliveryReceipt } from '@/types/procurement';
 import { DRPrintView } from '@/components/features/delivery-receipts/DRPrintView';
-import exportDRToExcel from '@/components/features/delivery-receipts/DRExport';
+import { exportIARToExcel } from '@/components/features/delivery-receipts/IARExport';
 
 export default function AdminDeliveryReceiptPrintPage() {
     const params = useParams();
     const router = useRouter();
     const [dr, setDr] = useState<DeliveryReceipt | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
 
     const drId = params?.id ? parseInt(params.id as string) : null;
 
     const loadDR = useCallback(async () => {
         if (!drId) return;
-
         try {
             setLoading(true);
             const data = await getDeliveryReceipt(drId);
@@ -42,6 +43,19 @@ export default function AdminDeliveryReceiptPrintPage() {
             document.body.classList.remove('print-scope-active');
         };
     }, []);
+
+    const handleExcelExport = useCallback(async () => {
+        if (!dr) return;
+        setIsExporting(true);
+        try {
+            await exportIARToExcel(dr);
+            toast.success('IAR exported successfully');
+        } catch {
+            toast.error('Failed to export IAR');
+        } finally {
+            setIsExporting(false);
+        }
+    }, [dr]);
 
     if (loading) {
         return (
@@ -78,10 +92,21 @@ export default function AdminDeliveryReceiptPrintPage() {
                 </Link>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => exportDRToExcel(dr!)}
-                        className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--secondary)] hover:bg-[var(--secondary-dark)]"
+                        onClick={handleExcelExport}
+                        disabled={isExporting || !dr.details || dr.details.length === 0}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-50 border border-green-200 rounded-lg shadow-sm transition-colors"
                     >
-                        Export Excel
+                        {isExporting ? (
+                            <>
+                                <span className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                                Exporting...
+                            </>
+                        ) : (
+                            <>
+                                <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                                Export Excel
+                            </>
+                        )}
                     </button>
                     <button
                         onClick={() => window.print()}
