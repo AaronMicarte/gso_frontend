@@ -42,7 +42,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
     const [rows, setRows] = React.useState<AssignmentRow[]>([]);
     const [saving, setSaving] = React.useState(false);
     const [loadingHistory, setLoadingHistory] = React.useState(false);
-    const [allowPartialPrint, setAllowPartialPrint] = React.useState(false);
 
     // Group items by text features to solve the 1/1 duplication pool issue completely
     const availableItems = React.useMemo(() => {
@@ -83,13 +82,11 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
         async function loadSavedAssignments(validId: number) {
             try {
                 setLoadingHistory(true);
-                setAllowPartialPrint(false);
 
                 const response = await issuanceAPI.getAssignments(validId);
                 const savedRows = response?.data || response || [];
 
                 if (Array.isArray(savedRows) && savedRows.length > 0) {
-                    // --- FIX: Aggregate rows by combination of Receiver Name + Matched Item UI ID ---
                     const aggregatedMap: Record<string, { receiver_name: string; issuance_detail_id: string; quantity: number }> = {};
 
                     savedRows.forEach((dbRow: any) => {
@@ -100,7 +97,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                         const itemUiId = foundMatch ? foundMatch.id : '';
                         const receiverName = (dbRow.receiver_name || '').trim();
 
-                        // Create a composite key to group similar allocations together
                         const groupingKey = `${receiverName}_${itemUiId}`;
                         const qty = Number(dbRow.quantity || 1);
 
@@ -115,7 +111,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                         }
                     });
 
-                    // Map the consolidated groups back to UI rows
                     const loaded = Object.values(aggregatedMap).map((group) => ({
                         id: uid(),
                         receiver_name: group.receiver_name,
@@ -152,6 +147,13 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
 
     const addAssignmentRow = () => {
         setRows(prev => [...prev, { id: uid(), receiver_name: '', issuance_detail_id: '', quantity: 1, isDropdownOpen: false, searchQuery: '' }]);
+    };
+
+    const addItemForReceiver = (currentReceiverName: string) => {
+        setRows(prev => [
+            ...prev,
+            { id: uid(), receiver_name: currentReceiverName, issuance_detail_id: '', quantity: 1, isDropdownOpen: false, searchQuery: '' }
+        ]);
     };
 
     const removeAssignmentRow = (id: string) => {
@@ -202,20 +204,11 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                 .filter(r => r.issuance_detail_id === item.id)
                 .reduce((sum, r) => sum + r.quantity, 0);
 
-            if (!allowPartialPrint) {
-                if (totalAssigned !== item.maxQty) {
-                    return {
-                        ok: false,
-                        message: `Item "${item.label}" mismatch. Assigned ${totalAssigned} out of ${item.maxQty} required units.`
-                    };
-                }
-            } else {
-                if (totalAssigned > item.maxQty) {
-                    return {
-                        ok: false,
-                        message: `Item "${item.label}" is over-allocated (${totalAssigned}/${item.maxQty}).`
-                    };
-                }
+            if (totalAssigned > item.maxQty) {
+                return {
+                    ok: false,
+                    message: `Item "${item.label}" is over-allocated (${totalAssigned}/${item.maxQty}).`
+                };
             }
         }
         return { ok: true };
@@ -230,7 +223,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
         const v = validate();
         if (!v.ok) { toast.error(v.message || 'Validation failed'); return; }
 
-        // Process combined item rows safely back into single database records for processing updates
         const finalAssignments: Array<{ issuance_detail_id: number; receiver_name: string; quantity: number }> = [];
 
         availableItems.forEach(item => {
@@ -245,7 +237,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                 while (assignedCountForUser > 0 && detailsPool.length > 0) {
                     const activeDetailId = detailsPool[0];
 
-                    // Discover total stock capacity for individual components from raw structural data
                     const sourceItems = items.filter(it => it.IssuanceDetailID === activeDetailId);
                     const sourceQty = sourceItems.reduce((acc, it) => acc + Math.max(1, Number(it.QuantityIssued ?? 1)), 0);
 
@@ -276,7 +267,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
             });
         });
 
-        // Build grouping now so parent can open print windows synchronously
         const grouping: Record<string, Set<number>> = {};
         finalAssignments.forEach((a) => {
             const name = String(a.receiver_name || '').trim();
@@ -289,7 +279,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
             detailIds: Array.from(grouping[receiver_name]),
         }));
 
-        // Notify parent immediately (still user-initiated click) so it can open windows without popup blocking
         onSaved?.({ assignments, documentType });
 
         try {
@@ -319,22 +308,13 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                         </Dialog.Description>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 text-sm">
-                        <label className="flex items-center gap-2 font-medium text-slate-700 cursor-pointer select-none">
-                            <input
-                                type="checkbox"
-                                className="w-4 h-4 accent-[var(--primary)] rounded cursor-pointer"
-                                checked={allowPartialPrint}
-                                onChange={(e) => setAllowPartialPrint(e.target.checked)}
-                            />
-                            Allow Partial Print / Remaining Adjustments
-                        </label>
+                    <div className="flex items-center justify-end mb-4">
                         <button
                             type="button"
                             onClick={addAssignmentRow}
                             className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-lg transition-colors shadow-xs"
                         >
-                            + Add Receiver Allocation
+                            + Add New Receiver Block
                         </button>
                     </div>
 
@@ -365,7 +345,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             {idx + 1}
                                         </span>
 
-                                        {/* Receiver Input Box */}
                                         <div className="w-full lg:w-1/4 pl-2">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Receiver Name</label>
                                             <input
@@ -377,7 +356,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             />
                                         </div>
 
-                                        {/* Main Combobox Column - Multi-line wrapping ready */}
                                         <div className="w-full lg:flex-1 relative">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Assigned Asset Item</label>
 
@@ -446,7 +424,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             )}
                                         </div>
 
-                                        {/* Quantity Column */}
                                         <div className="w-full lg:w-[100px]">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Quantity</label>
                                             <input
@@ -460,7 +437,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             />
                                         </div>
 
-                                        {/* Remaining Pool Badge Container */}
                                         <div className="w-full lg:w-[130px] text-center lg:text-left">
                                             {chosenItem ? (
                                                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-center px-2">
@@ -474,8 +450,19 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             )}
                                         </div>
 
-                                        {/* Row Action Items */}
-                                        <div className="w-full lg:w-auto flex justify-end lg:pt-4">
+                                        <div className="w-full lg:w-auto flex items-center justify-end lg:pt-4 gap-1">
+                                            <button
+                                                type="button"
+                                                disabled={!row.receiver_name.trim()}
+                                                onClick={() => addItemForReceiver(row.receiver_name)}
+                                                className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30"
+                                                title="Add another item for this receiver"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                </svg>
+                                            </button>
+
                                             <button
                                                 type="button"
                                                 onClick={() => removeAssignmentRow(row.id)}
