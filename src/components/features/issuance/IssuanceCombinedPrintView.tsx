@@ -10,6 +10,7 @@ import { AssetIssuance } from '@/types/assetIssuance';
 import { PARPrintView } from './PARPrintView';
 import { ICSPrintView } from './ICSPrintView';
 import { exportPARToExcel } from './PARExport';
+import { exportICSToExcel } from './ICSExport';
 
 interface CombinedIssuancePrintViewProps {
     backHref: string;
@@ -39,7 +40,8 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
     const searchParams = useSearchParams();
     const [issuances, setIssuances] = useState<AssetIssuance[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isExporting, setIsExporting] = useState(false);
+    const [isExportingPAR, setIsExportingPAR] = useState(false);
+    const [isExportingICS, setIsExportingICS] = useState(false);
 
     const issuanceId = params?.id ? parseInt(params.id as string) : null;
     const requestedType = searchParams.get('type') as DocumentType | null;
@@ -112,20 +114,37 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
         return 'PAR/ICS';
     }, [issuances]);
 
-    const handleExcelExport = async () => {
+    const handlePARExcelExport = async () => {
         const parIssuance = issuances.find((i) => i.DocumentType === 'PAR');
         if (!parIssuance) {
             toast.error('No PAR document available for export');
             return;
         }
         try {
-            setIsExporting(true);
+            setIsExportingPAR(true);
             await exportPARToExcel(parIssuance, selectedDetailIds);
         } catch (err) {
             console.error(err);
             toast.error('Failed to export PAR to Excel');
         } finally {
-            setIsExporting(false);
+            setIsExportingPAR(false);
+        }
+    };
+
+    const handleICSExcelExport = async () => {
+        const icsIssuance = issuances.find((i) => i.DocumentType === 'ICS');
+        if (!icsIssuance) {
+            toast.error('No ICS document available for export');
+            return;
+        }
+        try {
+            setIsExportingICS(true);
+            await exportICSToExcel(icsIssuance, selectedDetailIds);
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to export ICS to Excel');
+        } finally {
+            setIsExportingICS(false);
         }
     };
 
@@ -157,6 +176,7 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
     }
 
     const hasPAR = issuances.some((i) => i.DocumentType === 'PAR');
+    const hasICS = issuances.some((i) => i.DocumentType === 'ICS');
 
     return (
         <div className="print-scope min-h-screen bg-slate-100 py-6">
@@ -168,11 +188,11 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
                 <div className="flex items-center gap-2">
                     {hasPAR && (
                         <button
-                            onClick={handleExcelExport}
-                            disabled={isExporting}
+                            onClick={handlePARExcelExport}
+                            disabled={isExportingPAR}
                             className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-50 border border-green-200 rounded-lg shadow-sm transition-colors"
                         >
-                            {isExporting ? (
+                            {isExportingPAR ? (
                                 <>
                                     <span className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
                                     Exporting...
@@ -180,7 +200,26 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
                             ) : (
                                 <>
                                     <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                                    Export Excel
+                                    Export PAR
+                                </>
+                            )}
+                        </button>
+                    )}
+                    {hasICS && (
+                        <button
+                            onClick={handleICSExcelExport}
+                            disabled={isExportingICS}
+                            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-50 border border-green-200 rounded-lg shadow-sm transition-colors"
+                        >
+                            {isExportingICS ? (
+                                <>
+                                    <span className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                                    Export ICS
                                 </>
                             )}
                         </button>
