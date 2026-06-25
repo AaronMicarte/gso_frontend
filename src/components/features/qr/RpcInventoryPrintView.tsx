@@ -92,7 +92,7 @@ export function RpcInventoryPrintView({
     const year = format(toZonedTime(new Date(generatedAt || new Date()), 'Asia/Manila'), 'yyyy');
     const reportAsOfDate = `DECEMBER 31, ${year}`;
 
-    const assumedMonthYear = "MARCH 22, 2019";
+    const assumedMonthYear = `DECEMEBER ${year}`;
 
     const groupedRows = rows.reduce<Record<string, RpcInventoryReportRow[]>>((acc, row) => {
         const key = (row.property_type || '').trim();

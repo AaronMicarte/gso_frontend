@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
+import { FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { getRpcInventoryReport } from '@/lib/api/rpcInventory';
 import type { RpcInventoryReportResponse, RpcType } from '@/types/rpcInventory';
 import { RpcInventoryPrintView } from './RpcInventoryPrintView';
+import { exportRPCPPEToExcel } from './RpcppeExport';
 
 export function RpcInventoryPrintPage() {
     const params = useParams();
@@ -20,6 +22,7 @@ export function RpcInventoryPrintPage() {
 
     const [report, setReport] = useState<RpcInventoryReportResponse | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
 
     useEffect(() => {
         if (!Number.isInteger(id) || id <= 0) return;
@@ -39,6 +42,18 @@ export function RpcInventoryPrintPage() {
 
         void load();
     }, [id]);
+
+    const handleExcelExport = async () => {
+        if (!report) return;
+        try {
+            setIsExporting(true);
+            await exportRPCPPEToExcel(report, reportType);
+        } catch {
+            toast.error('Failed to export Excel');
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     if (!Number.isInteger(id) || id <= 0) {
         return <div className="p-6 text-red-700">Invalid report ID.</div>;
@@ -60,9 +75,28 @@ export function RpcInventoryPrintPage() {
                 <h1 className="text-lg font-semibold text-slate-900">
                     {reportType} Report - {report.cycle.cycle_label}
                 </h1>
-                <Button size="sm" className="w-auto" onClick={() => window.print()}>
-                    Print / Save PDF
-                </Button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleExcelExport}
+                        disabled={isExporting}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-50 border border-green-200 rounded-lg shadow-sm transition-colors"
+                    >
+                        {isExporting ? (
+                            <>
+                                <span className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                                Exporting...
+                            </>
+                        ) : (
+                            <>
+                                <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                                Export Excel
+                            </>
+                        )}
+                    </button>
+                    <Button size="sm" className="w-auto" onClick={() => window.print()}>
+                        Print / Save PDF
+                    </Button>
+                </div>
             </div>
 
             <RpcInventoryPrintView
