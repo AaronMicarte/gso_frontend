@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Printer, AlertCircle, CheckCircle, X, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Printer, AlertCircle, FileSpreadsheet } from 'lucide-react';
 import { getRis } from '@/lib/api/ris';
 import type { RisRecord } from '@/types/ris';
 import { format } from 'date-fns';
@@ -13,7 +13,7 @@ import { exportRISToExcel } from './RISExport';
 
 const fmt = (d?: string | null) => {
     if (!d) return 'Not recorded';
-    return format(toZonedTime(new Date(d), 'Asia/Manila'), 'PPpp');
+    return format(toZonedTime(new Date(d), 'Asia/Manila'), 'PP');
 };
 
 const text = (v: unknown, fb: string) => {
@@ -82,6 +82,11 @@ function formatRange(values: string[]): string {
     return unique.slice().sort((a, b) => a.localeCompare(b)).join(', ');
 }
 
+const currency = (n: number | null | undefined) => {
+    if (n == null || Number.isNaN(Number(n))) return '';
+    return Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
     const params = useParams();
     const router = useRouter();
@@ -128,6 +133,74 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
         return s;
     }, [ris?.status]);
 
+    // Mirrors RISExport.tsx field resolution: req, office, docDate, supplier, ris number
+    const req = ris?.request ?? ris?.asset_request ?? null;
+
+    const docDate = useMemo(
+        () => text(fmt(req?.RequestDate), fmt(new Date().toISOString())),
+        [req?.RequestDate],
+    );
+
+    const officeText = text(
+        req?.Office ?? req?.office ?? req?.department?.DepartmentName ?? '',
+        'N/A',
+    );
+
+    const supplierText = text((req as { supplier_name?: string } | null)?.supplier_name ?? '', 'N/A');
+
+    const risNumberText = text(ris?.ris_number, '0000-00-0000');
+
+    const requesterName = text(
+        ris?.signatures?.received_by?.issued_to_name
+        || ris?.signatures?.received_by?.user?.FullName
+        || req?.requester?.FullName
+        || ris?.signatures?.approved_by?.user?.FullName
+        || '',
+        'N/A',
+    );
+
+    const itemRows = useMemo(() => {
+        return (ris?.items ?? []).map((it, idx) => {
+            const key = `${idx}:${[
+                String(it.stock_no ?? '').trim(),
+                String(it.description ?? '').trim(),
+                String(it.unit ?? '').trim(),
+                String(it.brand ?? '').trim(),
+                String(it.model ?? '').trim(),
+                String(it.serial ?? '').trim(),
+            ].join('|')}`;
+
+            const propNumbers = it.property_numbers?.length
+                ? it.property_numbers
+                : (it.stock_no ? [String(it.stock_no)] : []);
+            const stockNoText = formatRange(propNumbers) || text(it.stock_no, '');
+
+            const descriptionText = [it.description, it.brand, it.model, it.serial]
+                .map((v) => text(v ?? '', ''))
+                .filter(Boolean)
+                .join(', ');
+
+            const qty = typeof it.quantity_requested === 'number' ? it.quantity_requested : Number(it.quantity_requested ?? 0) || 0;
+            const unitCost = it.unit_cost == null ? null : Number(it.unit_cost);
+            const total = unitCost == null ? null : qty * unitCost;
+
+            return {
+                key,
+                stockNoText,
+                unit: text(it.unit, ''),
+                descriptionText: descriptionText || 'N/A',
+                qty: it.quantity_requested ?? '',
+                unitCost,
+                total,
+            };
+        });
+    }, [ris?.items]);
+
+    const grandTotal = useMemo(
+        () => itemRows.reduce((sum, r) => sum + (r.total ?? 0), 0),
+        [itemRows],
+    );
+
     if (loading) {
         return null;
     }
@@ -158,7 +231,7 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
                         <ArrowLeft className="h-4 w-4" /> Back
                     </button>
                     <div className="mt-2">
-                        <div className="text-xl font-bold text-slate-900">RIS {text(ris.ris_number, '0000-00-0000')}</div>
+                        <div className="text-xl font-bold text-slate-900">RIS {risNumberText}</div>
                         <div className="text-sm text-slate-600">Status: {statusLabel}</div>
                     </div>
                 </div>
@@ -195,30 +268,19 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
                     <div className="text-sm font-semibold text-slate-900">Header</div>
 
                     <div className="text-sm">
-                        <span className="text-slate-600">Entity:</span> CITY GOVERNMENT OF EL SALVADOR
+                        <span className="text-slate-600">Supplier:</span> {supplierText}
                     </div>
 
-                    {/* FUND CLUSTER - BLANK */}
                     <div className="text-sm">
-                        <span className="text-slate-600">Fund Cluster:</span>
-                    </div>
-
-                    {/* DIVISION - BLANK */}
-                    <div className="text-sm">
-                        <span className="text-slate-600">Division:</span>
-                    </div>
-
-                    {/* RCC - BLANK */}
-                    <div className="text-sm">
-                        <span className="text-slate-600">RCC:</span>
+                        <span className="text-slate-600">Office:</span> {officeText}
                     </div>
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
                     <div className="text-sm font-semibold text-slate-900">Request</div>
-                    <div className="text-sm"><span className="text-slate-600">Request No:</span> {text(ris.request?.RequestNumber, 'N/A')}</div>
-                    <div className="text-sm"><span className="text-slate-600">Department:</span> {text(ris.request?.department?.DepartmentName, 'N/A')}</div>
-                    <div className="text-sm"><span className="text-slate-600">Requested at:</span> {fmt(ris.request?.RequestDate)}</div>
+                    <div className="text-sm"><span className="text-slate-600">RIS No:</span> {risNumberText}</div>
+                    <div className="text-sm"><span className="text-slate-600">Requester:</span> {requesterName}</div>
+                    <div className="text-sm"><span className="text-slate-600">Date:</span> {docDate}</div>
                 </div>
             </div>
 
@@ -228,45 +290,32 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
                     <table className="w-full border-collapse text-sm">
                         <thead>
                             <tr className="border-b border-slate-200 text-slate-600">
-                                <th className="text-left py-2 pr-3">Description</th>
-                                <th className="text-center py-2 px-3">Qty Req</th>
-                                <th className="text-center py-2 px-3">Qty Issued</th>
-                                <th className="text-left py-2 pl-3">Remarks</th>
-                                <th className="text-right py-2 pl-3">Availability</th>
+                                <th className="text-left py-2 pr-3">Stock No.</th>
+                                <th className="text-center py-2 px-3">Unit</th>
+                                <th className="text-left py-2 px-3">Description</th>
+                                <th className="text-center py-2 px-3">Quantity</th>
+                                <th className="text-right py-2 px-3">Cost</th>
+                                <th className="text-right py-2 pl-3">Total</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 bg-white">
-                            {(ris.items ?? []).map((it, idx) => {
-                                const key = `${idx}:${[
-                                    String(it.stock_no ?? '').trim(),
-                                    String(it.description ?? '').trim(),
-                                    String(it.unit ?? '').trim(),
-                                    String(it.brand ?? '').trim(),
-                                    String(it.model ?? '').trim(),
-                                    String(it.serial ?? '').trim(),
-                                ].join('|')}`;
-                                const propNumbers = it.property_numbers ?? (it.stock_no ? [String(it.stock_no)] : []);
-                                const propText = formatRange(propNumbers);
-
-                                return (
-                                    <tr key={key}>
-                                        <td className="py-2 pr-3">{text(it.description, 'N/A')}</td>
-                                        <td className="py-2 px-3 text-center">{it.quantity_requested}</td>
-                                        <td className="py-2 px-3 text-center">{it.quantity_issued}</td>
-                                        <td className="py-2 pl-3">{text(it.issue_remarks, '-')}</td>
-                                        <td className="py-2 pr-3 text-right">
-                                            <div className="text-sm text-slate-700">{propText || text(it.stock_no, '')}</div>
-                                            <div className="mt-1">
-                                                <span className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full ${it.stock_available ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>
-                                                    {it.stock_available ? <CheckCircle className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                                                    {it.stock_available ? 'Available' : 'Unavailable'}
-                                                </span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {itemRows.map((r) => (
+                                <tr key={r.key}>
+                                    <td className="py-2 pr-3">{r.stockNoText || 'N/A'}</td>
+                                    <td className="py-2 px-3 text-center">{r.unit || 'N/A'}</td>
+                                    <td className="py-2 px-3">{r.descriptionText}</td>
+                                    <td className="py-2 px-3 text-center">{r.qty}</td>
+                                    <td className="py-2 px-3 text-right">{r.unitCost != null ? currency(r.unitCost) : ''}</td>
+                                    <td className="py-2 pl-3 text-right">{r.total != null ? currency(r.total) : ''}</td>
+                                </tr>
+                            ))}
                         </tbody>
+                        <tfoot>
+                            <tr className="border-t border-slate-200">
+                                <td colSpan={5} className="py-2 px-3 text-right font-semibold text-slate-700">Grand Total</td>
+                                <td className="py-2 pl-3 text-right font-semibold text-slate-900">{currency(grandTotal)}</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>

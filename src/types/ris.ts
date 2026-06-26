@@ -31,6 +31,9 @@ export interface RisItem {
     unit: string;
     description: string;
     quantity_requested: number;
+    // Real per-unit cost snapshotted from the delivery receipt detail (drDetail.UnitCost).
+    // Do NOT confuse with quantity_issued — that's a quantity, not a cost.
+    unit_cost?: number | null;
     stock_available: boolean;
     quantity_issued: number;
     issue_remarks: string;

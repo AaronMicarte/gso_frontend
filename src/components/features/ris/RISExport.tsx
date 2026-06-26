@@ -71,9 +71,12 @@ const formatStockRange = (values: string[]): string => {
     return blocks.join(', ');
 };
 
-const estimateWrappedRowHeight = (text: string, colWidthChars: number, lineHeightPt = 14.4): number => {
+const estimateWrappedRowHeight = (text: string, colWidthChars: number, fontSize = 11): number => {
+    const lineHeightPt = fontSize * 1.3;
     if (!text) return lineHeightPt;
-    const charsPerLine = Math.max(Math.floor(colWidthChars * 0.85), 5);
+    // Smaller fonts fit more characters per line in the same column width.
+    const sizeAdjustedWidthChars = colWidthChars * (11 / fontSize);
+    const charsPerLine = Math.max(Math.floor(sizeAdjustedWidthChars * 0.85), 5);
     const lines = text.split('\n').reduce((total, segment) => {
         return total + Math.max(1, Math.ceil(segment.length / charsPerLine));
     }, 0);
@@ -81,6 +84,18 @@ const estimateWrappedRowHeight = (text: string, colWidthChars: number, lineHeigh
 };
 
 const isMultiStockNo = (text: string): boolean => /[,/]/.test(text);
+
+// Scales the description font down as text length grows, so long multi-property-number
+// descriptions (e.g. "Item, Brand, Model, PROP-0001,PROP-0002,PROP-0003") shrink to fit
+// instead of overflowing the row or looking oversized relative to the cell.
+const scaledDescriptionFontSize = (text: string): number => {
+    const len = text.length;
+    if (len <= 60) return 11;
+    if (len <= 90) return 10;
+    if (len <= 130) return 9;
+    if (len <= 180) return 8;
+    return 7;
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -185,7 +200,8 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
 
     // ── Item rows ─────────────────────────────────────────────────────────────
 
-    const items = (ris.items ?? []).slice(0, DATA_END - DATA_START + 1);
+    // Row DATA_END (47) is reserved for the grand total, so items can only fill up to DATA_END - 1.
+    const items = (ris.items ?? []).slice(0, (DATA_END - 1) - DATA_START + 1);
     let currentRow = DATA_START;
 
     items.forEach((item) => {
@@ -213,17 +229,20 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
                 .filter(Boolean)
                 .join(', ') || null;
 
+        const descFontSize = scaledDescriptionFontSize(descriptionText ?? '');
+
         ws.getCell(currentRow, 4).value = descriptionText;
-        ws.getCell(currentRow, 4).font = { name: FONT, size: 11 };
+        ws.getCell(currentRow, 4).font = { name: FONT, size: descFontSize };
         ws.getCell(currentRow, 4).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
-        ws.getCell(currentRow, 3).font = { name: FONT, size: 11 };
+        ws.getCell(currentRow, 3).font = { name: FONT, size: descFontSize };
         ws.getCell(currentRow, 3).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
 
         ws.getCell(currentRow, 5).value = item.quantity_requested ?? null;
         ws.getCell(currentRow, 5).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 5).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        const unitCost = item.quantity_issued == null ? null : Number(item.quantity_issued);
+        // Real per-unit cost from the delivery receipt (drDetail.UnitCost), NOT quantity_issued.
+        const unitCost = item.unit_cost == null ? null : Number(item.unit_cost);
         ws.getCell(currentRow, 6).value = unitCost;
         ws.getCell(currentRow, 6).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 6).alignment = { horizontal: 'center', vertical: 'middle' };
@@ -234,12 +253,27 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
         ws.getCell(currentRow, 7).alignment = { horizontal: 'center', vertical: 'middle' };
         ws.getCell(currentRow, 7).numFmt = '#,##0.00';
 
-        const descHeight = estimateWrappedRowHeight(descriptionText ?? '', COL_D_WIDTH);
-        const stockHeight = stockIsMulti ? estimateWrappedRowHeight(stockNoText, COL_A_WIDTH) : 14.4;
+        const descHeight = estimateWrappedRowHeight(descriptionText ?? '', COL_D_WIDTH, descFontSize);
+        const stockHeight = stockIsMulti ? estimateWrappedRowHeight(stockNoText, COL_A_WIDTH, 10) : 14.4;
         ws.getRow(currentRow).height = Math.max(14.4, stockHeight, descHeight);
 
         currentRow++;
     });
+
+    // ── Grand total (G47 — last row of the data block) ──────────────────────────
+    // Row DATA_END is reserved (items stop one row earlier), so this never self-references.
+    // Sums every per-row Total that actually got filled, regardless of item count.
+    const lastFilledRow = currentRow - 1;
+    if (lastFilledRow >= DATA_START) {
+        ws.getCell(DATA_END, 7).value = { formula: `SUM(G${DATA_START}:G${lastFilledRow})` };
+    } else {
+        ws.getCell(DATA_END, 7).value = 0;
+    }
+    ws.getCell(DATA_END, 7).font = { name: FONT, size: 10 };
+    ws.getCell(DATA_END, 7).alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell(DATA_END, 7).numFmt = '#,##0.00';
+
+    ws.getCell(DATA_END, 4).alignment = { horizontal: 'right', vertical: 'middle' };
 
     // ── Signatures ────────────────────────────────────────────────────────────
 
