@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Printer, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { ArrowLeft, Printer, AlertCircle, CheckCircle, X, FileSpreadsheet } from 'lucide-react';
 import { getRis } from '@/lib/api/ris';
 import type { RisRecord } from '@/types/ris';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { exportRISToExcel } from './RISExport';
 
 const fmt = (d?: string | null) => {
     if (!d) return 'Not recorded';
@@ -88,6 +89,7 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
 
     const [ris, setRis] = useState<RisRecord | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
 
     useEffect(() => {
         const run = async () => {
@@ -103,6 +105,18 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
         };
         if (Number.isFinite(id)) run();
     }, [id]);
+
+    const handleExcelExport = async () => {
+        if (!ris) return;
+        try {
+            setIsExporting(true);
+            await exportRISToExcel(ris);
+        } catch {
+            toast.error('Failed to export RIS to Excel');
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const statusLabel = useMemo(() => {
         const s = ris?.status;
@@ -149,12 +163,31 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
                     </div>
                 </div>
 
-                <Link
-                    href={`${baseRoute}/${ris.id}/print`}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90"
-                >
-                    <Printer className="h-4 w-4" /> Print
-                </Link>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleExcelExport}
+                        disabled={isExporting}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-50 border border-green-200 rounded-lg shadow-sm transition-colors"
+                    >
+                        {isExporting ? (
+                            <>
+                                <span className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                                Exporting...
+                            </>
+                        ) : (
+                            <>
+                                <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                                Export Excel
+                            </>
+                        )}
+                    </button>
+                    <Link
+                        href={`${baseRoute}/${ris.id}/print`}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90"
+                    >
+                        <Printer className="h-4 w-4" /> Print
+                    </Link>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -164,7 +197,6 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
                     <div className="text-sm">
                         <span className="text-slate-600">Entity:</span> CITY GOVERNMENT OF EL SALVADOR
                     </div>
-
 
                     {/* FUND CLUSTER - BLANK */}
                     <div className="text-sm">
@@ -205,7 +237,6 @@ export function ViewRISPage({ baseRoute }: { baseRoute: string }) {
                         </thead>
                         <tbody className="divide-y divide-slate-200 bg-white">
                             {(ris.items ?? []).map((it, idx) => {
-                                // Build a stable, unique key: use idx (always present) + item identity fields
                                 const key = `${idx}:${[
                                     String(it.stock_no ?? '').trim(),
                                     String(it.description ?? '').trim(),

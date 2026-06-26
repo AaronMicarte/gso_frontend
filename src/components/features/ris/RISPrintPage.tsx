@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, FileSpreadsheet } from 'lucide-react';
 import { getRis } from '@/lib/api/ris';
 import type { RisRecord } from '@/types/ris';
 import { RISPrintView } from './RISPrintView';
+import { exportRISToExcel } from './RISExport';
 
 export function RISPrintPage() {
     const params = useParams();
@@ -16,6 +17,7 @@ export function RISPrintPage() {
     const printRef = useRef<HTMLDivElement>(null);
     const [ris, setRis] = useState<RisRecord | null>(null);
     const [loading, setLoading] = useState(true);
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         const run = async () => {
@@ -43,6 +45,19 @@ export function RISPrintPage() {
         window.print();
     };
 
+    const doExport = async () => {
+        if (!ris) return;
+        try {
+            setExporting(true);
+            await exportRISToExcel(ris);
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to export RIS to Excel');
+        } finally {
+            setExporting(false);
+        }
+    };
+
     if (loading) {
         return null;
     }
@@ -64,9 +79,28 @@ export function RISPrintPage() {
                 <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900">
                     <ArrowLeft className="h-4 w-4" /> Back
                 </button>
-                <button onClick={doPrint} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90">
-                    <Printer className="h-4 w-4" /> Print
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={doExport}
+                        disabled={exporting}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-50 border border-green-200 rounded-lg shadow-sm transition-colors"
+                    >
+                        {exporting ? (
+                            <>
+                                <span className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                                Exporting...
+                            </>
+                        ) : (
+                            <>
+                                <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                                Export Excel
+                            </>
+                        )}
+                    </button>
+                    <button onClick={doPrint} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90">
+                        <Printer className="h-4 w-4" /> Print
+                    </button>
+                </div>
             </div>
 
             {/* Print-only strong borders applied here so RISPrintView source remains unchanged */}
