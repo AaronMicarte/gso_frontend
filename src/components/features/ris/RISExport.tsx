@@ -71,12 +71,25 @@ const formatStockRange = (values: string[]): string => {
     return blocks.join(', ');
 };
 
+const estimateWrappedRowHeight = (text: string, colWidthChars: number, lineHeightPt = 14.4): number => {
+    if (!text) return lineHeightPt;
+    const charsPerLine = Math.max(Math.floor(colWidthChars * 0.85), 5);
+    const lines = text.split('\n').reduce((total, segment) => {
+        return total + Math.max(1, Math.ceil(segment.length / charsPerLine));
+    }, 0);
+    return Math.max(lineHeightPt, lines * lineHeightPt);
+};
+
+const isMultiStockNo = (text: string): boolean => /[,/]/.test(text);
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SIG_FONT = { name: 'Arial', size: 8 } as const;
-// wrapText: false permits overflow behaviors if names or designations exceed template layouts
 const SIG_ALIGN_CENTER: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle', wrapText: false };
 const FONT = 'Aptos Narrow';
+
+const COL_A_WIDTH = 13;
+const COL_D_WIDTH = 39;
 
 const DATA_START = 14;
 const DATA_END = 47;
@@ -103,29 +116,48 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
         formatPHDate(req?.RequestDate),
         formatPHDate(new Date().toISOString()),
     );
-
     const officeText = ensureText(
         req?.Office ?? req?.office ?? req?.department?.DepartmentName ?? '',
         '',
     );
+    const supplierText = ensureText(req?.supplier_name ?? '', '');
     const risNumber = ensureText(ris.ris_number, '');
 
-    const requestedByName = ensureText(ris.signatures.requested_by?.user?.FullName, 'DEPARTMENT HEAD');
-    const approvedByName = ensureText(ris.signatures.approved_by?.user?.FullName, 'DEPARTMENT HEAD');
-    const receivedByName = ensureText(
-        ris.signatures.received_by?.issued_to_name ??
-        ris.signatures.received_by?.user?.FullName ??
-        req?.requester?.FullName,
-        'DEPARTMENT HEAD',
+    // Baseline system fallback references
+    const requesterFallbackName = ensureText(
+        ris.signatures.received_by?.issued_to_name ||
+        ris.signatures.received_by?.user?.FullName ||
+        req?.requester?.FullName || '',
+        'DEPARTMENT HEAD'
     );
+    const requesterFallbackDesig = ensureText(req?.Office ?? req?.office ?? req?.department?.DepartmentName ?? '', '');
 
-    const requestedByDesig = ensureText(ris.signatures.requested_by?.designation ?? '', 'Department/Office');
-    const approvedByDesig = ensureText(ris.signatures.approved_by?.designation ?? '', 'Department/Office');
-    const receivedByDesig = ensureText(ris.signatures.received_by?.designation ?? '', 'Department/Office');
+    // 1. Received by fallback chains
+    const receivedByName = ensureText(
+        ris.signatures.received_by?.issued_to_name ||
+        ris.signatures.received_by?.user?.FullName ||
+        requesterFallbackName,
+        requesterFallbackName,
+    );
+    const receivedByDesig = ensureText(ris.signatures.received_by?.designation || '', requesterFallbackDesig);
+
+    // 2. Requested by structural properties
+    const requestedByName = ensureText(requesterFallbackName, requesterFallbackName);
+    const requestedByDesig = ensureText(ris.signatures.received_by?.designation || '', requesterFallbackDesig);
+
+    // 3. Approved by — checking approved_by first, falling back onto active Received By properties if null
+    const approvedByName = ensureText(
+        ris.signatures.approved_by?.user?.FullName || receivedByName,
+        receivedByName
+    );
+    const approvedByDesig = ensureText(
+        ris.signatures.approved_by?.designation || receivedByDesig,
+        ''
+    );
 
     // ── Header ────────────────────────────────────────────────────────────────
 
-    ws.getCell('A6').value = 'CITY GOVERNMENT OF EL SALVADOR';
+    ws.getCell('A6').value = 'LGU - EL SALVADOR';
 
     ws.getCell('F8').value = risNumber;
     ws.getCell('F8').font = { name: FONT, size: 11, bold: true };
@@ -134,6 +166,10 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
     ws.getCell('B10').value = officeText;
     ws.getCell('B10').font = { name: FONT, size: 11 };
     ws.getCell('B10').alignment = { horizontal: 'left', vertical: 'middle' };
+
+    ws.getCell('B9').value = supplierText;
+    ws.getCell('B9').font = { name: FONT, size: 11, bold: true };
+    ws.getCell('B9').alignment = { horizontal: 'left', vertical: 'middle' };
 
     ws.getCell('F10').value = docDate;
     ws.getCell('F10').font = { name: FONT, size: 11, bold: true };
@@ -160,15 +196,26 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
             : item.stock_no ? [item.stock_no] : [];
         const stockNoText = formatStockRange(propertyNumbers) || ensureText(item.stock_no, '');
 
+        const stockIsMulti = isMultiStockNo(stockNoText);
         ws.getCell(currentRow, 1).value = stockNoText || null;
         ws.getCell(currentRow, 1).font = { name: FONT, size: 10 };
-        ws.getCell(currentRow, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        ws.getCell(currentRow, 1).alignment = stockIsMulti
+            ? { horizontal: 'center', vertical: 'middle', wrapText: true }
+            : { horizontal: 'center', vertical: 'middle', wrapText: false, shrinkToFit: true };
 
         ws.getCell(currentRow, 2).value = ensureText(item.unit, '') || null;
         ws.getCell(currentRow, 2).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 2).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        ws.getCell(currentRow, 3).value = ensureText(item.description, '') || null;
+        const descriptionText =
+            [item.description, item.brand, item.model, item.serial]
+                .map((v) => ensureText(v ?? '', ''))
+                .filter(Boolean)
+                .join(', ') || null;
+
+        ws.getCell(currentRow, 4).value = descriptionText;
+        ws.getCell(currentRow, 4).font = { name: FONT, size: 11 };
+        ws.getCell(currentRow, 4).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
         ws.getCell(currentRow, 3).font = { name: FONT, size: 11 };
         ws.getCell(currentRow, 3).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
 
@@ -176,52 +223,60 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
         ws.getCell(currentRow, 5).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 5).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        const qtyIssued = item.quantity_issued == null ? null : Number(item.quantity_issued);
-        ws.getCell(currentRow, 6).value = qtyIssued;
+        const unitCost = item.quantity_issued == null ? null : Number(item.quantity_issued);
+        ws.getCell(currentRow, 6).value = unitCost;
         ws.getCell(currentRow, 6).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 6).alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.getCell(currentRow, 6).numFmt = '#,##0.00';
 
-        ws.getCell(currentRow, 7).value = ensureText(item.issue_remarks, '') || null;
+        ws.getCell(currentRow, 7).value = { formula: `E${currentRow}*F${currentRow}` };
         ws.getCell(currentRow, 7).font = { name: FONT, size: 10 };
-        ws.getCell(currentRow, 7).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        ws.getCell(currentRow, 7).alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.getCell(currentRow, 7).numFmt = '#,##0.00';
 
-        ws.getRow(currentRow).height = 15.0;
+        const descHeight = estimateWrappedRowHeight(descriptionText ?? '', COL_D_WIDTH);
+        const stockHeight = stockIsMulti ? estimateWrappedRowHeight(stockNoText, COL_A_WIDTH) : 14.4;
+        ws.getRow(currentRow).height = Math.max(14.4, stockHeight, descHeight);
+
         currentRow++;
     });
 
     // ── Signatures ────────────────────────────────────────────────────────────
 
-    // Requested by (Column A / Column 1)
+    // Enforcing text style configuration with single underline decoration only
+    const SIG_FONT_NAME = { ...SIG_FONT, underline: 'single' } as const;
+
+    // Requested by (A52:C52 merged)
     ws.getCell(52, 1).value = requestedByName.toUpperCase();
-    ws.getCell(52, 1).font = { ...SIG_FONT };
+    ws.getCell(52, 1).font = { ...SIG_FONT_NAME };
     ws.getCell(52, 1).alignment = { ...SIG_ALIGN_CENTER };
 
-    ws.getCell(53, 1).value = requestedByDesig;
+    ws.getCell(53, 1).value = requestedByDesig || null;
     ws.getCell(53, 1).font = { ...SIG_FONT };
     ws.getCell(53, 1).alignment = { ...SIG_ALIGN_CENTER };
 
-    // Approved by (Target anchor cell is C52 based on template merge maps)
+    // Approved by (C52 anchor) — Redirected check
     ws.getCell('C52').value = approvedByName.toUpperCase();
-    ws.getCell('C52').font = { ...SIG_FONT };
+    ws.getCell('C52').font = { ...SIG_FONT_NAME };
     ws.getCell('C52').alignment = { ...SIG_ALIGN_CENTER };
 
-    ws.getCell('C53').value = approvedByDesig;
+    ws.getCell('C53').value = approvedByDesig || null;
     ws.getCell('C53').font = { ...SIG_FONT };
     ws.getCell('C53').alignment = { ...SIG_ALIGN_CENTER };
 
-    // Issued by (Target anchor cell is E52 based on template merge maps)
+    // Issued by (E52 anchor)
     ws.getCell('E52').font = { ...SIG_FONT };
     ws.getCell('E52').alignment = { ...SIG_ALIGN_CENTER };
 
     ws.getCell('E53').font = { ...SIG_FONT };
     ws.getCell('E53').alignment = { ...SIG_ALIGN_CENTER };
 
-    // Received by (Column G / Column 7)
+    // Received by (F52:H52 merged)
     ws.getCell(52, 7).value = receivedByName.toUpperCase();
-    ws.getCell(52, 7).font = { ...SIG_FONT };
+    ws.getCell(52, 7).font = { ...SIG_FONT_NAME };
     ws.getCell(52, 7).alignment = { ...SIG_ALIGN_CENTER };
 
-    ws.getCell(53, 7).value = receivedByDesig;
+    ws.getCell(53, 7).value = receivedByDesig || null;
     ws.getCell(53, 7).font = { ...SIG_FONT };
     ws.getCell(53, 7).alignment = { ...SIG_ALIGN_CENTER };
 

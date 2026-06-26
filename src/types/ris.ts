@@ -11,6 +11,7 @@ export interface RisRequestInfo {
     requester?: { UserID: number; FullName: string; DepartmentID: number };
     reviewer?: { UserID: number; FullName: string };
     issuer?: { UserID: number; FullName: string };
+    supplier_name?: string | null;
 }
 
 export interface RisSignatureInfo {
