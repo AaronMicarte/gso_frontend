@@ -77,10 +77,15 @@ export function AllItemsPage() {
         return true;
     });
 
-    type CombinedInventoryItem = InventoryItem & { CombinedQuantity?: number; CombinedTotalCost?: number };
+    type CombinedInventoryItem = InventoryItem & { CombinedQuantity?: number; CombinedTotalCost?: number; combinedItems?: InventoryItem[] };
 
     const displayedItems = useMemo<CombinedInventoryItem[]>(() => {
-        if (displayMode === 'individual') return preFiltered as CombinedInventoryItem[];
+        if (displayMode === 'individual') {
+            return (preFiltered as CombinedInventoryItem[]).map(item => ({
+                ...item,
+                combinedItems: [item]
+            }));
+        }
 
         const map = new Map<string, CombinedInventoryItem>();
         for (const item of preFiltered) {
@@ -88,10 +93,12 @@ export function AllItemsPage() {
             const existing = map.get(key);
             const unitCost = Number(item.UnitCost || 0);
             if (!existing) {
-                map.set(key, { ...(item as CombinedInventoryItem), CombinedQuantity: 1, CombinedTotalCost: unitCost });
+                map.set(key, { ...(item as CombinedInventoryItem), CombinedQuantity: 1, CombinedTotalCost: unitCost, combinedItems: [item] });
             } else {
                 existing.CombinedQuantity = (existing.CombinedQuantity || 1) + 1;
                 existing.CombinedTotalCost = (existing.CombinedTotalCost || 0) + unitCost;
+                if (!existing.combinedItems) existing.combinedItems = [];
+                existing.combinedItems.push(item);
             }
         }
         return Array.from(map.values());
@@ -351,6 +358,25 @@ export function AllItemsPage() {
                                 ) : (
                                     displayedItems.map((item) => {
                                         const borrowedLabel = getBorrowedLabel(item.currentBorrowerName, item.currentBorrowerDepartment);
+                                        const stickerItems = (item.combinedItems || [item])
+                                            .filter(ci => !!ci.PropertyNumber)
+                                            .map(ci => {
+                                                const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                const qrCodeData = getQrCodeData(ci);
+                                                const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                const url = match?.[1]
+                                                    ? `${origin}/qr/scan/${match[1]}`
+                                                    : `${origin}/admin/inventory/${ci.InventoryID}?detail=${ci.InventoryDetailID}`;
+                                                return {
+                                                    propertyNumber: ci.PropertyNumber || '',
+                                                    custodianName: getCustodianDisplayName(ci.custodianName),
+                                                    itemName: getItemName(ci),
+                                                    category: ci.PropertyName || ci.ClassificationName || '-',
+                                                    date: ci.CreatedDate ? format(new Date(ci.CreatedDate), 'MM/dd/yyyy') : '-',
+                                                    unitCost: ci.UnitCost,
+                                                    url,
+                                                };
+                                            });
 
                                         return (
                                             <tr key={item.InventoryDetailID} className="hover:bg-slate-50">
@@ -443,8 +469,9 @@ export function AllItemsPage() {
                                                             category={item.PropertyName || item.ClassificationName}
                                                             custodianName={getCustodianDisplayName(item.custodianName)}
                                                         />
-                                                        {item.PropertyNumber && (
+                                                        {stickerItems.length > 0 && (
                                                             <PropertySticker
+                                                                items={stickerItems}
                                                                 propertyNumber={item.PropertyNumber}
                                                                 itemName={getItemName(item)}
                                                                 category={item.PropertyName || item.ClassificationName || '-'}

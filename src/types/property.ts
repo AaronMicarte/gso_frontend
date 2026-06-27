@@ -427,6 +427,7 @@ export interface InventoryDetailCombined {
     // Augmented fields for Combined view
     CombinedQuantity?: number;
     CombinedTotalCost?: number;
+    combinedItems?: any[];
 }
 
 // ============================================

@@ -62,7 +62,12 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     }, [data?.details, searchTerm, selectedPropertyType]);
 
     const displayedDetails = useMemo<InventoryDetailCombined[]>(() => {
-        if (!preFiltered || displayMode === 'individual') return (preFiltered as InventoryDetailCombined[]) || [];
+        if (!preFiltered || displayMode === 'individual') {
+            return ((preFiltered as InventoryDetailCombined[]) || []).map(d => ({
+                ...d,
+                combinedItems: [d]
+            }));
+        }
 
         const map = new Map<string, InventoryDetailCombined>();
         for (const d of preFiltered) {
@@ -71,10 +76,12 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
             const unitCost = Number(d.UnitCost || 0);
             const qty = Number(d.Quantity || 1);
             if (!existing) {
-                map.set(key, { ...(d as InventoryDetailCombined), CombinedQuantity: qty, CombinedTotalCost: unitCost * qty });
+                map.set(key, { ...(d as InventoryDetailCombined), CombinedQuantity: qty, CombinedTotalCost: unitCost * qty, combinedItems: [d] });
             } else {
                 existing.CombinedQuantity = (existing.CombinedQuantity || 0) + qty;
                 existing.CombinedTotalCost = (existing.CombinedTotalCost || 0) + (unitCost * qty);
+                if (!existing.combinedItems) existing.combinedItems = [];
+                existing.combinedItems.push(d);
             }
         }
 
@@ -364,8 +371,29 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                displayedDetails.map((d: InventoryDetailCombined) => (
-                                                    <tr key={d.InventoryDetailID} className="hover:bg-slate-50">
+                                                displayedDetails.map((d: InventoryDetailCombined) => {
+                                                    const stickerItems = (d.combinedItems || [d])
+                                                        .filter(ci => !!ci.PropertyNumber)
+                                                        .map(ci => {
+                                                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                            const qrCodeData = getQrCodeData(ci);
+                                                            const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                            const url = match?.[1]
+                                                                ? `${origin}/qr/scan/${match[1]}`
+                                                                : `${origin}/admin/inventory/${ci.InventoryID}?detail=${ci.InventoryDetailID}`;
+                                                            return {
+                                                                propertyNumber: ci.PropertyNumber || '',
+                                                                custodianName: ci.accountabilityLabel || getCustodianDisplayName(ci.custodianName),
+                                                                itemName: getItemName(ci),
+                                                                category: ci.PropertyName || ci.ClassificationName || '-',
+                                                                date: data?.DateAcquired ? format(new Date(data.DateAcquired), 'MM/dd/yyyy') : '-',
+                                                                unitCost: ci.UnitCost,
+                                                                url,
+                                                            };
+                                                        });
+
+                                                    return (
+                                                        <tr key={d.InventoryDetailID} className="hover:bg-slate-50">
                                                         <td className="px-6 py-4">
                                                             <div>
                                                                 <div className="font-medium text-slate-900">
@@ -466,8 +494,9 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                     category={d.PropertyName || d.ClassificationName}
                                                                     custodianName={d.accountabilityLabel || getCustodianDisplayName(d.custodianName)}
                                                                 />
-                                                                {d.PropertyNumber && (
+                                                                {stickerItems.length > 0 && (
                                                                     <PropertySticker
+                                                                        items={stickerItems}
                                                                         propertyNumber={d.PropertyNumber}
                                                                         itemName={getItemName(d)}
                                                                         category={d.PropertyName || d.ClassificationName || '-'}
@@ -503,7 +532,8 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             </div>
                                                         </td>
                                                     </tr>
-                                                ))
+                                                    );
+                                                })
                                             )}
                                         </tbody>
                                     </table>
