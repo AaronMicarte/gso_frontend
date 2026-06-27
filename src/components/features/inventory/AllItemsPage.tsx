@@ -16,6 +16,23 @@ import { PropertyCardDialog } from './PropertyCardDialog';
 import { InventoryReceiptDialog } from './InventoryReceiptDialog';
 import { EditInventoryDetailModal, toInventoryDetailEditForm, type InventoryDetailEditForm } from './EditInventoryDetailModal';
 
+type StickerItem = {
+    propertyNumber: string;
+    custodianName: string;
+    itemName: string;
+    category: string;
+    date: string;
+    unitCost?: number;
+    url: string;
+};
+
+type CombinedInventoryItem = InventoryItem & {
+    CombinedQuantity?: number;
+    CombinedTotalCost?: number;
+    combinedItems?: InventoryItem[];
+    stickerItems?: StickerItem[];
+};
+
 export function AllItemsPage() {
     const searchParams = useSearchParams();
     const [page, setPage] = useState(1);
@@ -55,7 +72,7 @@ export function AllItemsPage() {
         return () => window.clearTimeout(timeoutId);
     }, [search]);
 
-    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined, document_type: selectedDocumentType || undefined });
+    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined, document_type: selectedDocumentType || undefined, display_mode: displayMode });
     const { data: propertyTypes } = useAllPropertyTypes();
 
     const propertyStatuses = [
@@ -71,38 +88,54 @@ export function AllItemsPage() {
         toast.success('Items refreshed');
     };
 
+    const getItemName = (item: InventoryItem) => {
+        return item.dr_article_name || item.PropertyName || 'Unknown Item';
+    };
+
+    const getCustodianDisplayName = (custodianName?: string) => {
+        return custodianName || 'Requester not set';
+    };
+
+    const getQrCodeData = (item: InventoryItem): string | null => {
+        return item.qrCodeData ?? null;
+    };
+
     // The server now returns items ordered by creation timestamp (newest first).
     const preFiltered = (data?.data ? [...data.data] : []).filter(item => {
         if (selectedDocumentType) return item.DocumentType === selectedDocumentType;
         return true;
     });
 
-    type CombinedInventoryItem = InventoryItem & { CombinedQuantity?: number; CombinedTotalCost?: number; combinedItems?: InventoryItem[] };
-
+    // Sticker items are derived once per data change here, instead of being
+    // recomputed inline during every render of every row (which was the case
+    // before - a filter()+map()+regex per row, on every render, including
+    // unrelated state changes like toggling a description).
     const displayedItems = useMemo<CombinedInventoryItem[]>(() => {
-        if (displayMode === 'individual') {
-            return (preFiltered as CombinedInventoryItem[]).map(item => ({
-                ...item,
-                combinedItems: [item]
-            }));
-        }
-
-        const map = new Map<string, CombinedInventoryItem>();
-        for (const item of preFiltered) {
-            const key = (item.dr_article_name || item.PropertyName || item.ModelNumber || item.PropertyNumber || item.SerialNumber || 'UNKNOWN').toString().trim();
-            const existing = map.get(key);
-            const unitCost = Number(item.UnitCost || 0);
-            if (!existing) {
-                map.set(key, { ...(item as CombinedInventoryItem), CombinedQuantity: 1, CombinedTotalCost: unitCost, combinedItems: [item] });
-            } else {
-                existing.CombinedQuantity = (existing.CombinedQuantity || 1) + 1;
-                existing.CombinedTotalCost = (existing.CombinedTotalCost || 0) + unitCost;
-                if (!existing.combinedItems) existing.combinedItems = [];
-                existing.combinedItems.push(item);
-            }
-        }
-        return Array.from(map.values());
-    }, [preFiltered, displayMode]);
+        return (preFiltered as CombinedInventoryItem[]).map(item => {
+            const combinedItems = item.combinedItems || [item];
+            const stickerItems: StickerItem[] = combinedItems
+                .filter(ci => !!ci.PropertyNumber)
+                .map(ci => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                    const qrCodeData = getQrCodeData(ci);
+                    const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                    const url = match?.[1]
+                        ? `${origin}/qr/scan/${match[1]}`
+                        : `${origin}/admin/inventory/${ci.InventoryID}?detail=${ci.InventoryDetailID}`;
+                    return {
+                        propertyNumber: ci.PropertyNumber || '',
+                        custodianName: getCustodianDisplayName(ci.custodianName),
+                        itemName: getItemName(ci),
+                        category: ci.PropertyName || ci.ClassificationName || '-',
+                        date: ci.CreatedDate ? format(new Date(ci.CreatedDate), 'MM/dd/yyyy') : '-',
+                        unitCost: ci.UnitCost,
+                        url,
+                    };
+                });
+            return { ...item, combinedItems, stickerItems };
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [preFiltered]);
 
     const toggleDescriptionExpansion = (inventoryDetailId: number) => {
         setExpandedDescriptions(prev => {
@@ -114,10 +147,6 @@ export function AllItemsPage() {
             }
             return newSet;
         });
-    };
-
-    const getItemName = (item: InventoryItem) => {
-        return item.dr_article_name || item.PropertyName || 'Unknown Item';
     };
 
     const getCombinedDescription = (item: InventoryItem) => {
@@ -176,19 +205,11 @@ export function AllItemsPage() {
         );
     };
 
-    const getCustodianDisplayName = (custodianName?: string) => {
-        return custodianName || 'Requester not set';
-    };
-
     const getBorrowedLabel = (borrowerName?: string | null, departmentName?: string | null) => {
         if (!borrowerName) return null;
         return departmentName
             ? `Currently borrowed by ${borrowerName} - ${departmentName}`
             : `Currently borrowed by ${borrowerName}`;
-    };
-
-    const getQrCodeData = (item: InventoryItem): string | null => {
-        return item.qrCodeData ?? null;
     };
 
     return (
@@ -269,7 +290,7 @@ export function AllItemsPage() {
                                 <Package className="w-5 h-5 text-blue-600" />
                                 <div className="text-sm font-medium text-slate-700">Total Items</div>
                             </div>
-                            <div className="text-2xl font-bold text-slate-900">{data.total}</div>
+                            <div className="text-2xl font-bold text-slate-900">{data?.stats?.total ?? data.total}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
@@ -277,7 +298,7 @@ export function AllItemsPage() {
                                 <div className="text-sm font-medium text-slate-700">Available</div>
                             </div>
                             <div className="text-2xl font-bold text-green-600">
-                                {data.data.filter(item => item.PropertyStatusID === 1).length}
+                                {data?.stats?.available ?? 0}
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -286,7 +307,7 @@ export function AllItemsPage() {
                                 <div className="text-sm font-medium text-slate-700">Issued</div>
                             </div>
                             <div className="text-2xl font-bold text-amber-600">
-                                {data.data.filter(item => item.PropertyStatusID === 2).length}
+                                {data?.stats?.issued ?? 0}
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -295,7 +316,7 @@ export function AllItemsPage() {
                                 <div className="text-sm font-medium text-slate-700">Other Status</div>
                             </div>
                             <div className="text-2xl font-bold text-red-600">
-                                {data.data.filter(item => item.PropertyStatusID > 2).length}
+                                {data?.stats?.other ?? 0}
                             </div>
                         </div>
                     </div>
@@ -358,25 +379,7 @@ export function AllItemsPage() {
                                 ) : (
                                     displayedItems.map((item) => {
                                         const borrowedLabel = getBorrowedLabel(item.currentBorrowerName, item.currentBorrowerDepartment);
-                                        const stickerItems = (item.combinedItems || [item])
-                                            .filter(ci => !!ci.PropertyNumber)
-                                            .map(ci => {
-                                                const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                const qrCodeData = getQrCodeData(ci);
-                                                const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
-                                                const url = match?.[1]
-                                                    ? `${origin}/qr/scan/${match[1]}`
-                                                    : `${origin}/admin/inventory/${ci.InventoryID}?detail=${ci.InventoryDetailID}`;
-                                                return {
-                                                    propertyNumber: ci.PropertyNumber || '',
-                                                    custodianName: getCustodianDisplayName(ci.custodianName),
-                                                    itemName: getItemName(ci),
-                                                    category: ci.PropertyName || ci.ClassificationName || '-',
-                                                    date: ci.CreatedDate ? format(new Date(ci.CreatedDate), 'MM/dd/yyyy') : '-',
-                                                    unitCost: ci.UnitCost,
-                                                    url,
-                                                };
-                                            });
+                                        const stickerItems = item.stickerItems || [];
 
                                         return (
                                             <tr key={item.InventoryDetailID} className="hover:bg-slate-50">

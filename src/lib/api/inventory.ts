@@ -112,7 +112,19 @@ export type PropertyCardResponse = {
 };
 export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: string; details: { IARDetailID: number; QuantityAccepted: number; ItemDescription?: string; VerifiedBrand?: string; VerifiedModel?: string; VerifiedSerial?: string; UnitCost?: number; propertyType?: { PropertyTypeID: number; PropertyName: string } }[]; signatures?: { id: number; role: string; url?: string; created_at: string; user?: { UserID: number; FullName: string } }[] };
 export type InventoryItem = { InventoryDetailID: number; InventoryID: number; PropertyTypeID?: number; ConditionID: number; Brand?: string; ModelNumber?: string; SerialNumber?: string; PropertyNumber?: string; Description?: string; Quantity: number; QuantityAvailable: number; PropertyStatusID: number; UnitOfMeasureID?: number; UnitCost?: number; TotalCost?: number; SourceIARDetailID?: number; SourceDRDetailID?: number; Remarks?: string; CreatedDate: string; UpdatedDate?: string; PropertyName?: string; ClassificationName?: string; DocumentType?: 'ICS' | 'PAR'; InventoryNumber?: string; StatusName?: string; ConditionName?: string; dr_item_description?: string; dr_article_name?: string; dr_brand?: string; dr_model?: string; dr_serial?: string; custodianName?: string; locationDepartment?: string; locationDepartmentId?: number | null; currentDepartmentHead?: string | null; departmentHeadVacant?: boolean; accountabilityLabel?: string | null; lastIssuedDate?: string | null; currentBorrowerName?: string | null; currentBorrowerDepartment?: string | null; qrCodeData?: string | null };
-export type InventoryItemsListResponse = { data: InventoryItem[]; total: number; per_page: number; current_page: number; last_page: number };
+export type InventoryItemsListResponse = { 
+    data: InventoryItem[]; 
+    total: number; 
+    per_page: number; 
+    current_page: number; 
+    last_page: number; 
+    stats?: { 
+        total: number;
+        available: number; 
+        issued: number; 
+        other: number; 
+    }; 
+};
 
 export const getInventories = async (params?: { page?: number; per_page?: number; search?: string; sort_by?: 'date' | 'inventory_number'; sort_dir?: 'asc' | 'desc' }): Promise<InventoryListResponse> => {
     const qs = new URLSearchParams();
@@ -126,7 +138,7 @@ export const getInventories = async (params?: { page?: number; per_page?: number
     return response.data;
 };
 
-export const getAllInventoryItems = async (params?: { page?: number; per_page?: number; search?: string; property_status_id?: number; property_type_id?: number; document_type?: 'PAR' | 'ICS' }): Promise<InventoryItemsListResponse> => {
+export const getAllInventoryItems = async (params?: { page?: number; per_page?: number; search?: string; property_status_id?: number; property_type_id?: number; document_type?: 'PAR' | 'ICS'; display_mode?: 'individual' | 'combined' }): Promise<InventoryItemsListResponse> => {
     const qs = new URLSearchParams();
     if (params?.page) qs.append('page', String(params.page));
     if (params?.per_page) qs.append('per_page', String(params.per_page));
@@ -134,6 +146,7 @@ export const getAllInventoryItems = async (params?: { page?: number; per_page?: 
     if (params?.property_status_id) qs.append('property_status_id', String(params.property_status_id));
     if (params?.property_type_id) qs.append('property_type_id', String(params.property_type_id));
     if (params?.document_type) qs.append('document_type', params.document_type);
+    if (params?.display_mode) qs.append('display_mode', params.display_mode);
 
     const response: AxiosResponse<InventoryItemsListResponse> = await apiClient.get(`/inventory/all-items?${qs.toString()}`);
     return response.data;
