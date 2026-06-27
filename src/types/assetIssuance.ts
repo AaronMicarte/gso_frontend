@@ -267,6 +267,15 @@ export interface InventoryDetail {
     propertyType?: PropertyType;
     condition?: Condition;
     unitOfMeasure?: UnitOfMeasure;
+    drDetail?: {
+        article?: {
+            ArticleName?: string | null;
+        };
+        ItemDescription?: string | null;
+        Brand?: string | null;
+        ModelNumber?: string | null;
+        SerialNumber?: string | null;
+    };
 }
 
 export interface PropertyInventory {

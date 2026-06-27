@@ -138,14 +138,15 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     const modalItems: AssignReceiversModalItem[] = (issuance?.details || []).map(d => {
         const inv = d.inventoryDetail;
         const prop = inv?.propertyInventory;
+        const dr = inv?.drDetail;
         return {
             IssuanceDetailID: d.IssuanceDetailID,
-            ItemDescription: prop?.ItemDescription || d.ItemDescription || null,
+            ItemDescription: prop?.ItemDescription || d.ItemDescription || dr?.ItemDescription || null,
             QuantityIssued: d.QuantityIssued ?? null,
-            Article: prop?.ItemName || null,
-            Brand: prop?.Brand || null,
-            ModelNumber: prop?.ModelNumber || null,
-            SerialNumber: prop?.SerialNumber || null,
+            Article: dr?.article?.ArticleName ?? prop?.ItemName ?? dr?.ItemDescription ?? null,
+            Brand: dr?.Brand ?? prop?.Brand ?? null,
+            ModelNumber: dr?.ModelNumber ?? prop?.ModelNumber ?? null,
+            SerialNumber: dr?.SerialNumber ?? prop?.SerialNumber ?? null,
         };
     });
 

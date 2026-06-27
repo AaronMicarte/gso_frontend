@@ -371,6 +371,10 @@ export function IssuanceListPage({
                         article?: {
                             ArticleName?: string | null;
                         };
+                        ItemDescription?: string | null;
+                        Brand?: string | null;
+                        ModelNumber?: string | null;
+                        SerialNumber?: string | null;
                     };
                 };
             }) => ({
@@ -382,10 +386,17 @@ export function IssuanceListPage({
                 QuantityIssued: d.QuantityIssued ?? d.Quantity ?? 1,
                 Article: d.inventoryDetail?.drDetail?.article?.ArticleName
                     ?? d.inventoryDetail?.propertyInventory?.ItemName
+                    ?? d.inventoryDetail?.drDetail?.ItemDescription
                     ?? null,
-                Brand: d.inventoryDetail?.propertyInventory?.Brand ?? d.inventoryDetail?.Brand ?? null,
-                ModelNumber: d.inventoryDetail?.propertyInventory?.ModelNumber ?? d.inventoryDetail?.ModelNumber ?? null,
-                SerialNumber: d.inventoryDetail?.propertyInventory?.SerialNumber ?? d.inventoryDetail?.SerialNumber ?? null,
+                Brand: d.inventoryDetail?.drDetail?.Brand
+                    ?? d.inventoryDetail?.propertyInventory?.Brand
+                    ?? null,
+                ModelNumber: d.inventoryDetail?.drDetail?.ModelNumber
+                    ?? d.inventoryDetail?.propertyInventory?.ModelNumber
+                    ?? null,
+                SerialNumber: d.inventoryDetail?.drDetail?.SerialNumber
+                    ?? d.inventoryDetail?.propertyInventory?.SerialNumber
+                    ?? null,
             })) || [];
 
             const items = filterItemsForDocumentType(

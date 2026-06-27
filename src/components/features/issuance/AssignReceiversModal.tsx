@@ -43,24 +43,33 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
     const [saving, setSaving] = React.useState(false);
     const [loadingHistory, setLoadingHistory] = React.useState(false);
 
-    // Group items by text features to solve the 1/1 duplication pool issue completely
+    // Group items by Article Name, Description, Brand, and Model (no serial)
     const availableItems = React.useMemo(() => {
         const itemMap: Record<string, { ids: number[]; label: string; maxQty: number }> = {};
 
         (items || []).forEach(it => {
-            const label = [it.Article, it.Brand, it.ModelNumber, it.SerialNumber]
+            // Grouping key uses all four fields so items differing in any of them stay separate
+            const groupKey = [
+                (it.Article || '').trim(),
+                (it.ItemDescription || '').trim(),
+                (it.Brand || '').trim(),
+                (it.ModelNumber || '').trim(),
+            ].join('|');
+
+            // Display label shows only Article · Brand · Model (no Description, no Serial)
+            const label = [it.Article, it.Brand, it.ModelNumber]
                 .filter(Boolean)
                 .join(' · ') || (it.ItemDescription || 'Item');
 
             const itemQty = Math.max(1, Number(it.QuantityIssued ?? 1));
 
-            if (itemMap[label]) {
-                itemMap[label].maxQty += itemQty;
-                if (!itemMap[label].ids.includes(it.IssuanceDetailID)) {
-                    itemMap[label].ids.push(it.IssuanceDetailID);
+            if (itemMap[groupKey]) {
+                itemMap[groupKey].maxQty += itemQty;
+                if (!itemMap[groupKey].ids.includes(it.IssuanceDetailID)) {
+                    itemMap[groupKey].ids.push(it.IssuanceDetailID);
                 }
             } else {
-                itemMap[label] = {
+                itemMap[groupKey] = {
                     ids: [it.IssuanceDetailID],
                     label,
                     maxQty: itemQty
