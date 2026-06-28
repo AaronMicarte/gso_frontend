@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { AssetIssuance } from '@/types/assetIssuance';
 import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
+import issuanceAPI from '@/lib/api/issuance';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,14 +119,53 @@ export async function exportICSToExcel(
         docDate,
     );
 
-    const receivedByName = ensureText(
+    let receivedByName = ensureText(
         issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
         'END USER',
     );
-    const receivedByOffice = ensureText(
+    let receivedByOffice = ensureText(
         issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
         'DEPARTMENT',
     );
+
+    try {
+        const id = issuance.IssuanceID;
+        if (id) {
+            const res = await issuanceAPI.getAssignments(id);
+            const rows = res?.data ?? [];
+            const filtered = rows
+                .filter((row: { issuance_detail_id?: number }) => {
+                    if (!selectedDetailIds?.length) return true;
+                    return selectedDetailIds.includes(Number(row.issuance_detail_id));
+                })
+                .map((row: { receiver_name?: string; position_office?: string }) => ({
+                    receiver_name: String(row.receiver_name || '').trim(),
+                    position_office: String(row.position_office || '').trim(),
+                }))
+                .filter((row: { receiver_name: string }) => row.receiver_name.length > 0);
+
+            if (filtered.length > 0) {
+                const seen = new Set<string>();
+                const unique: Array<{ receiver_name: string; position_office: string }> = [];
+                filtered.forEach((item: { receiver_name: string; position_office: string }) => {
+                    const key = `${item.receiver_name}||${item.position_office}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        unique.push({
+                            receiver_name: item.receiver_name,
+                            position_office: item.position_office || receivedByOffice
+                        });
+                    }
+                });
+
+                receivedByName = unique.map(u => u.receiver_name).join('\n');
+                receivedByOffice = unique.map(u => u.position_office).join('\n');
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load assignments for Excel export', e);
+    }
+
     const receivedFromName = ensureText(issuance.issuer?.FullName, 'PROPERTY CUSTODIAN');
     const receivedFromOffice = ensureText(
         issuance.issuer?.department?.DepartmentName,
@@ -269,9 +309,25 @@ export async function exportICSToExcel(
     // ── Signatures ────────────────────────────────────────────────────────────
     // Template: A = Received by | D = Received from
     ws.getCell(46, 1).value = receivedByName;
+    ws.getCell(46, 1).font = { name: FONT, size: 11, bold: true };
+    ws.getCell(46, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+
     ws.getCell(46, 4).value = receivedFromName;
+
     ws.getCell(47, 1).value = receivedByOffice;
+    ws.getCell(47, 1).font = { name: FONT, size: 11 };
+    ws.getCell(47, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+
     ws.getCell(47, 4).value = receivedFromOffice;
+
+    const nameLines = receivedByName.split('\n').length;
+    if (nameLines > 1) {
+        ws.getRow(46).height = 15 * nameLines;
+    }
+    const officeLines = receivedByOffice.split('\n').length;
+    if (officeLines > 1) {
+        ws.getRow(47).height = 15 * officeLines;
+    }
 
     ws.getCell(50, 1).value = 'Date';
     ws.getCell(50, 1).font = { name: FONT, size: 11 };

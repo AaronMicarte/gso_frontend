@@ -99,7 +99,7 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         docDate
     );
 
-    const [assignments, setAssignments] = React.useState<Array<{ receiver_name: string }>>([]);
+    const [assignments, setAssignments] = React.useState<Array<{ receiver_name: string; position_office?: string }>>([]);
 
     React.useEffect(() => {
         let mounted = true;
@@ -108,18 +108,27 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         issuanceAPI.getAssignments(id).then((res) => {
             if (!mounted) return;
             const rows = res?.data ?? [];
-            const mapped: Array<{ receiver_name: string }> = rows
+            const mapped: Array<{ receiver_name: string; position_office?: string }> = rows
                 .filter((row: { issuance_detail_id?: number }) => {
                     if (!selectedDetailIds?.length) return true;
                     return selectedDetailIds.includes(Number(row.issuance_detail_id));
                 })
-                .map((row: { receiver_name?: string }) => ({
+                .map((row: { receiver_name?: string; position_office?: string }) => ({
                     receiver_name: String(row.receiver_name || '').trim(),
+                    position_office: String(row.position_office || '').trim(),
                 }))
                 .filter((row: { receiver_name: string }) => row.receiver_name.length > 0);
 
-            const uniqueReceivers = [...new Set(mapped.map((row) => row.receiver_name))];
-            setAssignments(uniqueReceivers.map((receiver_name) => ({ receiver_name })));
+            const seen = new Set<string>();
+            const unique: Array<{ receiver_name: string; position_office?: string }> = [];
+            mapped.forEach((item) => {
+                const key = `${item.receiver_name}||${item.position_office || ''}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    unique.push(item);
+                }
+            });
+            setAssignments(unique);
         }).catch(() => {
             // ignore
         });
@@ -319,7 +328,15 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                             )}
                         </div>
                         <div className="text-[10px] text-center mt-0.5">Signature Over Printed Name</div>
-                        <div className="border-b border-black mt-2 pb-1 text-center">{receivedByOffice}</div>
+                        <div className="border-b border-black mt-2 pb-1 text-center">
+                            {assignments.length > 0 ? (
+                                <span className="text-xs">
+                                    {assignments.map(a => a.position_office || receivedByOffice).join(', ')}
+                                </span>
+                            ) : (
+                                receivedByOffice
+                            )}
+                        </div>
                         <div className="text-[10px] text-center mt-1">Position/Office</div>
                         <div className="border-b border-black mt-2 pb-1 text-center">{receivedDate}</div>
                         <div className="text-[10px] text-center mt-1">Date</div>

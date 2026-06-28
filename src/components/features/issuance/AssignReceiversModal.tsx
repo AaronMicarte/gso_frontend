@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 interface AssignmentRow {
     id: string;
     receiver_name: string;
+    position_office?: string;
     issuance_detail_id: string; // Switched to string to reference aggregate labels safely
     quantity: number;
     isDropdownOpen?: boolean;
@@ -23,7 +24,7 @@ export interface AssignReceiversModalItem {
 }
 
 export interface AssignReceiversSaveResult {
-    assignments: Array<{ receiver_name: string; detailIds: number[] }>;
+    assignments: Array<{ receiver_name: string; position_office?: string; detailIds: number[] }>;
     documentType?: 'PAR' | 'ICS';
 }
 
@@ -96,7 +97,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                 const savedRows = response?.data || response || [];
 
                 if (Array.isArray(savedRows) && savedRows.length > 0) {
-                    const aggregatedMap: Record<string, { receiver_name: string; issuance_detail_id: string; quantity: number }> = {};
+                    const aggregatedMap: Record<string, { receiver_name: string; position_office: string; issuance_detail_id: string; quantity: number }> = {};
 
                     savedRows.forEach((dbRow: any) => {
                         const foundMatch = availableItems.find(ai =>
@@ -105,8 +106,9 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
 
                         const itemUiId = foundMatch ? foundMatch.id : '';
                         const receiverName = (dbRow.receiver_name || '').trim();
+                        const positionOffice = (dbRow.position_office || '').trim();
 
-                        const groupingKey = `${receiverName}_${itemUiId}`;
+                        const groupingKey = `${receiverName}_${positionOffice}_${itemUiId}`;
                         const qty = Number(dbRow.quantity || 1);
 
                         if (aggregatedMap[groupingKey]) {
@@ -114,6 +116,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                         } else {
                             aggregatedMap[groupingKey] = {
                                 receiver_name: receiverName,
+                                position_office: positionOffice,
                                 issuance_detail_id: itemUiId,
                                 quantity: qty
                             };
@@ -123,6 +126,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                     const loaded = Object.values(aggregatedMap).map((group) => ({
                         id: uid(),
                         receiver_name: group.receiver_name,
+                        position_office: group.position_office,
                         issuance_detail_id: group.issuance_detail_id,
                         quantity: group.quantity,
                         isDropdownOpen: false,
@@ -132,7 +136,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                     setRows(loaded);
                 } else {
                     setRows([
-                        { id: uid(), receiver_name: '', issuance_detail_id: '', quantity: 1, isDropdownOpen: false, searchQuery: '' }
+                        { id: uid(), receiver_name: '', position_office: '', issuance_detail_id: '', quantity: 1, isDropdownOpen: false, searchQuery: '' }
                     ]);
                 }
             } catch (err) {
@@ -155,13 +159,13 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
     };
 
     const addAssignmentRow = () => {
-        setRows(prev => [...prev, { id: uid(), receiver_name: '', issuance_detail_id: '', quantity: 1, isDropdownOpen: false, searchQuery: '' }]);
+        setRows(prev => [...prev, { id: uid(), receiver_name: '', position_office: '', issuance_detail_id: '', quantity: 1, isDropdownOpen: false, searchQuery: '' }]);
     };
 
-    const addItemForReceiver = (currentReceiverName: string) => {
+    const addItemForReceiver = (currentReceiverName: string, currentPositionOffice?: string) => {
         setRows(prev => [
             ...prev,
-            { id: uid(), receiver_name: currentReceiverName, issuance_detail_id: '', quantity: 1, isDropdownOpen: false, searchQuery: '' }
+            { id: uid(), receiver_name: currentReceiverName, position_office: currentPositionOffice || '', issuance_detail_id: '', quantity: 1, isDropdownOpen: false, searchQuery: '' }
         ]);
     };
 
@@ -232,7 +236,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
         const v = validate();
         if (!v.ok) { toast.error(v.message || 'Validation failed'); return; }
 
-        const finalAssignments: Array<{ issuance_detail_id: number; receiver_name: string; quantity: number }> = [];
+        const finalAssignments: Array<{ issuance_detail_id: number; receiver_name: string; position_office?: string; quantity: number }> = [];
 
         availableItems.forEach(item => {
             const relevantRows = rows.filter(r => r.issuance_detail_id === item.id);
@@ -265,6 +269,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                     finalAssignments.push({
                         issuance_detail_id: activeDetailId,
                         receiver_name: row.receiver_name.trim(),
+                        position_office: (row.position_office || '').trim(),
                         quantity: takeAmount
                     });
 
@@ -276,17 +281,27 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
             });
         });
 
-        const grouping: Record<string, Set<number>> = {};
+        const grouping: Record<string, { detailIds: Set<number>; position_office?: string }> = {};
         finalAssignments.forEach((a) => {
             const name = String(a.receiver_name || '').trim();
-            if (!grouping[name]) grouping[name] = new Set<number>();
-            grouping[name].add(Number(a.issuance_detail_id));
+            const key = `${name}||${a.position_office || ''}`;
+            if (!grouping[key]) {
+                grouping[key] = {
+                    detailIds: new Set<number>(),
+                    position_office: a.position_office
+                };
+            }
+            grouping[key].detailIds.add(Number(a.issuance_detail_id));
         });
 
-        const assignments = Object.keys(grouping).map((receiver_name) => ({
-            receiver_name,
-            detailIds: Array.from(grouping[receiver_name]),
-        }));
+        const assignments = Object.keys(grouping).map((key) => {
+            const [receiver_name] = key.split('||');
+            return {
+                receiver_name,
+                position_office: grouping[key].position_office,
+                detailIds: Array.from(grouping[key].detailIds),
+            };
+        });
 
         onSaved?.({ assignments, documentType });
 
@@ -354,13 +369,24 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             {idx + 1}
                                         </span>
 
-                                        <div className="w-full lg:w-1/4 pl-2">
+                                        <div className="w-full lg:w-1/5 pl-2">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Receiver Name</label>
                                             <input
                                                 type="text"
                                                 value={row.receiver_name || ''}
                                                 onChange={(e) => updateRow(row.id, { receiver_name: e.target.value })}
                                                 placeholder="Enter complete name..."
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-hidden font-medium text-slate-800"
+                                            />
+                                        </div>
+
+                                        <div className="w-full lg:w-1/5 pl-2">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Position/Office</label>
+                                            <input
+                                                type="text"
+                                                value={row.position_office || ''}
+                                                onChange={(e) => updateRow(row.id, { position_office: e.target.value })}
+                                                placeholder="Enter position/office..."
                                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-hidden font-medium text-slate-800"
                                             />
                                         </div>
@@ -463,7 +489,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                             <button
                                                 type="button"
                                                 disabled={!row.receiver_name.trim()}
-                                                onClick={() => addItemForReceiver(row.receiver_name)}
+                                                onClick={() => addItemForReceiver(row.receiver_name, row.position_office)}
                                                 className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30"
                                                 title="Add another item for this receiver"
                                             >
