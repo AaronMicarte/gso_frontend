@@ -75,6 +75,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     const [loading, setLoading] = useState(true);
     const [isAcknowledging, setIsAcknowledging] = useState(false);
     const [acknowledgmentNotes, setAcknowledgmentNotes] = useState('');
+    const [assignments, setAssignments] = useState<Array<{ issuance_detail_id: number; receiver_name: string }>>([]);
 
     const issuanceId = params?.id ? parseInt(params.id as string) : null;
 
@@ -85,6 +86,14 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
             setLoading(true);
             const data = await issuanceAPI.getById(issuanceId);
             setIssuance(data);
+
+            // Load assignments for this issuance
+            try {
+                const assignmentsData = await issuanceAPI.getAssignments(issuanceId);
+                setAssignments(assignmentsData?.data ?? []);
+            } catch {
+                setAssignments([]);
+            }
         } catch {
             toast.error('Failed to load asset issuance');
             router.push(baseRoute);
@@ -163,6 +172,26 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     };
 
     type InventoryDetailWithPropertyName = InventoryDetail & { PropertyName?: string };
+
+    const assignmentMap = useMemo(() => {
+        const map = new Map<number, string>();
+        for (const assignment of assignments) {
+            if (!map.has(assignment.issuance_detail_id)) {
+                map.set(assignment.issuance_detail_id, assignment.receiver_name);
+            }
+        }
+        return map;
+    }, [assignments]);
+
+    const getEndUserName = (detail: any): string => {
+        if (!detail) return 'N/A';
+
+        const assignedName = assignmentMap.get(detail.IssuanceDetailID);
+        if (assignedName) return assignedName;
+
+        // Fallback to requesting department
+        return issuance?.deliveryReceipt?.DepartmentName || issuance?.request?.department?.DepartmentName || 'N/A';
+    };
 
     const aggregatedDetails = useMemo(() => {
         const details = issuance?.details ?? [];
@@ -472,6 +501,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Article</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property No.</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End User</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty × Unit Cost</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
                                         <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -516,6 +546,26 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                         </details>
                                                     ) : (
                                                         propertyNumber || 'N/A'
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {entry.details.length > 0 ? (
+                                                        entry.details.length === 1 ? (
+                                                            getEndUserName(entry.details[0])
+                                                        ) : (
+                                                            <details>
+                                                                <summary className="cursor-pointer select-none text-gray-900">
+                                                                    Multiple ({entry.details.length})
+                                                                </summary>
+                                                                <div className="mt-2 space-y-1 text-xs text-gray-600">
+                                                                    {entry.details.map((detail, idx) => (
+                                                                        <div key={idx}>{getEndUserName(detail)}</div>
+                                                                    ))}
+                                                                </div>
+                                                            </details>
+                                                        )
+                                                    ) : (
+                                                        'N/A'
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
