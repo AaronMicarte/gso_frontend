@@ -75,7 +75,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     const [loading, setLoading] = useState(true);
     const [isAcknowledging, setIsAcknowledging] = useState(false);
     const [acknowledgmentNotes, setAcknowledgmentNotes] = useState('');
-    const [assignments, setAssignments] = useState<Array<{ issuance_detail_id: number; receiver_name: string }>>([]);
+    const [assignments, setAssignments] = useState<Array<{ issuance_detail_id: number; receiver_name: string; position_office?: string }>>([]);
 
     const issuanceId = params?.id ? parseInt(params.id as string) : null;
 
@@ -174,10 +174,13 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     type InventoryDetailWithPropertyName = InventoryDetail & { PropertyName?: string };
 
     const assignmentMap = useMemo(() => {
-        const map = new Map<number, string>();
+        const map = new Map<number, { name: string; position?: string }>();
         for (const assignment of assignments) {
             if (!map.has(assignment.issuance_detail_id)) {
-                map.set(assignment.issuance_detail_id, assignment.receiver_name);
+                map.set(assignment.issuance_detail_id, {
+                    name: assignment.receiver_name,
+                    position: assignment.position_office || undefined
+                });
             }
         }
         return map;
@@ -186,11 +189,18 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     const getEndUserName = (detail: any): string => {
         if (!detail) return 'N/A';
 
-        const assignedName = assignmentMap.get(detail.IssuanceDetailID);
-        if (assignedName) return assignedName;
+        const assigned = assignmentMap.get(detail.IssuanceDetailID);
+        if (assigned) return assigned.name;
 
         // Fallback to requesting department
         return issuance?.deliveryReceipt?.DepartmentName || issuance?.request?.department?.DepartmentName || 'N/A';
+    };
+
+    const getEndUserPosition = (detail: any): string | undefined => {
+        if (!detail) return undefined;
+
+        const assigned = assignmentMap.get(detail.IssuanceDetailID);
+        return assigned?.position;
     };
 
     const aggregatedDetails = useMemo(() => {
@@ -551,7 +561,12 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {entry.details.length > 0 ? (
                                                         entry.details.length === 1 ? (
-                                                            getEndUserName(entry.details[0])
+                                                            <div>
+                                                                <div className="font-medium">{getEndUserName(entry.details[0])}</div>
+                                                                {getEndUserPosition(entry.details[0]) && (
+                                                                    <div className="text-xs text-gray-500 mt-1">{getEndUserPosition(entry.details[0])}</div>
+                                                                )}
+                                                            </div>
                                                         ) : (
                                                             <details>
                                                                 <summary className="cursor-pointer select-none text-gray-900">
@@ -559,7 +574,12 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                                 </summary>
                                                                 <div className="mt-2 space-y-1 text-xs text-gray-600">
                                                                     {entry.details.map((detail, idx) => (
-                                                                        <div key={idx}>{getEndUserName(detail)}</div>
+                                                                        <div key={idx}>
+                                                                            <div className="font-medium text-gray-900">{getEndUserName(detail)}</div>
+                                                                            {getEndUserPosition(detail) && (
+                                                                                <div className="text-xs text-gray-500 mt-0.5">{getEndUserPosition(detail)}</div>
+                                                                            )}
+                                                                        </div>
                                                                     ))}
                                                                 </div>
                                                             </details>

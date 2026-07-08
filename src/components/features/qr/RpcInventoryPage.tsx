@@ -182,6 +182,9 @@ export function RpcInventoryPage() {
         [cycles, selectedCycleId]
     );
 
+    const now = new Date();
+    const isCurrentCycleOpenWindowActive = now >= new Date(now.getFullYear(), 8, 1, 0, 0, 0);
+
     const cycleDisplayLabel = useMemo(() => {
         if (!selectedCycle) return '';
         // Prefer RPCPPE label for display to match calendar-year naming (fallback to cycle_label)
@@ -759,8 +762,12 @@ export function RpcInventoryPage() {
             await createCurrentRpcInventoryCycle();
             toast.success('Current inventory cycle is ready.');
             await loadCycles();
-        } catch {
-            toast.error('Failed to create current cycle');
+        } catch (error: unknown) {
+            const serverMessage =
+                typeof error === 'object' && error !== null && 'response' in error && (error as any).response?.data?.message
+                    ? (error as any).response.data.message
+                    : 'Failed to create current cycle';
+            toast.error(serverMessage);
         }
     };
 
@@ -1368,15 +1375,26 @@ export function RpcInventoryPage() {
                                 Manage cycle-based physical counting, quick scan validation, and export-ready reports in one streamlined console.
                             </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" className="w-auto" onClick={() => void handleRefreshAll()} isLoading={loadingCycles}>
-                                <RefreshCw className="w-4 h-4" />
-                            </Button>
-                            {isAdmin && (
-                                <Button size="sm" className="w-auto bg-[var(--primary)] hover:bg-[var(--primary-hover)]" onClick={() => void handleCreateCurrentCycle()}>
-                                    <Plus className="w-4 h-4" /> Add New (Current Year)
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="flex items-center gap-2">
+                                <Button size="sm" variant="outline" className="w-auto" onClick={() => void handleRefreshAll()} isLoading={loadingCycles}>
+                                    <RefreshCw className="w-4 h-4" />
                                 </Button>
-                            )}
+                                {isAdmin && (
+                                    <Button
+                                        size="sm"
+                                        className="w-auto bg-[var(--primary)] hover:bg-[var(--primary-hover)]"
+                                        onClick={() => void handleCreateCurrentCycle()}
+                                        disabled={!isCurrentCycleOpenWindowActive}
+                                        title={!isCurrentCycleOpenWindowActive ? 'RPC cycles can only be opened starting September 1.' : undefined}
+                                    >
+                                        <Plus className="w-4 h-4" /> Add New (Current Year)
+                                    </Button>
+                                )}
+                            </div>
+                            {!isCurrentCycleOpenWindowActive ? (
+                                <p className="text-xs text-slate-500">RPC cycles can only be opened starting September 1.</p>
+                            ) : null}
                         </div>
                     </div>
                 </section>

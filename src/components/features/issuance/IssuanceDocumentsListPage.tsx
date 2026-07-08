@@ -7,7 +7,6 @@ import {
     Archive,
     CheckCircle,
     Clock,
-    Download,
     Eye,
     Package,
     RefreshCw,
@@ -89,7 +88,7 @@ interface IssuanceDocumentsListPageProps {
     fixedDocumentType: 'PAR' | 'ICS';
 }
 
-const DOCUMENTS_PER_PAGE = 10;
+const ROWS_PER_PAGE = 10;
 
 function safeDate(dateValue: string | null | undefined): Date | null {
     if (!dateValue) return null;
@@ -109,11 +108,8 @@ function createdTime(value: CreatedTimeSource): number {
     if (!value) return 0;
     const candidates = [
         value.created_at,
-        // some APIs use CreatedDate
         value.CreatedDate,
-        // sometimes camelCase
         value.createdAt,
-        // fallbacks
         value.IssuanceDate,
         value.RequestDate,
     ];
@@ -133,13 +129,47 @@ function formatPHDate(dateValue: string | null | undefined): string {
     return format(toZonedTime(parsed, 'Asia/Manila'), 'MMM dd, yyyy');
 }
 
+function flattenGroups(
+    groups: GroupedIssuance[],
+    filters: AssetIssuanceFilters
+): IssuanceRow[] {
+    const rows: IssuanceRow[] = [];
+    for (const group of groups) {
+        const issuances = group.issuances
+            .filter((issuance) => {
+                if (filters.document_type && issuance.DocumentType !== filters.document_type) return false;
+                if (filters.status && issuance.Status !== filters.status) return false;
+                return true;
+            })
+            .slice()
+            .sort((a, b) => {
+                const diff = createdTime(b) - createdTime(a);
+                if (diff !== 0) return diff;
+                return (b.IssuanceID ?? 0) - (a.IssuanceID ?? 0);
+            });
+
+        for (const issuance of issuances) {
+            rows.push({
+                RequestID: group.RequestID,
+                RequestNumber: group.RequestNumber,
+                RequestDate: group.RequestDate,
+                requesterName: group.requester?.FullName ?? 'N/A',
+                departmentName: group.department?.DepartmentName ?? 'N/A',
+                issuance,
+                itemsCount: issuance.details?.length ?? 0,
+            });
+        }
+    }
+    return rows;
+}
+
 export function IssuanceDocumentsListPage({
     baseRoute,
     pageTitle,
     pageDescription,
     fixedDocumentType,
 }: IssuanceDocumentsListPageProps) {
-    const [rows, setRows] = useState<IssuanceRow[]>([]);
+    const [allGroups, setAllGroups] = useState<GroupedIssuance[]>([]);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isFetching, setIsFetching] = useState(false);
     const [filters, setFilters] = useState<AssetIssuanceFilters>(() => ({
@@ -150,7 +180,7 @@ export function IssuanceDocumentsListPage({
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalEntries, setTotalEntries] = useState(0);
-    const [clientPaginated, setClientPaginated] = useState(false);
+    const [serverPaginated, setServerPaginated] = useState(false);
 
     const detailsBaseRoute = useMemo(
         () => baseRoute.replace(/\/(par|ics)\/?$/i, ''),
@@ -173,7 +203,7 @@ export function IssuanceDocumentsListPage({
             const response = await issuanceAPI.getAll({
                 ...filters,
                 page,
-                per_page: DOCUMENTS_PER_PAGE,
+                per_page: ROWS_PER_PAGE,
             });
 
             const responseAny = response as unknown as {
@@ -195,43 +225,14 @@ export function IssuanceDocumentsListPage({
 
             const grouped = Array.isArray(responseAny.data) ? responseAny.data : [];
 
+            // Sort groups newest-first by RequestDate.
             const sortedGroups = grouped.slice().sort((a, b) => {
                 const aDate = safeDate(a.RequestDate)?.getTime() ?? 0;
                 const bDate = safeDate(b.RequestDate)?.getTime() ?? 0;
                 return bDate - aDate;
             });
 
-            const flattened: IssuanceRow[] = [];
-            for (const group of sortedGroups) {
-                const issuances = group.issuances
-                    .filter((issuance) => {
-                        if (filters.document_type && issuance.DocumentType !== filters.document_type) return false;
-                        if (filters.status && issuance.Status !== filters.status) return false;
-                        return true;
-                    });
-
-                for (const issuance of issuances) {
-                    const itemsCount = issuance.details?.length ?? 0;
-                    flattened.push({
-                        RequestID: group.RequestID,
-                        RequestNumber: group.RequestNumber,
-                        RequestDate: group.RequestDate,
-                        requesterName: group.requester?.FullName ?? 'N/A',
-                        departmentName: group.department?.DepartmentName ?? 'N/A',
-                        issuance,
-                        itemsCount,
-                    });
-                }
-            }
-
-            // Sort newest issuance first using creation timestamp if present.
-            flattened.sort((a, b) => {
-                const aDate = createdTime(a.issuance);
-                const bDate = createdTime(b.issuance);
-                if (aDate !== bDate) return bDate - aDate;
-                return (b.issuance.IssuanceID ?? 0) - (a.issuance.IssuanceID ?? 0);
-            });
-
+            // Detect server-side pagination.
             const rootLastPage = Number(responseAny.last_page);
             const rootCurrentPage = Number(responseAny.current_page);
             const rootTotal = Number(responseAny.total);
@@ -240,40 +241,34 @@ export function IssuanceDocumentsListPage({
             const paginationTotal = Number(responseAny.pagination?.total ?? responseAny.meta?.total);
 
             const hasServerPagination =
-                Number.isFinite(rootLastPage) || Number.isFinite(paginationLastPage);
+                (Number.isFinite(rootLastPage) && rootLastPage > 0) ||
+                (Number.isFinite(paginationLastPage) && paginationLastPage > 0);
 
-            const resolvedLastPage = hasServerPagination
-                ? Math.max(1, Number.isFinite(rootLastPage) && rootLastPage > 0 ? rootLastPage : (Number.isFinite(paginationLastPage) && paginationLastPage > 0 ? paginationLastPage : 1))
-                : Math.max(1, Math.ceil(flattened.length / DOCUMENTS_PER_PAGE));
+            setServerPaginated(hasServerPagination);
+            setAllGroups(sortedGroups);
 
-            const resolvedCurrentPage = hasServerPagination
-                ? (Number.isFinite(rootCurrentPage) && rootCurrentPage > 0
+            if (hasServerPagination) {
+                const resolvedLastPage = Number.isFinite(rootLastPage) && rootLastPage > 0
+                    ? rootLastPage
+                    : Math.max(1, paginationLastPage);
+
+                const resolvedCurrentPage = Number.isFinite(rootCurrentPage) && rootCurrentPage > 0
                     ? rootCurrentPage
-                    : (Number.isFinite(paginationCurrentPage) && paginationCurrentPage > 0 ? paginationCurrentPage : page))
-                : page;
+                    : Number.isFinite(paginationCurrentPage) && paginationCurrentPage > 0
+                        ? paginationCurrentPage
+                        : page;
 
-            const boundedCurrentPage = Math.min(Math.max(1, resolvedCurrentPage), resolvedLastPage);
+                const resolvedTotal = Number.isFinite(rootTotal) && rootTotal >= 0
+                    ? rootTotal
+                    : Number.isFinite(paginationTotal) && paginationTotal >= 0
+                        ? paginationTotal
+                        : sortedGroups.length;
 
-            setClientPaginated(!hasServerPagination);
-
-            // Ensure rows are sorted newest-first before setting state so top is latest
-            flattened.sort((x, y) => {
-                const xd = createdTime(x.issuance);
-                const yd = createdTime(y.issuance);
-                if (xd !== yd) return yd - xd;
-                return (y.issuance.IssuanceID ?? 0) - (x.issuance.IssuanceID ?? 0);
-            });
-
-            setRows(flattened);
-            setCurrentPage(boundedCurrentPage);
-            setTotalPages(resolvedLastPage);
-            setTotalEntries(
-                hasServerPagination
-                    ? (Number.isFinite(rootTotal) && rootTotal >= 0
-                        ? rootTotal
-                        : (Number.isFinite(paginationTotal) && paginationTotal >= 0 ? paginationTotal : flattened.length))
-                    : flattened.length
-            );
+                setCurrentPage(Math.min(Math.max(1, resolvedCurrentPage), Math.max(1, resolvedLastPage)));
+                setTotalPages(Math.max(1, resolvedLastPage));
+                setTotalEntries(resolvedTotal);
+            }
+            // Server pagination absent — totals are derived from flattened rows (see effect below).
         } catch {
             toast.error('Failed to load issuance documents');
         } finally {
@@ -292,44 +287,53 @@ export function IssuanceDocumentsListPage({
 
     const handlePageChange = (page: number) => {
         if (page < 1 || page > totalPages) return;
-        if (clientPaginated) {
+        if (serverPaginated) {
+            loadDocuments(page);
+        } else {
             setCurrentPage(page);
-            return;
         }
-
-        loadDocuments(page);
     };
 
-
-    const filteredRows = useMemo(() => {
-        if (!searchTerm) return rows;
-        const searchLower = searchTerm.toLowerCase();
-        return rows.filter((row) => {
-            const issuance = row.issuance;
-            return (
-                row.RequestNumber.toLowerCase().includes(searchLower) ||
-                row.requesterName.toLowerCase().includes(searchLower) ||
-                row.departmentName.toLowerCase().includes(searchLower) ||
-                issuance.DocumentNumber.toLowerCase().includes(searchLower)
-            );
+    // Filter groups by search term.
+    const filteredGroups = useMemo(() => {
+        if (!searchTerm) return allGroups;
+        const lower = searchTerm.toLowerCase();
+        return allGroups.filter((group) => {
+            if (group.RequestNumber.toLowerCase().includes(lower)) return true;
+            if ((group.requester?.FullName ?? '').toLowerCase().includes(lower)) return true;
+            if ((group.department?.DepartmentName ?? '').toLowerCase().includes(lower)) return true;
+            return group.issuances.some((issuance) => {
+                const drNumber = String(issuance.deliveryReceipt?.DRNumber ?? '').toLowerCase();
+                return (
+                    issuance.DocumentNumber.toLowerCase().includes(lower) ||
+                    drNumber.includes(lower)
+                );
+            });
         });
-    }, [rows, searchTerm]);
+    }, [allGroups, searchTerm]);
 
+    // Flatten ALL filtered groups into rows first, then paginate by row count.
+    const allRows = useMemo((): IssuanceRow[] => {
+        return flattenGroups(filteredGroups, filters);
+    }, [filteredGroups, filters]);
+
+    // Recompute client-side pagination totals whenever allRows changes.
     useEffect(() => {
-        if (!clientPaginated) return;
-
-        const computedTotalPages = Math.max(1, Math.ceil(filteredRows.length / DOCUMENTS_PER_PAGE));
+        if (serverPaginated) return;
+        const computedTotalPages = Math.max(1, Math.ceil(allRows.length / ROWS_PER_PAGE));
         setTotalPages(computedTotalPages);
-        setTotalEntries(filteredRows.length);
+        setTotalEntries(allRows.length);
         setCurrentPage((prev) => Math.min(prev, computedTotalPages));
-    }, [filteredRows.length, clientPaginated]);
+    }, [allRows.length, serverPaginated]);
 
-    const visibleRows = useMemo(() => {
-        if (!clientPaginated) return filteredRows;
-
-        const startIndex = (currentPage - 1) * DOCUMENTS_PER_PAGE;
-        return filteredRows.slice(startIndex, startIndex + DOCUMENTS_PER_PAGE);
-    }, [filteredRows, currentPage, clientPaginated]);
+    // Slice rows for the current page.
+    const visibleRows = useMemo((): IssuanceRow[] => {
+        if (serverPaginated) return allRows; // server already returned only this page's data
+        return allRows.slice(
+            (currentPage - 1) * ROWS_PER_PAGE,
+            currentPage * ROWS_PER_PAGE
+        );
+    }, [allRows, currentPage, serverPaginated]);
 
     return (
         <div
@@ -366,7 +370,7 @@ export function IssuanceDocumentsListPage({
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Search document number, reference number, requester, or department..."
+                                placeholder="Search document number, DR number, requester, or department..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
@@ -393,7 +397,7 @@ export function IssuanceDocumentsListPage({
 
                 {/* Flat Documents List */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    {isInitialLoading && rows.length === 0 ? (
+                    {isInitialLoading && allGroups.length === 0 ? (
                         <div className="divide-y divide-slate-200">
                             {Array.from({ length: 8 }).map((_, index) => (
                                 <div key={`issuance-skeleton-${index}`} className="p-4 animate-pulse">
@@ -411,7 +415,7 @@ export function IssuanceDocumentsListPage({
                                 </div>
                             ))}
                         </div>
-                    ) : filteredRows.length === 0 ? (
+                    ) : visibleRows.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                             <Package className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                             <h3 className="text-lg font-medium text-slate-400 mb-1">No Documents Found</h3>
@@ -448,7 +452,7 @@ export function IssuanceDocumentsListPage({
                                                         {row.requesterName}
                                                     </span>
                                                     <span>{row.departmentName}</span>
-                                                    <span>Reference: {row.RequestNumber}</span>
+                                                    <span>DR: {issuance.deliveryReceipt?.DRNumber ?? row.RequestNumber ?? 'N/A'}</span>
                                                     <span>Issued: {formatPHDate(issuance.IssuanceDate)}</span>
                                                     <span>Source Date: {formatPHDate(row.RequestDate)}</span>
                                                     {row.itemsCount > 0 && (
@@ -482,7 +486,7 @@ export function IssuanceDocumentsListPage({
                     {!isInitialLoading && totalPages > 1 && (
                         <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
                             <div className="text-sm text-slate-500">
-                                Showing {((currentPage - 1) * DOCUMENTS_PER_PAGE) + 1} to {Math.min(currentPage * DOCUMENTS_PER_PAGE, totalEntries)} of {totalEntries} entries
+                                Showing {((currentPage - 1) * ROWS_PER_PAGE) + 1} to {Math.min(currentPage * ROWS_PER_PAGE, totalEntries)} of {totalEntries} entries
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
