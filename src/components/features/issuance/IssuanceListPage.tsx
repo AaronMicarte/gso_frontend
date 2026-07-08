@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle, ChevronDown, ChevronUp, Clock, FileText, RefreshCw, Search } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronUp, Clock, Eye, FileText, RefreshCw, Search } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
@@ -180,6 +181,7 @@ export function IssuanceListPage({
     pageTitle,
     pageDescription,
 }: IssuanceListPageProps) {
+    const router = useRouter();
     const [rows, setRows] = useState<DeliveryReceiptForIssuance[]>([]);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isFetching, setIsFetching] = useState(false);
@@ -542,6 +544,24 @@ export function IssuanceListPage({
                                                         Print {selectedType}
                                                     </button>
                                                 )}
+                                                {(() => {
+                                                    const viewIssuanceId = issuanceByType[selectedType]?.IssuanceID
+                                                        ?? Object.values(issuanceByType).find(
+                                                            (issuance): issuance is IssuanceSummary => Boolean(issuance?.IssuanceID)
+                                                        )?.IssuanceID;
+                                                    if (!viewIssuanceId) return null;
+
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => router.push(`${baseRoute}/${viewIssuanceId}`)}
+                                                            className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                            View
+                                                        </button>
+                                                    );
+                                                })()}
                                                 <button
                                                     type="button"
                                                     onClick={() => openConfirm(row)}
