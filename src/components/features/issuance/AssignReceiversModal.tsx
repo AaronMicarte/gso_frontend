@@ -35,11 +35,15 @@ interface Props {
     documentType?: 'PAR' | 'ICS';
     items: AssignReceiversModalItem[];
     onSaved?: (result: AssignReceiversSaveResult) => void;
+    /** Optional override: load existing assignments (return rows with issuance_detail_id matching items) */
+    onCustomLoad?: (id: number) => Promise<Array<{ issuance_detail_id: number; receiver_name: string; position_office?: string; quantity: number }>>;
+    /** Optional override: save assignments instead of the default issuanceAPI call */
+    onCustomSave?: (id: number, assignments: Array<{ issuance_detail_id: number; receiver_name: string; position_office?: string; quantity: number }>) => Promise<void>;
 }
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
-export default function AssignReceiversModal({ open, onOpenChange, issuanceId, documentType, items, onSaved }: Props) {
+export default function AssignReceiversModal({ open, onOpenChange, issuanceId, documentType, items, onSaved, onCustomLoad, onCustomSave }: Props) {
     const [rows, setRows] = React.useState<AssignmentRow[]>([]);
     const [saving, setSaving] = React.useState(false);
     const [loadingHistory, setLoadingHistory] = React.useState(false);
@@ -93,8 +97,10 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
             try {
                 setLoadingHistory(true);
 
-                const response = await issuanceAPI.getAssignments(validId);
-                const savedRows = response?.data || response || [];
+                const response = onCustomLoad
+                    ? await onCustomLoad(validId)
+                    : await issuanceAPI.getAssignments(validId);
+                const savedRows = Array.isArray(response) ? response : (response?.data || response || []);
 
                 if (Array.isArray(savedRows) && savedRows.length > 0) {
                     const aggregatedMap: Record<string, { receiver_name: string; position_office: string; issuance_detail_id: string; quantity: number }> = {};
@@ -303,17 +309,32 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
             };
         });
 
-        onSaved?.({ assignments, documentType });
-
-        try {
-            setSaving(true);
-            await issuanceAPI.saveAssignments(issuanceId, { assignments: finalAssignments });
-            toast.success('Receiver assignments saved successfully!');
-            onOpenChange(false);
-        } catch (err) {
-            toast.error('Failed to update asset assignments.');
-        } finally {
-            setSaving(false);
+        if (onCustomSave) {
+            // Custom save flow (e.g. PTR): save first, then notify parent
+            try {
+                setSaving(true);
+                await onCustomSave(issuanceId!, finalAssignments);
+                toast.success('Receiver assignments saved successfully!');
+                onSaved?.({ assignments, documentType });
+                onOpenChange(false);
+            } catch (err) {
+                toast.error('Failed to update asset assignments.');
+            } finally {
+                setSaving(false);
+            }
+        } else {
+            // Default issuance flow: notify parent first, then save async
+            onSaved?.({ assignments, documentType });
+            try {
+                setSaving(true);
+                await issuanceAPI.saveAssignments(issuanceId!, { assignments: finalAssignments });
+                toast.success('Receiver assignments saved successfully!');
+                onOpenChange(false);
+            } catch (err) {
+                toast.error('Failed to update asset assignments.');
+            } finally {
+                setSaving(false);
+            }
         }
     };
 

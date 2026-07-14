@@ -394,144 +394,144 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
                                                     return (
                                                         <tr key={d.InventoryDetailID} className="hover:bg-slate-50">
-                                                        <td className="px-6 py-4">
-                                                            <div>
-                                                                <div className="font-medium text-slate-900">
-                                                                    {getItemName(d)}
+                                                            <td className="px-6 py-4">
+                                                                <div>
+                                                                    <div className="font-medium text-slate-900">
+                                                                        {getItemName(d)}
+                                                                    </div>
+                                                                    <div className="text-xs text-slate-500 space-y-1 mt-1">
+                                                                        {d.Brand && <div>Brand: {d.Brand}</div>}
+                                                                        {d.ModelNumber && <div>Model: {d.ModelNumber}</div>}
+                                                                        {d.SerialNumber && <div>Serial: {d.SerialNumber}</div>}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="text-xs text-slate-500 space-y-1 mt-1">
-                                                                    {d.Brand && <div>Brand: {d.Brand}</div>}
-                                                                    {d.ModelNumber && <div>Model: {d.ModelNumber}</div>}
-                                                                    {d.SerialNumber && <div>Serial: {d.SerialNumber}</div>}
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                                                    {d.PropertyName || 'Unknown'}
-                                                                </span>
-                                                                {d.DocumentType && (
-                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${d.DocumentType === 'PAR' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
-                                                                        {d.DocumentType}
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                                        {d.PropertyName || 'Unknown'}
                                                                     </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-600">
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <div
-                                                                        className={`max-w-xs cursor-pointer ${expandedDescriptions.has(d.InventoryDetailID) ? '' : 'truncate'}`}
-                                                                        onClick={() => toggleDescriptionExpansion(d.InventoryDetailID)}
-                                                                        style={expandedDescriptions.has(d.InventoryDetailID) ? { whiteSpace: 'pre-line' } : {}}
-                                                                    >
-                                                                        {d.Description || <span className="text-slate-400 italic">No description</span>}
-                                                                    </div>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent
-                                                                    side="top"
-                                                                    className="max-w-sm p-3 bg-slate-800 text-white text-sm rounded-lg shadow-lg z-50"
-                                                                >
-                                                                    <div style={{ whiteSpace: 'pre-line' }}>
-                                                                        {d.Description || 'No description'}
-                                                                    </div>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-600">
-                                                            <div>
-                                                                <div className="font-medium">
-                                                                    {formatQuantityCost(
-                                                                        d.CombinedQuantity ?? d.Quantity,
-                                                                        d.UnitOfMeasureID,
-                                                                        (d.CombinedQuantity && (d.CombinedTotalCost ?? 0) > 0)
-                                                                            ? ((d.CombinedTotalCost ?? 0) / d.CombinedQuantity)
-                                                                            : d.UnitCost
+                                                                    {d.DocumentType && (
+                                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${d.DocumentType === 'PAR' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                                                                            {d.DocumentType}
+                                                                        </span>
                                                                     )}
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 space-y-1">
-                                                            <div>{getStatusBadge(d.PropertyStatusID, d.StatusName)}</div>
-                                                            {d.ConditionName ? (
-                                                                <div
-                                                                    className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
-                                                                    style={{
-                                                                        backgroundColor: d.ConditionName.toLowerCase().includes('unserviceable') ? '#fef2f2' : d.ConditionName.toLowerCase().includes('under repair') ? '#fffbeb' : '#ecfdf5',
-                                                                        color: d.ConditionName.toLowerCase().includes('unserviceable') ? '#b91c1c' : d.ConditionName.toLowerCase().includes('under repair') ? '#92400e' : '#065f46',
-                                                                        border: '1px solid ' + (d.ConditionName.toLowerCase().includes('unserviceable') ? '#fecaca' : d.ConditionName.toLowerCase().includes('under repair') ? '#fde68a' : '#bbf7d0'),
-                                                                    }}
-                                                                >
-                                                                    <span className="uppercase tracking-wider">{d.ConditionName}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-slate-600">
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div
+                                                                            className={`max-w-xs cursor-pointer ${expandedDescriptions.has(d.InventoryDetailID) ? '' : 'truncate'}`}
+                                                                            onClick={() => toggleDescriptionExpansion(d.InventoryDetailID)}
+                                                                            style={expandedDescriptions.has(d.InventoryDetailID) ? { whiteSpace: 'pre-line' } : {}}
+                                                                        >
+                                                                            {d.Description || <span className="text-slate-400 italic">No description</span>}
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent
+                                                                        side="top"
+                                                                        className="max-w-sm p-3 bg-slate-800 text-white text-sm rounded-lg shadow-lg z-50"
+                                                                    >
+                                                                        <div style={{ whiteSpace: 'pre-line' }}>
+                                                                            {d.Description || 'No description'}
+                                                                        </div>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-slate-600">
+                                                                <div>
+                                                                    <div className="font-medium">
+                                                                        {formatQuantityCost(
+                                                                            d.CombinedQuantity ?? d.Quantity,
+                                                                            d.UnitOfMeasureID,
+                                                                            (d.CombinedQuantity && (d.CombinedTotalCost ?? 0) > 0)
+                                                                                ? ((d.CombinedTotalCost ?? 0) / d.CombinedQuantity)
+                                                                                : d.UnitCost
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                            ) : (
-                                                                <span className="text-xs text-slate-500">Unknown</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-600">
-                                                            {getBorrowedLabel(d.currentBorrowerName) ? (
-                                                                <div className="flex items-center gap-1 text-amber-700">
-                                                                    <User className="w-3 h-3" />
-                                                                    {getBorrowedLabel(d.currentBorrowerName)}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex items-center gap-1">
-                                                                    <User className="w-3 h-3" />
-                                                                    {d.locationDepartment
-                                                                        ? `${d.accountabilityLabel || getCustodianDisplayName(d.custodianName)} - ${d.locationDepartment}`
-                                                                        : (d.accountabilityLabel || getCustodianDisplayName(d.custodianName))}
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right">
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                <PropertyCardDialog
-                                                                    inventoryDetailId={d.InventoryDetailID}
-                                                                    propertyNumber={d.PropertyNumber}
-                                                                    itemName={getItemName(d)}
-                                                                    description={d.Description}
-                                                                    category={d.PropertyName || d.ClassificationName}
-                                                                    custodianName={d.accountabilityLabel || getCustodianDisplayName(d.custodianName)}
-                                                                />
-                                                                {stickerItems.length > 0 && (
-                                                                    <PropertySticker
-                                                                        items={stickerItems}
+                                                            </td>
+                                                            <td className="px-6 py-4 space-y-1">
+                                                                <div>{getStatusBadge(d.PropertyStatusID, d.StatusName)}</div>
+                                                                {d.ConditionName ? (
+                                                                    <div
+                                                                        className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
+                                                                        style={{
+                                                                            backgroundColor: d.ConditionName.toLowerCase().includes('unserviceable') ? '#fef2f2' : d.ConditionName.toLowerCase().includes('under repair') ? '#fffbeb' : '#ecfdf5',
+                                                                            color: d.ConditionName.toLowerCase().includes('unserviceable') ? '#b91c1c' : d.ConditionName.toLowerCase().includes('under repair') ? '#92400e' : '#065f46',
+                                                                            border: '1px solid ' + (d.ConditionName.toLowerCase().includes('unserviceable') ? '#fecaca' : d.ConditionName.toLowerCase().includes('under repair') ? '#fde68a' : '#bbf7d0'),
+                                                                        }}
+                                                                    >
+                                                                        <span className="uppercase tracking-wider">{d.ConditionName}</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-xs text-slate-500">Unknown</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-slate-600">
+                                                                {getBorrowedLabel(d.currentBorrowerName) ? (
+                                                                    <div className="flex items-center gap-1 text-amber-700">
+                                                                        <User className="w-3 h-3" />
+                                                                        {getBorrowedLabel(d.currentBorrowerName)}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <User className="w-3 h-3" />
+                                                                        {d.locationDepartment
+                                                                            ? `${d.accountabilityLabel || getCustodianDisplayName(d.custodianName)} - ${d.locationDepartment}`
+                                                                            : (d.accountabilityLabel || getCustodianDisplayName(d.custodianName))}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <PropertyCardDialog
+                                                                        inventoryDetailId={d.InventoryDetailID}
                                                                         propertyNumber={d.PropertyNumber}
                                                                         itemName={getItemName(d)}
-                                                                        category={d.PropertyName || d.ClassificationName || '-'}
-                                                                        url={(() => {
-                                                                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                                            const qrCodeData = getQrCodeData(d);
-                                                                            const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
-                                                                            if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
-                                                                            return `${origin}/admin/inventory/${d.InventoryID}?detail=${d.InventoryDetailID}`;
-                                                                        })()}
+                                                                        description={d.Description}
+                                                                        category={d.PropertyName || d.ClassificationName}
                                                                         custodianName={d.accountabilityLabel || getCustodianDisplayName(d.custodianName)}
-                                                                        date={data?.DateAcquired ? format(new Date(data.DateAcquired), 'MM/dd/yyyy') : '-'}
-                                                                        unitCost={d.UnitCost}
                                                                     />
-                                                                )}
-                                                                <InventoryReceiptDialog
-                                                                    inventoryDetailId={d.InventoryDetailID}
-                                                                    inventoryId={d.InventoryID}
-                                                                    articleName={d.dr_article_name ?? d.PropertyName}
-                                                                    unitOfMeasureId={d.UnitOfMeasureID}
-                                                                />
-                                                                <InventoryHistoryDialog
-                                                                    inventoryDetailId={d.InventoryDetailID}
-                                                                    itemName={getItemName(d)}
-                                                                />
-                                                                <button
-                                                                    onClick={() => openEditModal(d)}
-                                                                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                                    title="Edit item details"
-                                                                >
-                                                                    <Edit className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
+                                                                    {stickerItems.length > 0 && (
+                                                                        <PropertySticker
+                                                                            items={stickerItems}
+                                                                            propertyNumber={d.PropertyNumber}
+                                                                            itemName={getItemName(d)}
+                                                                            category={d.PropertyName || d.ClassificationName || '-'}
+                                                                            url={(() => {
+                                                                                const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                                                const qrCodeData = getQrCodeData(d);
+                                                                                const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                                                if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+                                                                                return `${origin}/admin/inventory/${d.InventoryID}?detail=${d.InventoryDetailID}`;
+                                                                            })()}
+                                                                            custodianName={d.accountabilityLabel || getCustodianDisplayName(d.custodianName)}
+                                                                            date={data?.DateAcquired ? format(new Date(data.DateAcquired), 'MM/dd/yyyy') : '-'}
+                                                                            unitCost={d.UnitCost}
+                                                                        />
+                                                                    )}
+                                                                    <InventoryReceiptDialog
+                                                                        inventoryDetailId={d.InventoryDetailID}
+                                                                        inventoryId={d.InventoryID}
+                                                                        articleName={d.dr_article_name ?? d.PropertyName}
+                                                                        unitOfMeasureId={d.UnitOfMeasureID}
+                                                                    />
+                                                                    <InventoryHistoryDialog
+                                                                        inventoryDetailId={d.InventoryDetailID}
+                                                                        itemName={getItemName(d)}
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => openEditModal(d)}
+                                                                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                        title="Edit item details"
+                                                                    >
+                                                                        <Edit className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
                                                     );
                                                 })
                                             )}

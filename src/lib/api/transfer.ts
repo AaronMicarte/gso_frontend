@@ -377,6 +377,16 @@ const transferAPI = {
         });
         return data;
     },
+
+    getReceiverAssignments: async (id: number) => {
+        const { data } = await apiClient.get(`/property-transfers/${id}/receiver-assignments`);
+        return data as { data: Array<{ id: number; inventory_detail_id: number; issuance_detail_id: number; receiver_name: string; position_office?: string; quantity: number }> };
+    },
+
+    saveReceiverAssignments: async (id: number, payload: { assignments: Array<{ inventory_detail_id: number; receiver_name: string; position_office?: string; quantity: number }> }) => {
+        const { data } = await apiClient.post(`/property-transfers/${id}/receiver-assignments`, payload);
+        return data;
+    },
 };
 
 export default transferAPI;

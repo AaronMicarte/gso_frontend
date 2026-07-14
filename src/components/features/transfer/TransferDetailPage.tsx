@@ -14,6 +14,7 @@ import transferAPI from '@/lib/api/transfer';
 import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import { PropertyTransfer, PropertyTransferItem, TransferStatus } from '@/types/propertyTransfer';
 import { useAuth } from '@/lib/hooks/useAuth';
+import AssignReceiversModal, { AssignReceiversModalItem } from '@/components/features/issuance/AssignReceiversModal';
 
 const statusConfig: Record<TransferStatus, { label: string; className: string; icon: typeof Clock }> = {
     pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -51,6 +52,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const [releasingStatusByGroup, setReleasingStatusByGroup] = useState<Record<string, 'approved' | 'rejected'>>({});
     const [releasingReason, setReleasingReason] = useState('');
     const [pendingConfirmAction, setPendingConfirmAction] = useState<PendingConfirmAction>(null);
+    const [ptrAssignOpen, setPtrAssignOpen] = useState(false);
 
     const transferId = params?.id ? parseInt(params.id as string) : null;
 
@@ -551,7 +553,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                     <div className="flex flex-wrap items-center gap-2">
                         {canPrint && (
                             <button
-                                onClick={() => router.push(`${baseRoute}/${transfer.TransferID}/print`)}
+                                onClick={() => setPtrAssignOpen(true)}
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
                             >
                                 <Printer className="w-4 h-4" />
@@ -1014,6 +1016,50 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                     cancelText="Cancel"
                     onConfirm={handleConfirmAction}
                     loading={isProcessing}
+                />
+                <AssignReceiversModal
+                    open={ptrAssignOpen}
+                    onOpenChange={setPtrAssignOpen}
+                    issuanceId={transfer?.TransferID ?? null}
+                    items={(transfer?.items ?? [])
+                        .filter(item => Number(item.InventoryDetailID ?? 0) > 0)
+                        .map((item): AssignReceiversModalItem => ({
+                            IssuanceDetailID: item.InventoryDetailID!,
+                            ItemDescription:
+                                (item as any).inventoryDetail?.drDetail?.ItemDescription
+                                ?? (item as any).inventoryDetail?.Description
+                                ?? `Item #${item.InventoryDetailID}`,
+                            QuantityIssued: Number((item as any).ApprovedQuantity ?? item.Quantity ?? 1),
+                            Article: (item as any).inventoryDetail?.drDetail?.article?.ArticleName ?? null,
+                            Brand: (item as any).inventoryDetail?.Brand ?? null,
+                            ModelNumber: (item as any).inventoryDetail?.ModelNumber ?? null,
+                            SerialNumber:
+                                (item as any).inventoryDetail?.SerialNumber
+                                ?? (item as any).inventoryDetail?.drDetail?.SerialNumber
+                                ?? null,
+                        }))}
+                    onCustomLoad={async (id) => {
+                        const res = await transferAPI.getReceiverAssignments(id);
+                        return (res?.data ?? []).map(r => ({
+                            issuance_detail_id: r.inventory_detail_id,
+                            receiver_name: r.receiver_name,
+                            position_office: r.position_office,
+                            quantity: r.quantity,
+                        }));
+                    }}
+                    onCustomSave={async (id, assignments) => {
+                        await transferAPI.saveReceiverAssignments(id, {
+                            assignments: assignments.map(a => ({
+                                inventory_detail_id: a.issuance_detail_id,
+                                receiver_name: a.receiver_name,
+                                position_office: a.position_office,
+                                quantity: a.quantity,
+                            })),
+                        });
+                    }}
+                    onSaved={() => {
+                        router.push(`${baseRoute}/${transfer?.TransferID}/print`);
+                    }}
                 />
             </div>
         </div>

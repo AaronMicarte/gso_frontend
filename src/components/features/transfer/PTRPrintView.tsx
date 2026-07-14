@@ -1,14 +1,25 @@
-import React from 'react';
+'use client';
+import React, { useEffect, useState } from 'react';
 import { PropertyTransfer } from '@/types/propertyTransfer';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { resolveStorageUrl } from '@/lib/utils/signature';
+import transferAPI from '@/lib/api/transfer';
 
 interface PTRPrintViewProps {
     transfer: PropertyTransfer;
 }
 
 export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(({ transfer }, ref) => {
+    const [receiverAssignments, setReceiverAssignments] = useState<Array<{ receiver_name: string; position_office?: string }>>([]);
+
+    useEffect(() => {
+        if (!transfer?.TransferID) return;
+        transferAPI.getReceiverAssignments(transfer.TransferID)
+            .then(res => setReceiverAssignments(res?.data ?? []))
+            .catch(() => {});
+    }, [transfer?.TransferID]);
+
     const formatDate = (dateString?: string | null) => {
         if (!dateString) return '';
         return format(toZonedTime(new Date(dateString), 'Asia/Manila'), 'MM/dd/yyyy');
@@ -160,9 +171,17 @@ export const PTRPrintView = React.forwardRef<HTMLDivElement, PTRPrintViewProps>(
                     <div className="mb-6">Received by (Receiving Custodian):</div>
                     <div className="border-b border-black h-12"></div>
                     <div className="text-[10px] text-center mt-1">Signature over Printed Name</div>
-                    <div className="border-b border-black mt-3 pb-1 text-center">{borrowingName}</div>
+                    <div className="border-b border-black mt-3 pb-1 text-center">
+                        {receiverAssignments.length > 0
+                            ? receiverAssignments.map(r => r.receiver_name).filter(Boolean).join(' / ')
+                            : borrowingName}
+                    </div>
                     <div className="text-[10px] text-center mt-1">Position/Office</div>
-                    <div className="border-b border-black mt-2 pb-1 text-center">{borrowingOffice}</div>
+                    <div className="border-b border-black mt-2 pb-1 text-center">
+                        {receiverAssignments.length > 0
+                            ? [...new Set(receiverAssignments.map(r => r.position_office).filter(Boolean))].join(' / ')
+                            : borrowingOffice}
+                    </div>
                     <div className="text-[10px] text-center mt-1">Date</div>
                     <div className="border-b border-black mt-2 pb-1 text-center">{formatDate(transfer.BorrowingSignedAt) || docDate}</div>
                 </div>
