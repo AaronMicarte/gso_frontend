@@ -231,6 +231,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                         { label: 'Turnstile', href: `${baseRoute}/security/turnstile`, icon: ShieldCheck },
                         { label: 'Login Audit', href: `${baseRoute}/security/login-audit`, icon: ShieldCheck },
                         { label: 'Activity Logs', href: `${baseRoute}/security/activity-logs`, icon: FileClock },
+                        { label: 'Database Backups', href: `${baseRoute}/security/backups`, icon: FileCheck },
                         { label: 'System Settings', href: `${baseRoute}/settings`, icon: Settings },
                     ]
                 },
