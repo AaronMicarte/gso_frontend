@@ -61,6 +61,8 @@ type InventoryDetail = {
     Serial?: string;
     serial?: string;
     serial_number?: string;
+    endUserName?: string | null;
+    endUserPosition?: string | null;
 };
 
 type PropertyCardRow = {
@@ -388,11 +390,11 @@ export function InventoryReceiptDialog({
 
                                         {showItems && (
                                             <div className="rounded-lg border border-slate-100 overflow-hidden">
-                                                <div className="grid grid-cols-4 bg-slate-50 border-b border-slate-100">
+                                                <div className="grid grid-cols-5 bg-slate-50 border-b border-slate-100">
                                                     <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                                         Article / Property No.
                                                     </div>
-                                                    {['Brand', 'Model', 'Serial No.'].map((h) => (
+                                                    {['Brand', 'Model', 'Serial No.', 'End User'].map((h) => (
                                                         <div key={h} className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">
                                                             {h}
                                                         </div>
@@ -400,7 +402,7 @@ export function InventoryReceiptDialog({
                                                 </div>
                                                 <div className="divide-y divide-slate-50">
                                                     {matchingDetails.map((d) => (
-                                                        <div key={d.InventoryDetailID} className="grid grid-cols-4 px-3 py-2.5 text-sm hover:bg-slate-50/60 transition-colors items-center">
+                                                        <div key={d.InventoryDetailID} className="grid grid-cols-5 px-3 py-2.5 text-sm hover:bg-slate-50/60 transition-colors items-center">
                                                             <div className="min-w-0 pr-2">
                                                                 <div className="font-medium text-slate-800 truncate">
                                                                     {d.dr_article_name ?? d.PropertyName ?? '—'}
@@ -417,6 +419,18 @@ export function InventoryReceiptDialog({
                                                             </div>
                                                             <div className="text-slate-600 text-center whitespace-normal break-words pl-2">
                                                                 {d.SerialNumber ?? d.Serial ?? d.serial ?? d.serial_number ?? '—'}
+                                                            </div>
+                                                            <div className="text-slate-600 text-center whitespace-normal break-words px-2">
+                                                                {d.endUserName ? (
+                                                                    <div>
+                                                                        <div className="font-medium text-slate-800">{d.endUserName}</div>
+                                                                        {d.endUserPosition && (
+                                                                            <div className="text-xs text-slate-500">{d.endUserPosition}</div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-slate-400">—</span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))}

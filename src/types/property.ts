@@ -424,6 +424,8 @@ export interface InventoryDetailCombined {
     dr_article_name?: string;
     qrCode?: { QRCodeData?: string | null } | null;
     qrCodeData?: string | null;
+    endUserName?: string | null;
+    endUserPosition?: string | null;
     // Augmented fields for Combined view
     CombinedQuantity?: number;
     CombinedTotalCost?: number;

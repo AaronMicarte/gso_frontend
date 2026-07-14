@@ -439,6 +439,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </td>
+
                                                             <td className="px-6 py-4 text-slate-600">
                                                                 <div>
                                                                     <div className="font-medium">

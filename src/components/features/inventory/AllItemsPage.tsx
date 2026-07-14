@@ -31,6 +31,8 @@ type CombinedInventoryItem = InventoryItem & {
     CombinedTotalCost?: number;
     combinedItems?: InventoryItem[];
     stickerItems?: StickerItem[];
+    endUserName?: string | null;
+    endUserPosition?: string | null;
 };
 
 export function AllItemsPage() {
@@ -422,6 +424,7 @@ export function AllItemsPage() {
                                                 <td className="px-6 py-4 text-slate-600">
                                                     <div className="font-medium">{item.InventoryNumber || 'N/A'}</div>
                                                 </td>
+
                                                 <td className="px-6 py-4 space-y-1">
                                                     <div>{getStatusBadge(item.PropertyStatusID, item.StatusName)}</div>
                                                     {item.ConditionName ? (
