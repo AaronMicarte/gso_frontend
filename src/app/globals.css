@@ -185,7 +185,10 @@ html.reduce-motion *::after {
 
 @media print {
   .print-page-break {
+    page-break-before: always;
+    break-before: page;
     page-break-after: always;
+    break-after: page;
   }
 
   .par-signature-block {

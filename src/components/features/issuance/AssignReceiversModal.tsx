@@ -7,7 +7,7 @@ interface AssignmentRow {
     id: string;
     receiver_name: string;
     position_office?: string;
-    issuance_detail_id: string; // Switched to string to reference aggregate labels safely
+    issuance_detail_id: string;
     quantity: number;
     isDropdownOpen?: boolean;
     searchQuery: string;
@@ -35,25 +35,25 @@ interface Props {
     documentType?: 'PAR' | 'ICS';
     items: AssignReceiversModalItem[];
     onSaved?: (result: AssignReceiversSaveResult) => void;
-    /** Optional override: load existing assignments (return rows with issuance_detail_id matching items) */
+    onPreparePrintTabs?: (
+        assignments: Array<{ receiver_name: string; position_office?: string }>,
+        issuanceId: number,
+    ) => { windows: Array<Window | null>; urls: string[] } | undefined;
     onCustomLoad?: (id: number) => Promise<Array<{ issuance_detail_id: number; receiver_name: string; position_office?: string; quantity: number }>>;
-    /** Optional override: save assignments instead of the default issuanceAPI call */
     onCustomSave?: (id: number, assignments: Array<{ issuance_detail_id: number; receiver_name: string; position_office?: string; quantity: number }>) => Promise<void>;
 }
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
-export default function AssignReceiversModal({ open, onOpenChange, issuanceId, documentType, items, onSaved, onCustomLoad, onCustomSave }: Props) {
+export default function AssignReceiversModal({ open, onOpenChange, issuanceId, documentType, items, onSaved, onCustomLoad, onCustomSave, onPreparePrintTabs }: Props) {
     const [rows, setRows] = React.useState<AssignmentRow[]>([]);
     const [saving, setSaving] = React.useState(false);
     const [loadingHistory, setLoadingHistory] = React.useState(false);
 
-    // Group items by Article Name, Description, Brand, and Model (no serial)
     const availableItems = React.useMemo(() => {
         const itemMap: Record<string, { ids: number[]; label: string; maxQty: number }> = {};
 
         (items || []).forEach(it => {
-            // Grouping key uses all four fields so items differing in any of them stay separate
             const groupKey = [
                 (it.Article || '').trim(),
                 (it.ItemDescription || '').trim(),
@@ -61,7 +61,6 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                 (it.ModelNumber || '').trim(),
             ].join('|');
 
-            // Display label shows only Article · Brand · Model (no Description, no Serial)
             const label = [it.Article, it.Brand, it.ModelNumber]
                 .filter(Boolean)
                 .join(' · ') || (it.ItemDescription || 'Item');
@@ -83,8 +82,8 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
         });
 
         return Object.values(itemMap).map(group => ({
-            id: group.label, // Identify options uniquely by label string
-            allDetailIds: group.ids, // Keep reference to underlying DB keys for save actions
+            id: group.label,
+            allDetailIds: group.ids,
             label: group.label,
             maxQty: group.maxQty
         }));
@@ -309,29 +308,56 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
             };
         });
 
+        const printTabTargets = onPreparePrintTabs?.(assignments.map((assignment) => ({
+            receiver_name: assignment.receiver_name,
+            position_office: assignment.position_office,
+        })), issuanceId!) ?? { windows: [], urls: [] };
+
+        const navigatePrintTabs = (success: boolean) => {
+            if (!printTabTargets.windows?.length) return;
+
+            if (!success) {
+                printTabTargets.windows.forEach((win) => {
+                    if (win && !win.closed) {
+                        win.close();
+                    }
+                });
+                return;
+            }
+
+            printTabTargets.windows.forEach((win, idx) => {
+                const url = printTabTargets.urls[idx];
+                if (win && !win.closed && url) {
+                    win.location.href = url;
+                }
+            });
+        };
+
         if (onCustomSave) {
-            // Custom save flow (e.g. PTR): save first, then notify parent
             try {
                 setSaving(true);
                 await onCustomSave(issuanceId!, finalAssignments);
                 toast.success('Receiver assignments saved successfully!');
+                navigatePrintTabs(true);
                 onSaved?.({ assignments, documentType });
                 onOpenChange(false);
             } catch (err) {
                 toast.error('Failed to update asset assignments.');
+                navigatePrintTabs(false);
             } finally {
                 setSaving(false);
             }
         } else {
-            // Default issuance flow: notify parent first, then save async
             onSaved?.({ assignments, documentType });
             try {
                 setSaving(true);
                 await issuanceAPI.saveAssignments(issuanceId!, { assignments: finalAssignments });
                 toast.success('Receiver assignments saved successfully!');
+                navigatePrintTabs(true);
                 onOpenChange(false);
             } catch (err) {
                 toast.error('Failed to update asset assignments.');
+                navigatePrintTabs(false);
             } finally {
                 setSaving(false);
             }

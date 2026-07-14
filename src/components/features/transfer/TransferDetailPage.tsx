@@ -1057,8 +1057,29 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                             })),
                         });
                     }}
-                    onSaved={() => {
-                        router.push(`${baseRoute}/${transfer?.TransferID}/print`);
+                    onPreparePrintTabs={(assignments, id) => {
+                        const grouped = new Map<string, { receiverName: string; receiverOffice: string }>();
+                        assignments.forEach((assignment) => {
+                            const receiverName = assignment.receiver_name.trim() || 'Receiving Custodian';
+                            const receiverOffice = assignment.position_office?.trim() || '';
+                            const key = `${receiverName}||${receiverOffice}`;
+                            if (!grouped.has(key)) {
+                                grouped.set(key, { receiverName, receiverOffice });
+                            }
+                        });
+
+                        const groups = Array.from(grouped.values());
+                        const receiverKeys = groups.length > 0
+                            ? groups.map((group) => encodeURIComponent(JSON.stringify([group.receiverName, group.receiverOffice])))
+                            : [undefined];
+
+                        const windows = receiverKeys.map(() => window.open('about:blank', '_blank'));
+                        const urls = receiverKeys.map((value) => {
+                            const baseUrl = `${window.location.origin}${baseRoute}/${id}/print`;
+                            return value ? `${baseUrl}?receiver_key=${value}` : baseUrl;
+                        });
+
+                        return { windows, urls };
                     }}
                 />
             </div>
