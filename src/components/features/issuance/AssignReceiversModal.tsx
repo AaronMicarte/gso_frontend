@@ -48,6 +48,7 @@ function uid() { return Math.random().toString(36).slice(2, 9); }
 export default function AssignReceiversModal({ open, onOpenChange, issuanceId, documentType, items, onSaved, onCustomLoad, onCustomSave, onPreparePrintTabs }: Props) {
     const [rows, setRows] = React.useState<AssignmentRow[]>([]);
     const [saving, setSaving] = React.useState(false);
+    const [savingRows, setSavingRows] = React.useState<Record<string, boolean>>({});
     const [loadingHistory, setLoadingHistory] = React.useState(false);
 
     const availableItems = React.useMemo(() => {
@@ -364,6 +365,113 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
         }
     };
 
+    const handleSaveRow = async (rowId: string) => {
+        if (!issuanceId) {
+            toast.error('Missing target Issuance Identification ID.');
+            return;
+        }
+
+        const row = rows.find(r => r.id === rowId);
+        if (!row) {
+            toast.error('Receiver row not found.');
+            return;
+        }
+
+        if (!row.receiver_name.trim()) { toast.error('Receiver name is required.'); return; }
+        if (row.issuance_detail_id === '') { toast.error(`Please select an item for receiver "${row.receiver_name}".`); return; }
+        if (row.quantity < 1) { toast.error('Quantity must be at least 1.'); return; }
+
+        const chosenItem = availableItems.find(i => i.id === row.issuance_detail_id);
+        if (!chosenItem) { toast.error('Assigned item invalid.'); return; }
+
+        const alreadyAssignedElsewhere = getAssignedQtySumExceptRow(chosenItem.id, row.id);
+        const remainingAvailable = chosenItem.maxQty - alreadyAssignedElsewhere;
+        if (row.quantity > remainingAvailable) { toast.error('Requested quantity exceeds available remaining.'); return; }
+
+        const finalAssignments: Array<{ issuance_detail_id: number; receiver_name: string; position_office?: string; quantity: number }> = [];
+        const detailsPool = [...chosenItem.allDetailIds];
+        let assignedCountForUser = row.quantity;
+
+        while (assignedCountForUser > 0 && detailsPool.length > 0) {
+            const activeDetailId = detailsPool[0];
+            const sourceItems = items.filter(it => it.IssuanceDetailID === activeDetailId);
+            const sourceQty = sourceItems.reduce((acc, it) => acc + Math.max(1, Number(it.QuantityIssued ?? 1)), 0);
+
+            const alreadySavedFromActive = finalAssignments
+                .filter(f => f.issuance_detail_id === activeDetailId)
+                .reduce((sum, f) => sum + f.quantity, 0);
+
+            const capacityRemaining = sourceQty - alreadySavedFromActive;
+
+            if (capacityRemaining <= 0) {
+                detailsPool.shift();
+                continue;
+            }
+
+            const takeAmount = Math.min(assignedCountForUser, capacityRemaining);
+            finalAssignments.push({ issuance_detail_id: activeDetailId, receiver_name: row.receiver_name.trim(), position_office: (row.position_office || '').trim(), quantity: takeAmount });
+            assignedCountForUser -= takeAmount;
+            if (takeAmount === capacityRemaining) detailsPool.shift();
+        }
+
+        if (finalAssignments.length === 0) { toast.error('No available item quantity to assign.'); return; }
+
+        const grouping: Record<string, { detailIds: Set<number>; position_office?: string }> = {};
+        finalAssignments.forEach((a) => {
+            const name = String(a.receiver_name || '').trim();
+            const key = `${name}||${a.position_office || ''}`;
+            if (!grouping[key]) {
+                grouping[key] = { detailIds: new Set<number>(), position_office: a.position_office };
+            }
+            grouping[key].detailIds.add(Number(a.issuance_detail_id));
+        });
+
+        const assignments = Object.keys(grouping).map((key) => {
+            const [receiver_name] = key.split('||');
+            return {
+                receiver_name,
+                position_office: grouping[key].position_office,
+                detailIds: Array.from(grouping[key].detailIds),
+            };
+        });
+
+        const printTabTargets = onPreparePrintTabs?.(assignments.map((assignment) => ({ receiver_name: assignment.receiver_name, position_office: assignment.position_office })), issuanceId!) ?? { windows: [], urls: [] };
+
+        const navigatePrintTabs = (success: boolean) => {
+            if (!printTabTargets.windows?.length) return;
+            if (!success) {
+                printTabTargets.windows.forEach((win) => { if (win && !win.closed) win.close(); });
+                return;
+            }
+            printTabTargets.windows.forEach((win, idx) => {
+                const url = printTabTargets.urls[idx];
+                if (win && !win.closed && url) {
+                    win.location.href = url;
+                }
+            });
+        };
+
+        try {
+            setSavingRows(prev => ({ ...prev, [rowId]: true }));
+            if (onCustomSave) {
+                await onCustomSave(issuanceId!, finalAssignments);
+                toast.success('Receiver assignment saved!');
+                navigatePrintTabs(true);
+                onSaved?.({ assignments, documentType });
+            } else {
+                onSaved?.({ assignments, documentType });
+                await issuanceAPI.saveAssignments(issuanceId!, { assignments: finalAssignments });
+                toast.success('Receiver assignment saved!');
+                navigatePrintTabs(true);
+            }
+        } catch (err) {
+            toast.error('Failed to save receiver assignment.');
+            navigatePrintTabs(false);
+        } finally {
+            setSavingRows(prev => ({ ...prev, [rowId]: false }));
+        }
+    };
+
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>
             <Dialog.Portal>
@@ -543,6 +651,16 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                                 </svg>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                disabled={!row.receiver_name.trim() || row.issuance_detail_id === ''}
+                                                onClick={() => handleSaveRow(row.id)}
+                                                className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-sm rounded-lg transition-colors disabled:opacity-40"
+                                                title="Save this receiver assignment and open print tab"
+                                            >
+                                                {savingRows[row.id] ? 'Saving...' : 'Save & Print'}
                                             </button>
 
                                             <button
