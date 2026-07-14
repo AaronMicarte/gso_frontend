@@ -200,7 +200,12 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
         if (!detail) return undefined;
 
         const assigned = assignmentMap.get(detail.IssuanceDetailID);
-        return assigned?.position;
+        if (assigned?.position) return assigned.position;
+
+        // Fallback: show the current holder's department (not the person's name)
+        const inv = detail.inventoryDetail as any;
+        const fallbackDept = inv?.currentBorrowerDepartment || inv?.locationDepartment || issuance?.issuedToUser?.department?.DepartmentName || issuance?.deliveryReceipt?.DepartmentName || issuance?.request?.department?.DepartmentName || undefined;
+        return fallbackDept;
     };
 
     const aggregatedDetails = useMemo(() => {
