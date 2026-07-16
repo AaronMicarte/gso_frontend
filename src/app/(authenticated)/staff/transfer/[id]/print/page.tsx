@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import transferAPI from '@/lib/api/transfer';
 import { PropertyTransfer } from '@/types/propertyTransfer';
 import { PTRPrintView } from '@/components/features/transfer';
+import { exportPTRToExcel } from '@/components/features/transfer/PTRExport';
 
 export default function StaffTransferPrintPage() {
     const params = useParams();
     const router = useRouter();
     const [transfer, setTransfer] = useState<PropertyTransfer | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isExportingPTR, setIsExportingPTR] = useState(false);
 
     const transferId = params?.id ? parseInt(params.id as string) : null;
 
@@ -41,6 +44,19 @@ export default function StaffTransferPrintPage() {
             document.body.classList.remove('print-scope-active');
         };
     }, []);
+
+    const handlePTRExcelExport = async () => {
+        if (!transfer) return;
+        try {
+            setIsExportingPTR(true);
+            await exportPTRToExcel(transfer);
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to export PTR to Excel');
+        } finally {
+            setIsExportingPTR(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -75,12 +91,31 @@ export default function StaffTransferPrintPage() {
                 <Link href={`/staff/transfer/${transfer.TransferID}`} className="text-sm text-[var(--primary)] underline">
                     Back to transfer
                 </Link>
-                <button
-                    onClick={() => window.print()}
-                    className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)]"
-                >
-                    Print
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handlePTRExcelExport}
+                        disabled={isExportingPTR}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-50 border border-green-200 rounded-lg shadow-sm transition-colors"
+                    >
+                        {isExportingPTR ? (
+                            <>
+                                <span className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                                Exporting...
+                            </>
+                        ) : (
+                            <>
+                                <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                                Export PTR
+                            </>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => window.print()}
+                        className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)]"
+                    >
+                        Print
+                    </button>
+                </div>
             </div>
 
             <PTRPrintView transfer={transfer} />
