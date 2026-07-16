@@ -80,6 +80,8 @@ export interface PropertyTransfer {
     BorrowerSignedAt?: string | null;
     BorrowingSignedAt?: string | null;
     GsoNotes?: string | null;
+    SupplierName?: string | null;
+    PONumber?: string | null;
     created_at?: string | null;
     updated_at?: string | null;
     items?: PropertyTransferItem[];

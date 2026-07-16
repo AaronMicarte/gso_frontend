@@ -19,6 +19,14 @@ interface ReceiverGroup {
     items: Array<{ item: PropertyTransferItem; assignedQty: number }>;
 }
 
+interface CompressedItem {
+    description: string;
+    unitName: string;
+    propertyNumbers: string[];
+    unitCost: number;
+    totalQty: number;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatPHDate = (dateString?: string | null): string => {
@@ -42,9 +50,9 @@ const FONT = 'Aptos Narrow';
 // Template fixed rows
 const DATA_START = 11;
 const DATA_END = 26;
-const TOTAL_ROW = 27; // row 27 col F holds =SUM(F11:F26) effectively via formula zone
+const TOTAL_ROW = 27;
 
-// Signature block rows (template layout)
+// Signature block rows
 const RELEASING_NAME_ROW = 39;
 const RELEASING_POSITION_ROW = 41;
 const RELEASING_DATE_ROW = 43;
@@ -55,7 +63,88 @@ const WITNESSED_NAME_ROW = 48;
 const WITNESSED_POSITION_ROW = 50;
 const WITNESSED_DATE_ROW = 52;
 
-// ── Resolve receiver groups (mirrors PTRPrintView logic) ─────────────────────
+// ── Property number compression ───────────────────────────────────────────────
+
+function compressPropertyNumbers(items: Array<{ item: PropertyTransferItem; assignedQty: number }>): CompressedItem[] {
+    const grouped = new Map<string, CompressedItem>();
+
+    items.forEach((row) => {
+        const inv = row.item.inventoryDetail as any;
+        const articleName = inv?.drDetail?.article?.ArticleName;
+        const itemDescription = inv?.drDetail?.ItemDescription;
+        const description = ensureText(
+            articleName
+                ? `${articleName}${itemDescription ? `, ${itemDescription}` : ''}`
+                : inv?.Description || itemDescription,
+            'Item description',
+        );
+        const unitName = ensureText(inv?.unitOfMeasure?.UnitName, 'unit');
+        const propertyNo = ensureText(inv?.PropertyNumber, '');
+        const unitCost = Number(inv?.UnitCost ?? 0);
+        const qty = Math.max(1, Number(row.assignedQty ?? 1));
+        const key = `${description}||${unitName}||${unitCost}`;
+
+        const existing = grouped.get(key);
+        if (existing) {
+            existing.propertyNumbers.push(propertyNo);
+            existing.totalQty += qty;
+        } else {
+            grouped.set(key, { description, unitName, propertyNumbers: [propertyNo], unitCost, totalQty: qty });
+        }
+    });
+
+    return Array.from(grouped.values());
+}
+
+function formatPropertyRange(numbers: string[]): string {
+    if (numbers.length === 0) return '';
+    if (numbers.length === 1) return numbers[0];
+
+    const first = numbers[0];
+    const match = first.match(/^(.*?)(\d+)$/);
+    if (!match) return numbers.join(', ');
+
+    const prefix = match[1];
+    const suffixLen = match[2].length;
+
+    const allMatch = numbers.every((n) => {
+        const m = n.match(/^(.*?)(\d+)$/);
+        return m && m[1] === prefix && m[2].length === suffixLen;
+    });
+
+    if (!allMatch) return numbers.join(', ');
+
+    const suffixes = numbers
+        .map((n) => parseInt(n.match(/(\d+)$/)![1], 10))
+        .sort((a, b) => a - b);
+
+    const ranges: string[] = [];
+    let start = suffixes[0];
+    let end = suffixes[0];
+
+    for (let i = 1; i < suffixes.length; i++) {
+        if (suffixes[i] === end + 1) {
+            end = suffixes[i];
+        } else {
+            ranges.push(
+                start === end
+                    ? `${String(start).padStart(suffixLen, '0')}`
+                    : `${String(start).padStart(suffixLen, '0')}/${String(end).padStart(suffixLen, '0')}`,
+            );
+            start = suffixes[i];
+            end = suffixes[i];
+        }
+    }
+    ranges.push(
+        start === end
+            ? `${String(start).padStart(suffixLen, '0')}`
+            : `${String(start).padStart(suffixLen, '0')}/${String(end).padStart(suffixLen, '0')}`,
+    );
+
+    return `${prefix}${ranges.join(', ')}`;
+}
+
+// ── Resolve receiver groups ───────────────────────────────────────────────────
 
 function buildReceiverGroups(
     assignments: ReceiverAssignment[],
@@ -143,25 +232,37 @@ async function writeReceiverSheet(
     witnessedOffice: string,
     docDate: string,
 ): Promise<void> {
-    // Load a fresh workbook from template for each sheet
     const sheetWb = new ExcelJS.Workbook();
     await sheetWb.xlsx.load(templateBuffer);
     const srcWs = sheetWb.getWorksheet(1);
     if (!srcWs) return;
 
-    // Add a new sheet to main workbook by copying
     const ws = wb.addWorksheet(sheetName);
+
+    // ── Copy images (Logo) from template to the new sheet ────────────────────
+    if (srcWs.getImages) {
+        srcWs.getImages().forEach((image) => {
+            const img = sheetWb.getImage(Number(image.imageId));
+            const newImageId = wb.addImage({
+                buffer: img.buffer,
+                extension: img.extension,
+            });
+            ws.addImage(newImageId, image.range);
+        });
+    }
 
     // Copy column widths
     srcWs.columns.forEach((col, idx) => {
         ws.getColumn(idx + 1).width = col.width ?? 15;
     });
 
-    // Copy row heights, cell values, styles, merges
+    // Copy merges, row heights, cell values and styles
     const merges = (srcWs as any)._merges as Record<string, any>;
     if (merges) {
         Object.values(merges).forEach((merge: any) => {
-            try { ws.mergeCells(merge.model?.top, merge.model?.left, merge.model?.bottom, merge.model?.right); } catch { /* skip */ }
+            try {
+                ws.mergeCells(merge.model?.top, merge.model?.left, merge.model?.bottom, merge.model?.right);
+            } catch { /* skip */ }
         });
     }
 
@@ -171,7 +272,6 @@ async function writeReceiverSheet(
         row.eachCell({ includeEmpty: true }, (cell, colNum) => {
             const newCell = newRow.getCell(colNum);
             newCell.style = JSON.parse(JSON.stringify(cell.style));
-            // Don't copy existing data-zone formulas/values — we'll overwrite them
             if (rowNum >= DATA_START && rowNum <= DATA_END && colNum <= 6) return;
             if (cell.formula) {
                 newCell.value = { formula: cell.formula, result: cell.result };
@@ -188,42 +288,37 @@ async function writeReceiverSheet(
         }
     }
 
-    // ── Write items ────────────────────────────────────────────────────────────
+    // ── Write compressed items ─────────────────────────────────────────────────
     let currentRow = DATA_START;
     const MAX_ROW = DATA_END;
 
-    group.items.forEach((row, index) => {
+    const compressedItems = compressPropertyNumbers(group.items);
+
+    compressedItems.forEach((row) => {
         if (currentRow > MAX_ROW) return;
 
-        const inv = row.item.inventoryDetail as any;
-        const description = ensureText(
-            inv?.Description || inv?.drDetail?.ItemDescription,
-            'Item description',
-        );
-        const unitName = ensureText(inv?.unitOfMeasure?.UnitName, 'unit');
-        const propertyNo = ensureText(inv?.PropertyNumber, `${index + 1}`);
-        const unitCost = Number(inv?.UnitCost ?? 0);
-        const qty = Math.max(1, Number(row.assignedQty ?? 1));
-        const total = qty * unitCost;
+        const propertyDisplay = formatPropertyRange(row.propertyNumbers);
+        const total = row.totalQty * row.unitCost;
 
-        ws.getCell(currentRow, 1).value = qty;
+        ws.getCell(currentRow, 1).value = row.totalQty;
         ws.getCell(currentRow, 1).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 1).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        ws.getCell(currentRow, 2).value = unitName;
+        ws.getCell(currentRow, 2).value = row.unitName;
         ws.getCell(currentRow, 2).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 2).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        ws.getCell(currentRow, 3).value = description;
+        // ── Item Description (Centered) ──────────────────────────────────────
+        ws.getCell(currentRow, 3).value = row.description;
         ws.getCell(currentRow, 3).font = { name: FONT, size: 10 };
-        ws.getCell(currentRow, 3).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        ws.getCell(currentRow, 3).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
-        ws.getCell(currentRow, 4).value = propertyNo;
+        ws.getCell(currentRow, 4).value = propertyDisplay;
         ws.getCell(currentRow, 4).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 4).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
-        if (unitCost > 0) {
-            ws.getCell(currentRow, 5).value = unitCost;
+        if (row.unitCost > 0) {
+            ws.getCell(currentRow, 5).value = row.unitCost;
             ws.getCell(currentRow, 5).numFmt = '#,##0.00';
             ws.getCell(currentRow, 5).font = { name: FONT, size: 10 };
             ws.getCell(currentRow, 5).alignment = { horizontal: 'right', vertical: 'middle' };
@@ -241,56 +336,76 @@ async function writeReceiverSheet(
         currentRow++;
     });
 
-    // ── Total row (row 27 in template) ─────────────────────────────────────────
-    const grandTotal = group.items.reduce((sum, row) => {
-        const inv = row.item.inventoryDetail as any;
-        const unitCost = Number(inv?.UnitCost ?? 0);
-        return sum + Math.max(1, Number(row.assignedQty ?? 1)) * unitCost;
-    }, 0);
+    // ── Clear the grand total cell (prevents values rendering next to supplier name) ──
+    ws.getCell(TOTAL_ROW, 6).value = null;
 
-    ws.getCell(TOTAL_ROW, 6).value = {
-        formula: `SUM(F${DATA_START}:F${DATA_END})`,
-        result: grandTotal,
+    const getSupplierNameFromTransfer = (transfer: PropertyTransfer): string => {
+        if (transfer.SupplierName) return transfer.SupplierName;
+        for (const item of transfer.items ?? []) {
+            const inv: any = item.inventoryDetail;
+            const receipt = inv?.drDetail?.deliveryReceipt ?? inv?.inventory?.deliveryReceipt;
+            const supplier = receipt?.supplier?.SupplierName ?? receipt?.SupplierName;
+            if (supplier) return supplier;
+        }
+        return '';
     };
-    ws.getCell(TOTAL_ROW, 6).numFmt = '#,##0.00;;';
 
-    // ── Releasing custodian (left column, rows 39–43) ─────────────────────────
-    ws.getCell(RELEASING_NAME_ROW, 1).value = releasingName;
-    ws.getCell(RELEASING_NAME_ROW, 1).font = { name: FONT, size: 11, bold: true };
+    const getPONumberFromTransfer = (transfer: PropertyTransfer): string => {
+        if (transfer.PONumber) return transfer.PONumber;
+        for (const item of transfer.items ?? []) {
+            const inv: any = item.inventoryDetail;
+            const receipt = inv?.drDetail?.deliveryReceipt ?? inv?.inventory?.deliveryReceipt;
+            const po = receipt?.PONumber;
+            if (po) return po;
+        }
+        return '';
+    };
+
+    const supplierName = ensureText(getSupplierNameFromTransfer(transfer), '');
+    const poNumber = getPONumberFromTransfer(transfer);
+
+    // ── Supplier / PO / Supplier department ────────────────────────────────────
+    ws.getCell(27, 3).value = supplierName;
+    ws.getCell(28, 3).value = poNumber ? `PO NO: ${poNumber}` : '';
+    ws.getCell(29, 3).value = ensureText(transfer.fromDepartment?.DepartmentName, '');
+
+    // ── Releasing custodian (Received From) ───────────────────────────────────
+    ws.getCell(RELEASING_NAME_ROW, 1).value = releasingName.toUpperCase();
+    ws.getCell(RELEASING_NAME_ROW, 1).font = { name: FONT, size: 11, bold: false, underline: true };
     ws.getCell(RELEASING_NAME_ROW, 1).alignment = { horizontal: 'center', vertical: 'middle' };
 
     ws.getCell(RELEASING_POSITION_ROW, 1).value = releasingOffice;
-    ws.getCell(RELEASING_POSITION_ROW, 1).font = { name: FONT, size: 10 };
+    ws.getCell(RELEASING_POSITION_ROW, 1).font = { name: FONT, size: 10, underline: true };
     ws.getCell(RELEASING_POSITION_ROW, 1).alignment = { horizontal: 'center', vertical: 'middle' };
 
     ws.getCell(RELEASING_DATE_ROW, 1).value = formatPHDate(transfer.BorrowerSignedAt) || docDate;
-    ws.getCell(RELEASING_DATE_ROW, 1).font = { name: FONT, size: 10 };
+    ws.getCell(RELEASING_DATE_ROW, 1).font = { name: FONT, size: 10, underline: true };
     ws.getCell(RELEASING_DATE_ROW, 1).alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // ── Receiving custodian (right column, rows 39–43) ────────────────────────
-    ws.getCell(RECEIVING_NAME_ROW, 4).value = group.receiverName;
-    ws.getCell(RECEIVING_NAME_ROW, 4).font = { name: FONT, size: 11, bold: true };
+    // ── Receiving custodian (Received By) ─────────────────────────────────────
+    ws.getCell(RECEIVING_NAME_ROW, 4).value = group.receiverName.toUpperCase();
+    ws.getCell(RECEIVING_NAME_ROW, 4).font = { name: FONT, size: 11, bold: false, underline: true };
     ws.getCell(RECEIVING_NAME_ROW, 4).alignment = { horizontal: 'center', vertical: 'middle' };
 
     ws.getCell(RECEIVING_POSITION_ROW, 4).value = group.receiverOffice;
-    ws.getCell(RECEIVING_POSITION_ROW, 4).font = { name: FONT, size: 10 };
+    ws.getCell(RECEIVING_POSITION_ROW, 4).font = { name: FONT, size: 10, underline: true };
     ws.getCell(RECEIVING_POSITION_ROW, 4).alignment = { horizontal: 'center', vertical: 'middle' };
 
     ws.getCell(RECEIVING_DATE_ROW, 4).value = formatPHDate(transfer.BorrowingSignedAt) || docDate;
-    ws.getCell(RECEIVING_DATE_ROW, 4).font = { name: FONT, size: 10 };
+    ws.getCell(RECEIVING_DATE_ROW, 4).font = { name: FONT, size: 10, underline: true };
     ws.getCell(RECEIVING_DATE_ROW, 4).alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // ── Witnessed-by block (center, rows 48–52) ───────────────────────────────
-    ws.getCell(WITNESSED_NAME_ROW, 3).value = witnessedName;
-    ws.getCell(WITNESSED_NAME_ROW, 3).font = { name: FONT, size: 11, bold: true };
+    // ── Witnessed-by (Property Custodian) ─────────────────────────────────────
+    ws.getCell(WITNESSED_NAME_ROW, 3).value = 'NILO SABAYANON';
+    ws.getCell(WITNESSED_NAME_ROW, 3).font = { name: FONT, size: 11, bold: false, underline: true };
     ws.getCell(WITNESSED_NAME_ROW, 3).alignment = { horizontal: 'center', vertical: 'middle' };
 
-    ws.getCell(WITNESSED_POSITION_ROW, 3).value = witnessedOffice;
-    ws.getCell(WITNESSED_POSITION_ROW, 3).font = { name: FONT, size: 10 };
+    ws.getCell(WITNESSED_POSITION_ROW, 3).value = 'Supply Officer III';
+    ws.getCell(WITNESSED_POSITION_ROW, 3).font = { name: FONT, size: 10, underline: true };
     ws.getCell(WITNESSED_POSITION_ROW, 3).alignment = { horizontal: 'center', vertical: 'middle' };
 
-    ws.getCell(WITNESSED_DATE_ROW, 3).value = docDate;
-    ws.getCell(WITNESSED_DATE_ROW, 3).font = { name: FONT, size: 10 };
+    ws.getCell(WITNESSED_DATE_ROW, 3).value = formatPHDate(transfer.BorrowerSignedAt) || docDate;
+    ws.getCell(WITNESSED_DATE_ROW, 3).font = { name: FONT, size: 10, underline: true };
     ws.getCell(WITNESSED_DATE_ROW, 3).alignment = { horizontal: 'center', vertical: 'middle' };
 
     // ── Print setup ────────────────────────────────────────────────────────────
@@ -305,7 +420,7 @@ async function writeReceiverSheet(
     ws.views = [{ showGridLines: true }];
 }
 
-// ── Main export ──────────────────────────────────────────────────────────────
+// ── Main export ───────────────────────────────────────────────────────────────
 
 export async function exportPTRToExcel(transfer: PropertyTransfer): Promise<void> {
     const templateUrl = `${window.location.origin}/assets/templates/PTR.xlsx`;
@@ -313,7 +428,6 @@ export async function exportPTRToExcel(transfer: PropertyTransfer): Promise<void
     if (!response.ok) throw new Error(`Failed to load PTR template (Status: ${response.status})`);
     const templateBuffer = await response.arrayBuffer();
 
-    // ── Resolve assignments ────────────────────────────────────────────────────
     let assignments: ReceiverAssignment[] = [];
     try {
         const res = await transferAPI.getReceiverAssignments(transfer.TransferID);
@@ -333,7 +447,6 @@ export async function exportPTRToExcel(transfer: PropertyTransfer): Promise<void
         'DEPARTMENT',
     );
 
-    // Witnessed-by defaults to issuer / supply officer placeholder
     const witnessedName = ensureText((transfer as any).issuer?.FullName, 'PROPERTY CUSTODIAN');
     const witnessedOffice = ensureText(
         (transfer as any).issuer?.department?.DepartmentName,
@@ -347,7 +460,6 @@ export async function exportPTRToExcel(transfer: PropertyTransfer): Promise<void
 
     const groups = buildReceiverGroups(assignments, transfer, receivingName, receivingOffice);
 
-    // ── Build workbook (one sheet per receiver group) ─────────────────────────
     const wb = new ExcelJS.Workbook();
 
     for (let i = 0; i < groups.length; i++) {
@@ -370,7 +482,6 @@ export async function exportPTRToExcel(transfer: PropertyTransfer): Promise<void
         );
     }
 
-    // ── Download ───────────────────────────────────────────────────────────────
     const outBuffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([outBuffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

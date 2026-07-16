@@ -85,6 +85,8 @@ interface RawTransfer {
     FromEndUserID?: number | null;
     ToEndUserID?: number | null;
     Reason?: string | null;
+    SupplierName?: string | null;
+    PONumber?: string | null;
     RequestedItemsCount?: number | null;
     ReleasingDecision?: 'pending' | 'approved' | 'rejected';
     ReleasingApprovedCount?: number | null;
@@ -223,6 +225,8 @@ const normalizeTransfer = (transfer: RawTransfer): PropertyTransfer => {
         BorrowerSignedAt: transfer.BorrowerSignedAt ?? null,
         BorrowingSignedAt: transfer.BorrowingSignedAt ?? null,
         GsoNotes: transfer.GsoNotes ?? null,
+        SupplierName: transfer.SupplierName ?? null,
+        PONumber: transfer.PONumber ?? null,
         created_at: transfer.created_at ?? null,
         updated_at: transfer.updated_at ?? null,
         items_count: transfer.items_count,
