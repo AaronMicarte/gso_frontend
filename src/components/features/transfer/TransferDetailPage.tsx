@@ -1069,17 +1069,19 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                         });
 
                         const groups = Array.from(grouped.values());
-                        const receiverKeys = groups.length > 0
-                            ? groups.map((group) => encodeURIComponent(JSON.stringify([group.receiverName, group.receiverOffice])))
-                            : [undefined];
+                        const baseUrl = `${window.location.origin}${baseRoute}/${id}/print`;
 
-                        const windows = receiverKeys.map(() => window.open('about:blank', '_blank'));
-                        const urls = receiverKeys.map((value) => {
-                            const baseUrl = `${window.location.origin}${baseRoute}/${id}/print`;
-                            return value ? `${baseUrl}?receiver_key=${value}` : baseUrl;
-                        });
+                        // If exactly one receiver was selected (Save & Print), open a single tab filtered to that receiver.
+                        if (groups.length === 1) {
+                            const value = encodeURIComponent(JSON.stringify([groups[0].receiverName, groups[0].receiverOffice]));
+                            const url = `${baseUrl}?receiver_key=${value}`;
+                            const win = window.open('about:blank', '_blank');
+                            return { windows: [win], urls: [url] };
+                        }
 
-                        return { windows, urls };
+                        // For multiple receivers (Save Assignments & Print All) open one tab for the full print view.
+                        const win = window.open('about:blank', '_blank');
+                        return { windows: [win], urls: [baseUrl] };
                     }}
                 />
             </div>

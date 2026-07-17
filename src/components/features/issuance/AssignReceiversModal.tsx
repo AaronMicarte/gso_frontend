@@ -693,7 +693,7 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
                             disabled={saving || loadingHistory}
                             className="px-5 py-2 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-sm transition-colors shadow-md disabled:opacity-50"
                         >
-                            {saving ? 'Processing...' : 'Save Assignments & Print'}
+                            {saving ? 'Processing...' : 'Save Assignments & Print All'}
                         </button>
                     </div>
 

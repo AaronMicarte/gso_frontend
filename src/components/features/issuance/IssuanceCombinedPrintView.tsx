@@ -49,6 +49,10 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
         () => parseSelectedDetailIds(searchParams.get('details')),
         [searchParams],
     );
+    const receiverKey = useMemo(
+        () => searchParams.get('receiver_key') ?? undefined,
+        [searchParams],
+    );
 
     useEffect(() => {
         document.body.classList.add('print-scope-active');
@@ -122,7 +126,7 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
         }
         try {
             setIsExportingPAR(true);
-            await exportPARToExcel(parIssuance, selectedDetailIds);
+            await exportPARToExcel(parIssuance, selectedDetailIds, receiverKey);
         } catch (err) {
             console.error(err);
             toast.error('Failed to export PAR to Excel');
@@ -139,7 +143,7 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
         }
         try {
             setIsExportingICS(true);
-            await exportICSToExcel(icsIssuance, selectedDetailIds);
+            await exportICSToExcel(icsIssuance, selectedDetailIds, receiverKey);
         } catch (err) {
             console.error(err);
             toast.error('Failed to export ICS to Excel');

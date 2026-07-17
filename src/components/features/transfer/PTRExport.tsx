@@ -231,6 +231,7 @@ async function writeReceiverSheet(
     witnessedName: string,
     witnessedOffice: string,
     docDate: string,
+    fallbackReceivingOffice: string,
 ): Promise<void> {
     const sheetWb = new ExcelJS.Workbook();
     await sheetWb.xlsx.load(templateBuffer);
@@ -308,7 +309,6 @@ async function writeReceiverSheet(
         ws.getCell(currentRow, 2).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 2).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // ── Item Description (Centered) ──────────────────────────────────────
         ws.getCell(currentRow, 3).value = row.description;
         ws.getCell(currentRow, 3).font = { name: FONT, size: 10 };
         ws.getCell(currentRow, 3).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -336,7 +336,7 @@ async function writeReceiverSheet(
         currentRow++;
     });
 
-    // ── Clear the grand total cell (prevents values rendering next to supplier name) ──
+    // ── Clear the grand total cell ─────────────────────────────────────────────
     ws.getCell(TOTAL_ROW, 6).value = null;
 
     const getSupplierNameFromTransfer = (transfer: PropertyTransfer): string => {
@@ -387,7 +387,8 @@ async function writeReceiverSheet(
     ws.getCell(RECEIVING_NAME_ROW, 4).font = { name: FONT, size: 11, bold: false, underline: true };
     ws.getCell(RECEIVING_NAME_ROW, 4).alignment = { horizontal: 'center', vertical: 'middle' };
 
-    ws.getCell(RECEIVING_POSITION_ROW, 4).value = group.receiverOffice;
+    // Falls back to department name if position_office is blank
+    ws.getCell(RECEIVING_POSITION_ROW, 4).value = group.receiverOffice || fallbackReceivingOffice;
     ws.getCell(RECEIVING_POSITION_ROW, 4).font = { name: FONT, size: 10, underline: true };
     ws.getCell(RECEIVING_POSITION_ROW, 4).alignment = { horizontal: 'center', vertical: 'middle' };
 
@@ -422,7 +423,7 @@ async function writeReceiverSheet(
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export async function exportPTRToExcel(transfer: PropertyTransfer): Promise<void> {
+export async function exportPTRToExcel(transfer: PropertyTransfer, receiverKey?: string): Promise<void> {
     const templateUrl = `${window.location.origin}/assets/templates/PTR.xlsx`;
     const response = await fetch(templateUrl);
     if (!response.ok) throw new Error(`Failed to load PTR template (Status: ${response.status})`);
@@ -458,7 +459,19 @@ export async function exportPTRToExcel(transfer: PropertyTransfer): Promise<void
         formatPHDate(new Date().toISOString()),
     );
 
-    const groups = buildReceiverGroups(assignments, transfer, receivingName, receivingOffice);
+    let groups = buildReceiverGroups(assignments, transfer, receivingName, receivingOffice);
+
+    // Filter to single receiver if receiver_key is provided
+    if (receiverKey) {
+        try {
+            const [filterReceiverName, filterReceiverOffice] = JSON.parse(decodeURIComponent(receiverKey));
+            groups = groups.filter(
+                (g) => g.receiverName === filterReceiverName && g.receiverOffice === filterReceiverOffice
+            );
+        } catch {
+            // If parsing fails, use all groups
+        }
+    }
 
     const wb = new ExcelJS.Workbook();
 
@@ -479,6 +492,7 @@ export async function exportPTRToExcel(transfer: PropertyTransfer): Promise<void
             witnessedName,
             witnessedOffice,
             docDate,
+            receivingOffice, // fallback department name for receiver position
         );
     }
 

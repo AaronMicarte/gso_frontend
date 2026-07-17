@@ -18,6 +18,12 @@ interface GroupedParRow {
     maxSequence: number;
 }
 
+interface ReceiverGroup {
+    receiverName: string;
+    receiverOffice: string;
+    detailIds: number[];
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatPHDate = (dateString?: string | null): string => {
@@ -41,11 +47,6 @@ function parseTrailingNumber(value: string): number | null {
     return match ? Number(match[2]) : null;
 }
 
-/**
- * Split a description string into lines that fit within column C.
- * Splits on ", " boundaries (natural spec separators), then hard-wraps anything
- * still too long. Column C is ~66 chars wide at 11pt Aptos Narrow.
- */
 function splitDescriptionLines(description: string, maxLen = 80): string[] {
     if (!description) return [''];
     const parts = description.split(', ');
@@ -82,102 +83,70 @@ const PO_ROW = 47;
 const DATA_END = 50;
 const TOTAL_ROW = 51;
 
-// ── Main export ──────────────────────────────────────────────────────────────
+// ── Build receiver groups from assignments ────────────────────────────────────
 
-export async function exportPARToExcel(
-    issuance: AssetIssuance,
-    selectedDetailIds?: number[],
-): Promise<void> {
-    const templateUrl = `${window.location.origin}/assets/templates/PAR.xlsx`;
-    const response = await fetch(templateUrl);
-    if (!response.ok) throw new Error(`Failed to load PAR template (Status: ${response.status})`);
-    const buffer = await response.arrayBuffer();
+function buildReceiverGroups(
+    assignments: Array<{ issuance_detail_id?: number; receiver_name?: string; position_office?: string }>,
+    allDetailIds: number[],
+    fallbackName: string,
+    fallbackOffice: string,
+): ReceiverGroup[] {
+    const grouped = new Map<string, { receiverName: string; receiverOffice: string; detailIds: Set<number> }>();
 
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buffer);
-
-    const ws = wb.getWorksheet(1);
-    if (!ws) throw new Error('Worksheet not found in PAR template');
-
-    // ── Resolve data ──────────────────────────────────────────────────────────
-
-    const allDetails = issuance.details ?? [];
-    const details = selectedDetailIds?.length
-        ? allDetails.filter((d) => selectedDetailIds.includes(d.IssuanceDetailID))
-        : allDetails;
-
-    const docDate = ensureText(
-        formatPHDate(issuance.IssuanceDate),
-        formatPHDate(new Date().toISOString()),
-    );
-    const receivedDate = ensureText(
-        issuance.AcknowledgedAt ? formatPHDate(issuance.AcknowledgedAt) : '',
-        docDate,
-    );
-    let receivedByName = ensureText(
-        issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
-        'END USER',
-    );
-    let receivedByOffice = ensureText(
-        issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
-        'DEPARTMENT',
-    );
-
-    try {
-        const id = issuance.IssuanceID;
-        if (id) {
-            const res = await issuanceAPI.getAssignments(id);
-            const rows = res?.data ?? [];
-            const filtered = rows
-                .filter((row: { issuance_detail_id?: number }) => {
-                    if (!selectedDetailIds?.length) return true;
-                    return selectedDetailIds.includes(Number(row.issuance_detail_id));
-                })
-                .map((row: { receiver_name?: string; position_office?: string }) => ({
-                    receiver_name: String(row.receiver_name || '').trim(),
-                    position_office: String(row.position_office || '').trim(),
-                }))
-                .filter((row: { receiver_name: string }) => row.receiver_name.length > 0);
-
-            if (filtered.length > 0) {
-                const seen = new Set<string>();
-                const unique: Array<{ receiver_name: string; position_office: string }> = [];
-                filtered.forEach((item: { receiver_name: string; position_office: string }) => {
-                    const key = `${item.receiver_name}||${item.position_office}`;
-                    if (!seen.has(key)) {
-                        seen.add(key);
-                        unique.push({
-                            receiver_name: item.receiver_name,
-                            position_office: item.position_office || receivedByOffice
-                        });
-                    }
-                });
-
-                receivedByName = unique.map(u => u.receiver_name).join('\n');
-                receivedByOffice = unique.map(u => u.position_office).join('\n');
-            }
+    assignments.forEach((a) => {
+        const name = String(a.receiver_name || '').trim() || fallbackName;
+        const office = String(a.position_office || '').trim();
+        const key = `${name}||${office}`;
+        if (!grouped.has(key)) {
+            grouped.set(key, { receiverName: name, receiverOffice: office, detailIds: new Set() });
         }
-    } catch (e) {
-        console.error('Failed to load assignments for Excel export', e);
+        if (a.issuance_detail_id) {
+            grouped.get(key)!.detailIds.add(Number(a.issuance_detail_id));
+        }
+    });
+
+    if (grouped.size === 0) {
+        return [{ receiverName: fallbackName, receiverOffice: fallbackOffice, detailIds: allDetailIds }];
     }
 
-    const issuedByName = ensureText(issuance.issuer?.FullName, 'PROPERTY CUSTODIAN');
-    const issuedByOffice = ensureText(issuance.issuer?.department?.DepartmentName, 'GENERAL SERVICES OFFICE');
+    const pages: ReceiverGroup[] = [];
+    grouped.forEach((g) => {
+        if (g.detailIds.size > 0) {
+            pages.push({ receiverName: g.receiverName, receiverOffice: g.receiverOffice, detailIds: Array.from(g.detailIds) });
+        }
+    });
 
-    const dr = issuance.deliveryReceipt as any;
-    console.log('DR object:', JSON.stringify(dr));
-    const supplierName = ensureText(dr?.SupplierName, '');
-    const poNumber = ensureText(dr?.PONumber, '');
+    return pages.length > 0
+        ? pages
+        : [{ receiverName: fallbackName, receiverOffice: fallbackOffice, detailIds: allDetailIds }];
+}
+
+// ── Write one sheet ───────────────────────────────────────────────────────────
+
+async function writeReceiverSheet(
+    wb: ExcelJS.Workbook,
+    templateBuffer: ArrayBuffer,
+    sheetName: string,
+    issuance: AssetIssuance,
+    group: ReceiverGroup,
+    issuedByName: string,
+    issuedByOffice: string,
+    supplierName: string,
+    poNumber: string,
+    docDate: string,
+    receivedDate: string,
+    departmentName: string,
+): Promise<void> {
+    const allDetails = issuance.details ?? [];
+    const details = allDetails.filter((d) => group.detailIds.includes(d.IssuanceDetailID));
 
     // ── Group & build description lines ──────────────────────────────────────
-
     const groupedMap = details.reduce<Map<string, GroupedParRow>>((map, detail, index) => {
         const inv = detail.inventoryDetail;
         const pInv = inv?.propertyInventory;
 
         const itemName = ensureText(pInv?.ItemDescription || pInv?.ItemName || detail.ItemDescription, 'ITEM');
         const technical = ensureText(inv?.Description, '');
-
         const brandModel = [pInv?.Brand, pInv?.ModelNumber].filter(Boolean).join(', ');
         const fullDescription = [itemName, technical, brandModel].filter(Boolean).join(', ');
 
@@ -228,25 +197,72 @@ export async function exportPARToExcel(
         return a.descriptionLines[0].localeCompare(b.descriptionLines[0]);
     });
 
-    // ── Enforce ONLY the LEFT border on columns A2 to A9 ─────────────────────
+    // ── Load template & copy into new sheet ──────────────────────────────────
+    const sheetWb = new ExcelJS.Workbook();
+    await sheetWb.xlsx.load(templateBuffer);
+    const srcWs = sheetWb.getWorksheet(1);
+    if (!srcWs) return;
+
+    const ws = wb.addWorksheet(sheetName);
+
+    // Copy images (Logo)
+    if (srcWs.getImages) {
+        srcWs.getImages().forEach((image) => {
+            const img = sheetWb.getImage(Number(image.imageId));
+            const newImageId = wb.addImage({ buffer: img.buffer, extension: img.extension });
+            ws.addImage(newImageId, image.range);
+        });
+    }
+
+    // Copy column widths
+    srcWs.columns.forEach((col, idx) => {
+        ws.getColumn(idx + 1).width = col.width ?? 15;
+    });
+
+    // Copy merges, row heights, cell values and styles
+    const merges = (srcWs as any)._merges as Record<string, any>;
+    if (merges) {
+        Object.values(merges).forEach((merge: any) => {
+            try {
+                ws.mergeCells(merge.model?.top, merge.model?.left, merge.model?.bottom, merge.model?.right);
+            } catch { /* skip */ }
+        });
+    }
+
+    srcWs.eachRow({ includeEmpty: true }, (row, rowNum) => {
+        const newRow = ws.getRow(rowNum);
+        newRow.height = row.height ?? undefined;
+        row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+            const newCell = newRow.getCell(colNum);
+            newCell.style = JSON.parse(JSON.stringify(cell.style));
+            if (rowNum >= DATA_START && rowNum <= DATA_END && colNum <= 6) return;
+            if (cell.formula) {
+                newCell.value = { formula: cell.formula, result: cell.result };
+            } else {
+                newCell.value = cell.value;
+            }
+        });
+    });
+
+    // ── Enforce left border on A2:A9 ─────────────────────────────────────────
     ['A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9'].forEach((coord) => {
         const cell = ws.getCell(coord);
         cell.border = {
             top: cell.border?.top,
             bottom: cell.border?.bottom,
             right: cell.border?.right,
-            left: { style: 'thin' }, // Kept strictly on the left edge only
+            left: { style: 'thin' },
         };
     });
 
     // ── Header ────────────────────────────────────────────────────────────────
     ws.getCell('B10').value = 'EL SALVADOR CITY';
-    ws.getCell('B11').value = receivedByOffice;
+    ws.getCell('B11').value = departmentName;
     ws.getCell('C12').value = rows[0]?.dateAcquired || docDate;
     ws.getCell('C12').numFmt = '@';
     ws.getCell('E12').value = `PAR NO. ${ensureText(issuance.DocumentNumber, 'PAR')}`;
 
-    // ── Clear data zone rows 14–50 (values only — preserved left borders) ──
+    // ── Clear data zone ───────────────────────────────────────────────────────
     for (let r = DATA_START; r <= DATA_END; r++) {
         for (let c = 1; c <= 6; c++) {
             ws.getCell(r, c).value = null;
@@ -254,7 +270,7 @@ export async function exportPARToExcel(
     }
 
     // ── Write item rows ───────────────────────────────────────────────────────
-    const DATA_ITEM_END = SUPPLIER_ROW - 1; // row 45
+    const DATA_ITEM_END = SUPPLIER_ROW - 1;
     let currentRow = DATA_START;
 
     rows.forEach((item) => {
@@ -262,7 +278,6 @@ export async function exportPARToExcel(
 
         item.descriptionLines.forEach((line, lineIndex) => {
             if (currentRow > DATA_ITEM_END) return;
-
             const isFirstLine = lineIndex === 0;
 
             if (isFirstLine) {
@@ -310,35 +325,32 @@ export async function exportPARToExcel(
         ws.getCell(PO_ROW, 3).alignment = { horizontal: 'left', vertical: 'middle' };
     }
 
-    // ── Total row 51 ──────────────────────────────────────────────────────────
-    ws.getCell(TOTAL_ROW, 5).value = { formula: `SUM(F${DATA_START}:F${DATA_END})`, result: rows.reduce((s, r) => s + r.totalAmount, 0) };
+    // ── Total row ─────────────────────────────────────────────────────────────
+    ws.getCell(TOTAL_ROW, 5).value = {
+        formula: `SUM(F${DATA_START}:F${DATA_END})`,
+        result: rows.reduce((s, r) => s + r.totalAmount, 0),
+    };
     ws.getCell(TOTAL_ROW, 5).numFmt = '#,##0.00;;';
 
     // ── Signature rows ────────────────────────────────────────────────────────
-    ws.getCell(55, 1).value = receivedByName;
+    ws.getCell(55, 1).value = group.receiverName.toUpperCase();
     ws.getCell(55, 1).font = { name: FONT, size: 11, bold: true };
     ws.getCell(55, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
     ws.getCell(55, 4).value = issuedByName;
+    ws.getCell(55, 4).font = { name: FONT, size: 11, bold: true };
 
-    ws.getCell(58, 1).value = receivedByOffice;
-    ws.getCell(58, 1).font = { name: FONT, size: 11 };
+    ws.getCell(58, 1).value = (group.receiverOffice || departmentName).toUpperCase();
+    ws.getCell(58, 1).font = { name: FONT, size: 11, bold: true, underline: true };
     ws.getCell(58, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
     ws.getCell(58, 4).value = issuedByOffice;
-
-    const nameLines = receivedByName.split('\n').length;
-    if (nameLines > 1) {
-        ws.getRow(55).height = 15 * nameLines;
-    }
-    const officeLines = receivedByOffice.split('\n').length;
-    if (officeLines > 1) {
-        ws.getRow(58).height = 15 * officeLines;
-    }
+    ws.getCell(58, 4).font = { name: FONT, size: 11, bold: true, underline: true };
 
     ws.getCell(60, 1).value = receivedDate;
     ws.getCell(60, 1).font = { name: FONT, size: 11 };
     ws.getCell(60, 1).alignment = { horizontal: 'center' };
+
     ws.getCell(60, 4).value = docDate;
     ws.getCell(60, 4).font = { name: FONT, size: 11 };
     ws.getCell(60, 4).alignment = { horizontal: 'center' };
@@ -353,6 +365,110 @@ export async function exportPARToExcel(
         margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
     };
     ws.views = [{ showGridLines: true }];
+}
+
+// ── Main export ──────────────────────────────────────────────────────────────
+
+export async function exportPARToExcel(
+    issuance: AssetIssuance,
+    selectedDetailIds?: number[],
+    receiverKey?: string,
+): Promise<void> {
+    const templateUrl = `${window.location.origin}/assets/templates/PAR.xlsx`;
+    const response = await fetch(templateUrl);
+    if (!response.ok) throw new Error(`Failed to load PAR template (Status: ${response.status})`);
+    const templateBuffer = await response.arrayBuffer();
+
+    // ── Resolve detail scope ──────────────────────────────────────────────────
+    const allDetails = issuance.details ?? [];
+    const scopedDetails = selectedDetailIds?.length
+        ? allDetails.filter((d) => selectedDetailIds.includes(d.IssuanceDetailID))
+        : allDetails;
+    const scopedDetailIds = scopedDetails.map((d) => d.IssuanceDetailID);
+
+    // ── Resolve common header values ──────────────────────────────────────────
+    const docDate = ensureText(
+        formatPHDate(issuance.IssuanceDate),
+        formatPHDate(new Date().toISOString()),
+    );
+    const receivedDate = ensureText(
+        issuance.AcknowledgedAt ? formatPHDate(issuance.AcknowledgedAt) : '',
+        docDate,
+    );
+
+    const fallbackReceiverName = ensureText(
+        issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
+        'END USER',
+    ).toUpperCase();
+    const fallbackReceiverOffice = ensureText(
+        issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
+        'DEPARTMENT',
+    ).toUpperCase();
+
+    // Used for the OFFICE header (B11) — always the department, not the person's position
+    const departmentName = ensureText(
+        issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
+        'DEPARTMENT',
+    ).toUpperCase();
+
+    const issuedByName = ensureText(issuance.issuer?.FullName, 'PROPERTY CUSTODIAN').toUpperCase();
+    const issuedByOffice = ensureText(
+        issuance.issuer?.department?.DepartmentName,
+        'GENERAL SERVICES OFFICE',
+    ).toUpperCase();
+
+    const dr = issuance.deliveryReceipt as any;
+    const supplierName = ensureText(dr?.SupplierName, '');
+    const poNumber = ensureText(dr?.PONumber, '');
+
+    // ── Load assignments & build receiver groups ──────────────────────────────
+    let rawAssignments: Array<{ issuance_detail_id?: number; receiver_name?: string; position_office?: string }> = [];
+    try {
+        const id = issuance.IssuanceID;
+        if (id) {
+            const res = await issuanceAPI.getAssignments(id);
+            rawAssignments = (res?.data ?? []).filter((row: { issuance_detail_id?: number }) =>
+                scopedDetailIds.includes(Number(row.issuance_detail_id)),
+            );
+        }
+    } catch (e) {
+        console.error('Failed to load assignments for Excel export', e);
+    }
+
+    let groups = buildReceiverGroups(rawAssignments, scopedDetailIds, fallbackReceiverName, fallbackReceiverOffice);
+
+    // Filter to single receiver if receiver_key is provided
+    if (receiverKey) {
+        try {
+            const [filterName, filterOffice] = JSON.parse(decodeURIComponent(receiverKey));
+            groups = groups.filter((g) => g.receiverName === filterName && g.receiverOffice === filterOffice);
+        } catch { /* use all groups */ }
+    }
+
+    // ── Write one sheet per receiver group ───────────────────────────────────
+    const wb = new ExcelJS.Workbook();
+
+    for (let i = 0; i < groups.length; i++) {
+        const group = groups[i];
+        const sheetName = groups.length === 1
+            ? 'PAR'
+            : `PAR - ${group.receiverName}`.slice(0, 31);
+
+        await writeReceiverSheet(
+            wb,
+            templateBuffer,
+            sheetName,
+            issuance,
+            group,
+            issuedByName,
+            issuedByOffice,
+            supplierName,
+            poNumber,
+            docDate,
+            receivedDate,
+            departmentName,
+        );
+    }
 
     // ── Download ──────────────────────────────────────────────────────────────
     const outBuffer = await wb.xlsx.writeBuffer();

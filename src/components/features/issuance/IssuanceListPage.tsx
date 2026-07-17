@@ -722,22 +722,44 @@ export function IssuanceListPage({
                 documentType={assignDocumentType ?? undefined}
                 items={assignItems}
                 onSaved={(result) => {
-                    if (!assignIssuanceId) return;
-
-                    const docType = result.documentType;
-
-                    // Open one print window per receiver group
-                    (result.assignments || []).forEach((grp) => {
-                        const params = new URLSearchParams();
-                        if (docType) params.set('type', docType);
-                        if (grp.detailIds.length > 0) params.set('details', grp.detailIds.join(','));
-
-                        const query = params.toString();
-                        const printUrl = query
-                            ? `${baseRoute}/${assignIssuanceId}/print?${query}`
-                            : `${baseRoute}/${assignIssuanceId}/print`;
-                        window.open(printUrl, '_blank', 'noopener,noreferrer');
+                    // Close modal and refresh list; printing handled by onPreparePrintTabs
+                    setAssignOpen(false);
+                    loadRows(currentPage);
+                }}
+                onPreparePrintTabs={(assignments, id) => {
+                    const grouped = new Map<string, { receiverName: string; receiverOffice: string }>();
+                    assignments.forEach((assignment) => {
+                        const receiverName = assignment.receiver_name.trim() || 'Receiving Custodian';
+                        const receiverOffice = assignment.position_office?.trim() || '';
+                        const key = `${receiverName}||${receiverOffice}`;
+                        if (!grouped.has(key)) grouped.set(key, { receiverName, receiverOffice });
                     });
+
+                    const groups = Array.from(grouped.values());
+                    const baseUrl = `${window.location.origin}${baseRoute}/${id}/print`;
+
+                    // Build common query params from issuance modal context (document type and details)
+                    const docType = assignDocumentType;
+                    const detailIdsParam = (() => {
+                        // Try to extract detail ids from assignments grouping if they exist
+                        const allDetailIds: number[] = [];
+                        (assignments || []).forEach((a) => {
+                            // Assignments don't include detail ids here; AssignReceiversSaveResult.assignments is available on onSaved
+                        });
+                        return undefined;
+                    })();
+
+                    const baseWithType = docType ? `${baseUrl}?type=${encodeURIComponent(docType)}` : baseUrl;
+
+                    if (groups.length === 1) {
+                        const value = encodeURIComponent(JSON.stringify([groups[0].receiverName, groups[0].receiverOffice]));
+                        const url = baseWithType.includes('?') ? `${baseWithType}&receiver_key=${value}` : `${baseWithType}?receiver_key=${value}`;
+                        const win = window.open('about:blank', '_blank');
+                        return { windows: [win], urls: [url] };
+                    }
+
+                    const win = window.open('about:blank', '_blank');
+                    return { windows: [win], urls: [baseWithType] };
                 }}
             />
         </div >

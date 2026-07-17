@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,11 +13,13 @@ import { exportPTRToExcel } from '@/components/features/transfer/PTRExport';
 export default function StaffTransferPrintPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [transfer, setTransfer] = useState<PropertyTransfer | null>(null);
     const [loading, setLoading] = useState(true);
     const [isExportingPTR, setIsExportingPTR] = useState(false);
 
     const transferId = params?.id ? parseInt(params.id as string) : null;
+    const receiverKey = searchParams.get('receiver_key') ?? undefined;
 
     const loadTransfer = useCallback(async () => {
         if (!transferId) return;
@@ -49,7 +51,7 @@ export default function StaffTransferPrintPage() {
         if (!transfer) return;
         try {
             setIsExportingPTR(true);
-            await exportPTRToExcel(transfer);
+            await exportPTRToExcel(transfer, receiverKey);
         } catch (err) {
             console.error(err);
             toast.error('Failed to export PTR to Excel');

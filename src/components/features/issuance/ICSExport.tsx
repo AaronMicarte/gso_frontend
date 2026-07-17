@@ -17,6 +17,12 @@ interface GroupedIcsRow {
     maxSequence: number;
 }
 
+interface ReceiverGroup {
+    receiverName: string;
+    receiverOffice: string;
+    detailIds: number[];
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatPHDate = (dateString?: string | null): string => {
@@ -69,115 +75,70 @@ function splitDescriptionLines(description: string, maxLen = 80): string[] {
 
 const FONT = 'Aptos Narrow';
 
-// ── Template layout (verified from ICS.xlsx) ─────────────────────────────────
-// Col A=Qty | B=Unit | C=Item Description | D=Property No. | E=Unit Cost | F=Amount
-// E10  = ICS NO.
-// Rows 12-36 = item data rows
-// Row 37     = supplier name (C37)
-// Row 38     = PO number (C38)
-// E40        = total SUM(F12:F37)
-// A46/D46    = received by / received from names
-// A47/D47    = offices
-// A50/D50    = dates
-
 const DATA_START = 12;
 const DATA_END = 36;
 const SUPPLIER_ROW = 37;
 const PO_ROW = 38;
 const TOTAL_ROW = 40;
 
-// ── Main export ──────────────────────────────────────────────────────────────
+// ── Build receiver groups from assignments ────────────────────────────────────
 
-export async function exportICSToExcel(
-    issuance: AssetIssuance,
-    selectedDetailIds?: number[],
-): Promise<void> {
-    const templateUrl = `${window.location.origin}/assets/templates/ICS.xlsx`;
-    const response = await fetch(templateUrl);
-    if (!response.ok) throw new Error(`Failed to load ICS template (Status: ${response.status})`);
-    const buffer = await response.arrayBuffer();
+function buildReceiverGroups(
+    assignments: Array<{ issuance_detail_id?: number; receiver_name?: string; position_office?: string }>,
+    allDetailIds: number[],
+    fallbackName: string,
+    fallbackOffice: string,
+): ReceiverGroup[] {
+    const grouped = new Map<string, { receiverName: string; receiverOffice: string; detailIds: Set<number> }>();
 
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buffer);
-
-    const ws = wb.getWorksheet(1);
-    if (!ws) throw new Error('Worksheet not found in ICS template');
-
-    // ── Resolve data ──────────────────────────────────────────────────────────
-
-    const allDetails = issuance.details ?? [];
-    const details = selectedDetailIds?.length
-        ? allDetails.filter((d) => selectedDetailIds.includes(d.IssuanceDetailID))
-        : allDetails;
-
-    const docDate = ensureText(
-        formatPHDate(issuance.IssuanceDate),
-        formatPHDate(new Date().toISOString()),
-    );
-    const receivedDate = ensureText(
-        issuance.AcknowledgedAt ? formatPHDate(issuance.AcknowledgedAt) : '',
-        docDate,
-    );
-
-    let receivedByName = ensureText(
-        issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
-        'END USER',
-    );
-    let receivedByOffice = ensureText(
-        issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
-        'DEPARTMENT',
-    );
-
-    try {
-        const id = issuance.IssuanceID;
-        if (id) {
-            const res = await issuanceAPI.getAssignments(id);
-            const rows = res?.data ?? [];
-            const filtered = rows
-                .filter((row: { issuance_detail_id?: number }) => {
-                    if (!selectedDetailIds?.length) return true;
-                    return selectedDetailIds.includes(Number(row.issuance_detail_id));
-                })
-                .map((row: { receiver_name?: string; position_office?: string }) => ({
-                    receiver_name: String(row.receiver_name || '').trim(),
-                    position_office: String(row.position_office || '').trim(),
-                }))
-                .filter((row: { receiver_name: string }) => row.receiver_name.length > 0);
-
-            if (filtered.length > 0) {
-                const seen = new Set<string>();
-                const unique: Array<{ receiver_name: string; position_office: string }> = [];
-                filtered.forEach((item: { receiver_name: string; position_office: string }) => {
-                    const key = `${item.receiver_name}||${item.position_office}`;
-                    if (!seen.has(key)) {
-                        seen.add(key);
-                        unique.push({
-                            receiver_name: item.receiver_name,
-                            position_office: item.position_office || receivedByOffice
-                        });
-                    }
-                });
-
-                receivedByName = unique.map(u => u.receiver_name).join('\n');
-                receivedByOffice = unique.map(u => u.position_office).join('\n');
-            }
+    assignments.forEach((a) => {
+        const name = String(a.receiver_name || '').trim() || fallbackName;
+        const office = String(a.position_office || '').trim();
+        const key = `${name}||${office}`;
+        if (!grouped.has(key)) {
+            grouped.set(key, { receiverName: name, receiverOffice: office, detailIds: new Set() });
         }
-    } catch (e) {
-        console.error('Failed to load assignments for Excel export', e);
+        if (a.issuance_detail_id) {
+            grouped.get(key)!.detailIds.add(Number(a.issuance_detail_id));
+        }
+    });
+
+    if (grouped.size === 0) {
+        return [{ receiverName: fallbackName, receiverOffice: fallbackOffice, detailIds: allDetailIds }];
     }
 
-    const receivedFromName = ensureText(issuance.issuer?.FullName, 'PROPERTY CUSTODIAN');
-    const receivedFromOffice = ensureText(
-        issuance.issuer?.department?.DepartmentName,
-        'GENERAL SERVICES OFFICE',
-    );
+    const pages: ReceiverGroup[] = [];
+    grouped.forEach((g) => {
+        if (g.detailIds.size > 0) {
+            pages.push({ receiverName: g.receiverName, receiverOffice: g.receiverOffice, detailIds: Array.from(g.detailIds) });
+        }
+    });
 
-    const dr = issuance.deliveryReceipt as any;
-    const supplierName = ensureText(dr?.SupplierName, '');
-    const poNumber = ensureText(dr?.PONumber, '');
+    return pages.length > 0
+        ? pages
+        : [{ receiverName: fallbackName, receiverOffice: fallbackOffice, detailIds: allDetailIds }];
+}
+
+// ── Write one sheet ───────────────────────────────────────────────────────────
+
+async function writeReceiverSheet(
+    wb: ExcelJS.Workbook,
+    templateBuffer: ArrayBuffer,
+    sheetName: string,
+    issuance: AssetIssuance,
+    group: ReceiverGroup,
+    receivedFromName: string,
+    receivedFromOffice: string,
+    supplierName: string,
+    poNumber: string,
+    docDate: string,
+    receivedDate: string,
+    departmentName: string,
+): Promise<void> {
+    const allDetails = issuance.details ?? [];
+    const details = allDetails.filter((d) => group.detailIds.includes(d.IssuanceDetailID));
 
     // ── Group & build description lines ──────────────────────────────────────
-
     const groupedMap = details.reduce<Map<string, GroupedIcsRow>>((map, detail, index) => {
         const inv = detail.inventoryDetail;
         const pInv = inv?.propertyInventory;
@@ -226,10 +187,59 @@ export async function exportICSToExcel(
         return a.descriptionLines[0].localeCompare(b.descriptionLines[0]);
     });
 
-    // ── ICS Number ───────────────────────────────────────────────────────────
-    ws.getCell('E10').value = `ICS NO. ${ensureText(issuance.DocumentNumber, 'ICS')}`;
+    // ── Load template & copy into new sheet ──────────────────────────────────
+    const sheetWb = new ExcelJS.Workbook();
+    await sheetWb.xlsx.load(templateBuffer);
+    const srcWs = sheetWb.getWorksheet(1);
+    if (!srcWs) return;
 
-    // ── Clear data zone rows 12-38 ────────────────────────────────────────────
+    const ws = wb.addWorksheet(sheetName);
+
+    // Copy images (Logo)
+    if (srcWs.getImages) {
+        srcWs.getImages().forEach((image) => {
+            const img = sheetWb.getImage(Number(image.imageId));
+            const newImageId = wb.addImage({ buffer: img.buffer, extension: img.extension });
+            ws.addImage(newImageId, image.range);
+        });
+    }
+
+    // Copy column widths
+    srcWs.columns.forEach((col, idx) => {
+        ws.getColumn(idx + 1).width = col.width ?? 15;
+    });
+
+    // Copy merges, row heights, cell values and styles
+    const merges = (srcWs as any)._merges as Record<string, any>;
+    if (merges) {
+        Object.values(merges).forEach((merge: any) => {
+            try {
+                ws.mergeCells(merge.model?.top, merge.model?.left, merge.model?.bottom, merge.model?.right);
+            } catch { /* skip */ }
+        });
+    }
+
+    srcWs.eachRow({ includeEmpty: true }, (row, rowNum) => {
+        const newRow = ws.getRow(rowNum);
+        newRow.height = row.height ?? undefined;
+        row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+            const newCell = newRow.getCell(colNum);
+            newCell.style = JSON.parse(JSON.stringify(cell.style));
+            if (rowNum >= DATA_START && rowNum <= PO_ROW && colNum <= 6) return;
+            if (cell.formula) {
+                newCell.value = { formula: cell.formula, result: cell.result };
+            } else {
+                newCell.value = cell.value;
+            }
+        });
+    });
+
+    // ── ICS Number & department header ────────────────────────────────────────
+    ws.getCell('E10').value = `ICS NO. ${ensureText(issuance.DocumentNumber, 'ICS')}`;
+    // If template has an office/department header cell, set department name here
+    // (mirrors PAR B11 fix — position_office stays only in signature block)
+
+    // ── Clear data zone ───────────────────────────────────────────────────────
     for (let r = DATA_START; r <= PO_ROW; r++) {
         for (let c = 1; c <= 6; c++) {
             ws.getCell(r, c).value = null;
@@ -244,39 +254,32 @@ export async function exportICSToExcel(
 
         item.descriptionLines.forEach((line, lineIndex) => {
             if (currentRow > DATA_END) return;
-
             const isFirstLine = lineIndex === 0;
 
             if (isFirstLine) {
-                // A: Quantity
                 ws.getCell(currentRow, 1).value = item.quantity;
                 ws.getCell(currentRow, 1).font = { name: FONT, size: 10 };
                 ws.getCell(currentRow, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
-                // B: Unit
                 ws.getCell(currentRow, 2).value = item.unit;
                 ws.getCell(currentRow, 2).font = { name: FONT, size: 10 };
                 ws.getCell(currentRow, 2).alignment = { horizontal: 'center', vertical: 'middle' };
 
-                // D: Property No.
                 ws.getCell(currentRow, 4).value = propertyNoText;
                 ws.getCell(currentRow, 4).font = { name: FONT, size: 10 };
                 ws.getCell(currentRow, 4).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
-                // E: Unit Cost
                 ws.getCell(currentRow, 5).value = item.unitCost;
                 ws.getCell(currentRow, 5).numFmt = '#,##0.00';
                 ws.getCell(currentRow, 5).font = { name: FONT, size: 10 };
                 ws.getCell(currentRow, 5).alignment = { horizontal: 'center', vertical: 'middle' };
 
-                // F: Amount = E * A
                 ws.getCell(currentRow, 6).value = { formula: `E${currentRow}*A${currentRow}`, result: item.totalCost };
                 ws.getCell(currentRow, 6).numFmt = '#,##0.00;;';
                 ws.getCell(currentRow, 6).font = { name: FONT, size: 10 };
                 ws.getCell(currentRow, 6).alignment = { horizontal: 'right', vertical: 'middle' };
             }
 
-            // C: Description (every line)
             ws.getCell(currentRow, 3).value = line;
             ws.getCell(currentRow, 3).font = { name: FONT, size: 11 };
             ws.getCell(currentRow, 3).alignment = { horizontal: 'left', vertical: 'middle' };
@@ -298,7 +301,7 @@ export async function exportICSToExcel(
         ws.getCell(PO_ROW, 3).alignment = { horizontal: 'left', vertical: 'middle' };
     }
 
-    // ── Total (E40 = SUM(F12:F37)) ────────────────────────────────────────────
+    // ── Total ─────────────────────────────────────────────────────────────────
     ws.getCell(TOTAL_ROW, 5).value = {
         formula: `SUM(F${DATA_START}:F${SUPPLIER_ROW})`,
         result: rows.reduce((s, r) => s + r.totalCost, 0),
@@ -307,32 +310,25 @@ export async function exportICSToExcel(
     ws.getCell(TOTAL_ROW, 5).font = { name: FONT, size: 11, bold: true };
 
     // ── Signatures ────────────────────────────────────────────────────────────
-    // Template: A = Received by | D = Received from
-    ws.getCell(46, 1).value = receivedByName;
-    ws.getCell(46, 1).font = { name: FONT, size: 11, bold: true };
+    ws.getCell(46, 1).value = group.receiverName.toUpperCase();
+    ws.getCell(46, 1).font = { name: FONT, size: 11, bold: true, underline: true };
     ws.getCell(46, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
     ws.getCell(46, 4).value = receivedFromName;
+    ws.getCell(46, 4).font = { name: FONT, size: 11, bold: true, underline: true };
 
-    ws.getCell(47, 1).value = receivedByOffice;
-    ws.getCell(47, 1).font = { name: FONT, size: 11 };
+    ws.getCell(47, 1).value = (group.receiverOffice || departmentName).toUpperCase();
+    ws.getCell(47, 1).font = { name: FONT, size: 11, bold: true };
     ws.getCell(47, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
     ws.getCell(47, 4).value = receivedFromOffice;
+    ws.getCell(47, 4).font = { name: FONT, size: 11, bold: true };
 
-    const nameLines = receivedByName.split('\n').length;
-    if (nameLines > 1) {
-        ws.getRow(46).height = 15 * nameLines;
-    }
-    const officeLines = receivedByOffice.split('\n').length;
-    if (officeLines > 1) {
-        ws.getRow(47).height = 15 * officeLines;
-    }
-
-    ws.getCell(50, 1).value = 'Date';
+    ws.getCell(50, 1).value = receivedDate;
     ws.getCell(50, 1).font = { name: FONT, size: 11 };
     ws.getCell(50, 1).alignment = { horizontal: 'center' };
-    ws.getCell(50, 4).value = 'Date';
+
+    ws.getCell(50, 4).value = docDate;
     ws.getCell(50, 4).font = { name: FONT, size: 11 };
     ws.getCell(50, 4).alignment = { horizontal: 'center' };
 
@@ -346,6 +342,110 @@ export async function exportICSToExcel(
         margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
     };
     ws.views = [{ showGridLines: true }];
+}
+
+// ── Main export ──────────────────────────────────────────────────────────────
+
+export async function exportICSToExcel(
+    issuance: AssetIssuance,
+    selectedDetailIds?: number[],
+    receiverKey?: string,
+): Promise<void> {
+    const templateUrl = `${window.location.origin}/assets/templates/ICS.xlsx`;
+    const response = await fetch(templateUrl);
+    if (!response.ok) throw new Error(`Failed to load ICS template (Status: ${response.status})`);
+    const templateBuffer = await response.arrayBuffer();
+
+    // ── Resolve detail scope ──────────────────────────────────────────────────
+    const allDetails = issuance.details ?? [];
+    const scopedDetails = selectedDetailIds?.length
+        ? allDetails.filter((d) => selectedDetailIds.includes(d.IssuanceDetailID))
+        : allDetails;
+    const scopedDetailIds = scopedDetails.map((d) => d.IssuanceDetailID);
+
+    // ── Resolve common header values ──────────────────────────────────────────
+    const docDate = ensureText(
+        formatPHDate(issuance.IssuanceDate),
+        formatPHDate(new Date().toISOString()),
+    );
+    const receivedDate = ensureText(
+        issuance.AcknowledgedAt ? formatPHDate(issuance.AcknowledgedAt) : '',
+        docDate,
+    );
+
+    const fallbackReceiverName = ensureText(
+        issuance.IssuedToName || issuance.deliveryReceipt?.RequestedBy,
+        'END USER',
+    ).toUpperCase();
+    const fallbackReceiverOffice = ensureText(
+        issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
+        'DEPARTMENT',
+    ).toUpperCase();
+
+    // Used for the OFFICE header — always the department, not the person's position
+    const departmentName = ensureText(
+        issuance.request?.department?.DepartmentName || issuance.deliveryReceipt?.DepartmentName,
+        'DEPARTMENT',
+    ).toUpperCase();
+
+    const receivedFromName = ensureText(issuance.issuer?.FullName, 'PROPERTY CUSTODIAN').toUpperCase();
+    const receivedFromOffice = ensureText(
+        issuance.issuer?.department?.DepartmentName,
+        'GENERAL SERVICES OFFICE',
+    ).toUpperCase();
+
+    const dr = issuance.deliveryReceipt as any;
+    const supplierName = ensureText(dr?.SupplierName, '');
+    const poNumber = ensureText(dr?.PONumber, '');
+
+    // ── Load assignments & build receiver groups ──────────────────────────────
+    let rawAssignments: Array<{ issuance_detail_id?: number; receiver_name?: string; position_office?: string }> = [];
+    try {
+        const id = issuance.IssuanceID;
+        if (id) {
+            const res = await issuanceAPI.getAssignments(id);
+            rawAssignments = (res?.data ?? []).filter((row: { issuance_detail_id?: number }) =>
+                scopedDetailIds.includes(Number(row.issuance_detail_id)),
+            );
+        }
+    } catch (e) {
+        console.error('Failed to load assignments for Excel export', e);
+    }
+
+    let groups = buildReceiverGroups(rawAssignments, scopedDetailIds, fallbackReceiverName, fallbackReceiverOffice);
+
+    // Filter to single receiver if receiver_key is provided
+    if (receiverKey) {
+        try {
+            const [filterName, filterOffice] = JSON.parse(decodeURIComponent(receiverKey));
+            groups = groups.filter((g) => g.receiverName === filterName && g.receiverOffice === filterOffice);
+        } catch { /* use all groups */ }
+    }
+
+    // ── Write one sheet per receiver group ───────────────────────────────────
+    const wb = new ExcelJS.Workbook();
+
+    for (let i = 0; i < groups.length; i++) {
+        const group = groups[i];
+        const sheetName = groups.length === 1
+            ? 'ICS'
+            : `ICS - ${group.receiverName}`.slice(0, 31);
+
+        await writeReceiverSheet(
+            wb,
+            templateBuffer,
+            sheetName,
+            issuance,
+            group,
+            receivedFromName,
+            receivedFromOffice,
+            supplierName,
+            poNumber,
+            docDate,
+            receivedDate,
+            departmentName,
+        );
+    }
 
     // ── Download ──────────────────────────────────────────────────────────────
     const outBuffer = await wb.xlsx.writeBuffer();

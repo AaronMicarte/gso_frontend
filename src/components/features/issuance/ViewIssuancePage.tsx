@@ -160,15 +160,9 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
     });
 
     const handleAssignSaved = (result: AssignReceiversSaveResult) => {
-        // Close modal and open the print view in a new tab so the user can continue working without popup blocking.
+        // Close modal and reload assignments; printing is handled by the modal via onPreparePrintTabs
         setAssignModalOpen(false);
-        if (!issuance) return;
-        try {
-            window.open(`${baseRoute}/${issuance.IssuanceID}/print`, '_blank');
-        } catch (err) {
-            // Fallback to router navigation
-            router.push(`${baseRoute}/${issuance.IssuanceID}/print`);
-        }
+        loadIssuance();
     };
 
     type InventoryDetailWithPropertyName = InventoryDetail & { PropertyName?: string };
@@ -456,6 +450,32 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                     documentType={issuance?.DocumentType}
                     items={modalItems}
                     onSaved={handleAssignSaved}
+                    onPreparePrintTabs={(assignments, id) => {
+                        const grouped = new Map<string, { receiverName: string; receiverOffice: string }>();
+                        assignments.forEach((assignment) => {
+                            const receiverName = assignment.receiver_name.trim() || 'Receiving Custodian';
+                            const receiverOffice = assignment.position_office?.trim() || '';
+                            const key = `${receiverName}||${receiverOffice}`;
+                            if (!grouped.has(key)) grouped.set(key, { receiverName, receiverOffice });
+                        });
+
+                        const groups = Array.from(grouped.values());
+                        const baseUrl = `${window.location.origin}${baseRoute}/${id}/print`;
+
+                        // include document type param if available
+                        const docType = issuance?.DocumentType;
+                        const baseWithType = docType ? `${baseUrl}?type=${encodeURIComponent(docType)}` : baseUrl;
+
+                        if (groups.length === 1) {
+                            const value = encodeURIComponent(JSON.stringify([groups[0].receiverName, groups[0].receiverOffice]));
+                            const url = baseWithType.includes('?') ? `${baseWithType}&receiver_key=${value}` : `${baseWithType}?receiver_key=${value}`;
+                            const win = window.open('about:blank', '_blank');
+                            return { windows: [win], urls: [url] };
+                        }
+
+                        const win = window.open('about:blank', '_blank');
+                        return { windows: [win], urls: [baseWithType] };
+                    }}
                 />
 
                 {/* Status Banner */}
