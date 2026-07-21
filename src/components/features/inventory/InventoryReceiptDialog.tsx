@@ -166,12 +166,12 @@ export function InventoryReceiptDialog({
     const [open, setOpen] = useState(false);
     const [showItems, setShowItems] = useState(false);
 
-    const propCard = useInventoryPropertyCard(inventoryDetailId, !!inventoryDetailId) as {
+    const propCard = useInventoryPropertyCard(inventoryDetailId, open && !!inventoryDetailId) as {
         data?: PropertyCardData;
         isLoading: boolean;
     };
 
-    const inventoryQuery = useInventory(inventoryId ?? 0) as {
+    const inventoryQuery = useInventory(inventoryId ?? 0, open && !!inventoryId) as {
         data?: InventoryData;
         isLoading: boolean;
     };

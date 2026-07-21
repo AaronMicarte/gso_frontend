@@ -68,7 +68,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
     const [localConditions, setLocalConditions] = useState<Record<number, 'Serviceable' | 'Unserviceable'>>({});
     const [savingConditionId, setSavingConditionId] = useState<number | null>(null);
 
-    const inventoryQuery = useInventory(form?.inventoryId ?? 0) as { data?: InventoryQueryData; isLoading: boolean; refetch?: () => void };
+    const inventoryQuery = useInventory(form?.inventoryId ?? 0, open && !!form?.inventoryId) as { data?: InventoryQueryData; isLoading: boolean; refetch?: () => void };
 
     const assetInstances = useMemo(() => {
         if (!form?.articleName) return [];

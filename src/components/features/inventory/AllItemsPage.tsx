@@ -38,6 +38,7 @@ type CombinedInventoryItem = InventoryItem & {
 export function AllItemsPage() {
     const searchParams = useSearchParams();
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(25);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedStatus, setSelectedStatus] = useState<number | null>(() => {
@@ -69,12 +70,13 @@ export function AllItemsPage() {
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
             setDebouncedSearch(search.trim());
-        }, 300);
+            setPage(1);
+        }, 500);
 
         return () => window.clearTimeout(timeoutId);
     }, [search]);
 
-    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: 10, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined, document_type: selectedDocumentType || undefined, display_mode: displayMode });
+    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: perPage, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined, document_type: selectedDocumentType || undefined, display_mode: displayMode });
     const { data: propertyTypes } = useAllPropertyTypes();
 
     const propertyStatuses = [
@@ -102,23 +104,13 @@ export function AllItemsPage() {
         return item.qrCodeData ?? null;
     };
 
-    // The server now returns items ordered by creation timestamp (newest first).
-    const preFiltered = (data?.data ? [...data.data] : []).filter(item => {
-        if (selectedDocumentType) return item.DocumentType === selectedDocumentType;
-        return true;
-    });
-
-    // Sticker items are derived once per data change here, instead of being
-    // recomputed inline during every render of every row (which was the case
-    // before - a filter()+map()+regex per row, on every render, including
-    // unrelated state changes like toggling a description).
     const displayedItems = useMemo<CombinedInventoryItem[]>(() => {
-        return (preFiltered as CombinedInventoryItem[]).map(item => {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        return ((data?.data ?? []) as CombinedInventoryItem[]).map(item => {
             const combinedItems = item.combinedItems || [item];
             const stickerItems: StickerItem[] = combinedItems
                 .filter(ci => !!ci.PropertyNumber)
                 .map(ci => {
-                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
                     const qrCodeData = getQrCodeData(ci);
                     const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
                     const url = match?.[1]
@@ -136,8 +128,9 @@ export function AllItemsPage() {
                 });
             return { ...item, combinedItems, stickerItems };
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [preFiltered]);
+    }, [data?.data]);
+
+    const isInitialLoading = isLoading && !data;
 
     const toggleDescriptionExpansion = (inventoryDetailId: number) => {
         setExpandedDescriptions(prev => {
@@ -332,13 +325,22 @@ export function AllItemsPage() {
                             type="text"
                             placeholder="Search by description, brand, model, serial number, or inventory number..."
                             value={search}
-                            onChange={(e) => {
-                                setSearch(e.target.value);
-                                setPage(1);
-                            }}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                         />
                     </div>
+                    <select
+                        value={perPage}
+                        onChange={(e) => {
+                            setPerPage(Number(e.target.value));
+                            setPage(1);
+                        }}
+                        className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 text-sm"
+                    >
+                        <option value={10}>10 / page</option>
+                        <option value={25}>25 / page</option>
+                        <option value={50}>50 / page</option>
+                    </select>
                 </div>
 
                 {/* Items Table */}
@@ -369,7 +371,7 @@ export function AllItemsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {isLoading ? (
+                                {isInitialLoading ? (
                                     <TableSkeletonRows columns={7} rows={10} />
                                 ) : displayedItems.length === 0 ? (
                                     <tr>

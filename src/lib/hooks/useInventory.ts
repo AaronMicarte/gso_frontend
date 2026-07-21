@@ -14,6 +14,8 @@ export const useAllInventoryItems = (options?: { page?: number; per_page?: numbe
         queryKey: ['all-inventory-items', options],
         queryFn: () => getAllInventoryItems(options),
         placeholderData: keepPreviousData,
+        staleTime: 2 * 60 * 1000,   // 2 minutes — data changes infrequently
+        gcTime: 5 * 60 * 1000,      // 5 minutes — keep cached pages in memory
     });
 };
 
@@ -35,11 +37,11 @@ export const useIngestFromIar = () => {
     });
 };
 
-export const useInventory = (id: number) => {
+export const useInventory = (id: number, enabled = true) => {
     return useQuery<InventoryResponse>({
         queryKey: ['inventory', id],
         queryFn: () => getInventory(id),
-        enabled: !!id,
+        enabled: !!id && enabled,
     });
 };
 
@@ -83,6 +85,7 @@ export const useInventoryDetailHistory = (id: number, enabled = true) => {
         queryKey: ['inventory-detail-history', id],
         queryFn: () => getInventoryDetailHistory(id),
         enabled: !!id && enabled,
+        staleTime: 60_000,
     });
 };
 
@@ -91,5 +94,6 @@ export const useInventoryPropertyCard = (id: number, enabled = true) => {
         queryKey: ['inventory-property-card', id],
         queryFn: () => getInventoryPropertyCard(id),
         enabled: !!id && enabled,
+        staleTime: 60_000,
     });
 };
