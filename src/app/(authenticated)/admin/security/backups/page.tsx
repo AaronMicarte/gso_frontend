@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { listBackups, createBackup, downloadBackup, deleteBackup } from '@/lib/api/backups';
+import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
 
 interface BackupItem {
     path: string;
@@ -79,6 +81,7 @@ export default function BackupsPage() {
     const [backups, setBackups] = useState<BackupItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [busy, setBusy] = useState(false);
+    const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
     const load = async () => {
         setLoading(true);
@@ -95,20 +98,27 @@ export default function BackupsPage() {
     }, []);
 
     const handleCreate = async () => {
-        if (!window.confirm('Create a new database backup now?')) return;
         setBusy(true);
         try {
             await createBackup();
             await load();
-            window.alert('Backup created');
+            toast.success('Backup created successfully');
         } catch (e: any) {
-            window.alert(e?.message || 'Failed to create backup');
+            toast.error(e?.message || 'Failed to create backup');
         } finally {
             setBusy(false);
         }
     };
 
-
+    const handleCreateConfirm = () => {
+        showConfirmDialog({
+            title: 'Create backup',
+            description: 'Create a new database backup now?',
+            confirmText: 'Create backup',
+            cancelText: 'Cancel',
+            onConfirm: handleCreate,
+        });
+    };
 
     const handleDownload = async (name: string) => {
         setBusy(true);
@@ -122,27 +132,36 @@ export default function BackupsPage() {
             a.click();
             a.remove();
             window.URL.revokeObjectURL(url);
+            toast.success('Backup download started');
         } catch (e: any) {
-            window.alert(e?.message || 'Download failed');
+            toast.error(e?.message || 'Download failed');
         } finally {
             setBusy(false);
         }
     };
 
     const handleDelete = async (name: string) => {
-        if (!window.confirm('Delete this backup?')) return;
         setBusy(true);
         try {
             await deleteBackup(name);
             await load();
-            window.alert('Deleted');
+            toast.success('Backup deleted successfully');
         } catch (e: any) {
-            window.alert(e?.message || 'Delete failed');
+            toast.error(e?.message || 'Delete failed');
         } finally {
             setBusy(false);
         }
     };
 
+    const handleDeleteConfirm = (name: string) => {
+        showConfirmDialog({
+            title: 'Delete backup',
+            description: 'Delete this backup? This action cannot be undone.',
+            confirmText: 'Delete backup',
+            cancelText: 'Cancel',
+            onConfirm: () => handleDelete(name),
+        });
+    };
 
 
     return (
@@ -157,7 +176,7 @@ export default function BackupsPage() {
                     </div>
                     <button
                         className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                        onClick={handleCreate}
+                        onClick={handleCreateConfirm}
                         disabled={busy}
                     >
                         Create Backup
@@ -207,7 +226,7 @@ export default function BackupsPage() {
                                             </button>
                                             <button
                                                 className="inline-flex items-center rounded-lg bg-red-600 px-3 py-1.5 text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                                                onClick={() => handleDelete(backup.name)}
+                                                onClick={() => handleDeleteConfirm(backup.name)}
                                                 disabled={busy}
                                             >
                                                 Delete
@@ -227,6 +246,7 @@ export default function BackupsPage() {
                     </div>
                 )}
             </div>
+            <ConfirmDialog />
         </div>
 
     );

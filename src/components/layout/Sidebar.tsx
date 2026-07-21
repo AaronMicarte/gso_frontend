@@ -210,29 +210,29 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             ],
             roles: ['admin'],
         },
-        {
-            section: 'REPORTS',
-            items: [
-                {
-                    label: 'Reports', icon: FileBarChart, children: [
-                        { label: 'Analytics', href: `${baseRoute}/reports/analytics`, icon: FileBarChart },
-                        { label: 'Printable Forms', href: `${baseRoute}/reports/standard`, icon: FileText },
-                        { label: 'Exports (CSV)', href: `${baseRoute}/reports/custom`, icon: FileText },
-                    ]
-                },
-            ],
-            roles: ['admin', 'staff'],
-        },
+        // {
+        //     section: 'REPORTS',
+        //     items: [
+        //         {
+        //             label: 'Reports', icon: FileBarChart, children: [
+        //                 { label: 'Analytics', href: `${baseRoute}/reports/analytics`, icon: FileBarChart },
+        //                 { label: 'Printable Forms', href: `${baseRoute}/reports/standard`, icon: FileText },
+        //                 { label: 'Exports (CSV)', href: `${baseRoute}/reports/custom`, icon: FileText },
+        //             ]
+        //         },
+        //     ],
+        //     roles: ['admin', 'staff'],
+        // },
         {
             section: 'SECURITY',
             items: [
                 {
                     label: 'Security & Audit', icon: ShieldCheck, children: [
-                        { label: 'Turnstile', href: `${baseRoute}/security/turnstile`, icon: ShieldCheck },
+                        // { label: 'Turnstile', href: `${baseRoute}/security/turnstile`, icon: ShieldCheck },
                         { label: 'Login Audit', href: `${baseRoute}/security/login-audit`, icon: ShieldCheck },
                         { label: 'Activity Logs', href: `${baseRoute}/security/activity-logs`, icon: FileClock },
                         { label: 'Database Backups', href: `${baseRoute}/security/backups`, icon: FileCheck },
-                        { label: 'System Settings', href: `${baseRoute}/settings`, icon: Settings },
+                        // { label: 'System Settings', href: `${baseRoute}/settings`, icon: Settings },
                     ]
                 },
             ],
