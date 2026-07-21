@@ -32,6 +32,7 @@ interface PendingMFA {
     userId: number;
     userName: string;
     userRole: string;
+    userEmail?: string;
 }
 
 export default function VerifyMFAPage() {
@@ -143,7 +144,9 @@ export default function VerifyMFAPage() {
                             <Shield className="w-7 h-7 text-blue-400" />
                         </div>
                         <h1 className="text-xl font-bold text-white">Verify Your Identity</h1>
-                        <p className="text-slate-400 mt-0.5 text-sm">Hi, {pending.userName}</p>
+                        <p className="text-slate-400 mt-0.5 text-sm">Hi, {pending.userName}
+                        </p>
+
                     </div>
 
                     {/* Error */}
@@ -163,8 +166,15 @@ export default function VerifyMFAPage() {
                                 <Smartphone className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
                             )}
                             <div>
-                                <p className="text-sm text-white font-medium">
-                                    {useBackupCode ? 'Enter a backup code' : 'Enter 6-digit code'}
+                                <p className="text-sm font-medium">
+                                    {useBackupCode ? (
+                                        <span className="text-white">Enter a backup code</span>
+                                    ) : (
+                                        <>
+                                            <span className="text-white">Enter the 6-digit code</span>{' '}
+                                            <span className="text-slate-400">({pending.userEmail})</span>
+                                        </>
+                                    )}
                                 </p>
                                 <p className="text-xs text-slate-400 mt-0.5">
                                     {useBackupCode

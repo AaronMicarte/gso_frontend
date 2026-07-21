@@ -145,6 +145,7 @@ export function LoginForm() {
           userId: response.user_id,
           userName: response.user?.FullName || response.user?.Username || 'User',
           userRole: response.user?.Role || 'User',
+          userEmail: response.user?.Email || data.username,
         }));
         router.push('/verify-mfa');
         return;
