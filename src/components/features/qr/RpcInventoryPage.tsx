@@ -1236,6 +1236,19 @@ export function RpcInventoryPage() {
                                 </label>
                             </div>
 
+                            <div className="mt-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+                                <textarea
+                                    value={scanRemarks}
+                                    onChange={(e) => setScanRemarks(e.target.value)}
+                                    maxLength={255}
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-slate-400 focus:outline-none"
+                                    placeholder="Optional custom remark. Leave blank to use the default ‘{number} not found’ text."
+                                />
+                                <p className="text-xs text-slate-500 mt-2">Leave blank to use the default “{previewAsset.group_total_count - previewAsset.group_scanned_count} not found” message when applicable.</p>
+                            </div>
+
                             <div className="rounded-lg border border-slate-200 p-3 space-y-3">
                                 <div className="text-sm text-slate-700">
                                     <span className="font-semibold">Property Number:</span>{' '}
@@ -1336,6 +1349,19 @@ export function RpcInventoryPage() {
                                         );
                                     })}
                                 </div>
+                            </div>
+
+                            <div className="mt-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+                                <textarea
+                                    value={editRemarks}
+                                    onChange={(e) => setEditRemarks(e.target.value)}
+                                    maxLength={255}
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-slate-400 focus:outline-none"
+                                    placeholder="Optional custom remark. Clear this to revert to the default ‘{number} not found’ message."
+                                />
+                                <p className="text-xs text-slate-500 mt-2">Leave blank to revert to the default missing-count remark for this group when applicable.</p>
                             </div>
                         </div>
                     ) : null}
