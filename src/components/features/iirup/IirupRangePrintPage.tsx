@@ -51,6 +51,7 @@ function IirupRangePrintPageContent({ baseRoute = '/admin' }: IirupRangePrintPag
             try {
                 setLoading(true);
                 const data = await listUnserviceable({
+                    asset_type: 'non_expendable',
                     start_date: startDate,
                     end_date: endDate,
                     per_page: 100,

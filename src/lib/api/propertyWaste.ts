@@ -15,6 +15,7 @@ export interface ListUnserviceableParams {
     end_date?: string;
     month?: number;
     year?: number;
+    asset_type?: 'non_expendable' | 'semi_expendable' | string;
 }
 
 /**

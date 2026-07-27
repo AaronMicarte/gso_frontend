@@ -53,12 +53,14 @@ export default function IirupPage({ baseRoute = '/admin' }: IirupPageProps) {
     const listParams = useMemo(() => {
         if (filterMode === 'custom') {
             return {
+                asset_type: 'non_expendable',
                 start_date: appliedRange.startDate,
                 end_date: appliedRange.endDate,
             };
         }
 
         return {
+            asset_type: 'non_expendable',
             month: monthYear.month,
             year: monthYear.year,
         };
@@ -118,8 +120,8 @@ export default function IirupPage({ baseRoute = '/admin' }: IirupPageProps) {
         <div className="min-h-screen p-6 space-y-6 bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="flex items-center justify-between mb-6 gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">IIRUP — Inventory & Inspection of Unserviceable Property</h1>
-                    <p className="text-sm text-slate-500">All items marked unserviceable (auto-collected from service records)</p>
+                    <h1 className="text-2xl font-bold text-slate-900">IIRUP — Inventory & Inspection Report of Unserviceable Property</h1>
+                    <p className="text-sm text-slate-500">Non-expendable assets marked unserviceable</p>
                 </div>
                 <button
                     onClick={load}

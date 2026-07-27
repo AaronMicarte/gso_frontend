@@ -128,8 +128,8 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                             { label: 'For Issuance', href: `${baseRoute}/issuance`, icon: FileText },
                             { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
                             { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
-                            { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
-                            { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
+                            // { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
+                            // { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
                         ]
                     },
                 ]
@@ -152,20 +152,23 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                     label: 'Transfer & Disposal', icon: ArrowRightLeft, children: [
                         { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
                         { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
-                        { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
-                        ...((isAdmin || isGSOStaff) ? [{ label: 'IIRUP', href: `${baseRoute}/iirup`, icon: FileWarning }] : []),
+                        // { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
+                        ...((isAdmin || isGSOStaff) ? [
+                            { label: 'IIRUP (PPE)', href: `${baseRoute}/iirup`, icon: FileWarning },
+                            { label: 'IIRUSP (Semi-Expe)', href: `${baseRoute}/iirusp`, icon: FileWarning },
+                        ] : []),
                     ]
                 },
             ],
             roles: ['admin', 'staff', 'department_head'],
         },
-        {
-            section: 'MAINTENANCE',
-            items: [
-                { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
-            ],
-            roles: ['admin', 'staff', 'department_head'],
-        },
+        // {
+        //     section: 'MAINTENANCE',
+        //     items: [
+        //         { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
+        //     ],
+        //     roles: ['admin', 'staff', 'department_head'],
+        // },
         {
             section: 'QR MANAGEMENT',
             items: [
