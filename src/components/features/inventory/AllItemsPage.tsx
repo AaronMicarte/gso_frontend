@@ -41,23 +41,16 @@ export function AllItemsPage() {
     const [perPage, setPerPage] = useState(25);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState<number | null>(() => {
-        const statusParam = searchParams.get('status');
-        if (statusParam) {
-            const statusMap: { [key: string]: number | null } = {
-                'for-issuance': 1,
-                'for issuance': 1,
-                'to-be-issued': 1,
-                'available': 1,
-                'assigned': 2,
-                'issued': 2,
-                'repair': 3,
-                'disposal': 4,
-                'disposed': 5,
+    const [selectedCondition, setSelectedCondition] = useState<number | null>(() => {
+        const conditionParam = searchParams.get('condition') || searchParams.get('status');
+        if (conditionParam) {
+            const conditionMap: { [key: string]: number | null } = {
+                'serviceable': 1,
+                'unserviceable': 2,
                 'all': null
             };
-            const statusId = statusMap[statusParam.toLowerCase()];
-            return statusId !== undefined ? statusId : null;
+            const conditionId = conditionMap[conditionParam.toLowerCase()];
+            return conditionId !== undefined ? conditionId : null;
         }
         return null;
     });
@@ -76,15 +69,12 @@ export function AllItemsPage() {
         return () => window.clearTimeout(timeoutId);
     }, [search]);
 
-    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: perPage, search: debouncedSearch || undefined, property_status_id: selectedStatus || undefined, property_type_id: selectedPropertyType || undefined, document_type: selectedDocumentType || undefined, display_mode: displayMode });
+    const { data, isLoading, isFetching, refetch } = useAllInventoryItems({ page, per_page: perPage, search: debouncedSearch || undefined, property_status_id: selectedCondition || undefined, property_type_id: selectedPropertyType || undefined, document_type: selectedDocumentType || undefined, display_mode: displayMode });
     const { data: propertyTypes } = useAllPropertyTypes();
 
-    const propertyStatuses = [
-        { id: 1, name: 'Available' },
-        { id: 2, name: 'Issued' },
-        { id: 3, name: 'For Repair' },
-        { id: 4, name: 'For Disposal' },
-        { id: 5, name: 'Disposed' },
+    const conditions = [
+        { id: 1, name: 'Serviceable' },
+        { id: 2, name: 'Unserviceable' },
     ];
 
     const handleRefresh = () => {
@@ -226,16 +216,16 @@ export function AllItemsPage() {
                             <span className="hidden sm:inline">Refresh</span>
                         </button>
                         <select
-                            value={selectedStatus || ''}
+                            value={selectedCondition || ''}
                             onChange={(e) => {
-                                setSelectedStatus(e.target.value ? Number(e.target.value) : null);
+                                setSelectedCondition(e.target.value ? Number(e.target.value) : null);
                                 setPage(1);
                             }}
                             className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                         >
-                            <option value="">All Statuses</option>
-                            {propertyStatuses.map(status => (
-                                <option key={status.id} value={status.id}>{status.name}</option>
+                            <option value="">All Conditions</option>
+                            {conditions.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
                         </select>
                         <select
@@ -279,7 +269,7 @@ export function AllItemsPage() {
 
                 {/* Summary Stats */}
                 {data?.data && data.data.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <Package className="w-5 h-5 text-blue-600" />
@@ -290,28 +280,19 @@ export function AllItemsPage() {
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <CheckCircle className="w-5 h-5 text-green-600" />
-                                <div className="text-sm font-medium text-slate-700">Available</div>
+                                <div className="text-sm font-medium text-slate-700">Serviceable</div>
                             </div>
                             <div className="text-2xl font-bold text-green-600">
-                                {data?.stats?.available ?? 0}
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-2">
-                                <User className="w-5 h-5 text-amber-600" />
-                                <div className="text-sm font-medium text-slate-700">Issued</div>
-                            </div>
-                            <div className="text-2xl font-bold text-amber-600">
-                                {data?.stats?.issued ?? 0}
+                                {data?.stats?.serviceable ?? 0}
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                                 <AlertTriangle className="w-5 h-5 text-red-600" />
-                                <div className="text-sm font-medium text-slate-700">Other Status</div>
+                                <div className="text-sm font-medium text-slate-700">Unserviceable</div>
                             </div>
                             <div className="text-2xl font-bold text-red-600">
-                                {data?.stats?.other ?? 0}
+                                {data?.stats?.unserviceable ?? 0}
                             </div>
                         </div>
                     </div>
@@ -377,7 +358,7 @@ export function AllItemsPage() {
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                            {debouncedSearch || selectedStatus || selectedPropertyType ? 'No items found for the current search/filter' : 'No items found'}
+                                            {debouncedSearch || selectedCondition || selectedPropertyType ? 'No items found for the current search/filter' : 'No items found'}
                                         </td>
                                     </tr>
                                 ) : (

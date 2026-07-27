@@ -122,6 +122,8 @@ export type InventoryItemsListResponse = {
     last_page: number;
     stats?: {
         total: number;
+        serviceable?: number;
+        unserviceable?: number;
         available: number;
         issued: number;
         other: number;
