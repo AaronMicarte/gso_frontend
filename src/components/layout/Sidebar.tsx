@@ -40,6 +40,7 @@ import {
     FileClock,
     Settings,
     Shield,
+    ShieldAlert,
     Plus,
     FileCheck,
     CalendarClock,
@@ -139,7 +140,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                             { label: 'Issuance Requests', href: `${baseRoute}/issuance`, icon: FileText },
                             { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
                             { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
-                            { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
+                            // { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
                         ]
                     },
                 ],
@@ -152,6 +153,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                     label: 'Transfer & Disposal', icon: ArrowRightLeft, children: [
                         { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
                         { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
+                        { label: 'RLSDDP Reports', href: `${baseRoute}/rlsddp`, icon: ShieldAlert },
                         // { label: 'Property Disposal', href: `${baseRoute}/disposal`, icon: Trash2 },
                         ...((isAdmin || isGSOStaff) ? [
                             { label: 'IIRUP (PPE)', href: `${baseRoute}/iirup`, icon: FileWarning },
