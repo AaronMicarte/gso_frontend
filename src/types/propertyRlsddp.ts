@@ -25,6 +25,8 @@ export interface PropertyRlsddpReport {
     UpdatedByUserID?: number | null;
     created_at: string;
     updated_at: string;
+    PARNumber?: string | null;
+    PARDate?: string | null;
     department?: {
         DepartmentID: number;
         DepartmentName: string;
@@ -40,6 +42,7 @@ export interface PropertyRlsddpReport {
         FullName: string;
     };
 }
+
 
 export interface RlsddpDocument {
     document_number: string;
