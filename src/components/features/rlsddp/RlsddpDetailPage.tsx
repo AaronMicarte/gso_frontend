@@ -79,6 +79,9 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
         return <div className="p-8 text-center text-slate-500">RLSDDP report not found.</div>;
     }
 
+    const createdBy = report.createdBy ?? report.created_by ?? null;
+    const createdByName = createdBy?.FullName?.trim() || 'Unknown user';
+
     const content = (
         <div className="space-y-6 w-full">
             {/* Header section matching ViewDRPage */}
@@ -100,7 +103,7 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                             </span>
                         </div>
                         <p className="text-slate-500 text-sm mt-0.5">
-                            Created on {format(toZonedTime(new Date(report.created_at), 'Asia/Manila'), 'MMM dd, yyyy')} by {report.createdBy?.FullName || 'System'}
+                            Created on {format(toZonedTime(new Date(report.created_at), 'Asia/Manila'), 'MMM dd, yyyy')} by {createdByName}
                         </p>
                     </div>
                 </div>

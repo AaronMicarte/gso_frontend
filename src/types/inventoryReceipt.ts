@@ -55,7 +55,10 @@ export type PropertyCardHeader = {
     date_received?: string;
     received_by?: string;
     description?: string;
-    property_number?: string;
+    inventory_number?: string | null;
+    property_number?: string | null;
+    par_ics_number?: string | null;
+    document_type?: 'PAR' | 'ICS' | null;
 };
 
 export type DeliveryReceipt = {

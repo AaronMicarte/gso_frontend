@@ -37,7 +37,15 @@ export interface PropertyRlsddpReport {
         UserID: number;
         FullName: string;
     };
+    created_by?: {
+        UserID: number;
+        FullName: string;
+    };
     updatedBy?: {
+        UserID: number;
+        FullName: string;
+    };
+    updated_by?: {
         UserID: number;
         FullName: string;
     };

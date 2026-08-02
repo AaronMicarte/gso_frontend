@@ -1,5 +1,6 @@
 import apiClient from './client';
 import {
+    PropertyRlsddpItem,
     PropertyRlsddpReport,
     AccountableOfficersResponse,
     DepartmentAsset,
@@ -8,6 +9,54 @@ import {
     RlsddpDocument,
 } from '@/types/propertyRlsddp';
 import { TransferDepartment } from '@/types/propertyTransfer';
+
+interface RawRlsddpUser {
+    UserID: number;
+    FullName: string;
+}
+
+interface RawRlsddpReport extends Omit<PropertyRlsddpReport, 'createdBy' | 'created_by' | 'updatedBy' | 'updated_by'> {
+    createdBy?: RawRlsddpUser | null;
+    created_by?: RawRlsddpUser | null;
+    updatedBy?: RawRlsddpUser | null;
+    updated_by?: RawRlsddpUser | null;
+    items?: PropertyRlsddpItem[];
+}
+
+interface RawPaginatedRlsddpResponse extends Omit<PaginatedRlsddpResponse, 'data'> {
+    data: RawRlsddpReport[];
+}
+
+const normalizeRlsddpUser = (user?: RawRlsddpUser | null): RawRlsddpUser | undefined => {
+    if (!user) return undefined;
+    return {
+        UserID: user.UserID,
+        FullName: user.FullName,
+    };
+};
+
+const normalizeRlsddpReport = (report: RawRlsddpReport): PropertyRlsddpReport => {
+    const {
+        createdBy,
+        created_by,
+        updatedBy,
+        updated_by,
+        items,
+        ...rest
+    } = report;
+
+    return {
+        ...rest,
+        createdBy: normalizeRlsddpUser(createdBy ?? created_by),
+        updatedBy: normalizeRlsddpUser(updatedBy ?? updated_by),
+        items: items ?? [],
+    };
+};
+
+const normalizePaginatedRlsddpResponse = (response: RawPaginatedRlsddpResponse): PaginatedRlsddpResponse => ({
+    ...response,
+    data: (response.data ?? []).map(normalizeRlsddpReport),
+});
 
 export interface PaginatedRlsddpResponse {
     current_page: number;
@@ -32,23 +81,29 @@ export const rlsddpAPI = {
         page?: number;
         per_page?: number;
     }): Promise<PaginatedRlsddpResponse> => {
-        const { data } = await apiClient.get<PaginatedRlsddpResponse>('/property-rlsddp', { params });
-        return data;
+        const { data } = await apiClient.get<RawPaginatedRlsddpResponse>('/property-rlsddp', { params });
+        return normalizePaginatedRlsddpResponse(data);
     },
 
     getReport: async (id: number): Promise<PropertyRlsddpReport> => {
-        const { data } = await apiClient.get<PropertyRlsddpReport>(`/property-rlsddp/${id}`);
-        return data;
+        const { data } = await apiClient.get<RawRlsddpReport>(`/property-rlsddp/${id}`);
+        return normalizeRlsddpReport(data);
     },
 
     createReport: async (payload: CreateRlsddpPayload): Promise<{ message: string; report: PropertyRlsddpReport }> => {
-        const { data } = await apiClient.post<{ message: string; report: PropertyRlsddpReport }>('/property-rlsddp', payload);
-        return data;
+        const { data } = await apiClient.post<{ message: string; report: RawRlsddpReport }>('/property-rlsddp', payload);
+        return {
+            ...data,
+            report: normalizeRlsddpReport(data.report),
+        };
     },
 
     updateReport: async (id: number, payload: UpdateRlsddpPayload): Promise<{ message: string; report: PropertyRlsddpReport }> => {
-        const { data } = await apiClient.put<{ message: string; report: PropertyRlsddpReport }>(`/property-rlsddp/${id}`, payload);
-        return data;
+        const { data } = await apiClient.put<{ message: string; report: RawRlsddpReport }>(`/property-rlsddp/${id}`, payload);
+        return {
+            ...data,
+            report: normalizeRlsddpReport(data.report),
+        };
     },
 
     getAccountableOfficers: async (departmentId: number): Promise<AccountableOfficersResponse> => {

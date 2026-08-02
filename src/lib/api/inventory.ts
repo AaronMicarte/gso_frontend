@@ -101,7 +101,8 @@ export type PropertyCardResponse = {
         entity_name: string;
         fund_cluster: string;
         property_plant_equipment: string;
-        property_number: string | null;
+        inventory_number?: string | null;
+        property_number?: string | null;
         description: string | null;
         unit_cost: number | null;
         // Optional fields added by backend to surface receiving details
@@ -109,6 +110,8 @@ export type PropertyCardResponse = {
         supplier?: string | null;
         date_received?: string | null;
         received_by?: string | null;
+        par_ics_number?: string | null;
+        document_type?: 'PAR' | 'ICS' | null;
     };
     rows: PropertyCardRow[];
 };

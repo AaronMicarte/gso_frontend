@@ -206,17 +206,18 @@ export function RlsddpListPage({
                                     <th className="px-6 py-4">Accountable Officer</th>
                                     <th className="px-6 py-4">Status</th>
                                     <th className="px-6 py-4">Police Notified</th>
-                                    <th className="px-6 py-4">Date Reported</th>
+                                    <th className="px-6 py-4">Date Reported to Police</th>
+                                    <th className="px-6 py-4">Date Created</th>
                                     <th className="px-6 py-4">Items Count</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
                                 {isLoading ? (
-                                    <TableSkeletonRows columns={8} rows={10} />
+                                    <TableSkeletonRows columns={9} rows={10} />
                                 ) : reports.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                                        <td colSpan={9} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                                             No RLSDDP reports found
                                         </td>
@@ -252,9 +253,12 @@ export function RlsddpListPage({
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
-                                                {report.DateReported
+                                                {report.PoliceNotified && report.DateReported
                                                     ? format(toZonedTime(new Date(report.DateReported), 'Asia/Manila'), 'MMM dd, yyyy')
                                                     : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {format(toZonedTime(new Date(report.created_at), 'Asia/Manila'), 'MMM dd, yyyy')}
                                             </td>
                                             <td className="px-6 py-4 text-slate-600 font-medium">
                                                 {report.items?.length || 0} item(s)

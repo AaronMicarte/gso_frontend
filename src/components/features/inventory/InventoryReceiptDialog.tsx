@@ -82,6 +82,8 @@ type PropertyCardHeader = {
     property_number?: string;
     brand?: string;
     model_number?: string;
+    par_ics_number?: string | null;
+    document_type?: 'PAR' | 'ICS' | null;
 };
 
 type DeliveryReceipt = {
@@ -289,19 +291,27 @@ export function InventoryReceiptDialog({
         articleName ?? currentDetail?.dr_article_name ?? currentDetail?.PropertyName ?? '—';
     const descriptionValue =
         currentDetail?.Description ?? currentDetail?.dr_item_description ?? header?.description ?? '—';
-    const inventoryNumberValue = currentDetail?.PropertyNumber ?? header?.property_number ?? '—';
+    const inventoryNumberValue = header?.inventory_number ?? currentDetail?.InventoryNumber ?? '—';
+    const propertyNumberValue = header?.property_number ?? currentDetail?.PropertyNumber ?? '—';
     const statusValue = currentDetail?.StatusName ?? currentDetail?.ConditionName ?? '—';
     const custodianValue = currentDetail?.custodianName ?? receivedBy ?? '—';
     const brandValue = currentDetail?.Brand ?? currentDetail?.brand ?? header?.brand ?? null;
     const modelValue = currentDetail?.ModelNumber ?? currentDetail?.Model ?? currentDetail?.model_number ?? header?.model_number ?? null;
     const serialValue = currentDetail?.SerialNumber ?? currentDetail?.Serial ?? currentDetail?.serial ?? currentDetail?.serial_number ?? null;
 
-    const docType = currentDetail?.DocumentType ?? null;
+    // PAR/ICS label and value from property card header
     let parIcsLabel = 'PAR / ICS No.';
-    if (docType === 'PAR') parIcsLabel = 'PAR Number';
-    else if (docType === 'ICS') parIcsLabel = 'ICS Number';
-    else if (header?.property_number && /^\d{4}-/.test(String(header.property_number)))
+    let parIcsValue = header?.par_ics_number ?? null;
+
+    if (header?.document_type === 'PAR') {
+        parIcsLabel = 'PAR Number';
+    } else if (header?.document_type === 'ICS') {
         parIcsLabel = 'ICS Number';
+    } else if (!header?.document_type && currentDetail?.DocumentType === 'PAR') {
+        parIcsLabel = 'PAR Number';
+    } else if (!header?.document_type && currentDetail?.DocumentType === 'ICS') {
+        parIcsLabel = 'ICS Number';
+    }
 
     const totalCostValue = Number(
         combined.totalCost || combined.totalQuantity * combined.unitCost || 0
@@ -354,6 +364,7 @@ export function InventoryReceiptDialog({
                                     <MetaRow icon={<Cpu className="w-3.5 h-3.5" />} label="Model" value={val(modelValue ?? '—')} />
                                     <MetaRow icon={<Package className="w-3.5 h-3.5" />} label="Property Type" value={val(resolvedPropertyTypeName ?? '—')} />
                                     <MetaRow icon={<Hash className="w-3.5 h-3.5" />} label="Inventory No." value={val(inventoryNumberValue)} />
+                                    <MetaRow icon={<Hash className="w-3.5 h-3.5" />} label="Property No." value={val(propertyNumberValue)} />
                                     <MetaRow
                                         icon={<Hash className="w-3.5 h-3.5" />}
                                         label="Serial Number"
@@ -449,7 +460,7 @@ export function InventoryReceiptDialog({
                                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                     <MetaRow icon={<Hash className="w-3.5 h-3.5" />} label="PO Number" value={val(poNumber ?? '—')} />
                                     <MetaRow icon={<Building2 className="w-3.5 h-3.5" />} label="Supplier" value={val(supplier ?? '—')} />
-                                    <MetaRow icon={<FileText className="w-3.5 h-3.5" />} label={parIcsLabel} value={val(header?.property_number ?? '—')} />
+                                    <MetaRow icon={<FileText className="w-3.5 h-3.5" />} label={parIcsLabel} value={val(parIcsValue ?? '—')} />
                                     <MetaRow icon={<Calendar className="w-3.5 h-3.5" />} label="Date Received" value={val(formatDate(receivedDate))} />
                                     <MetaRow fullWidth icon={<User className="w-3.5 h-3.5" />} label="Received By" value={val(receivedBy ?? '—')} />
                                 </div>

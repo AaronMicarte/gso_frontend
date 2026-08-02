@@ -11,7 +11,7 @@ const formatPHDate = (dateString?: string | null): string => {
     try {
         const parsed = new Date(dateString);
         if (Number.isNaN(parsed.getTime())) return '';
-        return format(toZonedTime(parsed, 'Asia/Manila'), 'MMMM dd, yyyy');
+        return format(toZonedTime(parsed, 'Asia/Manila'), 'MM/dd/yyyy');
     } catch {
         return '';
     }
