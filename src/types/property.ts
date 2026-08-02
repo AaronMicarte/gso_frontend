@@ -426,6 +426,9 @@ export interface InventoryDetailCombined {
     qrCodeData?: string | null;
     endUserName?: string | null;
     endUserPosition?: string | null;
+    rlsddpStatus?: 'Lost' | 'Stolen' | 'Damaged' | 'Destroyed' | null;
+    rlsddpNumber?: string | null;
+    rlsddpId?: number | null;
     // Augmented fields for Combined view
     CombinedQuantity?: number;
     CombinedTotalCost?: number;

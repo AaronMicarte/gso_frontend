@@ -31,6 +31,7 @@ type PropertyType = {
 
 type InventoryDetail = {
     InventoryDetailID: number;
+    InventoryNumber?: string;
     UnitOfMeasureID?: number;
     UnitName?: string;
     unitName?: string;
@@ -79,6 +80,7 @@ type PropertyCardHeader = {
     date_received?: string;
     received_by?: string;
     description?: string;
+    inventory_number?: string | null;
     property_number?: string;
     brand?: string;
     model_number?: string;

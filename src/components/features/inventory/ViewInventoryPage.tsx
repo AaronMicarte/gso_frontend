@@ -27,6 +27,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const { data: allUnitsOfMeasure } = useAllUnitsOfMeasure();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
+    const [selectedRlsddpStatus, setSelectedRlsddpStatus] = useState<'Lost' | 'Stolen' | 'Damaged' | 'Destroyed' | null>(null);
     const [displayMode, setDisplayMode] = useState<'individual' | 'combined'>('individual');
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -58,8 +59,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
             filtered = filtered.filter(detail => detail.PropertyTypeID === selectedPropertyType);
         }
 
+        // Apply RLSDDP status filter
+        if (selectedRlsddpStatus) {
+            filtered = filtered.filter(detail => detail.rlsddpStatus === selectedRlsddpStatus);
+        }
+
         return filtered;
-    }, [data?.details, searchTerm, selectedPropertyType]);
+    }, [data?.details, searchTerm, selectedPropertyType, selectedRlsddpStatus]);
 
     const displayedDetails = useMemo<InventoryDetailCombined[]>(() => {
         if (!preFiltered || displayMode === 'individual') {
@@ -173,7 +179,28 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const getBorrowedLabel = (borrowerName?: string | null) => {
         return borrowerName ? `Currently borrowed by ${borrowerName}` : null;
     };
-
+    const getRlsddpPill = (d: InventoryDetailCombined) => {
+        const rs = d.rlsddpStatus;
+        const rid = (d as any).rlsddpId as number | null | undefined;
+        if (!rs) return null;
+        const styles: Record<string, { bg: string; text: string; border: string }> = {
+            Lost:      { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
+            Stolen:    { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
+            Damaged:   { bg: '#fffbeb', text: '#92400e', border: '#fde68a' },
+            Destroyed: { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
+        };
+        const s = styles[rs] ?? styles.Lost;
+        const pill = (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border" style={{ backgroundColor: s.bg, color: s.text, borderColor: s.border }}>
+                {rs}
+            </span>
+        );
+        return (
+            <div className="mt-1">
+                {rid ? <Link href={`${baseRoute}/rlsddp/${rid}`}>{pill}</Link> : pill}
+            </div>
+        );
+    };
     const getItemName = (detail: {
         dr_article_name?: string;
         PropertyName?: string;
@@ -313,40 +340,62 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                     </div>
                                 </div>
 
-                                {/* Search Input */}
-                                <div className="mb-4">
+                              {/* Filters */}
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 space-y-3">
                                     <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                                         <input
                                             type="text"
-                                            placeholder="Search items by name, description, brand, model, or serial..."
+                                            placeholder="Search by name, description, brand, model, or serial..."
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]"
                                         />
                                     </div>
-                                </div>
-
-                                {/* Property Type Filter */}
-                                <div className="mb-4">
-                                    <select
-                                        value={selectedPropertyType || ''}
-                                        onChange={(e) => setSelectedPropertyType(e.target.value ? Number(e.target.value) : null)}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="">All Property Types</option>
-                                        {propertyTypes?.map(type => (
-                                            <option key={type.id} value={type.id}>{type.name}</option>
-                                        ))}
-                                    </select>
-                                    <select
-                                        value={displayMode}
-                                        onChange={(e) => setDisplayMode(e.target.value as 'individual' | 'combined')}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mt-2 sm:mt-0"
-                                    >
-                                        <option value="individual">Individual View</option>
-                                        <option value="combined">Combined View</option>
-                                    </select>
+                                    <div className="flex flex-wrap gap-2">
+                                        <select
+                                            value={selectedPropertyType || ''}
+                                            onChange={(e) => setSelectedPropertyType(e.target.value ? Number(e.target.value) : null)}
+                                            className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]"
+                                        >
+                                            <option value="">All Property Types</option>
+                                            {propertyTypes?.map(type => (
+                                                <option key={type.id} value={type.id}>{type.name}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={selectedRlsddpStatus || ''}
+                                            onChange={(e) => setSelectedRlsddpStatus(e.target.value ? (e.target.value as 'Lost' | 'Stolen' | 'Damaged' | 'Destroyed') : null)}
+                                            className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]"
+                                        >
+                                            <option value="">All RLSDDP Status</option>
+                                            <option value="Lost">Lost</option>
+                                            <option value="Stolen">Stolen</option>
+                                            <option value="Damaged">Damaged</option>
+                                            <option value="Destroyed">Destroyed</option>
+                                        </select>
+                                        <select
+                                            value={displayMode}
+                                            onChange={(e) => setDisplayMode(e.target.value as 'individual' | 'combined')}
+                                            className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]"
+                                        >
+                                            <option value="individual">Individual View</option>
+                                            <option value="combined">Combined View</option>
+                                        </select>
+                                        {(searchTerm || selectedPropertyType || selectedRlsddpStatus) && (
+                                            <button
+                                                onClick={() => { setSearchTerm(''); setSelectedPropertyType(null); setSelectedRlsddpStatus(null); }}
+                                                className="px-3 py-2 text-sm text-slate-500 hover:text-red-600 border border-slate-300 rounded-lg bg-white hover:border-red-300 transition-colors"
+                                            >
+                                                Clear filters
+                                            </button>
+                                        )}
+                                    </div>
+                                    {(searchTerm || selectedPropertyType || selectedRlsddpStatus) && (
+                                        <div className="text-xs text-slate-500">
+                                            Showing {displayedDetails.length} filtered result{displayedDetails.length !== 1 ? 's' : ''}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -455,7 +504,29 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                             </td>
                                                             <td className="px-6 py-4 space-y-1">
                                                                 <div>{getStatusBadge(d.PropertyStatusID, d.StatusName)}</div>
-                                                                {d.ConditionName ? (
+                                                                {d.rlsddpStatus === 'Lost' || d.rlsddpStatus === 'Stolen' ? (
+                                                                    <div
+                                                                        className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
+                                                                        style={{
+                                                                            backgroundColor: '#f1f5f9',
+                                                                            color: '#475569',
+                                                                            border: '1px solid #cbd5e1',
+                                                                        }}
+                                                                    >
+                                                                        <span className="uppercase tracking-wider">{d.rlsddpStatus}</span>
+                                                                    </div>
+                                                                ) : d.rlsddpStatus === 'Destroyed' ? (
+                                                                    <div
+                                                                        className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
+                                                                        style={{
+                                                                            backgroundColor: '#fef2f2',
+                                                                            color: '#b91c1c',
+                                                                            border: '1px solid #fecaca',
+                                                                        }}
+                                                                    >
+                                                                        <span className="uppercase tracking-wider">Unserviceable</span>
+                                                                    </div>
+                                                                ) : d.ConditionName ? (
                                                                     <div
                                                                         className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold"
                                                                         style={{
@@ -469,6 +540,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 ) : (
                                                                     <span className="text-xs text-slate-500">Unknown</span>
                                                                 )}
+                                                               {getRlsddpPill(d)}
                                                             </td>
                                                             <td className="px-6 py-4 text-slate-600">
                                                                 {getBorrowedLabel(d.currentBorrowerName) ? (
