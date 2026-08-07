@@ -245,6 +245,27 @@ export async function exportRlsddpToExcel(report: PropertyRlsddpReport): Promise
         cell.alignment = { vertical: 'middle', wrapText: true, ...existingAlign, ...alignOpts };
     };
 
+    const getIssuanceDocument = (report: PropertyRlsddpReport) => {
+        const explicitType = String((report as any).DocumentType ?? (report as any).document_type ?? '').toUpperCase();
+        const normalizedType = explicitType === 'ICS' ? 'ICS' : explicitType === 'PAR' ? 'PAR' : undefined;
+        const rawParNumber = ensureText((report as any).PARNumber ?? '', '');
+        const rawIcsNumber = ensureText((report as any).ICSNumber ?? '', '');
+        const rawParDate = (report as any).PARDate ?? null;
+        const rawIcsDate = (report as any).ICSDate ?? null;
+
+        const hasIcsPrefix = /(^|\s)(ICS)(?:[\s-]|$)/i.test(rawParNumber) && !/(^|\s)(PAR)(?:[\s-]|$)/i.test(rawParNumber);
+        const hasParPrefix = /(^|\s)(PAR)(?:[\s-]|$)/i.test(rawParNumber) && !/(^|\s)(ICS)(?:[\s-]|$)/i.test(rawParNumber);
+        const documentType = normalizedType ?? (hasIcsPrefix ? 'ICS' : hasParPrefix ? 'PAR' : 'PAR');
+
+        return {
+            documentType,
+            number: documentType === 'ICS' ? rawIcsNumber || rawParNumber : rawParNumber || rawIcsNumber,
+            date: documentType === 'ICS' ? rawIcsDate ?? rawParDate : rawParDate ?? rawIcsDate,
+        };
+    };
+
+    const issuance = getIssuanceDocument(report);
+
     // ── Rows 8–10: Header fields ───────────────────────────────────────────────
     fillLabeled(8, 2, 'Department/Office : ', ensureText(report.department?.DepartmentName, ''));
     fillLabeled(8, 7, 'RLSDDP No. : ', ensureText(report.RlsddpNumber, ''));
@@ -253,16 +274,16 @@ export async function exportRlsddpToExcel(report: PropertyRlsddpReport): Promise
     fillLabeled(9, 7, 'RLSDDP Date : ', formatPHDate(report.created_at));
 
     fillLabeled(10, 2, 'Designation : ', '');
-    fillLabeled(10, 7, 'PAR No. : ', ensureText((report as any).PARNumber ?? '', ''));
+    fillLabeled(10, 7, `${issuance.documentType} No. : `, ensureText(issuance.number, ''));
 
-    // ── Row 11: Police Station / Date / PAR Date ──────────────────────────────
+    // ── Row 11: Police Station / Date / Issuance Date ─────────────────────────────
     fillLabeled(11, 2, 'Police Notified: ', ' ', {}, false, false);
 
     if (report.PoliceNotified) {
         fillLabeled(11, 4, 'Police Station : ', ensureText(report.PoliceStation, ''));
         fillLabeled(12, 4, 'Date : ', formatPHDate(report.DateReported));
     }
-    fillLabeled(11, 7, 'PAR Date : ', formatPHDate((report as any).PARDate ?? null));
+    fillLabeled(11, 7, `${issuance.documentType} Date : `, formatPHDate(issuance.date));
 
     // ── Rows 22–28: Data zone ─────────────────────────────────────────────────
     const items = report.items ?? [];

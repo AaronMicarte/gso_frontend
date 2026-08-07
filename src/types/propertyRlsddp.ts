@@ -27,6 +27,9 @@ export interface PropertyRlsddpReport {
     updated_at: string;
     PARNumber?: string | null;
     PARDate?: string | null;
+    ICSNumber?: string | null;
+    ICSDate?: string | null;
+    DocumentType?: 'PAR' | 'ICS' | null;
     department?: {
         DepartmentID: number;
         DepartmentName: string;
