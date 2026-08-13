@@ -46,6 +46,7 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -162,6 +163,7 @@ export function LoginForm() {
       router.push(dashboardRoute);
     } catch (err: unknown) {
       const error = err as LoginError;
+      setValue('password', '');
 
       if (error.locked) {
         setLockout({
@@ -174,7 +176,7 @@ export function LoginForm() {
         });
       } else if (error.attempts_remaining !== undefined) {
         // Show remaining attempts
-        toast.error('Invalid Credentials', {
+        toast.error('Invalid credentials', {
           description: `${error.attempts_remaining} attempt${error.attempts_remaining !== 1 ? 's' : ''} remaining before lockout.`
         });
       } else if (error.activation_required) {
@@ -194,7 +196,7 @@ export function LoginForm() {
           description: error.message || 'Captcha verification failed. Please try again.',
         });
       } else {
-        toast.error('Login Failed', {
+        toast.error('Invalid credentials', {
           description: error.message || 'Invalid credentials. Please try again.'
         });
       }

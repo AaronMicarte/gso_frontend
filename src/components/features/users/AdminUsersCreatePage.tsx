@@ -57,6 +57,8 @@ export default function AdminUsersCreatePage() {
         );
     }, [Username, Email, DepartmentID, UserRoleID]);
 
+    const ALLOWED_ROLES = ['Admin', 'GSO Staff', 'Department Head'];
+
     const roleOptions = useMemo(() => {
         const seen = new Set<number>();
         const normalized: Array<{ id: number; label: string }> = [];
@@ -72,6 +74,8 @@ export default function AdminUsersCreatePage() {
             const label = typeof rawName === 'string' && rawName.trim().length > 0 ? rawName.trim() : `Role ${id}`;
 
             if (seen.has(id)) continue;
+            if (!ALLOWED_ROLES.includes(label)) continue; // <-- add this
+
             seen.add(id);
             normalized.push({ id, label });
         }
