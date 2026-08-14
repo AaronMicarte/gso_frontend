@@ -84,7 +84,7 @@ export default function ChangeTemporaryPasswordPage() {
 
         setLoading(true);
         try {
-            await changeTemporaryPassword({
+            const res = await changeTemporaryPassword({
                 username,
                 current_password: currentPassword,
                 new_password: password,
@@ -92,10 +92,17 @@ export default function ChangeTemporaryPasswordPage() {
             });
 
             toast.success('Password updated', {
-                description: 'Login using your new password.',
+                description: 'Please set up two-factor authentication.',
             });
 
-            router.push('/');
+            if (res?.user_id) {
+                sessionStorage.setItem('mfa_setup_pending', JSON.stringify({
+                    userId: res.user_id,
+                }));
+                router.push('/setup-mfa');
+            } else {
+                router.push('/');
+            }
         } catch (e) {
             toast.error('Password update failed', {
                 description: describeValidationError(e),

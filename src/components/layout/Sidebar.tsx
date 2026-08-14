@@ -164,19 +164,19 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             ],
             roles: ['admin', 'staff', 'department_head'],
         },
-        // {
-        //     section: 'MAINTENANCE',
-        //     items: [
-        //         { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
-        //     ],
-        //     roles: ['admin', 'staff', 'department_head'],
-        // },
+        {
+            section: 'MAINTENANCE',
+            items: [
+                { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
+            ],
+            roles: ['admin', 'staff', 'department_head'],
+        },
         {
             section: 'QR MANAGEMENT',
             items: [
                 {
                     label: 'QR Codes', icon: QrCode, children: [
-                        { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
+                        // { label: 'Scan QR', href: `/qr/scan`, icon: QrCode },
                         { label: 'RPCPPE / RPCSEP', href: `/qr/rpc-inventory`, icon: ClipboardList },
                     ]
                 },

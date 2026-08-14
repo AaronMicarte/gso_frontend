@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
-import { getDeliveryReceipt, getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers } from '@/lib/api/deliveryReceipts';
+import { getDeliveryReceipt, getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers, getUsedSerialNumbers } from '@/lib/api/deliveryReceipts';
 import { getActiveArticles } from '@/lib/api/masterData';
 import { Article } from '@/types/masterData';
 import { useUpdateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
@@ -167,16 +167,21 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         }
     };
 
+    const [usedSerials, setUsedSerials] = useState<string[]>([]);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [propertyTypesData, articlesData, drData] = await Promise.all([
+                const drId = parseInt(params.id as string);
+                const [propertyTypesData, articlesData, drData, usedSerialsData] = await Promise.all([
                     getPropertyTypes(),
                     getActiveArticles(),
-                    getDeliveryReceipt(parseInt(params.id as string))
+                    getDeliveryReceipt(drId),
+                    getUsedSerialNumbers(drId)
                 ]);
                 setPropertyTypes(propertyTypesData);
                 setArticles(articlesData);
+                setUsedSerials(usedSerialsData || []);
 
                 // Populate form with existing data
                 setValue('dr_number', drData.DRNumber);
@@ -1031,6 +1036,12 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                         propertyTypes={propertyTypes}
                         units={units}
                         onSave={handleSaveItem}
+                        existingSerials={Array.from(new Set([
+                            ...usedSerials,
+                            ...(details || [])
+                                .filter((_, idx) => isAddingItem || idx !== editingIndex)
+                                .flatMap(item => String(item?.serial_number || '').split(',').map(s => s.trim()).filter(Boolean))
+                        ]))}
                     />
 
                     {/* Summary */}

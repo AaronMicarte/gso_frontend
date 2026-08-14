@@ -205,7 +205,7 @@ export function UserSettingsPage({ baseRoute, roleLabel, landingOptions }: UserS
                             </dl>
                         </div>
 
-                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        {/* <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h2 className="text-lg font-semibold text-slate-900 mb-2">Quick Access</h2>
                             <p className="text-sm text-slate-600 mb-4">
                                 Jump directly to your most-used destination.
@@ -222,7 +222,7 @@ export function UserSettingsPage({ baseRoute, roleLabel, landingOptions }: UserS
                                     {prefs.defaultLandingRoute || defaultRoute}
                                 </span>
                             </div>
-                        </div>
+                        </div> */}
                     </TabsContent>
 
                     <TabsContent value="preferences" className="space-y-4">

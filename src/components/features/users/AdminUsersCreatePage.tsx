@@ -47,7 +47,6 @@ export default function AdminUsersCreatePage() {
     const canSubmit = useMemo(() => {
         return (
             Username.trim().length >= 3 &&
-            Email.trim().length > 0 &&
             typeof DepartmentID === 'number' &&
             Number.isFinite(DepartmentID) &&
             DepartmentID > 0 &&
@@ -55,7 +54,7 @@ export default function AdminUsersCreatePage() {
             Number.isFinite(UserRoleID) &&
             UserRoleID > 0
         );
-    }, [Username, Email, DepartmentID, UserRoleID]);
+    }, [Username, DepartmentID, UserRoleID]);
 
     const ALLOWED_ROLES = ['Admin', 'GSO Staff', 'Department Head'];
 
@@ -120,23 +119,17 @@ export default function AdminUsersCreatePage() {
 
         setLoading(true);
         try {
-            const res = await adminCreateUser({
+            await adminCreateUser({
                 Username: Username.trim(),
-                Email: Email.trim(),
+                Email: Email.trim() ? Email.trim() : `${Username.trim()}@gso.gov.ph`,
                 FullName: FullName.trim() ? FullName.trim() : undefined,
                 DepartmentID: deptId,
                 UserRoleID: roleId,
             });
 
             toast.success('User created', {
-                description: res.email_sent
-                    ? `Activation email sent to ${res.user.Email}`
-                    : 'Mail not configured. Activation link copied for manual sending.',
+                description: 'User account created with default password "123".',
             });
-
-            if (!res.email_sent && res.activation_link) {
-                await navigator.clipboard.writeText(res.activation_link);
-            }
 
             router.push('/admin/users');
         } catch (e: unknown) {
@@ -176,8 +169,7 @@ export default function AdminUsersCreatePage() {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Create User</h1>
                     <p className="text-sm text-slate-600">
-                        Default temporary password is <span className="font-semibold">123</span>. The user will set a
-                        new password during activation.
+                        Default password is automatically set to <span className="font-semibold">123</span>. No activation email is required.
                     </p>
                 </div>
 

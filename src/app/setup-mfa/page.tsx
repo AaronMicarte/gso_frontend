@@ -11,6 +11,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { generateMFASecretForLogin, enableMFADuringLogin } from '@/lib/api/mfa';
+import { logout } from '@/lib/auth';
 import { MFASecretResponse } from '@/types/mfa';
 
 const codeSchema = z.object({
@@ -35,7 +36,7 @@ export default function SetupMFAPage() {
     });
 
     useEffect(() => {
-        // Get pending user from sessionStorage (set during login)
+        // Get pending user from sessionStorage (set during login or password change)
         const stored = sessionStorage.getItem('mfa_setup_pending');
         if (!stored) {
             router.replace('/');
@@ -84,9 +85,14 @@ export default function SetupMFAPage() {
         }
     };
 
-    const handleComplete = () => {
+    const handleComplete = async () => {
         // Clear the pending state
         sessionStorage.removeItem('mfa_setup_pending');
+        try {
+            await logout();
+        } catch {
+            // Ignore if session not active
+        }
         // Redirect to login to complete authentication
         router.replace('/?mfa_setup=complete');
     };

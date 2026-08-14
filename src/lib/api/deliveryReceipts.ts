@@ -106,3 +106,10 @@ export const rejectDeliveryReceipt = async (id: number): Promise<DeliveryReceipt
     const response = await apiClient.patch(`/procurement/delivery-receipts/${id}/reject`);
     return response.data.data;
 };
+
+export const getUsedSerialNumbers = async (excludeDrId?: number): Promise<string[]> => {
+    const params = new URLSearchParams();
+    if (excludeDrId) params.append('exclude_dr_id', String(excludeDrId));
+    const response = await apiClient.get(`/procurement/delivery-receipts-helpers/used-serials?${params.toString()}`);
+    return response.data.data || [];
+};

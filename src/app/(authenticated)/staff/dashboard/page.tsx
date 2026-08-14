@@ -363,7 +363,7 @@ export default function StaffDashboardPage() {
                 {/* Recent Activity - Takes 2 columns on large screens */}
                 <div className="lg:col-span-2">
                     <RecentActivity
-                        activities={activities}
+                        activities={activities.filter(a => a.type !== 'login')}
                         loading={activityLoading}
                         onRefresh={fetchActivity}
                     />

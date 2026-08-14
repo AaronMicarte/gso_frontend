@@ -6,12 +6,15 @@ import { Dialog } from '@/components/ui/Dialog';
 import { adminGetUsers, adminResendActivation, adminToggleUserActive, adminToggleUserMfa } from '@/lib/api/admin/users';
 import type { AdminUserRow } from '@/types/users';
 import Link from 'next/link';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Filter, ShieldCheck, ShieldAlert, KeyRound, CheckCircle2 } from 'lucide-react';
 
 export default function AdminUsersListPage() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<AdminUserRow[]>([]);
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [roleFilter, setRoleFilter] = useState<string>('all');
+    const [departmentFilter, setDepartmentFilter] = useState<string>('all');
 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
@@ -40,16 +43,64 @@ export default function AdminUsersListPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const availableRoles = useMemo(() => {
+        const set = new Set<string>();
+        rows.forEach((r) => {
+            if (r.Role) set.add(r.Role);
+        });
+        return Array.from(set);
+    }, [rows]);
+
+    const availableDepartments = useMemo(() => {
+        const set = new Set<string>();
+        rows.forEach((r) => {
+            if (r.Department) set.add(r.Department);
+        });
+        return Array.from(set);
+    }, [rows]);
+
     const filtered = useMemo(() => {
-        const q = search.trim().toLowerCase();
-        if (!q) return rows;
-        return rows.filter((u) =>
-            [u.Username, u.Email, u.FullName ?? '', u.Role ?? '', u.Department ?? '']
-                .join(' ')
-                .toLowerCase()
-                .includes(q)
-        );
-    }, [rows, search]);
+        return rows.filter((u) => {
+            // Search query
+            const q = search.trim().toLowerCase();
+            if (q) {
+                const matchesSearch = [u.Username, u.Email, u.FullName ?? '', u.Role ?? '', u.Department ?? '']
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(q);
+                if (!matchesSearch) return false;
+            }
+
+            // Role filter
+            if (roleFilter !== 'all' && u.Role !== roleFilter) {
+                return false;
+            }
+
+            // Department filter
+            if (departmentFilter !== 'all' && u.Department !== departmentFilter) {
+                return false;
+            }
+
+            // Status filter
+            if (statusFilter === 'pending_password') {
+                return (u.MustChangePassword ?? false) === true;
+            }
+            if (statusFilter === 'pending_mfa') {
+                return !(u.MustChangePassword ?? false) && !u.MFAEnabled;
+            }
+            if (statusFilter === 'fully_setup') {
+                return !(u.MustChangePassword ?? false) && u.MFAEnabled;
+            }
+            if (statusFilter === 'active') {
+                return u.IsActive;
+            }
+            if (statusFilter === 'disabled') {
+                return !u.IsActive;
+            }
+
+            return true;
+        });
+    }, [rows, search, roleFilter, departmentFilter, statusFilter]);
 
     function openToggleDialog(user: AdminUserRow) {
         setConfirmUser(user);
@@ -124,6 +175,42 @@ export default function AdminUsersListPage() {
         }
     }
 
+    function renderOnboardingStatus(u: AdminUserRow) {
+        if (!u.IsActive) {
+            return (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200">
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                    Account Disabled
+                </span>
+            );
+        }
+
+        if (u.MustChangePassword) {
+            return (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                    Pending Password Change (Default: 123)
+                </span>
+            );
+        }
+
+        if (!u.MFAEnabled) {
+            return (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-100 text-sky-800 border border-sky-300">
+                    <ShieldAlert className="w-3.5 h-3.5 text-sky-600" />
+                    Pending 2FA QR Scan
+                </span>
+            );
+        }
+
+        return (
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Fully Setup & Verified (2FA Ready)
+            </span>
+        );
+    }
+
     return (
         <div
             className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat"
@@ -134,7 +221,7 @@ export default function AdminUsersListPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Users</h1>
                         <p className="text-sm text-slate-500">
-                            Create users, resend activation, and manage active status and MFA.
+                            Manage users, monitor onboarding/2FA status, and control user access.
                         </p>
                     </div>
                     <Link href="/admin/users/create" className="shrink-0">
@@ -145,23 +232,74 @@ export default function AdminUsersListPage() {
                     </Link>
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                    <div className="flex items-center gap-3">
+                {/* Filter and Search Bar */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Search by username, email, role, department"
+                                placeholder="Search by username, email, role, department..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 text-sm"
                             />
                         </div>
+
+                        {/* Status Filter */}
+                        <div className="flex items-center gap-2">
+                            <Filter className="w-4 h-4 text-slate-500 shrink-0" />
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                            >
+                                <option value="all">All Onboarding Statuses</option>
+                                <option value="pending_password">Pending Password Change</option>
+                                <option value="pending_mfa">Pending 2FA QR Scan</option>
+                                <option value="fully_setup">Fully Setup & Verified</option>
+                                <option value="active">Active Only</option>
+                                <option value="disabled">Disabled Only</option>
+                            </select>
+                        </div>
+
+                        {/* Role Filter */}
+                        {availableRoles.length > 0 && (
+                            <select
+                                value={roleFilter}
+                                onChange={(e) => setRoleFilter(e.target.value)}
+                                className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                            >
+                                <option value="all">All Roles</option>
+                                {availableRoles.map((r) => (
+                                    <option key={r} value={r}>
+                                        {r}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+
+                        {/* Department Filter */}
+                        {availableDepartments.length > 0 && (
+                            <select
+                                value={departmentFilter}
+                                onChange={(e) => setDepartmentFilter(e.target.value)}
+                                className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                            >
+                                <option value="all">All Departments</option>
+                                {availableDepartments.map((d) => (
+                                    <option key={d} value={d}>
+                                        {d}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+
                         <button
                             type="button"
                             disabled={loading}
                             onClick={() => void load()}
-                            className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                            className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm disabled:opacity-50"
                         >
                             Refresh
                         </button>
@@ -176,8 +314,8 @@ export default function AdminUsersListPage() {
                                     <th className="text-left font-semibold px-4 py-3">User</th>
                                     <th className="text-left font-semibold px-4 py-3">Role</th>
                                     <th className="text-left font-semibold px-4 py-3">Department</th>
-                                    <th className="text-left font-semibold px-4 py-3">Status</th>
-                                    <th className="text-left font-semibold px-4 py-3">Security</th>
+                                    <th className="text-left font-semibold px-4 py-3">Onboarding & Security Status</th>
+                                    <th className="text-left font-semibold px-4 py-3">2FA Authenticator</th>
                                     <th className="text-center font-semibold px-4 py-3">Actions</th>
                                 </tr>
                             </thead>
@@ -185,7 +323,7 @@ export default function AdminUsersListPage() {
                                 {filtered.length === 0 ? (
                                     <tr>
                                         <td className="px-4 py-4 text-slate-600" colSpan={6}>
-                                            No users found.
+                                            No users match the selected filters.
                                         </td>
                                     </tr>
                                 ) : (
@@ -199,35 +337,26 @@ export default function AdminUsersListPage() {
                                             <td className="px-4 py-3 text-slate-700">{u.Role || '—'}</td>
                                             <td className="px-4 py-3 text-slate-700">{u.Department || '—'}</td>
                                             <td className="px-4 py-3">
-                                                <span
-                                                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${u.IsActive
-                                                        ? 'bg-emerald-50 text-emerald-700'
-                                                        : 'bg-rose-50 text-rose-700'
-                                                        }`}
-                                                >
-                                                    {u.IsActive ? 'Active' : 'Disabled'}
-                                                </span>
+                                                {renderOnboardingStatus(u)}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="space-y-2">
-                                                    <div className="text-slate-700 text-xs">{u.EmailVerifiedAt ? 'Verified' : 'Not verified'}</div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-slate-500">MFA</span>
-                                                        <button
-                                                            type="button"
-                                                            role="switch"
-                                                            aria-checked={u.MFAEnabled}
-                                                            aria-label={`Toggle MFA for ${u.Username}`}
-                                                            onClick={() => openMfaToggleDialog(u)}
-                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 ${u.MFAEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+                                                <div className="flex items-center gap-2">
+                                                    <ShieldCheck className={`w-4 h-4 ${u.MFAEnabled ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                                    <span className="text-xs text-slate-600">{u.MFAEnabled ? 'Enabled' : 'Disabled'}</span>
+                                                    <button
+                                                        type="button"
+                                                        role="switch"
+                                                        aria-checked={u.MFAEnabled}
+                                                        aria-label={`Toggle MFA for ${u.Username}`}
+                                                        onClick={() => openMfaToggleDialog(u)}
+                                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-1 ${u.MFAEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+                                                            }`}
+                                                    >
+                                                        <span
+                                                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${u.MFAEnabled ? 'translate-x-4.5' : 'translate-x-0.5'
                                                                 }`}
-                                                        >
-                                                            <span
-                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${u.MFAEnabled ? 'translate-x-6' : 'translate-x-1'
-                                                                    }`}
-                                                            />
-                                                        </button>
-                                                    </div>
+                                                        />
+                                                    </button>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
@@ -246,7 +375,10 @@ export default function AdminUsersListPage() {
                                                         </button>
                                                     </Link>
                                                     <button
-                                                        className="px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs"
+                                                        className={`px-3 py-2 rounded-lg border text-xs font-medium ${u.IsActive
+                                                            ? 'border-rose-200 text-rose-700 hover:bg-rose-50'
+                                                            : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                                                            }`}
                                                         onClick={() => openToggleDialog(u)}
                                                     >
                                                         {u.IsActive ? 'Disable' : 'Enable'}

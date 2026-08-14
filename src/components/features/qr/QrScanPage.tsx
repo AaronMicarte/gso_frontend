@@ -420,7 +420,7 @@ export function QrScanPage() {
                     <input
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="e.g. 123 or https://.../qr/scan/123?h=..."
+                        // placeholder="e.g. 123 or https://.../qr/scan/123?h=..."
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
                     />
                     <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -482,8 +482,8 @@ export function QrScanPage() {
                         <div className="text-sm text-slate-600">
                             - Allow camera permission when prompted.
                             <br />- Best results with good lighting.
-                            <br />- This scans QR codes that contain a GSO property URL like{' '}
-                            <span className="font-mono">{'/qr/scan/{PropertyID}'}</span>.
+                            {/* <br />- This scans QR codes that contain a GSO property URL like{' '}
+                            <span className="font-mono">{'/qr/scan/{PropertyID}'}</span>. */}
                         </div>
                     </div>
                 </div>

@@ -4,6 +4,7 @@ export interface AdminUserRow {
     Email: string;
     FullName: string | null;
     IsActive: boolean;
+    MustChangePassword?: boolean;
     EmailVerifiedAt: string | null;
     MFAEnabled: boolean;
     UserRoleID: number;

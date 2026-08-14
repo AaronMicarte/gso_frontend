@@ -28,9 +28,10 @@ export async function logout(): Promise<void> {
   await apiClient.post('/logout');
 }
 
-export async function changeTemporaryPassword(payload: ChangeTemporaryPasswordPayload): Promise<void> {
+export async function changeTemporaryPassword(payload: ChangeTemporaryPasswordPayload): Promise<{ message: string; user_id?: number; username?: string }> {
   await getCsrfCookie();
-  await apiClient.post('../auth/change-temporary-password', payload);
+  const response = await apiClient.post<{ message: string; user_id?: number; username?: string }>('../auth/change-temporary-password', payload);
+  return response.data;
 }
 
 /**

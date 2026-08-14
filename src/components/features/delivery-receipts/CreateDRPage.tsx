@@ -12,7 +12,7 @@ import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { ItemDetailsModal } from './ItemDetailsModal';
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers } from '@/lib/api/deliveryReceipts';
+import { getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers, getUsedSerialNumbers } from '@/lib/api/deliveryReceipts';
 import { getActiveArticles } from '@/lib/api/masterData';
 import { Article } from '@/types/masterData';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -167,15 +167,19 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         }
     };
 
+    const [usedSerials, setUsedSerials] = useState<string[]>([]);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [propertyTypesData, articlesData] = await Promise.all([
+                const [propertyTypesData, articlesData, usedSerialsData] = await Promise.all([
                     getPropertyTypes(),
-                    getActiveArticles()
+                    getActiveArticles(),
+                    getUsedSerialNumbers(),
                 ]);
                 setPropertyTypes(propertyTypesData);
                 setArticles(articlesData);
+                setUsedSerials(usedSerialsData || []);
             } catch {
                 toast.error('Failed to load form data');
             }
@@ -846,6 +850,12 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                         propertyTypes={propertyTypes}
                         units={units}
                         onSave={handleSaveItem}
+                        existingSerials={Array.from(new Set([
+                            ...usedSerials,
+                            ...(details || [])
+                                .filter((_, idx) => isAddingItem || idx !== editingIndex)
+                                .flatMap(item => String(item?.serial_number || '').split(',').map(s => s.trim()).filter(Boolean))
+                        ]))}
                     />
 
                     {/* Summary */}
