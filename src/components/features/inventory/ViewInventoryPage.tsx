@@ -77,7 +77,13 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
 
         const map = new Map<string, InventoryDetailCombined>();
         for (const d of preFiltered) {
-            const key = (d.dr_article_name || d.PropertyName || d.ModelNumber || d.PropertyNumber || d.SerialNumber || 'UNKNOWN').toString().trim();
+            // Group key: same DR + same Article + same Brand + same Model
+            const drId = d.dr_drid != null ? String(d.dr_drid) : `inv-${d.InventoryID}`;
+            const article = (d.dr_article_name || d.PropertyName || '').toString().trim().toUpperCase();
+            const brand   = (d.Brand || '').toString().trim().toUpperCase();
+            const model   = (d.ModelNumber || '').toString().trim().toUpperCase();
+            const key = `${drId}||${article}||${brand}||${model}`;
+
             const existing = map.get(key);
             const unitCost = Number(d.UnitCost || 0);
             const qty = Number(d.Quantity || 1);
