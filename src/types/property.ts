@@ -404,8 +404,10 @@ export interface InventoryDetailCombined {
     SerialNumber?: string;
     PropertyName?: string;
     PropertyNumber?: string;
+    InventoryNumber?: string;
     ClassificationName?: string;
     DocumentType?: 'ICS' | 'PAR';
+    PropertyTypeID?: number;
     Quantity: number;
     QuantityAvailable?: number;
     UnitOfMeasureID?: number;
@@ -417,11 +419,16 @@ export interface InventoryDetailCombined {
     StatusName?: string;
     custodianName?: string;
     locationDepartment?: string;
+    locationDepartmentId?: number | null;
     currentDepartmentHead?: string | null;
     departmentHeadVacant?: boolean;
     accountabilityLabel?: string | null;
     currentBorrowerName?: string | null;
     dr_article_name?: string;
+    dr_item_description?: string;
+    dr_drid?: number | null;
+    DateAcquired?: string | null;
+    lastIssuedDate?: string | null;
     qrCode?: { QRCodeData?: string | null } | null;
     qrCodeData?: string | null;
     endUserName?: string | null;

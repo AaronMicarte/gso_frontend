@@ -2,14 +2,16 @@
 
 import { useAllInventoryItems } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
-import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2, FileWarning } from 'lucide-react';
+import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2, FileWarning, Download, Filter } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import type { InventoryItem } from '@/lib/api/inventory';
+import { getAllInventoryItems, type InventoryItem } from '@/lib/api/inventory';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
+import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
+import { exportDepartmentItemsToExcel, exportAllItemsToExcel } from './DepartmentExport';
 
 import { PropertySticker, type PropertyStickerItem } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
@@ -29,11 +31,14 @@ type CombinedInventoryItem = InventoryItem & {
 };
 
 const RLSDDP_STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-    Lost:      { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
-    Stolen:    { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
-    Damaged:   { bg: '#fffbeb', text: '#92400e', border: '#fde68a' },
+    Lost: { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
+    Stolen: { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
+    Damaged: { bg: '#fffbeb', text: '#92400e', border: '#fde68a' },
     Destroyed: { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
 };
+
+const selectClass =
+    'w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] text-sm text-slate-900 transition-colors';
 
 export function AllItemsPage() {
     const searchParams = useSearchParams();
@@ -66,6 +71,7 @@ export function AllItemsPage() {
     });
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
     const [selectedDocumentType, setSelectedDocumentType] = useState<'PAR' | 'ICS' | null>(null);
+    const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
     const [displayMode, setDisplayMode] = useState<'individual' | 'combined'>('individual');
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -88,10 +94,41 @@ export function AllItemsPage() {
         document_type: selectedDocumentType || undefined,
         display_mode: displayMode,
         rlsddp_status: selectedRlsddpStatus || undefined,
+        department_id: selectedDepartment || undefined,
     });
     const { data: propertyTypes } = useAllPropertyTypes();
+    const { data: allDepartments } = useAllDepartments();
+
+    const [isExportingAll, setIsExportingAll] = useState(false);
 
     const handleRefresh = () => { refetch(); toast.success('Items refreshed'); };
+
+    const handleExportAll = async () => {
+        setIsExportingAll(true);
+        try {
+            // Fetch the first page to determine total items
+            const initialData = await getAllInventoryItems({ per_page: 1 });
+            const totalItems = initialData.total || 1000;
+
+            // Fetch all items from backend
+            const allItemsData = await getAllInventoryItems({
+                per_page: totalItems,
+                display_mode: 'individual',
+                search: debouncedSearch || undefined,
+                property_status_id: selectedCondition || undefined,
+                property_type_id: selectedPropertyType || undefined,
+                document_type: selectedDocumentType || undefined,
+                rlsddp_status: selectedRlsddpStatus || undefined,
+            });
+
+            await exportAllItemsToExcel(allItemsData.data || []);
+            toast.success('All items exported successfully');
+        } catch {
+            toast.error('Failed to export all items');
+        } finally {
+            setIsExportingAll(false);
+        }
+    };
 
     const getItemName = (item: InventoryItem) => item.dr_article_name || item.PropertyName || 'Unknown Item';
     const getCustodianDisplayName = (custodianName?: string) => custodianName || 'Requester not set';
@@ -171,7 +208,6 @@ export function AllItemsPage() {
 
     const getConditionBadge = (item: InventoryItem) => {
         const rs = (item as any).rlsddpStatus as string | null | undefined;
-
         if (rs === 'Lost' || rs === 'Stolen') {
             return (
                 <div className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold" style={{ backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}>
@@ -218,115 +254,279 @@ export function AllItemsPage() {
         );
         return (
             <div className="mt-1">
-                {rid ? (
-                    <Link href={`${rlsddpBaseRoute}/${rid}`}>{pill}</Link>
-                ) : pill}
+                {rid ? <Link href={`${rlsddpBaseRoute}/${rid}`}>{pill}</Link> : pill}
             </div>
         );
     };
 
-    const selectClass = "px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent text-sm";
+    const activeFilterCount = [selectedCondition, selectedRlsddpStatus, selectedPropertyType, selectedDocumentType, selectedDepartment].filter(Boolean).length;
 
     return (
         <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: 'fixed' }}>
-            <div className="p-6 space-y-6">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="p-6 space-y-5">
+
+                {/* ── Header ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">All Inventory Items</h1>
-                        <p className="text-slate-500 text-sm">Master ledger of all individual property items across all inventories</p>
+                        <p className="text-slate-500 text-sm mt-0.5">Master ledger of all individual property items across all inventories</p>
                     </div>
-                    <div className="flex flex-wrap gap-2 items-center">
+                    <div className="flex items-center gap-2 shrink-0">
                         <button
                             onClick={handleRefresh}
                             disabled={isFetching}
-                            className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 text-sm"
+                            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 bg-white text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 text-sm font-medium shadow-sm"
                         >
                             <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-                            <span className="hidden sm:inline">Refresh</span>
+                            Refresh
                         </button>
-                        <select value={selectedCondition || ''} onChange={(e) => { setSelectedCondition(e.target.value ? Number(e.target.value) : null); setPage(1); }} className={selectClass}>
-                            <option value="">All Conditions</option>
-                            <option value={1}>Serviceable</option>
-                            <option value={2}>Unserviceable</option>
-                        </select>
-                        <select value={selectedRlsddpStatus || ''} onChange={(e) => { setSelectedRlsddpStatus(e.target.value ? (e.target.value as any) : null); setPage(1); }} className={selectClass}>
-                            <option value="">All RLSDDP</option>
-                            <option value="Lost">Lost</option>
-                            <option value="Stolen">Stolen</option>
-                            <option value="Damaged">Damaged</option>
-                            <option value="Destroyed">Destroyed</option>
-                        </select>
-                        <select value={selectedPropertyType || ''} onChange={(e) => { setSelectedPropertyType(e.target.value ? Number(e.target.value) : null); setPage(1); }} className={selectClass}>
-                            <option value="">All Property Types</option>
-                            {propertyTypes?.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
-                        </select>
-                        <select value={selectedDocumentType || ''} onChange={(e) => { setSelectedDocumentType(e.target.value ? (e.target.value as 'PAR' | 'ICS') : null); setPage(1); }} className={selectClass}>
-                            <option value="">All Doc Types</option>
-                            <option value="PAR">PAR</option>
-                            <option value="ICS">ICS</option>
-                        </select>
-                        <select value={displayMode} onChange={(e) => { setDisplayMode(e.target.value as 'individual' | 'combined'); setPage(1); }} className={selectClass}>
-                            <option value="individual">Individual</option>
-                            <option value="combined">Combined</option>
-                        </select>
+                        <button
+                            onClick={handleExportAll}
+                            disabled={isExportingAll}
+                            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 bg-white text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 text-sm font-medium shadow-sm"
+                        >
+                            <Download className={`w-4 h-4 ${isExportingAll ? 'animate-pulse' : ''}`} />
+                            {isExportingAll ? 'Exporting...' : 'Export All Items'}
+                        </button>
+                        {selectedDepartment && (
+                            <button
+                                onClick={async () => {
+                                    const dept = allDepartments?.find(d => d.id === selectedDepartment);
+                                    if (!dept) return;
+                                    try {
+                                        await exportDepartmentItemsToExcel(displayedItems as any, dept.name);
+                                    } catch {
+                                        toast.error('Failed to export department items');
+                                    }
+                                }}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium shadow-sm"
+                            >
+                                <Download className="w-4 h-4" />
+                                Export Dept
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* Summary Stats */}
+                {/* ── Filter Panel ── */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                    {/* Top bar */}
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <Filter className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Filters</span>
+                            {activeFilterCount > 0 && (
+                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--primary)] text-white text-[9px] font-bold">
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                        </div>
+                        {activeFilterCount > 0 && (
+                            <button
+                                onClick={() => {
+                                    setSelectedCondition(null);
+                                    setSelectedRlsddpStatus(null);
+                                    setSelectedPropertyType(null);
+                                    setSelectedDocumentType(null);
+                                    setSelectedDepartment(null);
+                                    setPage(1);
+                                }}
+                                className="text-[11px] font-medium text-slate-400 hover:text-red-500 transition-colors"
+                            >
+                                Clear all
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Filter row — always one row */}
+                    <div className="px-5 py-4 flex flex-wrap lg:flex-nowrap items-end gap-4">
+
+                        <div className="flex flex-col gap-1.5 flex-1 min-w-[160px]">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Department</label>
+                            <select
+                                value={selectedDepartment || ''}
+                                onChange={(e) => { setSelectedDepartment(e.target.value ? Number(e.target.value) : null); setPage(1); }}
+                                className={selectClass}
+                            >
+                                <option value="">All Departments</option>
+                                {allDepartments?.map(d => (
+                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="hidden lg:block w-px h-8 bg-slate-200 self-center shrink-0" />
+
+                        <div className="flex flex-col gap-1.5 w-[160px] shrink-0">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Condition</label>
+                            <select
+                                value={selectedCondition || ''}
+                                onChange={(e) => { setSelectedCondition(e.target.value ? Number(e.target.value) : null); setPage(1); }}
+                                className={selectClass}
+                            >
+                                <option value="">All Conditions</option>
+                                <option value={1}>Serviceable</option>
+                                <option value={2}>Unserviceable</option>
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 w-[150px] shrink-0">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">RLSDDP</label>
+                            <select
+                                value={selectedRlsddpStatus || ''}
+                                onChange={(e) => { setSelectedRlsddpStatus(e.target.value ? (e.target.value as any) : null); setPage(1); }}
+                                className={selectClass}
+                            >
+                                <option value="">All Status</option>
+                                <option value="Lost">Lost</option>
+                                <option value="Stolen">Stolen</option>
+                                <option value="Damaged">Damaged</option>
+                                <option value="Destroyed">Destroyed</option>
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 w-[170px] shrink-0">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Property Type</label>
+                            <select
+                                value={selectedPropertyType || ''}
+                                onChange={(e) => { setSelectedPropertyType(e.target.value ? Number(e.target.value) : null); setPage(1); }}
+                                className={selectClass}
+                            >
+                                <option value="">All Types</option>
+                                {propertyTypes?.map(type => (
+                                    <option key={type.id} value={type.id}>{type.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 w-[130px] shrink-0">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Doc Type</label>
+                            <select
+                                value={selectedDocumentType || ''}
+                                onChange={(e) => { setSelectedDocumentType(e.target.value ? (e.target.value as 'PAR' | 'ICS') : null); setPage(1); }}
+                                className={selectClass}
+                            >
+                                <option value="">All Types</option>
+                                <option value="PAR">PAR</option>
+                                <option value="ICS">ICS</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    {/* Active filter chips */}
+                    {activeFilterCount > 0 && (
+                        <div className="flex flex-wrap gap-2 px-5 pb-3">
+                            {selectedDepartment && (
+                                <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium">
+                                    {allDepartments?.find(d => d.id === selectedDepartment)?.name ?? 'Dept'}
+                                    <button onClick={() => { setSelectedDepartment(null); setPage(1); }} className="hover:text-blue-900">✕</button>
+                                </span>
+                            )}
+                            {selectedCondition && (
+                                <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-green-50 border border-green-200 text-green-700 text-xs font-medium">
+                                    {selectedCondition === 1 ? 'Serviceable' : 'Unserviceable'}
+                                    <button onClick={() => { setSelectedCondition(null); setPage(1); }} className="hover:text-green-900">✕</button>
+                                </span>
+                            )}
+                            {selectedRlsddpStatus && (
+                                <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
+                                    RLSDDP: {selectedRlsddpStatus}
+                                    <button onClick={() => { setSelectedRlsddpStatus(null); setPage(1); }} className="hover:text-amber-900">✕</button>
+                                </span>
+                            )}
+                            {selectedPropertyType && (
+                                <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-medium">
+                                    {propertyTypes?.find(t => t.id === selectedPropertyType)?.name ?? 'Type'}
+                                    <button onClick={() => { setSelectedPropertyType(null); setPage(1); }} className="hover:text-purple-900">✕</button>
+                                </span>
+                            )}
+                            {selectedDocumentType && (
+                                <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-xs font-medium">
+                                    Doc: {selectedDocumentType}
+                                    <button onClick={() => { setSelectedDocumentType(null); setPage(1); }} className="hover:text-slate-900">✕</button>
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Summary Stats ── */}
                 {data?.data && data.data.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-1"><Package className="w-4 h-4 text-blue-600" /><div className="text-xs font-medium text-slate-600">Total Items</div></div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Package className="w-4 h-4 text-blue-600" />
+                                <div className="text-xs font-medium text-slate-600">Total Items</div>
+                            </div>
                             <div className="text-2xl font-bold text-slate-900">{data?.stats?.total ?? data.total}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-1"><CheckCircle className="w-4 h-4 text-green-600" /><div className="text-xs font-medium text-slate-600">Serviceable</div></div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <div className="text-xs font-medium text-slate-600">Serviceable</div>
+                            </div>
                             <div className="text-2xl font-bold text-green-600">{data?.stats?.serviceable ?? 0}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-1"><AlertTriangle className="w-4 h-4 text-red-600" /><div className="text-xs font-medium text-slate-600">Unserviceable</div></div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <AlertTriangle className="w-4 h-4 text-red-600" />
+                                <div className="text-xs font-medium text-slate-600">Unserviceable</div>
+                            </div>
                             <div className="text-2xl font-bold text-red-600">{data?.stats?.unserviceable ?? 0}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-1"><FileWarning className="w-4 h-4 text-amber-600" /><div className="text-xs font-medium text-slate-600">RLSDDP Tagged</div></div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <FileWarning className="w-4 h-4 text-amber-600" />
+                                <div className="text-xs font-medium text-slate-600">RLSDDP Tagged</div>
+                            </div>
                             <div className="text-2xl font-bold text-amber-600">{(data?.stats as any)?.rlsddp_tagged ?? 0}</div>
                         </div>
                     </div>
                 )}
 
-                {/* Search */}
-                <div className="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                {/* ── Search ── */}
+                <div className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                         <input
                             type="text"
                             placeholder="Search by description, brand, model, serial number, or inventory number..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 text-sm"
+                            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 text-sm text-slate-900 placeholder:text-slate-400"
                         />
                     </div>
-                    <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 text-sm">
-                        <option value={10}>10 / page</option>
-                        <option value={25}>25 / page</option>
-                        <option value={50}>50 / page</option>
-                    </select>
+                    {/* Individual / Combined toggle — replaces 25/page */}
+                    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg shrink-0">
+                        <button
+                            onClick={() => { setDisplayMode('individual'); setPage(1); }}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${displayMode === 'individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Individual
+                        </button>
+                        <button
+                            onClick={() => { setDisplayMode('combined'); setPage(1); }}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${displayMode === 'combined' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Combined
+                        </button>
+                    </div>
                 </div>
 
-                {/* Table */}
+                {/* ── Table ── */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <div className="bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                         <div>
-                            <h3 className="text-lg font-semibold text-slate-900">Inventory Items</h3>
-                            <p className="text-sm text-slate-600">All individual property items</p>
+                            <h3 className="text-lg font-bold text-slate-900">Inventory Items</h3>
+                            <p className="text-sm text-slate-500">All individual property items</p>
                         </div>
-                        <div className="text-sm text-slate-500">Total Records: {data?.total ?? 0}</div>
+                        <div className="text-sm font-medium text-slate-700">Total Records: {data?.total ?? 0}</div>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                            <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
                                 <tr>
                                     <th className="px-6 py-4">Article</th>
                                     <th className="px-6 py-4">Description</th>
@@ -344,7 +544,9 @@ export function AllItemsPage() {
                                     <tr>
                                         <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                            {debouncedSearch || selectedCondition || selectedPropertyType || selectedRlsddpStatus ? 'No items found for the current search/filter' : 'No items found'}
+                                            {debouncedSearch || selectedCondition || selectedPropertyType || selectedRlsddpStatus
+                                                ? 'No items found for the current search/filter'
+                                                : 'No items found'}
                                         </td>
                                     </tr>
                                 ) : (
@@ -479,9 +681,21 @@ export function AllItemsPage() {
                                 Showing {((data.current_page - 1) * data.per_page) + 1} to {Math.min(data.current_page * data.per_page, data.total)} of {data.total} entries
                             </div>
                             <div className="flex items-center gap-2">
-                                <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1 || isFetching} className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                                <button
+                                    onClick={() => setPage(Math.max(1, page - 1))}
+                                    disabled={page === 1 || isFetching}
+                                    className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Previous
+                                </button>
                                 <span className="text-sm text-slate-600">Page {data.current_page} of {data.last_page}</span>
-                                <button onClick={() => setPage(Math.min(data.last_page, page + 1))} disabled={page === data.last_page || isFetching} className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                                <button
+                                    onClick={() => setPage(Math.min(data.last_page, page + 1))}
+                                    disabled={page === data.last_page || isFetching}
+                                    className="px-3 py-1 text-sm border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Next
+                                </button>
                             </div>
                         </div>
                     )}

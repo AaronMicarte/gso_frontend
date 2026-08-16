@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit } from 'lucide-react';
+import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
+import { exportDepartmentItemsToExcel } from './DepartmentExport';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@radix-ui/react-tooltip';
@@ -28,6 +30,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
     const [selectedRlsddpStatus, setSelectedRlsddpStatus] = useState<'Lost' | 'Stolen' | 'Damaged' | 'Destroyed' | null>(null);
+    const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
     const [displayMode, setDisplayMode] = useState<'individual' | 'combined'>('individual');
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -63,9 +66,16 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         if (selectedRlsddpStatus) {
             filtered = filtered.filter(detail => detail.rlsddpStatus === selectedRlsddpStatus);
         }
+        
+        // Apply Department filter
+        if (selectedDepartment) {
+            filtered = filtered.filter(detail => detail.locationDepartmentId === selectedDepartment);
+        }
 
         return filtered;
-    }, [data?.details, searchTerm, selectedPropertyType, selectedRlsddpStatus]);
+    }, [data?.details, searchTerm, selectedPropertyType, selectedRlsddpStatus, selectedDepartment]);
+
+    const { data: allDepartments } = useAllDepartments();
 
     const displayedDetails = useMemo<InventoryDetailCombined[]>(() => {
         if (!preFiltered || displayMode === 'individual') {
@@ -379,6 +389,32 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                             <option value="Stolen">Stolen</option>
                                             <option value="Damaged">Damaged</option>
                                             <option value="Destroyed">Destroyed</option>
+                                        </select>
+                                        {selectedDepartment && (
+                                            <button
+                                                onClick={async () => {
+                                                    const dept = allDepartments?.find(d => d.id === selectedDepartment);
+                                                    if (!dept) return;
+                                                    try {
+                                                        await exportDepartmentItemsToExcel(displayedDetails as any, dept.name);
+                                                    } catch (err) {
+                                                        toast.error('Failed to export department items');
+                                                    }
+                                                }}
+                                                className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium whitespace-nowrap"
+                                            >
+                                                Export Dept Items
+                                            </button>
+                                        )}
+                                        <select
+                                            value={selectedDepartment || ''}
+                                            onChange={(e) => setSelectedDepartment(e.target.value ? Number(e.target.value) : null)}
+                                            className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent text-sm w-full sm:w-48"
+                                        >
+                                            <option value="">All Departments</option>
+                                            {allDepartments?.map(d => (
+                                                <option key={d.id} value={d.id}>{d.name}</option>
+                                            ))}
                                         </select>
                                         <select
                                             value={displayMode}
