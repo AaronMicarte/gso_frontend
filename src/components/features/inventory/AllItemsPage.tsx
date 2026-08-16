@@ -11,21 +11,13 @@ import Link from 'next/link';
 import type { InventoryItem } from '@/lib/api/inventory';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 
-import { PropertySticker } from './PropertySticker';
+import { PropertySticker, type PropertyStickerItem } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 import { PropertyCardDialog } from './PropertyCardDialog';
 import { InventoryReceiptDialog } from './InventoryReceiptDialog';
 import { EditInventoryDetailModal, toInventoryDetailEditForm, type InventoryDetailEditForm } from './EditInventoryDetailModal';
 
-type StickerItem = {
-    propertyNumber: string;
-    custodianName: string;
-    itemName: string;
-    category: string;
-    date: string;
-    unitCost?: number;
-    url: string;
-};
+type StickerItem = PropertyStickerItem;
 
 type CombinedInventoryItem = InventoryItem & {
     CombinedQuantity?: number;
@@ -119,12 +111,17 @@ export function AllItemsPage() {
                         : `${origin}/admin/inventory/${ci.InventoryID}?detail=${ci.InventoryDetailID}`;
                     return {
                         propertyNumber: ci.PropertyNumber || '',
-                        custodianName: getCustodianDisplayName(ci.custodianName),
+                        custodianName: ci.custodianName || '',
                         itemName: getItemName(ci),
+                        brand: ci.Brand || '',
                         category: ci.PropertyName || ci.ClassificationName || '-',
                         date: ci.CreatedDate ? format(new Date(ci.CreatedDate), 'MM/dd/yyyy') : '-',
                         unitCost: ci.UnitCost,
                         url,
+                        serialNumber: ci.SerialNumber || '',
+                        modelNumber: ci.ModelNumber || '',
+                        endUserName: ci.endUserName || '',
+                        currentDepartmentHead: ci.currentDepartmentHead || '',
                     };
                 });
             return { ...item, combinedItems, stickerItems };
@@ -442,9 +439,14 @@ export function AllItemsPage() {
                                                                     if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
                                                                     return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
                                                                 })()}
-                                                                custodianName={getCustodianDisplayName(item.custodianName)}
+                                                                custodianName={item.custodianName || ''}
                                                                 date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
                                                                 unitCost={item.UnitCost}
+                                                                brand={item.Brand || ''}
+                                                                serialNumber={item.SerialNumber || ''}
+                                                                modelNumber={item.ModelNumber || ''}
+                                                                endUserName={item.endUserName || ''}
+                                                                currentDepartmentHead={item.currentDepartmentHead || ''}
                                                             />
                                                         )}
                                                         <InventoryHistoryDialog inventoryDetailId={item.InventoryDetailID} itemName={getItemName(item)} />

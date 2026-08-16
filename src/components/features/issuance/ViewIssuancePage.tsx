@@ -646,6 +646,11 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                             custodianName={issuance.IssuedToName || issuance.issuedToUser?.FullName || 'Unassigned'}
                                                             date={issuance.IssuanceDate ? format(toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila'), 'MM/dd/yyyy') : '-'}
                                                             unitCost={entry.unitCost !== null ? entry.totalCost : undefined}
+                                                            brand={inv?.Brand || entry.brand || ''}
+                                                            serialNumber={inv?.SerialNumber || entry.serial || ''}
+                                                            modelNumber={inv?.ModelNumber || entry.model || ''}
+                                                            endUserName={getEndUserName(firstDetail)}
+                                                            currentDepartmentHead={inv?.currentDepartmentHead || ''}
                                                         />
                                                     )}
                                                 </td>

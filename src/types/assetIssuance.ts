@@ -261,6 +261,10 @@ export interface InventoryDetail {
     Description?: string | null;
     InventoryNumber?: string | null;
     EstimatedUsefulLife?: string | null;
+    Brand?: string | null;
+    ModelNumber?: string | null;
+    SerialNumber?: string | null;
+    currentDepartmentHead?: string | null;
 
     // Relationships
     propertyInventory?: PropertyInventory;

@@ -432,12 +432,17 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 : `${origin}/admin/inventory/${ci.InventoryID}?detail=${ci.InventoryDetailID}`;
                                                             return {
                                                                 propertyNumber: ci.PropertyNumber || '',
-                                                                custodianName: ci.accountabilityLabel || getCustodianDisplayName(ci.custodianName),
+                                                                custodianName: ci.custodianName || '',
                                                                 itemName: getItemName(ci),
+                                                                brand: ci.Brand || '',
                                                                 category: ci.PropertyName || ci.ClassificationName || '-',
                                                                 date: data?.DateAcquired ? format(new Date(data.DateAcquired), 'MM/dd/yyyy') : '-',
                                                                 unitCost: ci.UnitCost,
                                                                 url,
+                                                                serialNumber: ci.SerialNumber || '',
+                                                                modelNumber: ci.ModelNumber || '',
+                                                                endUserName: ci.endUserName || '',
+                                                                currentDepartmentHead: ci.currentDepartmentHead || '',
                                                             };
                                                         });
 
@@ -580,9 +585,14 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                                 if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
                                                                                 return `${origin}/admin/inventory/${d.InventoryID}?detail=${d.InventoryDetailID}`;
                                                                             })()}
-                                                                            custodianName={d.accountabilityLabel || getCustodianDisplayName(d.custodianName)}
+                                                                            custodianName={d.custodianName || ''}
                                                                             date={data?.DateAcquired ? format(new Date(data.DateAcquired), 'MM/dd/yyyy') : '-'}
                                                                             unitCost={d.UnitCost}
+                                                                            brand={d.Brand || ''}
+                                                                            serialNumber={d.SerialNumber || ''}
+                                                                            modelNumber={d.ModelNumber || ''}
+                                                                            endUserName={d.endUserName || ''}
+                                                                            currentDepartmentHead={d.currentDepartmentHead || ''}
                                                                         />
                                                                     )}
                                                                     <InventoryReceiptDialog
