@@ -453,7 +453,7 @@ export function AllItemsPage() {
 
                 {/* ── Summary Stats ── */}
                 {data?.data && data.data.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-1">
                                 <Package className="w-4 h-4 text-blue-600" />
@@ -474,13 +474,6 @@ export function AllItemsPage() {
                                 <div className="text-xs font-medium text-slate-600">Unserviceable</div>
                             </div>
                             <div className="text-2xl font-bold text-red-600">{data?.stats?.unserviceable ?? 0}</div>
-                        </div>
-                        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-1">
-                                <FileWarning className="w-4 h-4 text-amber-600" />
-                                <div className="text-xs font-medium text-slate-600">RLSDDP Tagged</div>
-                            </div>
-                            <div className="text-2xl font-bold text-amber-600">{(data?.stats as any)?.rlsddp_tagged ?? 0}</div>
                         </div>
                     </div>
                 )}
