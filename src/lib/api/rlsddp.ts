@@ -7,6 +7,7 @@ import {
     CreateRlsddpPayload,
     UpdateRlsddpPayload,
     RlsddpDocument,
+    PaginatedRemovedItemsResponse,
 } from '@/types/propertyRlsddp';
 import { TransferDepartment } from '@/types/propertyTransfer';
 
@@ -21,6 +22,8 @@ interface RawRlsddpReport extends Omit<PropertyRlsddpReport, 'createdBy' | 'crea
     updatedBy?: RawRlsddpUser | null;
     updated_by?: RawRlsddpUser | null;
     items?: PropertyRlsddpItem[];
+    removedItems?: PropertyRlsddpItem[];
+    removed_items?: PropertyRlsddpItem[];
 }
 
 interface RawPaginatedRlsddpResponse extends Omit<PaginatedRlsddpResponse, 'data'> {
@@ -42,6 +45,8 @@ const normalizeRlsddpReport = (report: RawRlsddpReport): PropertyRlsddpReport =>
         updatedBy,
         updated_by,
         items,
+        removedItems,
+        removed_items,
         ...rest
     } = report;
 
@@ -50,6 +55,7 @@ const normalizeRlsddpReport = (report: RawRlsddpReport): PropertyRlsddpReport =>
         createdBy: normalizeRlsddpUser(createdBy ?? created_by),
         updatedBy: normalizeRlsddpUser(updatedBy ?? updated_by),
         items: items ?? [],
+        removedItems: removedItems ?? removed_items ?? [],
     };
 };
 
@@ -125,6 +131,25 @@ export const rlsddpAPI = {
 
     getDepartments: async (): Promise<TransferDepartment[]> => {
         const { data } = await apiClient.get<TransferDepartment[]>('/property-transfers/helpers/departments');
+        return data;
+    },
+
+    removeItem: async (itemId: number): Promise<{ message: string }> => {
+        const { data } = await apiClient.post<{ message: string }>(`/property-rlsddp/items/${itemId}/remove`);
+        return data;
+    },
+
+    restoreItem: async (itemId: number): Promise<{ message: string }> => {
+        const { data } = await apiClient.post<{ message: string }>(`/property-rlsddp/items/${itemId}/restore`);
+        return data;
+    },
+
+    getRemovedItems: async (params?: {
+        search?: string;
+        page?: number;
+        per_page?: number;
+    }): Promise<PaginatedRemovedItemsResponse> => {
+        const { data } = await apiClient.get<PaginatedRemovedItemsResponse>('/property-rlsddp/removed-items', { params });
         return data;
     },
 };

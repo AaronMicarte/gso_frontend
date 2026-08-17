@@ -30,7 +30,13 @@ interface DeliveryReceiptsPageProps {
 const workflowBadgeStyles: Record<string, string> = {
     to_be_issued: 'bg-indigo-100 text-indigo-800',
     issued: 'bg-emerald-100 text-emerald-800',
-    acknowledged: 'bg-green-100 text-green-800',
+    acknowledged: 'bg-emerald-100 text-emerald-800',
+};
+
+const workflowStatusLabels: Record<string, string> = {
+    to_be_issued: 'For Issuance',
+    issued: 'Issued',
+    acknowledged: 'Issued',
 };
 
 export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryReceiptsPageProps) {
@@ -146,8 +152,8 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                             title="Status"
                         >
                             <option value="all">All issuance statuses</option>
-                            <option value="to_be_issued">To be issued</option>
-                            <option value="acknowledged">Acknowledged</option>
+                            <option value="to_be_issued">For Issuance</option>
+                            <option value="acknowledged">Issued</option>
                         </select>
                         <input
                             type="date"
@@ -219,16 +225,13 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                             </td>
                                             <td className="px-6 py-4">
                                                 {(() => {
-                                                    const fallbackStatus = 'to_be_issued';
-                                                    const workflowStatus = dr.workflow_status || fallbackStatus;
-                                                    const workflowLabel = dr.workflow_status_label
-                                                        || 'To be issued';
+                                                    const workflowStatus = dr.workflow_status || 'to_be_issued';
+                                                    const workflowLabel = workflowStatusLabels[workflowStatus] || 'For Issuance';
                                                     const badgeClass = workflowBadgeStyles[workflowStatus] || workflowBadgeStyles.to_be_issued;
-                                                    const showCheck = true;
 
                                                     return (
                                                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
-                                                            {showCheck && <CheckCircle className="w-3 h-3" />}
+                                                            <CheckCircle className="w-3 h-3" />
                                                             {workflowLabel}
                                                         </span>
                                                     );

@@ -45,50 +45,28 @@ const formatDate = (dateStr?: string | null): string => {
     try {
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric'
-        });
-    } catch {
-        return dateStr;
-    }
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    } catch { return dateStr; }
 };
 
 const getPropertyDescription = (itemName?: string, brand?: string) => {
     const item = (itemName || '').trim();
     const b = (brand || '').trim();
-    if (!item || item === '-') {
-        return b && b !== '-' ? `(${b})` : '-';
-    }
-    if (b && b !== '-') {
-        return `${item} (${b})`;
-    }
-    return item;
+    if (!item || item === '-') return b && b !== '-' ? `(${b})` : '-';
+    return b && b !== '-' ? `${item} (${b})` : item;
 };
 
 const getAccountablePerson = (item: PropertyStickerItem) => {
-    if (item.endUserName && item.endUserName.trim() !== '') {
-        return item.endUserName;
-    }
+    if (item.endUserName && item.endUserName.trim() !== '') return item.endUserName;
     const requester = (item.custodianName || '').trim();
-    if (requester && requester !== 'Unassigned' && requester !== 'Requester not set' && requester !== '-') {
-        return requester;
-    }
-    if (item.currentDepartmentHead && item.currentDepartmentHead.trim() !== '') {
-        return item.currentDepartmentHead;
-    }
+    if (requester && requester !== 'Unassigned' && requester !== 'Requester not set' && requester !== '-') return requester;
+    if (item.currentDepartmentHead && item.currentDepartmentHead.trim() !== '') return item.currentDepartmentHead;
     return 'UNASSIGNED';
 };
 
 const escapeHtml = (s?: string | null) => {
     if (!s) return '';
-    return s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 };
 
 const formatCost = (v?: number | string | null) => {
@@ -121,15 +99,16 @@ const buildPrintHtml = (
     qrDataUrls: string[],
     logoDataUrl: string,
 ): string => {
-    // 8 stickers per A4 page (2 columns × 4 rows)
-    const STICKERS_PER_PAGE = 8;
+    const STICKERS_PER_PAGE = 12; // 3 cols × 4 rows
     const pages: { item: PropertyStickerItem; qr: string }[][] = [];
     const pairs = itemsToPrint.map((item, i) => ({ item, qr: qrDataUrls[i] || '' }));
     for (let i = 0; i < pairs.length; i += STICKERS_PER_PAGE) {
         pages.push(pairs.slice(i, i + STICKERS_PER_PAGE));
     }
 
-    const logoTag = logoDataUrl ? `<img class="logo" src="${logoDataUrl}" alt="seal" />` : '';
+    const logoTag = logoDataUrl
+        ? `<img class="logo" src="${logoDataUrl}" alt="seal" />`
+        : '';
 
     const stickerHtml = ({ item, qr }: { item: PropertyStickerItem; qr: string }) => `
 <div class="sticker">
@@ -143,35 +122,36 @@ const buildPrintHtml = (
   <div class="divider"></div>
   <div class="body">
     <div class="left">
-      <div class="pn-label">PROPERTY NUMBER</div>
-      <div class="pn-value">${escapeHtml(item.propertyNumber)}</div>
+      <div class="pn-section">
+        <div class="pn-label">PROPERTY NUMBER</div>
+        <div class="pn-value">${escapeHtml(item.propertyNumber)}</div>
+      </div>
+      <div class="divider" style="margin:0.7mm 0;"></div>
       <div class="fields">
-        <div class="field"><span class="fl">DESCRIPTION OF THE PROPERTY: </span><span class="fv">${escapeHtml(getPropertyDescription(item.itemName, item.brand).toUpperCase())}</span></div>
+        <div class="field"><span class="fl">DESCRIPTION: </span><span class="fv">${escapeHtml(getPropertyDescription(item.itemName, item.brand).toUpperCase())}</span></div>
         <div class="field"><span class="fl">MODEL NUMBER: </span><span class="fv">${escapeHtml((item.modelNumber || '-').toUpperCase())}</span></div>
         <div class="field"><span class="fl">SERIAL NUMBER: </span><span class="fv">${escapeHtml((item.serialNumber || '-').toUpperCase())}</span></div>
         <div class="field"><span class="fl">ACQUISITION DATE: </span><span class="fv">${escapeHtml(formatDate(item.date).toUpperCase())}</span></div>
-        <div class="field"><span class="fl">ACQUISITION COST: </span><span class="fv">&#8369;${escapeHtml(formatCost(item.unitCost))}</span></div>
+      <div class="field"><span class="fl">ACQUISITION COST: </span><span class="fv">${escapeHtml(formatCost(item.unitCost))}</span></div>
         <div class="field acct"><span class="fl">ACCOUNTABLE PERSON: </span><span class="fv fv-name">${escapeHtml(getAccountablePerson(item).toUpperCase())}</span></div>
       </div>
     </div>
-    <div class="right">
-      ${qr ? `<img class="qr-img" src="${qr}" alt="QR" />` : '<div class="qr-img"></div>'}
-      <div class="scan-label">SCAN TO VIEW<br/>PROPERTY DETAILS</div>
+    <div class="vert-divider"></div>
+   <div class="right">
+      ${qr ? `<div class="qr-wrap"><img class="qr-img" src="${qr}" alt="QR" /></div>` : '<div class="qr-wrap qr-empty"></div>'}
     </div>
   </div>
   <div class="divider"></div>
   <div class="footer">
-    <div class="sig-wrap">
-      <div class="sig-line"></div>
-      <div class="sig-label">INVENTORY COMMITTEE REPRESENTATIVE</div>
-    </div>
+    <div class="sig-line"></div>
+    <div class="sig-label">INVENTORY COMMITTEE REPRESENTATIVE</div>
     <div class="note-bold">NOTE - PLEASE DO NOT REMOVE</div>
     <div class="note-fine">Unauthorized removal or tampering will be subject to disciplinary action</div>
   </div>
 </div>`;
 
     const pagesHtml = pages
-        .map((pageItems) => `<div class="page">${pageItems.map(stickerHtml).join('')}</div>`)
+        .map(pg => `<div class="page">${pg.map(stickerHtml).join('')}</div>`)
         .join('');
 
     return `<!doctype html>
@@ -182,68 +162,126 @@ const buildPrintHtml = (
 <style>
   @page { size: A4 landscape; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #fff; font-family: Arial, Helvetica, sans-serif; color: #000; text-transform: uppercase; width: 297mm; height: 210mm; }
+  html, body {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    width: 297mm;
+    height: 210mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 
-  /* 2 columns × 4 rows = 8 stickers per A4 page */
+  /* 3 cols × 4 rows = 12 stickers filling full A4 landscape */
   .page {
     width: 297mm;
     height: 210mm;
     display: grid;
-    grid-template-columns: repeat(2, 76.2mm);
-    grid-template-rows: repeat(4, 50.8mm);
-    gap: 1.5mm;
-    justify-content: center;
-    align-content: center;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 0.8mm;
+    padding: 1mm;
     page-break-after: always;
     break-after: page;
   }
   .page:last-child { page-break-after: avoid; break-after: avoid; }
 
-  /* 3 × 2 inches = 76.2mm × 50.8mm */
+  /* Each sticker fills its grid cell */
   .sticker {
-    width: 76.2mm;
-    height: 50.8mm;
-    border: 0.8px solid #000;
-    padding: 1mm 1.5mm;
+    background: #fff;
+    color: #000;
+    border: 0.6px solid #000;
+    padding: 1mm 1.2mm 0.7mm;
     display: flex;
     flex-direction: column;
-    gap: 0.5mm;
     page-break-inside: avoid;
     break-inside: avoid;
     overflow: hidden;
     text-transform: uppercase;
+    min-width: 0;
+    min-height: 0;
   }
 
-  .header { display: flex; align-items: center; gap: 2px; }
-  .logo { width: 10px; height: 10px; object-fit: contain; flex-shrink: 0; }
-  .header-text { display: flex; flex-direction: column; }
-  .city-name { font-size: 4px; font-weight: 900; letter-spacing: 0.01em; line-height: 1.1; }
-  .office-name { font-size: 3px; font-weight: 700; letter-spacing: 0.02em; line-height: 1.1; }
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 1.2mm;
+    flex-shrink: 0;
+    padding-bottom: 0.6mm;
+  }
+  .logo { width: 8mm; height: 8mm; object-fit: contain; flex-shrink: 0; }
+  .city-name   { font-size: 6px; font-weight: 900; letter-spacing: 0.02em; line-height: 1.15; }
+  .office-name { font-size: 3.5px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.15; }
 
-  .divider { border-top: 0.4px solid #000; width: 100%; flex-shrink: 0; }
+  .divider { border-top: 0.5px solid #000; width: 100%; flex-shrink: 0; }
 
-  .body { display: flex; align-items: flex-start; gap: 1.5mm; flex: 1; overflow: hidden; }
-  .left { flex: 1; display: flex; flex-direction: column; gap: 0.3mm; overflow: hidden; }
-  .right { display: flex; flex-direction: column; align-items: center; gap: 0.5px; flex-shrink: 0; }
+  /* Body */
+  .body {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
+    padding: 0.7mm 0;
+  }
 
-  .pn-label { font-size: 3.5px; font-weight: 900; letter-spacing: 0.04em; }
-  .pn-value { font-size: 5.5px; font-weight: 900; letter-spacing: 0.01em; line-height: 1.1; }
+  .left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-right: 1.2mm;
+  }
 
-  .fields { display: flex; flex-direction: column; gap: 0.3mm; }
-  .field { font-size: 3.8px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 44mm; }
+  .pn-section  { text-align: center; flex-shrink: 0; margin-bottom: 0; }
+  .pn-label    { font-size: 4.5px; font-weight: 900; letter-spacing: 0.08em; line-height: 1.2; }
+  .pn-value    { font-size: 7px;   font-weight: 900; letter-spacing: 0.02em; line-height: 1.2; }
+
+  /* Fields spread to fill left column height */
+  .fields {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+  }
+  .field {
+    font-size: 4.5px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .fl { font-weight: 900; }
-  .fv { font-weight: 700; }
-  .acct .fv-name { font-weight: 900; font-size: 4.2px; }
+  .fv { font-weight: 900; }
+  .acct .fv-name { font-weight: 900; font-size: 5px; }
 
-  /* QR: ~1 inch = 22mm */
-  .qr-img { width: 22mm; height: 22mm; object-fit: contain; border: 0.4px solid #000; padding: 0.5px; display: block; }
-  .scan-label { font-size: 2.8px; font-weight: 800; letter-spacing: 0.02em; text-align: center; line-height: 1.1; margin-top: 1px; }
+  .vert-divider { width: 0.5px; background: #000; flex-shrink: 0; align-self: stretch; }
 
-  .footer { display: flex; flex-direction: column; align-items: center; gap: 0.5px; }
-  .sig-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.5px; margin-top: 0.5px; margin-bottom: 0.5px; }
-  .sig-line { width: 30mm; border-top: 0.4px solid #000; }
-  .sig-label { font-size: 2.8px; letter-spacing: 0.02em; }
-  .note-bold { font-size: 3.8px; font-weight: 900; letter-spacing: 0.02em; }
+  .right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-left: 1.2mm;
+    flex-shrink: 0;
+    width: 24mm;
+  }
+  .qr-wrap  { border: 0.5px solid #000; padding: 0.5mm; display: inline-block; }
+  .qr-img   { width: 22mm; height: 22mm; display: block; object-fit: contain; }
+  .qr-empty { width: 22mm; height: 22mm; }
+
+  /* Footer */
+  .footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3mm;
+    flex-shrink: 0;
+    padding-top: 0.5mm;
+  }
+  .sig-line  { width: 25mm; border-top: 0.4px solid #000; margin-bottom: 0.3mm; }
+  .sig-label { font-size: 2.8px; letter-spacing: 0.04em; }
+  .note-bold { font-size: 4.5px; font-weight: 900; letter-spacing: 0.03em; }
   .note-fine { font-size: 2.8px; font-style: italic; }
 </style>
 </head>
@@ -268,90 +306,117 @@ function StickerPreview({
     idx: number;
     onPrint: (item: PropertyStickerItem, idx: number) => void;
 }) {
+    const fields: [string, string][] = [
+        ['DESCRIPTION OF THE PROPERTY', getPropertyDescription(item.itemName, item.brand).toUpperCase()],
+        ['MODEL NUMBER', (item.modelNumber || '-').toUpperCase()],
+        ['SERIAL NUMBER', (item.serialNumber || '-').toUpperCase()],
+        ['ACQUISITION DATE', formatDate(item.date).toUpperCase()],
+        ['ACQUISITION COST', `${formatCost(item.unitCost)}`],
+        ['ACCOUNTABLE PERSON', getAccountablePerson(item).toUpperCase()],
+    ];
+
+    const S = {
+        root: {
+            width: 288,
+            height: 192,
+            background: '#fff',
+            color: '#000',
+            border: '1px solid #000',
+            fontFamily: 'Arial, Helvetica, sans-serif',
+            display: 'flex' as const,
+            flexDirection: 'column' as const,
+            padding: '4px 5px 3px',
+            gap: 0,
+            textTransform: 'uppercase' as const,
+            overflow: 'hidden',
+        },
+        header: {
+            display: 'flex' as const,
+            alignItems: 'center' as const,
+            gap: 6,
+            flexShrink: 0,
+            paddingBottom: 3,
+        },
+        divider: { borderTop: '0.7px solid #000', width: '100%', flexShrink: 0 },
+        body: { display: 'flex' as const, alignItems: 'stretch' as const, flex: 1, overflow: 'hidden', padding: '2px 0' },
+        left: { flex: 1, display: 'flex' as const, flexDirection: 'column' as const, overflow: 'hidden', paddingRight: 4 },
+        right: { width: 75, display: 'flex' as const, flexDirection: 'column' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 2, paddingLeft: 4, flexShrink: 0 },
+        footer: { display: 'flex' as const, flexDirection: 'column' as const, alignItems: 'center' as const, gap: 1, flexShrink: 0, paddingTop: 2 },
+    };
+
     return (
         <div className="flex flex-col items-center gap-2">
-            {/* Sticker card — 3×2 inch at 96 dpi = 288×192 px */}
-            <div
-                className="border border-black bg-white uppercase overflow-hidden flex flex-col"
-                style={{
-                    width: 288,
-                    height: 192,
-                    padding: '4px 6px',
-                    gap: 2,
-                    fontFamily: 'Arial, Helvetica, sans-serif',
-                }}
-            >
+            <div style={S.root}>
                 {/* Header */}
-                <div className="flex items-center" style={{ gap: 4, flexShrink: 0 }}>
+                <div style={S.header}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={LOGO_SRC} alt="seal" style={{ width: 14, height: 14, objectFit: 'contain', flexShrink: 0 }} />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ fontSize: 4.5, fontWeight: 900, letterSpacing: '0.01em', lineHeight: 1.1 }}>
+                    <img src={LOGO_SRC} alt="seal" style={{ width: 30, height: 30, objectFit: 'contain', flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, color: '#000', letterSpacing: '0.02em', lineHeight: 1.1 }}>
                             CITY OF EL SALVADOR CITY
                         </div>
-                        <div style={{ fontSize: 3.5, fontWeight: 700, letterSpacing: '0.02em', lineHeight: 1.1 }}>
+                        <div style={{ fontSize: 6, fontWeight: 700, color: '#000', letterSpacing: '0.04em', lineHeight: 1.1 }}>
                             PROPERTY AND SUPPLY MANAGEMENT OFFICE
                         </div>
                     </div>
                 </div>
 
-                <div className="border-t border-black" style={{ flexShrink: 0 }} />
+                <div style={S.divider} />
 
                 {/* Body */}
-                <div className="flex items-start" style={{ gap: 6, flex: 1, overflow: 'hidden' }}>
+                <div style={S.body}>
                     {/* Left */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' }}>
-                        <div style={{ fontSize: 3.5, fontWeight: 900, letterSpacing: '0.04em', lineHeight: 1 }}>PROPERTY NUMBER</div>
-                        <div style={{ fontSize: 6.5, fontWeight: 900, lineHeight: 1.1, letterSpacing: '0.01em', marginBottom: 1 }}>
+                    <div style={S.left}>
+                        <div style={{ fontSize: 7, fontWeight: 900, textAlign: 'center', letterSpacing: '0.08em', lineHeight: 1, marginBottom: 1 }}>
+                            PROPERTY NUMBER
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 900, textAlign: 'center', letterSpacing: '0.02em', lineHeight: 1.1, marginBottom: 2 }}>
                             {item.propertyNumber}
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {[
-                                ['DESCRIPTION OF THE PROPERTY', getPropertyDescription(item.itemName, item.brand).toUpperCase()],
-                                ['MODEL NUMBER', (item.modelNumber || '-').toUpperCase()],
-                                ['SERIAL NUMBER', (item.serialNumber || '-').toUpperCase()],
-                                ['ACQUISITION DATE', formatDate(item.date).toUpperCase()],
-                                ['ACQUISITION COST', `₱${formatCost(item.unitCost)}`],
-                                ['ACCOUNTABLE PERSON', getAccountablePerson(item).toUpperCase()],
-                            ].map(([label, value]) => (
-                                <div key={label} style={{ fontSize: 3.8, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: 166 }}>
-                                    <span style={{ fontWeight: 900 }}>{label}: </span>
-                                    <span style={{ fontWeight: label === 'ACCOUNTABLE PERSON' ? 900 : 700, fontSize: label === 'ACCOUNTABLE PERSON' ? 4.2 : undefined }}>{value}</span>
+                        <div style={{ borderTop: '0.7px solid #000', marginBottom: 3, flexShrink: 0 }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            {fields.map(([label, value]) => (
+                                <div key={label} style={{ fontSize: 6.2, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: 170 }}>
+                                    <span style={{
+                                        fontWeight: 900, // was 500
+                                        fontSize: label === 'ACCOUNTABLE PERSON' ? 6.8 : undefined,
+                                    }}>{value}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Right — QR (~1 inch = 96px) */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                        <div id={`sticker-qr-${idx}`} style={{ border: '0.5px solid black', padding: 1 }}>
-                            <QRCodeCanvas
-                                value={item.url || 'https://iams-gso.gov.ph'}
-                                size={83}
-                                level="H"
-                                includeMargin={false}
-                            />
-                        </div>
-                        <div style={{ fontSize: 3, fontWeight: 800, letterSpacing: '0.02em', textAlign: 'center', lineHeight: 1.1 }}>
-                            SCAN TO VIEW<br />PROPERTY DETAILS
+                    {/* Vertical divider */}
+                    <div style={{ width: 1, background: '#000', flexShrink: 0, alignSelf: 'stretch' }} />
+
+                    {/* Right — QR */}
+                    <div style={S.right}>
+                        <div style={{ width: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingLeft: 6, flexShrink: 0 }}>
+                            <div id={`sticker-qr-${idx}`} style={{ border: '1px solid #000', padding: 2, background: '#fff', display: 'inline-block' }}>
+                                <QRCodeCanvas
+                                    value={item.url || 'https://iams-gso.gov.ph'}
+                                    size={72}
+                                    level="M"
+                                    includeMargin={false}
+                                    bgColor="#ffffff"
+                                    fgColor="#000000"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="border-t border-black" style={{ flexShrink: 0 }} />
+                <div style={S.divider} />
 
                 {/* Footer */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, marginTop: 1, marginBottom: 1 }}>
-                        <div style={{ width: 115, borderTop: '0.4px solid black' }} />
-                        <div style={{ fontSize: 2.8, letterSpacing: '0.02em' }}>INVENTORY COMMITTEE REPRESENTATIVE</div>
-                    </div>
-                    <div style={{ fontSize: 3.8, fontWeight: 900, letterSpacing: '0.02em' }}>NOTE - PLEASE DO NOT REMOVE</div>
-                    <div style={{ fontSize: 2.8, fontStyle: 'italic' }}>Unauthorized removal or tampering will be subject to disciplinary action</div>
+                <div style={S.footer}>
+                    <div style={{ width: 110, borderTop: '0.7px solid #000', marginBottom: 1 }} />
+                    <div style={{ fontSize: 5, letterSpacing: '0.04em' }}>INVENTORY COMMITTEE REPRESENTATIVE</div>
+                    <div style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.04em' }}>NOTE - PLEASE DO NOT REMOVE</div>
+                    <div style={{ fontSize: 4.5, fontStyle: 'italic' }}>Unauthorized removal or tampering will be subject to disciplinary action</div>
                 </div>
             </div>
 
-            {/* Print button — outside sticker card */}
             <button
                 type="button"
                 onClick={() => onPrint(item, idx)}
@@ -389,26 +454,24 @@ export function PropertySticker({
 
     const resolvedItems = useMemo<PropertyStickerItem[]>(() => {
         if (items && items.length > 0) return items;
-        return [
-            {
-                propertyNumber: propertyNumber || '',
-                custodianName: custodianName || 'Unassigned',
-                itemName: itemName || description || '-',
-                category: category || classification || '-',
-                date: date || acquisitionDate || '-',
-                unitCost,
-                serialNumber: serialNumber || '',
-                modelNumber: modelNumber || '',
-                brand: brand || '',
-                url: url || '',
-                endUserName: endUserName || '',
-                currentDepartmentHead: currentDepartmentHead || '',
-            },
-        ];
+        return [{
+            propertyNumber: propertyNumber || '',
+            custodianName: custodianName || 'Unassigned',
+            itemName: itemName || description || '-',
+            category: category || classification || '-',
+            date: date || acquisitionDate || '-',
+            unitCost,
+            serialNumber: serialNumber || '',
+            modelNumber: modelNumber || '',
+            brand: brand || '',
+            url: url || '',
+            endUserName: endUserName || '',
+            currentDepartmentHead: currentDepartmentHead || '',
+        }];
     }, [
         items, propertyNumber, custodianName, itemName, description, category,
         classification, date, acquisitionDate, unitCost, serialNumber, modelNumber, brand, url,
-        endUserName, currentDepartmentHead
+        endUserName, currentDepartmentHead,
     ]);
 
     const handlePrintItems = useCallback(
@@ -418,9 +481,7 @@ export function PropertySticker({
                 const canvas = container?.querySelector<HTMLCanvasElement>('canvas');
                 return canvas ? canvas.toDataURL('image/png') : '';
             });
-
             const logoDataUrl = await imgToDataUrl(window.location.origin + LOGO_SRC);
-
             const win = window.open('', 'gso-property-sticker-print');
             if (!win) return;
             win.document.open();
@@ -430,15 +491,8 @@ export function PropertySticker({
         [],
     );
 
-    const handlePrintAll = useCallback(
-        () => handlePrintItems(resolvedItems, 0),
-        [resolvedItems, handlePrintItems],
-    );
-
-    const handlePrintSingle = useCallback(
-        (item: PropertyStickerItem, idx: number) => handlePrintItems([item], idx),
-        [handlePrintItems],
-    );
+    const handlePrintAll = useCallback(() => handlePrintItems(resolvedItems, 0), [resolvedItems, handlePrintItems]);
+    const handlePrintSingle = useCallback((item: PropertyStickerItem, idx: number) => handlePrintItems([item], idx), [handlePrintItems]);
 
     return (
         <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -458,9 +512,7 @@ export function PropertySticker({
 
                     <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-slate-50">
                         <h3 className="text-base font-semibold text-slate-900">
-                            {resolvedItems.length > 1
-                                ? `Property Stickers (${resolvedItems.length})`
-                                : 'Property Sticker'}
+                            {resolvedItems.length > 1 ? `Property Stickers (${resolvedItems.length})` : 'Property Sticker'}
                         </h3>
                         <button
                             type="button"

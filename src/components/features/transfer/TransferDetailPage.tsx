@@ -577,7 +577,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                         </Dialog.Description>
 
                                         <div className="grid gap-4 mt-4">
-                                            <div>
+                                            {/* <div>
                                                 <label className="text-sm font-medium text-slate-700">Decision</label>
                                                 <select
                                                     value={releasingDecision}
@@ -587,7 +587,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                                     <option value="approved">Approve for forwarding to GSO/Admin</option>
                                                     <option value="rejected">Reject request</option>
                                                 </select>
-                                            </div>
+                                            </div> */}
 
                                             {releasingDecision === 'approved' && (
                                                 <div>

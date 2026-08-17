@@ -116,6 +116,7 @@ export function RlsddpListPage({
         setIsViewOpen(open);
         if (!open) {
             setSelectedReportId(null);
+            fetchReports();
         }
     };
 

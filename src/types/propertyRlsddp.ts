@@ -11,6 +11,32 @@ export interface PropertyRlsddpItem {
     updated_at?: string;
 }
 
+export interface RemovedInventoryItem {
+    RlsddpItemID: number;
+    RlsddpID: number;
+    InventoryDetailID: number;
+    PropertyNumber: string;
+    AcquisitionCost: number;
+    Description: string;
+    RlsddpNumber: string;
+    RlsddpStatus: string;
+    AccountableOfficer: string;
+    DepartmentName: string | null;
+    removed_at: string;
+}
+
+export interface PaginatedRemovedItemsResponse {
+    current_page: number;
+    data: RemovedInventoryItem[];
+    last_page: number;
+    per_page: number;
+    total: number;
+    next_page_url: string | null;
+    prev_page_url: string | null;
+    from: number | null;
+    to: number | null;
+}
+
 export interface PropertyRlsddpReport {
     RlsddpID: number;
     RlsddpNumber: string;
@@ -36,6 +62,7 @@ export interface PropertyRlsddpReport {
         DepartmentCode?: string;
     };
     items?: PropertyRlsddpItem[];
+    removedItems?: PropertyRlsddpItem[];
     createdBy?: {
         UserID: number;
         FullName: string;

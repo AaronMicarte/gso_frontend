@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Building2, User, Calendar, CheckCircle, XCircle, FileText, FileSpreadsheet, X } from 'lucide-react';
+import { ArrowLeft, Edit, Building2, User, Calendar, CheckCircle, XCircle, FileText, FileSpreadsheet, X, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { rlsddpAPI } from '@/lib/api/rlsddp';
-import { PropertyRlsddpReport, RlsddpStatus } from '@/types/propertyRlsddp';
+import { PropertyRlsddpReport, PropertyRlsddpItem, RlsddpStatus } from '@/types/propertyRlsddp';
 import { exportRlsddpToExcel } from './RlsddpExport';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 interface RlsddpDetailPageProps {
     baseRoute: string;
@@ -25,6 +26,83 @@ const statusBadgeStyles: Record<RlsddpStatus, string> = {
     Destroyed: 'bg-red-100 text-red-800',
 };
 
+// ─── Remove Confirmation Modal ──────────────────────────────────────────────
+interface RemoveModalProps {
+    item: PropertyRlsddpItem;
+    isLoading: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+}
+
+function RemoveConfirmModal({ item, isLoading, onConfirm, onCancel }: RemoveModalProps) {
+    return (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md animate-in fade-in zoom-in-95 duration-150">
+                {/* Header */}
+                <div className="flex items-start gap-3 p-6 pb-4">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center">
+                        <AlertTriangle className="w-5 h-5 text-rose-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-semibold text-slate-900">Remove from Active Inventory</h3>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            This will hide the item from active inventory, department lists, and exports. The RLSDDP record will be preserved.
+                        </p>
+                    </div>
+                    <button
+                        onClick={onCancel}
+                        className="ml-auto flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Item details */}
+                <div className="mx-6 mb-5 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm">
+                    <div className="flex justify-between items-center gap-2">
+                        <span className="font-semibold text-slate-900">{item.PropertyNumber || 'N/A'}</span>
+                        <span className="text-slate-600 font-medium">
+                            ₱{Number(item.AcquisitionCost).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                    {item.Description && (
+                        <p className="text-slate-500 mt-1 text-xs line-clamp-2">{item.Description}</p>
+                    )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-2 px-6 pb-6">
+                    <button
+                        onClick={onCancel}
+                        disabled={isLoading}
+                        className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                        {isLoading ? (
+                            <>
+                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Removing…
+                            </>
+                        ) : (
+                            <>
+                                <Trash2 className="w-4 h-4" />
+                                Confirm Remove
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose }: RlsddpDetailPageProps) {
     const params = useParams();
     const router = useRouter();
@@ -33,12 +111,19 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
     const [loading, setLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
 
-    const resolvedId = reportId ?? (params?.id ? Number(params.id) : null);
+    // Modal state for remove confirmation
+    const [removingItem, setRemovingItem] = useState<PropertyRlsddpItem | null>(null);
+    const [isRemoving, setIsRemoving] = useState(false);
+    const [isRestoring, setIsRestoring] = useState<number | null>(null);
 
-    const fetchReport = useCallback(async () => {
+    const resolvedId = reportId ?? (params?.id ? Number(params.id) : null);
+    const { user } = useAuth();
+    const isPrivileged = user?.Role === 'Admin' || user?.Role === 'GSO Staff';
+
+    const fetchReport = useCallback(async (isSilent = false) => {
         if (!resolvedId) return;
         try {
-            setLoading(true);
+            if (!isSilent) setLoading(true);
             const data = await rlsddpAPI.getReport(resolvedId);
             setReport(data);
         } catch {
@@ -49,13 +134,41 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                 router.push(baseRoute);
             }
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
     }, [resolvedId, isModal, onClose, router, baseRoute]);
 
     useEffect(() => {
         fetchReport();
     }, [fetchReport]);
+
+    const handleRemoveConfirm = async () => {
+        if (!removingItem?.RlsddpItemID) return;
+        setIsRemoving(true);
+        try {
+            await rlsddpAPI.removeItem(removingItem.RlsddpItemID);
+            toast.success('Item removed from active inventory.');
+            setRemovingItem(null);
+            await fetchReport(true);
+        } catch {
+            toast.error('Failed to remove item.');
+        } finally {
+            setIsRemoving(false);
+        }
+    };
+
+    const handleRestoreItem = async (itemId: number) => {
+        setIsRestoring(itemId);
+        try {
+            await rlsddpAPI.restoreItem(itemId);
+            toast.success('Item restored to active inventory.');
+            await fetchReport(true);
+        } catch {
+            toast.error('Failed to restore item.');
+        } finally {
+            setIsRestoring(null);
+        }
+    };
 
     const handleExcelExport = async () => {
         if (!report) return;
@@ -84,6 +197,16 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
 
     const content = (
         <div className="space-y-6 w-full">
+            {/* Remove Confirmation Modal */}
+            {removingItem && (
+                <RemoveConfirmModal
+                    item={removingItem}
+                    isLoading={isRemoving}
+                    onConfirm={handleRemoveConfirm}
+                    onCancel={() => !isRemoving && setRemovingItem(null)}
+                />
+            )}
+
             {/* Header section matching ViewDRPage */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div className="flex items-center gap-3">
@@ -198,11 +321,11 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                 </div>
             )}
 
-            {/* Line Items Table */}
+            {/* Active Items Table */}
             <div className="space-y-2">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <FileText className="w-4 h-4 text-[var(--primary)]" />
-                    Reported Assets ({report.items?.length || 0})
+                    Reported Assets ({report.items?.length ?? 0})
                 </h3>
 
                 <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
@@ -212,10 +335,11 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                                 <th className="px-4 py-3">Property No.</th>
                                 <th className="px-4 py-3 text-right">Acquisition Cost</th>
                                 <th className="px-4 py-3">Generated Description</th>
+                                {isPrivileged && <th className="px-4 py-3 text-center w-28">Actions</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                            {report.items?.map((item) => (
+                            {(report.items ?? []).map((item) => (
                                 <tr key={item.RlsddpItemID} className="hover:bg-slate-50">
                                     <td className="px-4 py-3 font-semibold text-slate-900">
                                         {item.PropertyNumber || 'N/A'}
@@ -226,12 +350,84 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                                     <td className="px-4 py-3 text-slate-700">
                                         {item.Description}
                                     </td>
+                                    {isPrivileged && (
+                                        <td className="px-4 py-3 text-center">
+                                            <button
+                                                onClick={() => setRemovingItem(item)}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+                                                title="Remove from active inventory"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                                Remove
+                                            </button>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
+                            {(report.items ?? []).length === 0 && (
+                                <tr>
+                                    <td colSpan={isPrivileged ? 4 : 3} className="px-4 py-6 text-center text-slate-400 text-sm">
+                                        No active items.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {/* Removed Items Table */}
+            {isPrivileged && (report.removedItems ?? []).length > 0 && (
+                <div className="space-y-2">
+                    <h3 className="text-base font-bold text-rose-600 flex items-center gap-2">
+                        <Trash2 className="w-4 h-4" />
+                        Removed Items ({report.removedItems!.length})
+                    </h3>
+
+                    <div className="border border-rose-200 rounded-xl overflow-hidden bg-white">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-rose-50 text-rose-600 font-medium border-b border-rose-200">
+                                <tr>
+                                    <th className="px-4 py-3">Property No.</th>
+                                    <th className="px-4 py-3 text-right">Acquisition Cost</th>
+                                    <th className="px-4 py-3">Generated Description</th>
+                                    <th className="px-4 py-3 text-center w-28">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-rose-100">
+                                {report.removedItems!.map((item) => (
+                                    <tr key={item.RlsddpItemID} className="bg-rose-50/30 hover:bg-rose-50/60">
+                                        <td className="px-4 py-3 font-semibold text-slate-400 line-through">
+                                            {item.PropertyNumber || 'N/A'}
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-medium text-slate-400 line-through">
+                                            ₱{Number(item.AcquisitionCost).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-400 line-through">
+                                            {item.Description}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <button
+                                                onClick={() => item.RlsddpItemID && handleRestoreItem(item.RlsddpItemID)}
+                                                disabled={isRestoring === item.RlsddpItemID}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors disabled:opacity-50"
+                                                title="Restore to active inventory"
+                                            >
+                                                {isRestoring === item.RlsddpItemID ? (
+                                                    <span className="w-3.5 h-3.5 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
+                                                ) : (
+                                                    <RotateCcw className="w-3.5 h-3.5" />
+                                                )}
+                                                Restore
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
