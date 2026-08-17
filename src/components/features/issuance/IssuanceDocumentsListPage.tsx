@@ -452,7 +452,7 @@ export function IssuanceDocumentsListPage({
                                                         {row.requesterName}
                                                     </span>
                                                     <span>{row.departmentName}</span>
-                                                    <span>DR: {issuance.deliveryReceipt?.DRNumber ?? row.RequestNumber ?? 'N/A'}</span>
+                                                    <span>DR: {issuance.deliveryReceipt?.DRNumber ?? 'N/A'}</span>
                                                     <span>Issued: {formatPHDate(issuance.IssuanceDate)}</span>
                                                     <span>Source Date: {formatPHDate(row.RequestDate)}</span>
                                                     {row.itemsCount > 0 && (
