@@ -578,8 +578,8 @@ export function ItemDetailsModal({
                                     type="button"
                                     onClick={() => setHasSerialToggle(true)}
                                     className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150 ${hasSerialToggle
-                                            ? 'bg-white text-slate-900 shadow-sm'
-                                            : 'text-slate-600 hover:text-slate-900'
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
                                         }`}
                                 >
                                     With Serial Number
@@ -594,8 +594,8 @@ export function ItemDetailsModal({
                                         clearErrors('serial_number');
                                     }}
                                     className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150 ${!hasSerialToggle
-                                            ? 'bg-white text-slate-900 shadow-sm'
-                                            : 'text-slate-600 hover:text-slate-900'
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
                                         }`}
                                 >
                                     No Serial Number
@@ -631,7 +631,7 @@ export function ItemDetailsModal({
                                                         }
                                                     }}
                                                     onBlur={() => validateSerials()}
-                                                    placeholder={`Enter serial number for unit #${idx + 1}`}
+                                                    placeholder={`Enter serial number`}
                                                     className="flex-1 bg-white"
                                                 />
                                             </div>

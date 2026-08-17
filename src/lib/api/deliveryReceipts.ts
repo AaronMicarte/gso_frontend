@@ -112,4 +112,14 @@ export const getUsedSerialNumbers = async (excludeDrId?: number): Promise<string
     if (excludeDrId) params.append('exclude_dr_id', String(excludeDrId));
     const response = await apiClient.get(`/procurement/delivery-receipts-helpers/used-serials?${params.toString()}`);
     return response.data.data || [];
+};
+
+export const addDeliveryReceiptItems = async (id: number, details: Record<string, unknown>[]): Promise<DeliveryReceipt> => {
+    const response = await apiClient.post(`/procurement/delivery-receipts/${id}/add-items`, { details });
+    return response.data.data;
+};
+
+export const finalizeDeliveryReceipt = async (id: number): Promise<DeliveryReceipt> => {
+    const response = await apiClient.post(`/procurement/delivery-receipts/${id}/finalize`);
+    return response.data.data;
 };

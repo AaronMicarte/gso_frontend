@@ -5,6 +5,8 @@ import {
     createDeliveryReceipt,
     updateDeliveryReceipt,
     deleteDeliveryReceipt,
+    addDeliveryReceiptItems,
+    finalizeDeliveryReceipt,
     DeliveryReceiptFilters,
 } from '@/lib/api/deliveryReceipts';
 import { ApiError } from '@/types/api';
@@ -74,6 +76,35 @@ export function useDeleteDeliveryReceipt() {
         },
         onError: (error: Error) => {
             toast.error((error as ApiError).response?.data?.message || 'Failed to delete Delivery Receipt');
+        },
+    });
+}
+
+export function useAddDeliveryReceiptItems() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, details }: { id: number; details: Record<string, unknown>[] }) =>
+            addDeliveryReceiptItems(id, details),
+        onSuccess: (_, { id }) => {
+            queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
+            queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });
+        },
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to add items to Delivery Receipt');
+        },
+    });
+}
+
+export function useFinalizeDeliveryReceipt() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: number) => finalizeDeliveryReceipt(id),
+        onSuccess: (_, id) => {
+            queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
+            queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });
+        },
+        onError: (error: Error) => {
+            toast.error((error as ApiError).response?.data?.message || 'Failed to finalize Delivery Receipt');
         },
     });
 }

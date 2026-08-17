@@ -77,6 +77,7 @@ const drSchema = z.object({
     remarks: z.string().optional(),
     dr_picture: z.custom<FileList>().refine((files) => files && files.length > 0, 'DR picture is required'),
     details: z.array(drItemSchema).min(1, 'At least one item is required'),
+    items_still_pending_delivery: z.boolean().optional(),
 });
 
 type DRFormValues = z.infer<typeof drSchema>;
@@ -126,6 +127,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             date_received: manilaToday,
             remarks: '',
             details: [],
+            items_still_pending_delivery: false,
         },
     });
 
@@ -723,7 +725,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Brand / Model / SN</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Property Type</th>
-                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-32">Requested / Delivered</th>
+                                        <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-32">Delivered</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Total Cost</th>
                                         <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Actions</th>
@@ -763,8 +765,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                             </td>
                                             <td className="py-3 px-3 w-32 text-center">
                                                 <div className="text-sm">
-                                                    <span className="font-medium">R:</span>{' '}{(details[index]?.quantity_requested ?? details[index]?.quantity_delivered ?? 0)}{' '}
-                                                    <span className="font-medium">D:</span>{' '}{details[index]?.quantity_delivered ?? 0}
+                                                    <span className="font-medium"></span>{' '}{details[index]?.quantity_delivered ?? 0}
                                                 </div>
                                                 <div className="text-xs text-slate-500 mt-1">{units.find(u => u.id === details[index]?.unit_of_measure_id)?.name || ''}</div>
                                                 {details[index]?.quantity_requested !== details[index]?.quantity_delivered && details[index]?.change_reason && (
@@ -866,6 +867,21 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                             <span className="font-bold text-slate-900">
                                 ₱{totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
+                        </div>
+                        <div className="mt-6 pt-4 border-t border-slate-100">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    {...register('items_still_pending_delivery')}
+                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]/20"
+                                />
+                                <span>
+                                    <span className="block text-sm font-medium text-slate-900">Items Still Pending Delivery</span>
+                                    <span className="block text-sm text-slate-500 mt-1">
+                                        Check if some items are missing, broken, or not yet ready. The DR will remain Partial / For Issuance until finalized.
+                                    </span>
+                                </span>
+                            </label>
                         </div>
                     </div>
 

@@ -65,6 +65,9 @@ export interface DeliveryReceipt {
     dr_picture_url?: string; // URL to the DR picture
     InspectionStatus?: 'pending' | 'inspected';
     InspectionCompletedAt?: string | null;
+    IsPartial?: boolean;
+    is_partial?: boolean;
+    FinalizedAt?: string | null;
     workflow_status?: 'pending_inspection' | 'to_be_accepted' | 'to_be_issued' | 'issued' | 'acknowledged' | string;
     workflow_status_label?: string | null;
     requestedByUser?: {

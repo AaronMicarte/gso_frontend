@@ -14,7 +14,8 @@ import {
     Trash2,
     Package,
     RefreshCw,
-    CheckCircle
+    CheckCircle,
+    PackagePlus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -31,13 +32,30 @@ const workflowBadgeStyles: Record<string, string> = {
     to_be_issued: 'bg-indigo-100 text-indigo-800',
     issued: 'bg-emerald-100 text-emerald-800',
     acknowledged: 'bg-emerald-100 text-emerald-800',
+    partial: 'bg-amber-100 text-amber-800',
 };
 
-const workflowStatusLabels: Record<string, string> = {
-    to_be_issued: 'For Issuance',
-    issued: 'Issued',
-    acknowledged: 'Issued',
-};
+function getDrStatusDisplay(dr: { workflow_status?: string; workflow_status_label?: string | null; is_partial?: boolean; IsPartial?: boolean }) {
+    const isPartial = dr.is_partial ?? dr.IsPartial ?? false;
+    if (isPartial) {
+        return {
+            label: dr.workflow_status_label || 'Partial / For Issuance',
+            badgeClass: workflowBadgeStyles.partial,
+        };
+    }
+
+    const workflowStatus = dr.workflow_status || 'to_be_issued';
+    const workflowLabels: Record<string, string> = {
+        to_be_issued: 'For Issuance',
+        issued: 'Issued',
+        acknowledged: 'Issued',
+    };
+
+    return {
+        label: dr.workflow_status_label || workflowLabels[workflowStatus] || 'For Issuance',
+        badgeClass: workflowBadgeStyles[workflowStatus] || workflowBadgeStyles.to_be_issued,
+    };
+}
 
 export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryReceiptsPageProps) {
     const searchParams = useSearchParams();
@@ -225,14 +243,12 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                             </td>
                                             <td className="px-6 py-4">
                                                 {(() => {
-                                                    const workflowStatus = dr.workflow_status || 'to_be_issued';
-                                                    const workflowLabel = workflowStatusLabels[workflowStatus] || 'For Issuance';
-                                                    const badgeClass = workflowBadgeStyles[workflowStatus] || workflowBadgeStyles.to_be_issued;
+                                                    const { label, badgeClass } = getDrStatusDisplay(dr);
 
                                                     return (
                                                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
                                                             <CheckCircle className="w-3 h-3" />
-                                                            {workflowLabel}
+                                                            {label}
                                                         </span>
                                                     );
                                                 })()}
@@ -266,6 +282,15 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                                                 </button>
                                                             )}
                                                         </>
+                                                    )}
+                                                    {(dr.is_partial ?? dr.IsPartial) && (
+                                                        <Link
+                                                            href={`${baseRoute}/delivery-receipts/${dr.DRID}/add-items`}
+                                                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                            title="Add Items"
+                                                        >
+                                                            <PackagePlus className="w-4 h-4" />
+                                                        </Link>
                                                     )}
                                                 </div>
                                             </td>

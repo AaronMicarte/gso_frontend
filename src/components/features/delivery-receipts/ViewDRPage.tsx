@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, AlertCircle, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, AlertCircle, Printer, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
@@ -30,9 +30,9 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
     // Permissions
     const canEdit = user?.UserRoleID === 1 || user?.UserRoleID === 2; // Admin or Staff
     const inspectionStatus = dr?.inspection_status || dr?.InspectionStatus || 'pending';
-    // prioritise the workflow status set by the backend, fallback to inspection state if missing
+    const isPartial = dr?.is_partial ?? dr?.IsPartial ?? false;
     const workflowStatus = dr?.workflow_status || (inspectionStatus === 'inspected' ? 'to_be_issued' : 'pending_inspection');
-    const workflowLabel = dr?.workflow_status_label || (workflowStatus === 'to_be_issued' ? 'To be issued' : workflowStatus === 'issued' ? 'Issued' : workflowStatus === 'acknowledged' ? 'Acknowledged' : (workflowStatus === 'pending_inspection' ? 'Pending inspection' : ''));
+    const workflowLabel = dr?.workflow_status_label || (workflowStatus === 'to_be_issued' ? 'For Issuance' : workflowStatus === 'issued' ? 'Issued' : workflowStatus === 'acknowledged' ? 'Issued' : (workflowStatus === 'pending_inspection' ? 'Pending inspection' : ''));
 
     useEffect(() => {
         const fetchDR = async () => {
@@ -121,7 +121,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                     <Link
                         href={`${baseRoute}/delivery-receipts/${dr.DRID}/print`}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
@@ -138,7 +138,22 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                             Edit DR
                         </Link>
                     )}
+                    {canEdit && isPartial && (
+                        <Link
+                            href={`${baseRoute}/delivery-receipts/${dr.DRID}/add-items`}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Items / Finalize
+                        </Link>
+                    )}
                 </div>
+
+                {isPartial && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                        This delivery receipt is partial. Use Add Items / Finalize to add remaining items or finalize the DR.
+                    </div>
+                )}
 
                 {/* DR Header */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
@@ -232,7 +247,6 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-24">Qty</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Total Cost</th>
-                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Requested / Delivered</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -255,15 +269,6 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                                         </td>
                                         <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.UnitCost)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                         <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.TotalCost)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                        <td className="py-3 px-3 text-sm text-slate-600">
-                                            <div>
-                                                <span className="font-medium">R:</span>{' '}{(item.QuantityRequested ?? item.QuantityDelivered ?? 0)}{' '}
-                                                <span className="font-medium">D:</span>{' '}{item.QuantityDelivered ?? 0}
-                                            </div>
-                                            {item.QuantityRequested !== item.QuantityDelivered && item.ChangeReason && (
-                                                <div className="text-xs text-slate-500 mt-1">Reason: {item.ChangeReason}</div>
-                                            )}
-                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -280,7 +285,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                     </div>
                     <div className="flex items-center justify-between mt-4">
                         <span className="text-slate-600">Status:</span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${workflowStatus === 'pending_inspection' ? 'bg-amber-100 text-amber-700' : workflowStatus === 'to_be_issued' ? 'bg-indigo-100 text-indigo-700' : workflowStatus === 'issued' ? 'bg-emerald-100 text-emerald-700' : workflowStatus === 'acknowledged' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${isPartial ? 'bg-amber-100 text-amber-800' : workflowStatus === 'pending_inspection' ? 'bg-amber-100 text-amber-700' : workflowStatus === 'to_be_issued' ? 'bg-indigo-100 text-indigo-700' : workflowStatus === 'issued' ? 'bg-emerald-100 text-emerald-700' : workflowStatus === 'acknowledged' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
                             {workflowLabel}
                         </span>
                     </div>

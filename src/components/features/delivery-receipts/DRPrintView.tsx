@@ -27,6 +27,7 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
     const iarNumber = typeof dr.IARNumber === 'string' ? dr.IARNumber : '';
     const inspectionOfficerName = user?.FullName || dr.receivedByUser?.FullName || '';
     const supplierCustodian = dr.requestedByUser?.FullName || dr.RequestedByName || '';
+    const isPartial = dr.is_partial ?? dr.IsPartial ?? false;
 
     return (
         <div>
@@ -159,11 +160,11 @@ export const DRPrintView = React.forwardRef<HTMLDivElement, DRPrintViewProps>(({
                                 <div className="flex flex-col flex-1 justify-start pt-1">
                                     <div className="mb-1">Complete</div>
                                     <div className="mb-0.5">
-                                        <span className="inline-block w-6 h-6 border border-black align-middle" />
+                                        <span className={`inline-block w-6 h-6 border border-black align-middle ${!isPartial ? 'bg-black' : ''}`} />
                                     </div>
                                     <div className="mb-1">Partial (pls. specify quantity)</div>
                                     <div className="mb-0.5">
-                                        <span className="inline-block w-6 h-6 border border-black align-middle" />
+                                        <span className={`inline-block w-6 h-6 border border-black align-middle ${isPartial ? 'bg-black' : ''}`} />
                                     </div>
                                     <div className="mt-auto text-center">{supplierCustodian || '\u00A0'}</div>
                                 </div>

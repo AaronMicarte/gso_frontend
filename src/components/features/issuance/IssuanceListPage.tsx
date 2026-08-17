@@ -25,6 +25,8 @@ interface DeliveryReceiptForIssuance {
     IARDateAccepted?: string | null;
     IARAcceptedBy?: number | null;
     IsAccepted?: number | boolean | null;
+    IsPartial?: boolean | number | null;
+    is_partial?: boolean;
     AvailableItems?: number;
     items_by_document_type?: {
         PAR?: IarIssuedItem[];
@@ -92,24 +94,6 @@ function createdTimeForDr(dr: DeliveryReceiptTimeSource): number {
     return 0;
 }
 
-function buildIssuanceItemLabel(item: {
-    Article?: string | null;
-    Brand?: string | null;
-    ModelNumber?: string | null;
-    SerialNumber?: string | null;
-    ItemDescription?: string | null;
-}) {
-    return [item.Article, item.Brand, item.ModelNumber, item.SerialNumber]
-        .filter(Boolean)
-        .join(' · ') || (item.ItemDescription || 'Item');
-}
-
-function buildDrItemLabel(item: IarIssuedItem) {
-    return [item.Brand, item.ModelNumber, item.SerialNumber]
-        .filter(Boolean)
-        .join(' · ') || (item.ItemDescription || 'Item');
-}
-
 function getAvailableDocumentTypes(row: DeliveryReceiptForIssuance): Array<'PAR' | 'ICS'> {
     const itemsByType = row.items_by_document_type ?? {};
     const issuanceByType = row.issuances_by_document_type ?? {};
@@ -122,58 +106,6 @@ function getAvailableDocumentTypes(row: DeliveryReceiptForIssuance): Array<'PAR'
 function getSelectedDocumentType(row: DeliveryReceiptForIssuance, docTypeByDr: Record<number, 'PAR' | 'ICS'>): 'PAR' | 'ICS' {
     const availableTypes = getAvailableDocumentTypes(row);
     return docTypeByDr[row.DRID] ?? availableTypes[0] ?? 'PAR';
-}
-
-function filterItemsForDocumentType<T extends {
-    Article?: string | null;
-    Brand?: string | null;
-    ModelNumber?: string | null;
-    SerialNumber?: string | null;
-    ItemDescription?: string | null;
-}>(items: T[], eligibleDrItems: IarIssuedItem[]): T[] {
-    if (eligibleDrItems.length === 0) {
-        return items;
-    }
-
-    // Build normalized eligible markers for more tolerant matching (labels + descriptions)
-    const eligibleMarkers = eligibleDrItems.map((ei) => {
-        return {
-            label: buildDrItemLabel(ei).trim().toLowerCase(),
-            description: (ei.ItemDescription || '').trim().toLowerCase(),
-            brand: (ei.Brand || '').trim().toLowerCase(),
-            model: (ei.ModelNumber || '').trim().toLowerCase(),
-            serial: (ei.SerialNumber || '').trim().toLowerCase(),
-        };
-    });
-
-    const normalize = (s?: string | null) => (s || '').trim().toLowerCase();
-
-    return items.filter((item) => {
-        const itemLabel = buildIssuanceItemLabel(item).trim().toLowerCase();
-        const itemDesc = normalize(item.ItemDescription);
-        const itemBrand = normalize(item.Brand);
-        const itemModel = normalize(item.ModelNumber);
-        const itemSerial = normalize(item.SerialNumber);
-
-        for (const m of eligibleMarkers) {
-            // Exact label or exact description match
-            if (m.label && m.label === itemLabel) return true;
-            if (m.description && m.description && (m.description === itemDesc)) return true;
-
-            // Substring matches (allow partial description/label overlap)
-            if (m.label && itemLabel.includes(m.label)) return true;
-            if (m.label && m.label.includes(itemLabel)) return true;
-            if (m.description && itemDesc.includes(m.description)) return true;
-            if (m.description && m.description.includes(itemDesc)) return true;
-
-            // Match by individual fields (brand/model/serial)
-            if (m.brand && itemBrand && (m.brand === itemBrand || itemBrand.includes(m.brand) || m.brand.includes(itemBrand))) return true;
-            if (m.model && itemModel && (m.model === itemModel || itemModel.includes(m.model) || m.model.includes(itemModel))) return true;
-            if (m.serial && itemSerial && (m.serial === itemSerial || itemSerial.includes(m.serial) || m.serial.includes(itemSerial))) return true;
-        }
-
-        return false;
-    });
 }
 
 export function IssuanceListPage({
@@ -286,13 +218,6 @@ export function IssuanceListPage({
 
     const handlePrint = (row: DeliveryReceiptForIssuance) => {
         const selectedType = getSelectedDocumentType(row, docTypeByDr);
-        const issuanceByType = row.issuances_by_document_type ?? {};
-        const existing = issuanceByType[selectedType];
-
-        if (existing?.IssuanceID) {
-            openAssignModalForIssuance(existing.IssuanceID, row, selectedType);
-            return;
-        }
 
         issuanceAPI.ensureIssuances({ dr_id: row.DRID, iar_id: row.IARID || undefined })
             .then((response) => {
@@ -302,14 +227,15 @@ export function IssuanceListPage({
                     return;
                 }
 
+                const refreshedRow: DeliveryReceiptForIssuance = {
+                    ...row,
+                    issuances_by_document_type: response.data?.issuances_by_document_type ?? row.issuances_by_document_type,
+                    items_by_document_type: response.data?.items_by_document_type ?? row.items_by_document_type,
+                };
+
                 setRows((prev) => {
                     const updated = prev.map((item) => (
-                        item.DRID === row.DRID
-                            ? {
-                                ...item,
-                                issuances_by_document_type: response.data?.issuances_by_document_type,
-                            }
-                            : item
+                        item.DRID === row.DRID ? refreshedRow : item
                     ));
 
                     updated.sort((a, b) => {
@@ -321,7 +247,7 @@ export function IssuanceListPage({
                     return updated;
                 });
 
-                openAssignModalForIssuance(ensured.IssuanceID, row, selectedType);
+                openAssignModalForIssuance(ensured.IssuanceID, refreshedRow, selectedType);
             })
             .catch(() => {
                 toast.error('Failed to prepare issuance document');
@@ -349,7 +275,6 @@ export function IssuanceListPage({
     ) => {
         try {
             const issuance = await issuanceAPI.getById(issuanceId);
-            const eligibleDrItems = row.items_by_document_type?.[documentType] ?? [];
             const mappedItems = issuance.details?.map((d: {
                 IssuanceDetailID?: number;
                 InventoryDetailID?: number;
@@ -401,10 +326,9 @@ export function IssuanceListPage({
                     ?? null,
             })) || [];
 
-            const items = filterItemsForDocumentType(
-                mappedItems.filter((item) => item.IssuanceDetailID > 0),
-                eligibleDrItems,
-            );
+            // Issuance records are already scoped by document type (PAR/ICS).
+            // Use all synced issuance details so newly added partial-DR items appear immediately.
+            const items = mappedItems.filter((item) => item.IssuanceDetailID > 0);
 
             if (items.length === 0) {
                 toast.error(`No ${documentType}-eligible items are available for assignment`);
@@ -479,6 +403,7 @@ export function IssuanceListPage({
                                 const currentItems = (row.items_by_document_type ?? {})[selectedType] ?? [];
                                 const isExpanded = expandedByDr[row.DRID] ?? false;
 
+                                const isPartial = !!(row.is_partial ?? row.IsPartial);
                                 const canPrint = (row.InspectionStatus === 'inspected' || hasAcknowledgedIssuance) && availableTypes.length > 0;
 
                                 return (
@@ -513,16 +438,20 @@ export function IssuanceListPage({
                                                     let Icon = Clock;
 
                                                     if (hasAcknowledgedIssuance) {
-                                                        label = 'Acknowledged';
-                                                        badgeClass = 'bg-green-100 text-green-700';
+                                                        label = isPartial ? 'Partial / Issued' : 'Acknowledged';
+                                                        badgeClass = isPartial ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-700';
                                                         Icon = CheckCircle;
                                                     } else if (isAccepted) {
-                                                        label = 'Accepted';
-                                                        badgeClass = 'bg-emerald-100 text-emerald-700';
+                                                        label = isPartial ? 'Partial / Issued' : 'Accepted';
+                                                        badgeClass = isPartial ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700';
                                                         Icon = CheckCircle;
                                                     } else if (row.InspectionStatus === 'pending') {
                                                         label = 'Editing';
                                                         badgeClass = 'bg-yellow-100 text-yellow-800';
+                                                        Icon = Clock;
+                                                    } else if (isPartial) {
+                                                        label = 'Partial / For Issuance';
+                                                        badgeClass = 'bg-amber-100 text-amber-800';
                                                         Icon = Clock;
                                                     }
 

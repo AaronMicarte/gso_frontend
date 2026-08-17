@@ -135,7 +135,7 @@ const issuanceAPI = {
             message: string;
             data: {
                 DRID: number;
-                IARID: number;
+                IARID?: number;
                 issuances_by_document_type: {
                     PAR?: {
                         IssuanceID: number;
@@ -149,6 +149,26 @@ const issuanceAPI = {
                         DocumentNumber?: string | null;
                         Status?: string | null;
                     } | null;
+                };
+                items_by_document_type?: {
+                    PAR?: Array<{
+                        DRDetailID: number;
+                        ItemDescription?: string | null;
+                        Brand?: string | null;
+                        ModelNumber?: string | null;
+                        SerialNumber?: string | null;
+                        QuantityAccepted?: number | null;
+                        DocumentType?: string | null;
+                    }>;
+                    ICS?: Array<{
+                        DRDetailID: number;
+                        ItemDescription?: string | null;
+                        Brand?: string | null;
+                        ModelNumber?: string | null;
+                        SerialNumber?: string | null;
+                        QuantityAccepted?: number | null;
+                        DocumentType?: string | null;
+                    }>;
                 };
             };
         }>(
