@@ -154,7 +154,7 @@ export function RemovedItemsPage({ baseRoute }: RemovedItemsPageProps) {
                                                 {item.PropertyNumber || 'N/A'}
                                             </td>
                                             <td className="px-4 py-3 text-slate-400 max-w-xs truncate line-through" title={item.Description}>
-                                                {item.Description || '—'}
+                                                {item.Description?.replace(/\b(Brand|Model|S\.?N\.?|Serial\s*No\.?|Serial\s*Number):\s*/gi, '').trim() || '—'}
                                             </td>
                                             <td className="px-4 py-3 text-right font-medium text-slate-400 line-through tabular-nums">
                                                 ₱{Number(item.AcquisitionCost).toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -168,9 +168,9 @@ export function RemovedItemsPage({ baseRoute }: RemovedItemsPageProps) {
                                                     <ExternalLink className="w-3 h-3 opacity-60" />
                                                 </Link>
                                                 <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${item.RlsddpStatus === 'Lost' ? 'bg-amber-100 text-amber-700' :
-                                                        item.RlsddpStatus === 'Stolen' ? 'bg-rose-100 text-rose-700' :
-                                                            item.RlsddpStatus === 'Damaged' ? 'bg-orange-100 text-orange-700' :
-                                                                'bg-red-100 text-red-700'
+                                                    item.RlsddpStatus === 'Stolen' ? 'bg-rose-100 text-rose-700' :
+                                                        item.RlsddpStatus === 'Damaged' ? 'bg-orange-100 text-orange-700' :
+                                                            'bg-red-100 text-red-700'
                                                     }`}>
                                                     {item.RlsddpStatus}
                                                 </span>

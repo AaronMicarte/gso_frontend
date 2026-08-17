@@ -66,7 +66,9 @@ function RemoveConfirmModal({ item, isLoading, onConfirm, onCancel }: RemoveModa
                         </span>
                     </div>
                     {item.Description && (
-                        <p className="text-slate-500 mt-1 text-xs line-clamp-2">{item.Description}</p>
+                        <p className="text-slate-500 mt-1 text-xs line-clamp-2">
+                            {item.Description?.replace(/\b(Brand|Model|S\.?N\.?|Serial\s*No\.?|Serial\s*Number):\s*/gi, '').trim()}
+                        </p>
                     )}
                 </div>
 
@@ -348,7 +350,7 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                                         ₱{Number(item.AcquisitionCost).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </td>
                                     <td className="px-4 py-3 text-slate-700">
-                                        {item.Description}
+                                        {item.Description?.replace(/\b(Brand|Model|S\.?N\.?|Serial\s*No\.?|Serial\s*Number):\s*/gi, '').trim() || '—'}
                                     </td>
                                     {isPrivileged && (
                                         <td className="px-4 py-3 text-center">
@@ -404,7 +406,7 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                                             ₱{Number(item.AcquisitionCost).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                         </td>
                                         <td className="px-4 py-3 text-slate-400 line-through">
-                                            {item.Description}
+                                            {item.Description?.replace(/\b(Brand|Model|S\.?N\.?|Serial\s*No\.?|Serial\s*Number):\s*/gi, '').trim() || '—'}
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <button
