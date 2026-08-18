@@ -219,7 +219,7 @@ const propertyWasteApi = {
             }>;
         }
     ): Promise<{ message: string; report: PropertyWasteReport }> {
-        const response = await apiClient.post(`/property-wastes/${id}`, payload);
+        const response = await apiClient.patch(`/property-wastes/${id}`, payload);
         return {
             ...response.data,
             report: normalizeReport(response.data.report as RawPropertyWasteReport),

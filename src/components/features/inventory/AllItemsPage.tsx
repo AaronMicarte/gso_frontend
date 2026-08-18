@@ -2,13 +2,13 @@
 
 import { useAllInventoryItems } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
-import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2, FileWarning, Download, Filter } from 'lucide-react';
+import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2, FileWarning, Download, Filter, PackageX } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { getAllInventoryItems, type InventoryItem } from '@/lib/api/inventory';
+import { getAllInventoryItems, type InventoryItem, removeInventoryDetail } from '@/lib/api/inventory';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { exportDepartmentItemsToExcel, exportAllItemsToExcel } from './DepartmentExport';
@@ -76,6 +76,8 @@ export function AllItemsPage() {
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryDetailEditForm | null>(null);
+    const [movingToRemoved, setMovingToRemoved] = useState<number | null>(null);
+    const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
@@ -133,6 +135,20 @@ export function AllItemsPage() {
     const getItemName = (item: InventoryItem) => item.dr_article_name || item.PropertyName || 'Unknown Item';
     const getCustodianDisplayName = (custodianName?: string) => custodianName || 'Requester not set';
     const getQrCodeData = (item: InventoryItem): string | null => item.qrCodeData ?? null;
+
+    const handleMoveToRemoved = async (item: InventoryItem) => {
+        setMovingToRemoved(item.InventoryDetailID);
+        setConfirmRemove(null);
+        try {
+            await removeInventoryDetail(item.InventoryDetailID);
+            toast.success(`${getItemName(item)} moved to Removed Items.`);
+            refetch();
+        } catch {
+            toast.error('Failed to move item to Removed Items.');
+        } finally {
+            setMovingToRemoved(null);
+        }
+    };
 
     const displayedItems = useMemo<CombinedInventoryItem[]>(() => {
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -658,6 +674,36 @@ export function AllItemsPage() {
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </button>
+                                                        {item.ConditionName?.toLowerCase().includes('unserviceable') && (
+                                                            confirmRemove === item.InventoryDetailID ? (
+                                                                <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">
+                                                                    <span className="text-xs text-rose-700 font-medium whitespace-nowrap">Move to Removed?</span>
+                                                                    <button
+                                                                        onClick={() => handleMoveToRemoved(item)}
+                                                                        disabled={movingToRemoved === item.InventoryDetailID}
+                                                                        className="text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
+                                                                    >
+                                                                        {movingToRemoved === item.InventoryDetailID
+                                                                            ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                                                            : 'Yes'}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setConfirmRemove(null)}
+                                                                        className="text-xs font-medium text-slate-500 hover:text-slate-700 px-1"
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => setConfirmRemove(item.InventoryDetailID)}
+                                                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                    title="Move to Removed Items"
+                                                                >
+                                                                    <PackageX className="w-4 h-4" />
+                                                                </button>
+                                                            )
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

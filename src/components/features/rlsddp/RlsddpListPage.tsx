@@ -14,6 +14,7 @@ import {
     XCircle,
     Building2,
     ShieldAlert,
+    Ban,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -37,6 +38,11 @@ const statusBadgeStyles: Record<RlsddpStatus, string> = {
     Destroyed: 'bg-red-100 text-red-800',
 };
 
+const approvalBadgeStyles = {
+    Pending: 'bg-slate-100 text-slate-700',
+    Approved: 'bg-emerald-100 text-emerald-700',
+    Rejected: 'bg-red-100 text-red-700',
+} as const;
 export function RlsddpListPage({
     baseRoute,
     pageTitle = 'Report of Lost, Stolen, Damaged or Destroyed Property',
@@ -56,6 +62,10 @@ export function RlsddpListPage({
 
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+    const [isTransferingReportId, setIsTransferingReportId] = useState<number | null>(null);
+    const [confirmApproveReport, setConfirmApproveReport] = useState<PropertyRlsddpReport | null>(null);
+    const [rejectingReportId, setRejectingReportId] = useState<number | null>(null);
+    const [rejectionNotes, setRejectionNotes] = useState('');
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
@@ -64,6 +74,65 @@ export function RlsddpListPage({
 
         return () => window.clearTimeout(timeoutId);
     }, [search]);
+
+    const handleApproveTransfer = async (report: PropertyRlsddpReport) => {
+        if (!report?.RlsddpID) return;
+
+        const approvedStatuses: RlsddpStatus[] = ['Lost', 'Stolen', 'Destroyed'];
+        if (!approvedStatuses.includes(report.Status as RlsddpStatus)) return;
+        if ((report.ApprovalStatus ?? 'Pending') === 'Approved') return;
+
+        setConfirmApproveReport(report);
+    };
+
+    const confirmApproveTransfer = async () => {
+        if (!confirmApproveReport) return;
+
+        const report = confirmApproveReport;
+        const itemIds = (report.items ?? [])
+            .map((item) => item.RlsddpItemID)
+            .filter((itemId): itemId is number => typeof itemId === 'number');
+
+        if (itemIds.length === 0) {
+            toast.error('No active items to transfer for this RLSDDP report.');
+            setConfirmApproveReport(null);
+            return;
+        }
+
+        setIsTransferingReportId(report.RlsddpID);
+        try {
+            await rlsddpAPI.approveReport(report.RlsddpID);
+            toast.success(`${itemIds.length} item${itemIds.length > 1 ? 's' : ''} approved and transferred to removed inventory.`);
+            setConfirmApproveReport(null);
+            await fetchReports();
+        } catch {
+            toast.error('Failed to approve RLSDDP transfer.');
+        } finally {
+            setIsTransferingReportId(null);
+        }
+    };
+
+    const cancelApproveTransfer = () => {
+        if (isTransferingReportId) return;
+        setConfirmApproveReport(null);
+    };
+
+    const handleRejectReport = async () => {
+        if (!rejectingReportId || !rejectionNotes.trim() || rejectionNotes.trim().length < 5) {
+            toast.error('Please provide at least 5 characters for rejection reason');
+            return;
+        }
+
+        try {
+            await rlsddpAPI.rejectReport(rejectingReportId, rejectionNotes);
+            toast.success('RLSDDP report rejected. All items have been restored for reselection.');
+            setRejectingReportId(null);
+            setRejectionNotes('');
+            await fetchReports();
+        } catch {
+            toast.error('Failed to reject RLSDDP report.');
+        }
+    };
 
     const loadDepartments = useCallback(async () => {
         try {
@@ -236,9 +305,14 @@ export function RlsddpListPage({
                                                 {report.AccountableOfficer}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeStyles[report.Status] || 'bg-slate-100 text-slate-800'}`}>
-                                                    {report.Status}
-                                                </span>
+                                                <div className="flex flex-col items-start gap-1.5">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeStyles[report.Status] || 'bg-slate-100 text-slate-800'}`}>
+                                                        {report.Status}
+                                                    </span>
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${approvalBadgeStyles[report.ApprovalStatus ?? 'Pending'] || 'bg-slate-100 text-slate-700'}`}>
+                                                        {report.ApprovalStatus ?? 'Pending'}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
                                                 {report.PoliceNotified ? (
@@ -281,6 +355,32 @@ export function RlsddpListPage({
                                                     >
                                                         <Edit className="w-4 h-4" />
                                                     </Link>
+                                                    {/* {((report.ApprovalStatus ?? 'Pending') !== 'Approved') && (['Lost', 'Stolen', 'Destroyed'] as RlsddpStatus[]).includes(report.Status) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleApproveTransfer(report)}
+                                                            disabled={isTransferingReportId === report.RlsddpID}
+                                                            className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            title="Approve and transfer all items"
+                                                        >
+                                                            {isTransferingReportId === report.RlsddpID ? (
+                                                                <span className="block w-4 h-4 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
+                                                            ) : (
+                                                                <CheckCircle className="w-4 h-4" />
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                    {((report.ApprovalStatus ?? 'Pending') !== 'Approved') && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRejectingReportId(report.RlsddpID)}
+                                                            disabled={rejectingReportId === report.RlsddpID}
+                                                            className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            title="Reject and restore all items"
+                                                        >
+                                                            <Ban className="w-4 h-4" />
+                                                        </button>
+                                                    )} */}
                                                 </div>
                                             </td>
                                         </tr>
@@ -339,6 +439,93 @@ export function RlsddpListPage({
                     </DialogPrimitive.Content>
                 </DialogPrimitive.Portal>
             </DialogPrimitive.Root>
+
+            {confirmApproveReport && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/40" onClick={cancelApproveTransfer} />
+                    <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+                        <h2 className="text-lg font-semibold text-slate-900">Confirm Approval</h2>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Approve this RLSDDP report and transfer all active items to removed inventory?
+                        </p>
+                        <div className="mt-3 text-sm text-slate-700">
+                            <div>Report: {confirmApproveReport.RlsddpNumber}</div>
+                            <div>Status: {confirmApproveReport.Status}</div>
+                            <div>Items: {(confirmApproveReport.items ?? []).length}</div>
+                        </div>
+                        <div className="mt-6 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={cancelApproveTransfer}
+                                disabled={isTransferingReportId === confirmApproveReport.RlsddpID}
+                                className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmApproveTransfer}
+                                disabled={isTransferingReportId === confirmApproveReport.RlsddpID}
+                                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] disabled:opacity-60"
+                            >
+                                {isTransferingReportId === confirmApproveReport.RlsddpID ? 'Approving...' : 'Yes, Approve'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {rejectingReportId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/40"
+                        onClick={() => {
+                            setRejectingReportId(null);
+                            setRejectionNotes('');
+                        }}
+                    />
+                    <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+                        <h2 className="text-lg font-semibold text-slate-900">Reject RLSDDP Report</h2>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Provide reason for rejection. All items will be restored for reselection.
+                        </p>
+                        <div className="mt-4">
+                            <label className="block text-sm font-medium text-slate-900 mb-2">Rejection Reason</label>
+                            <textarea
+                                value={rejectionNotes}
+                                onChange={(e) => setRejectionNotes(e.target.value)}
+                                placeholder="Enter at least 5 characters..."
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm resize-none"
+                                rows={4}
+                            />
+                            <p className="text-xs text-slate-400 mt-1">
+                                {rejectionNotes.length}/1000 characters
+                            </p>
+                        </div>
+                        <div className="mt-6 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRejectingReportId(null);
+                                    setRejectionNotes('');
+                                }}
+                                disabled={false}
+                                className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleRejectReport}
+                                disabled={rejectionNotes.trim().length < 5}
+                                className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-60"
+                            >
+                                Reject & Restore
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -8,7 +8,7 @@ import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit } from 'lucide-react';
+import { User, Calendar, Banknote, Package, CheckCircle, AlertTriangle, UserCheck, Archive, Search, RefreshCw, Edit, PackageX } from 'lucide-react';
 import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { exportDepartmentItemsToExcel } from './DepartmentExport';
 import Link from 'next/link';
@@ -19,6 +19,7 @@ import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 import { PropertyCardDialog } from './PropertyCardDialog';
 import { InventoryReceiptDialog } from './InventoryReceiptDialog';
 import { EditInventoryDetailModal, toInventoryDetailEditForm, type InventoryDetailEditForm } from './EditInventoryDetailModal';
+import { removeInventoryDetail } from '@/lib/api/inventory';
 
 export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const params = useParams() as { id?: string };
@@ -35,6 +36,8 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryDetailEditForm | null>(null);
+    const [movingToRemoved, setMovingToRemoved] = useState<number | null>(null);
+    const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
 
     const handleRefresh = () => {
         refetch();
@@ -66,7 +69,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         if (selectedRlsddpStatus) {
             filtered = filtered.filter(detail => detail.rlsddpStatus === selectedRlsddpStatus);
         }
-        
+
         // Apply Department filter
         if (selectedDepartment) {
             filtered = filtered.filter(detail => detail.locationDepartmentId === selectedDepartment);
@@ -90,8 +93,8 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
             // Group key: same DR + same Article + same Brand + same Model
             const drId = d.dr_drid != null ? String(d.dr_drid) : `inv-${d.InventoryID}`;
             const article = (d.dr_article_name || d.PropertyName || '').toString().trim().toUpperCase();
-            const brand   = (d.Brand || '').toString().trim().toUpperCase();
-            const model   = (d.ModelNumber || '').toString().trim().toUpperCase();
+            const brand = (d.Brand || '').toString().trim().toUpperCase();
+            const model = (d.ModelNumber || '').toString().trim().toUpperCase();
             const key = `${drId}||${article}||${brand}||${model}`;
 
             const existing = map.get(key);
@@ -200,9 +203,9 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         const rid = (d as any).rlsddpId as number | null | undefined;
         if (!rs) return null;
         const styles: Record<string, { bg: string; text: string; border: string }> = {
-            Lost:      { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
-            Stolen:    { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
-            Damaged:   { bg: '#fffbeb', text: '#92400e', border: '#fde68a' },
+            Lost: { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
+            Stolen: { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
+            Damaged: { bg: '#fffbeb', text: '#92400e', border: '#fde68a' },
             Destroyed: { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
         };
         const s = styles[rs] ?? styles.Lost;
@@ -225,6 +228,21 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
         SerialNumber?: string;
     }) => {
         return detail.dr_article_name || detail.PropertyName || 'Property Item';
+    };
+
+    const handleMoveToRemoved = async (d: InventoryDetailCombined) => {
+        const name = getItemName(d);
+        setMovingToRemoved(d.InventoryDetailID);
+        setConfirmRemove(null);
+        try {
+            await removeInventoryDetail(d.InventoryDetailID);
+            toast.success(`${name} moved to Removed Items.`);
+            refetch();
+        } catch {
+            toast.error('Failed to move item to Removed Items.');
+        } finally {
+            setMovingToRemoved(null);
+        }
     };
 
     const getUnitOfMeasureName = (unitOfMeasureId?: number) => {
@@ -356,7 +374,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                     </div>
                                 </div>
 
-                              {/* Filters */}
+                                {/* Filters */}
                                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 space-y-3">
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -587,7 +605,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 ) : (
                                                                     <span className="text-xs text-slate-500">Unknown</span>
                                                                 )}
-                                                               {getRlsddpPill(d)}
+                                                                {getRlsddpPill(d)}
                                                             </td>
                                                             <td className="px-6 py-4 text-slate-600">
                                                                 {getBorrowedLabel(d.currentBorrowerName) ? (
@@ -654,6 +672,36 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                     >
                                                                         <Edit className="w-4 h-4" />
                                                                     </button>
+                                                                    {d.ConditionName?.toLowerCase().includes('unserviceable') && (
+                                                                        confirmRemove === d.InventoryDetailID ? (
+                                                                            <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">
+                                                                                <span className="text-xs text-rose-700 font-medium whitespace-nowrap">Move to Removed?</span>
+                                                                                <button
+                                                                                    onClick={() => handleMoveToRemoved(d)}
+                                                                                    disabled={movingToRemoved === d.InventoryDetailID}
+                                                                                    className="text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
+                                                                                >
+                                                                                    {movingToRemoved === d.InventoryDetailID
+                                                                                        ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                                                                        : 'Yes'}
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => setConfirmRemove(null)}
+                                                                                    className="text-xs font-medium text-slate-500 hover:text-slate-700 px-1"
+                                                                                >
+                                                                                    Cancel
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() => setConfirmRemove(d.InventoryDetailID)}
+                                                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                                title="Move to Removed Items"
+                                                                            >
+                                                                                <PackageX className="w-4 h-4" />
+                                                                            </button>
+                                                                        )
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                         </tr>

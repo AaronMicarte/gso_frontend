@@ -104,6 +104,24 @@ export const rlsddpAPI = {
         };
     },
 
+    approveReport: async (id: number): Promise<{ message: string; report: PropertyRlsddpReport }> => {
+        const { data } = await apiClient.post<{ message: string; report: RawRlsddpReport }>(`/property-rlsddp/${id}/approve`);
+        return {
+            ...data,
+            report: normalizeRlsddpReport(data.report),
+        };
+    },
+
+    rejectReport: async (id: number, rejectionNotes: string): Promise<{ message: string; report: PropertyRlsddpReport }> => {
+        const { data } = await apiClient.post<{ message: string; report: RawRlsddpReport }>(`/property-rlsddp/${id}/reject`, {
+            RejectionNotes: rejectionNotes,
+        });
+        return {
+            ...data,
+            report: normalizeRlsddpReport(data.report),
+        };
+    },
+
     updateReport: async (id: number, payload: UpdateRlsddpPayload): Promise<{ message: string; report: PropertyRlsddpReport }> => {
         const { data } = await apiClient.put<{ message: string; report: RawRlsddpReport }>(`/property-rlsddp/${id}`, payload);
         return {
@@ -141,6 +159,11 @@ export const rlsddpAPI = {
 
     restoreItem: async (itemId: number): Promise<{ message: string }> => {
         const { data } = await apiClient.post<{ message: string }>(`/property-rlsddp/items/${itemId}/restore`);
+        return data;
+    },
+
+    removeInventoryDetail: async (inventoryDetailId: number): Promise<{ message: string }> => {
+        const { data } = await apiClient.post<{ message: string }>(`/property-rlsddp/inventory-detail/${inventoryDetailId}/remove`);
         return data;
     },
 

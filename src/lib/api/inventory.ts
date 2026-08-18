@@ -208,6 +208,28 @@ export const getInventoryDetailHistory = async (id: number): Promise<InventoryHi
     return response.data;
 };
 
+// Move item to generic Removed Items (soft delete inventory detail)
+export const removeInventoryDetail = async (id: number): Promise<{ message: string }> => {
+    const response: AxiosResponse<{ message: string }> = await apiClient.post(`/inventory/details/${id}/remove`);
+    return response.data;
+};
+
+// Restore a removed inventory detail
+export const restoreInventoryDetail = async (id: number): Promise<{ message: string }> => {
+    const response: AxiosResponse<{ message: string }> = await apiClient.post(`/inventory/details/${id}/restore`);
+    return response.data;
+};
+
+// Get removed items (generic) paginated
+export const getRemovedItems = async (params?: { search?: string; page?: number; per_page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.append('search', params.search);
+    if (params?.page) qs.append('page', String(params.page));
+    if (params?.per_page) qs.append('per_page', String(params.per_page));
+    const response: AxiosResponse<any> = await apiClient.get(`/inventory/removed-items?${qs.toString()}`);
+    return response.data;
+};
+
 export const getInventoryPropertyCard = async (id: number): Promise<PropertyCardResponse> => {
     const response: AxiosResponse<PropertyCardResponse> = await apiClient.get(`/inventory/details/${id}/property-card`);
     return response.data;

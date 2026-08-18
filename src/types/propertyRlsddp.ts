@@ -1,4 +1,5 @@
 export type RlsddpStatus = 'Lost' | 'Stolen' | 'Damaged' | 'Destroyed';
+export type RlsddpApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export interface PropertyRlsddpItem {
     RlsddpItemID?: number;
@@ -43,6 +44,9 @@ export interface PropertyRlsddpReport {
     DepartmentID: number;
     AccountableOfficer: string;
     Status: RlsddpStatus;
+    ApprovalStatus: RlsddpApprovalStatus;
+    RejectionNotes?: string | null;
+    RejectedAt?: string | null;
     PoliceNotified: boolean;
     PoliceStation?: string | null;
     DateReported?: string | null;
