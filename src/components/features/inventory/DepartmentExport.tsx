@@ -39,7 +39,6 @@ function formatPropertyNumbers(propNums: string[]): string {
     const cleaned = propNums.map(p => p.trim()).filter(Boolean);
     if (cleaned.length === 0) return '-';
 
-    // Sort items by prefix and numerical suffix
     cleaned.sort((a, b) => {
         const matchA = a.match(/^(.+-)(\d+)$/);
         const matchB = b.match(/^(.+-)(\d+)$/);
@@ -85,7 +84,6 @@ function formatPropertyNumbers(propNums: string[]): string {
         let end = current;
         let j = i + 1;
 
-        // Scan ahead for consecutive numbers with identical prefix and digit padding
         while (j < parsedList.length) {
             const next = parsedList[j];
             if (
@@ -119,13 +117,11 @@ function buildCombinedRows(items: ExportableItem[]): CombinedRow[] {
     const map = new Map<string, CombinedRow>();
 
     for (const item of items) {
-        // Preserving raw database casing
         const article = (item.dr_article_name || item.PropertyName || '').trim();
         const brand = (item.Brand || '').trim();
         const model = (item.ModelNumber || '').trim();
         const dept = (item.locationDepartment || 'Unassigned').trim();
 
-        // Case-insensitive key for reliable grouping
         const key = `${dept.toLowerCase()}||${article.toLowerCase()}||${brand.toLowerCase()}||${model.toLowerCase()}`;
 
         const propertyNo = (item.PropertyNumber || item.InventoryNumber || '').trim();
@@ -169,13 +165,58 @@ function buildCombinedRows(items: ExportableItem[]): CombinedRow[] {
     return Array.from(map.values());
 }
 
-export async function exportDepartmentItemsToExcel(items: ExportableItem[], departmentName: string) {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Department Items');
+/**
+ * Applies landscape legal paper print settings to a worksheet.
+ * Legal = 8.5" × 14" (paperSize 5).
+ * fitToWidth: 1 ensures all 11 columns print on one page wide.
+ */
+function applyPrintSettings(ws: ExcelJS.Worksheet): void {
+    ws.pageSetup = {
+        orientation: 'landscape',
+        paperSize: 5,           // 5 = Legal (8.5" × 14")
+        fitToPage: true,
+        fitToWidth: 1,          // fit all columns on a single page wide
+        fitToHeight: 0,         // allow as many rows tall as needed
+        horizontalCentered: true,
+        verticalCentered: false,
+        printArea: undefined,   // let Excel auto-detect from used range
+        margins: {
+            left: 0.4,
+            right: 0.4,
+            top: 0.5,
+            bottom: 0.5,
+            header: 0.2,
+            footer: 0.2,
+        } as any,
+    };
 
-    const FONT = 'Arial';
-    const thin = { style: 'thin' as const };
-    const border = { top: thin, left: thin, bottom: thin, right: thin };
+    // Repeat the title + date + header rows on every printed page
+    ws.pageSetup.printTitlesRow = '1:4';
+}
+
+const FONT = 'Arial';
+const thin = { style: 'thin' as const };
+const border = { top: thin, left: thin, bottom: thin, right: thin };
+
+// Column widths tuned so all 11 columns fit on legal landscape without scaling below ~85%
+const COLUMN_WIDTHS = [
+    { width: 22 },  // Department
+    { width: 20 },  // Property No.
+    { width: 20 },  // Article
+    { width: 28 },  // Description
+    { width: 13 },  // Brand
+    { width: 13 },  // Model
+    { width: 18 },  // Serial No.
+    { width: 10 },  // Quantity
+    { width: 16 },  // Acquisition Cost
+    { width: 26 },  // Accountable Person
+    { width: 16 },  // Date Acquired
+];
+
+function buildWorksheet(ws: ExcelJS.Worksheet, departmentName: string, items: ExportableItem[]): void {
+    applyPrintSettings(ws);
+
+    ws.columns = COLUMN_WIDTHS;
 
     // ── Title ─────────────────────────────────────────────────────────────────
     ws.mergeCells('A1:K1');
@@ -192,22 +233,10 @@ export async function exportDepartmentItemsToExcel(items: ExportableItem[], depa
     dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(2).height = 16;
 
-    // ── Column widths ─────────────────────────────────────────────────────────
-    ws.columns = [
-        { width: 28 },  // Department
-        { width: 24 },  // Property No.
-        { width: 25 },  // Article
-        { width: 35 },  // Description
-        { width: 15 },  // Brand
-        { width: 15 },  // Model
-        { width: 22 },  // Serial No.
-        { width: 13 },  // Quantity
-        { width: 20 },  // Acquisition Cost
-        { width: 32 },  // Accountable Person
-        { width: 20 },  // Date Acquired
-    ];
+    // Row 3 intentionally left blank as a visual spacer
+    ws.getRow(3).height = 6;
 
-    // ── Header row ────────────────────────────────────────────────────────────
+    // ── Header row (row 4) ────────────────────────────────────────────────────
     const headerRow = ws.getRow(4);
     headerRow.values = [
         'Department', 'Property No.', 'Article', 'Description',
@@ -219,7 +248,7 @@ export async function exportDepartmentItemsToExcel(items: ExportableItem[], depa
     headerRow.height = 28;
     headerRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
 
-    // ── Data rows (combined) ──────────────────────────────────────────────────
+    // ── Data rows ─────────────────────────────────────────────────────────────
     const rows = buildCombinedRows(items);
 
     rows.forEach((r, i) => {
@@ -251,16 +280,16 @@ export async function exportDepartmentItemsToExcel(items: ExportableItem[], depa
 
         dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
     });
+}
 
-    // ── Download ──────────────────────────────────────────────────────────────
-    const buffer = await wb.xlsx.writeBuffer();
+function triggerDownload(buffer: ArrayBuffer, filename: string): void {
     const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Inventory_${departmentName.replace(/[^a-z0-9]/gi, '_')}_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -268,128 +297,45 @@ export async function exportDepartmentItemsToExcel(items: ExportableItem[], depa
 }
 
 function sanitizeSheetName(name: string, index: number): string {
-    // Excel sheet name limits: max 31 chars, no chars like \ / ? * : [ ]
     let cleaned = name.replace(/[\\/?*:[\]]/g, '').trim();
-    if (!cleaned) {
-        cleaned = `Dept ${index + 1}`;
-    }
+    if (!cleaned) cleaned = `Dept ${index + 1}`;
     return cleaned.substring(0, 31);
+}
+
+// ── Public exports ────────────────────────────────────────────────────────────
+
+export async function exportDepartmentItemsToExcel(items: ExportableItem[], departmentName: string) {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Department Items');
+
+    buildWorksheet(ws, departmentName, items);
+
+    const buffer = await wb.xlsx.writeBuffer();
+    triggerDownload(
+        buffer,
+        `Inventory_${departmentName.replace(/[^a-z0-9]/gi, '_')}_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`,
+    );
 }
 
 export async function exportAllItemsToExcel(items: ExportableItem[]) {
     const wb = new ExcelJS.Workbook();
-    const FONT = 'Arial';
-    const thin = { style: 'thin' as const };
-    const border = { top: thin, left: thin, bottom: thin, right: thin };
 
-    // Group items by department
     const deptMap = new Map<string, ExportableItem[]>();
     for (const item of items) {
         const dept = (item.locationDepartment || 'Unassigned').trim();
-        if (!deptMap.has(dept)) {
-            deptMap.set(dept, []);
-        }
+        if (!deptMap.has(dept)) deptMap.set(dept, []);
         deptMap.get(dept)!.push(item);
     }
 
-    if (deptMap.size === 0) {
-        // If empty, create at least one empty sheet
-        deptMap.set('Unassigned', []);
-    }
+    if (deptMap.size === 0) deptMap.set('Unassigned', []);
 
     let sheetIndex = 0;
     for (const [deptName, deptItems] of deptMap.entries()) {
-        const sheetName = sanitizeSheetName(deptName, sheetIndex);
-        const ws = wb.addWorksheet(sheetName);
+        const ws = wb.addWorksheet(sanitizeSheetName(deptName, sheetIndex));
+        buildWorksheet(ws, deptName, deptItems);
         sheetIndex++;
-
-        // ── Title ─────────────────────────────────────────────────────────────────
-        ws.mergeCells('A1:K1');
-        const titleCell = ws.getCell('A1');
-        titleCell.value = `Inventory Report – ${deptName}`;
-        titleCell.font = { size: 13, bold: true, name: FONT };
-        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.getRow(1).height = 22;
-
-        ws.mergeCells('A2:K2');
-        const dateCell = ws.getCell('A2');
-        dateCell.value = `Generated on ${formatPHDate(new Date().toISOString())}`;
-        dateCell.font = { italic: true, name: FONT, size: 10 };
-        dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.getRow(2).height = 16;
-
-        // ── Column widths ─────────────────────────────────────────────────────────
-        ws.columns = [
-            { width: 28 },  // Department
-            { width: 24 },  // Property No.
-            { width: 25 },  // Article
-            { width: 35 },  // Description
-            { width: 15 },  // Brand
-            { width: 15 },  // Model
-            { width: 22 },  // Serial No.
-            { width: 13 },  // Quantity
-            { width: 20 },  // Acquisition Cost
-            { width: 32 },  // Accountable Person
-            { width: 20 },  // Date Acquired
-        ];
-
-        // ── Header row ────────────────────────────────────────────────────────────
-        const headerRow = ws.getRow(4);
-        headerRow.values = [
-            'Department', 'Property No.', 'Article', 'Description',
-            'Brand', 'Model', 'Serial No.', 'Unit / Quantity',
-            'Acquisition Cost', 'Accountable Person / End User', 'Date Acquired',
-        ];
-        headerRow.font = { bold: true, name: FONT, size: 10 };
-        headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        headerRow.height = 28;
-        headerRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-
-        // ── Data rows (combined) ──────────────────────────────────────────────────
-        const rows = buildCombinedRows(deptItems);
-
-        rows.forEach((r, i) => {
-            const rowNum = 5 + i;
-            const dataRow = ws.getRow(rowNum);
-
-            dataRow.values = [
-                r.department,
-                formatPropertyNumbers(r.propertyNumbers),
-                r.article || '-',
-                r.description || '-',
-                r.brand || '-',
-                r.model || '-',
-                r.serials.join(', ') || '-',
-                r.quantity,
-                r.unitCost,
-                r.accountable,
-                r.dateAcquired || '-',
-            ];
-
-            dataRow.getCell(8).numFmt = '#,##0';
-            dataRow.getCell(9).numFmt = '₱#,##0.00';
-            dataRow.font = { name: FONT, size: 10 };
-
-            dataRow.alignment = { vertical: 'middle', wrapText: true };
-            dataRow.getCell(8).alignment = { vertical: 'middle', horizontal: 'right', wrapText: true };
-            dataRow.getCell(9).alignment = { vertical: 'middle', horizontal: 'right', wrapText: true };
-            dataRow.getCell(11).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-
-            dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-        });
     }
 
-    // ── Download ──────────────────────────────────────────────────────────────
     const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Inventory_All_Departments_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerDownload(buffer, `Inventory_All_Departments_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
 }

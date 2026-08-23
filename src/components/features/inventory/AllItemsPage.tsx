@@ -50,15 +50,38 @@ export function AllItemsPage() {
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedCondition, setSelectedCondition] = useState<number | null>(() => {
-        const conditionParam = searchParams.get('condition') || searchParams.get('status');
+        const conditionParam = (searchParams.get('condition') || '').toLowerCase();
         if (conditionParam) {
             const conditionMap: { [key: string]: number | null } = {
                 serviceable: 1,
                 unserviceable: 2,
                 all: null,
             };
-            const conditionId = conditionMap[conditionParam.toLowerCase()];
+            const conditionId = conditionMap[conditionParam];
             return conditionId !== undefined ? conditionId : null;
+        }
+        return null;
+    });
+
+    // Property status (For Issuance / Issued / For Repair / For Disposal / Disposed)
+    const [selectedPropertyStatus, setSelectedPropertyStatus] = useState<number | null>(() => {
+        const statusParam = (searchParams.get('status') || '').toLowerCase();
+        if (statusParam) {
+            const statusMap: { [key: string]: number | null } = {
+                'for-issuance': 1,
+                'for_issuance': 1,
+                forissuance: 1,
+                issued: 2,
+                'for-repair': 3,
+                'for_repair': 3,
+                forrepair: 3,
+                'for-disposal': 4,
+                'for_disposal': 4,
+                fordisposal: 4,
+                disposed: 5,
+            };
+            const statusId = statusMap[statusParam];
+            return statusId !== undefined ? statusId : null;
         }
         return null;
     });
@@ -91,7 +114,8 @@ export function AllItemsPage() {
         page,
         per_page: perPage,
         search: debouncedSearch || undefined,
-        property_status_id: selectedCondition || undefined,
+        condition_id: selectedCondition || undefined,
+        property_status_id: selectedPropertyStatus || undefined,
         property_type_id: selectedPropertyType || undefined,
         document_type: selectedDocumentType || undefined,
         display_mode: displayMode,
@@ -275,7 +299,7 @@ export function AllItemsPage() {
         );
     };
 
-    const activeFilterCount = [selectedCondition, selectedRlsddpStatus, selectedPropertyType, selectedDocumentType, selectedDepartment].filter(Boolean).length;
+    const activeFilterCount = [selectedCondition, selectedPropertyStatus, selectedRlsddpStatus, selectedPropertyType, selectedDocumentType, selectedDepartment].filter(Boolean).length;
 
     return (
         <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: 'fixed' }}>
@@ -341,6 +365,7 @@ export function AllItemsPage() {
                             <button
                                 onClick={() => {
                                     setSelectedCondition(null);
+                                    setSelectedPropertyStatus(null);
                                     setSelectedRlsddpStatus(null);
                                     setSelectedPropertyType(null);
                                     setSelectedDocumentType(null);
@@ -372,6 +397,22 @@ export function AllItemsPage() {
                         </div>
 
                         <div className="hidden lg:block w-px h-8 bg-slate-200 self-center shrink-0" />
+
+                        <div className="flex flex-col gap-1.5 w-[160px] shrink-0">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Status</label>
+                            <select
+                                value={selectedPropertyStatus || ''}
+                                onChange={(e) => { setSelectedPropertyStatus(e.target.value ? Number(e.target.value) : null); setPage(1); }}
+                                className={selectClass}
+                            >
+                                <option value="">All Status</option>
+                                <option value={1}>For Issuance</option>
+                                <option value={2}>Issued</option>
+                                <option value={3}>For Repair</option>
+                                <option value={4}>For Disposal</option>
+                                <option value={5}>Disposed</option>
+                            </select>
+                        </div>
 
                         <div className="flex flex-col gap-1.5 w-[160px] shrink-0">
                             <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Condition</label>
@@ -437,6 +478,12 @@ export function AllItemsPage() {
                                 <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium">
                                     {allDepartments?.find(d => d.id === selectedDepartment)?.name ?? 'Dept'}
                                     <button onClick={() => { setSelectedDepartment(null); setPage(1); }} className="hover:text-blue-900">✕</button>
+                                </span>
+                            )}
+                            {selectedPropertyStatus && (
+                                <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
+                                    {selectedPropertyStatus === 1 ? 'For Issuance' : selectedPropertyStatus === 2 ? 'Issued' : selectedPropertyStatus === 3 ? 'For Repair' : selectedPropertyStatus === 4 ? 'For Disposal' : selectedPropertyStatus === 5 ? 'Disposed' : 'Status'}
+                                    <button onClick={() => { setSelectedPropertyStatus(null); setPage(1); }} className="hover:text-emerald-900">✕</button>
                                 </span>
                             )}
                             {selectedCondition && (

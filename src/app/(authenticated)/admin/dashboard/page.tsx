@@ -170,10 +170,10 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
 // Quick actions component
 function QuickActions() {
     const actions = [
-        { label: 'Add User', href: '/admin/users/new', icon: UserPlus, color: 'text-blue-500' },
+        { label: 'Add User', href: '/admin/users/create', icon: UserPlus, color: 'text-blue-500' },
         { label: 'New Delivery Receipt', href: '/admin/delivery-receipts/new', icon: FileText, color: 'text-green-500' },
         { label: 'View Issuance', href: '/admin/issuance', icon: FileCheck, color: 'text-amber-500' },
-        { label: 'View Reports', href: '/admin/reports', icon: BarChart3, color: 'text-purple-500' },
+        { label: 'View All Items', href: '/admin/inventory/all-items', icon: Package, color: 'text-purple-500' },
     ];
 
     return (
