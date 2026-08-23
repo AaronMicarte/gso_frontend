@@ -132,19 +132,23 @@ export function AllItemsPage() {
     const handleExportAll = async () => {
         setIsExportingAll(true);
         try {
-            // Fetch the first page to determine total items
-            const initialData = await getAllInventoryItems({ per_page: 1 });
+            // Fetch the first page to determine total items (no filters - export ALL)
+            const initialData = await getAllInventoryItems({
+                per_page: 1,
+                property_status_id: 2,
+                rlsddp_status: 'active',
+                condition_id: 1,
+            });
             const totalItems = initialData.total || 1000;
 
-            // Fetch all items from backend
+            // Fetch all items without any UI filters (search, condition, property type, etc)
+            // Only exclude removed items from active inventory
             const allItemsData = await getAllInventoryItems({
                 per_page: totalItems,
                 display_mode: 'individual',
-                search: debouncedSearch || undefined,
-                property_status_id: selectedCondition || undefined,
-                property_type_id: selectedPropertyType || undefined,
-                document_type: selectedDocumentType || undefined,
-                rlsddp_status: selectedRlsddpStatus || undefined,
+                rlsddp_status: 'active',
+                property_status_id: 2,
+                condition_id: 1,
             });
 
             await exportAllItemsToExcel(allItemsData.data || []);
@@ -334,7 +338,25 @@ export function AllItemsPage() {
                                     const dept = allDepartments?.find(d => d.id === selectedDepartment);
                                     if (!dept) return;
                                     try {
-                                        await exportDepartmentItemsToExcel(displayedItems as any, dept.name);
+                                        // Fetch ALL items for this department without UI filters
+                                        // Only exclude removed items from active inventory
+                                        const initialData = await getAllInventoryItems({
+                                            per_page: 1,
+                                            department_id: selectedDepartment,
+                                            property_status_id: 2,
+                                            rlsddp_status: 'active',
+                                            condition_id: 1,
+                                        });
+                                        const totalDeptItems = initialData.total || 1000;
+                                        const deptAllItems = await getAllInventoryItems({
+                                            per_page: totalDeptItems,
+                                            department_id: selectedDepartment,
+                                            display_mode: 'individual',
+                                            rlsddp_status: 'active',
+                                            property_status_id: 2,
+                                            condition_id: 1,
+                                        });
+                                        await exportDepartmentItemsToExcel(deptAllItems.data || [], dept.name);
                                     } catch {
                                         toast.error('Failed to export department items');
                                     }

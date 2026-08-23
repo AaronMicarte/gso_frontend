@@ -1,7 +1,9 @@
 import apiClient from '@/lib/api/client';
 
-export async function listBackups() {
-    const res = await apiClient.get('/admin/backups');
+export async function listBackups(page: number = 1, perPage: number = 100) {
+    const res = await apiClient.get('/admin/backups', {
+        params: { page, per_page: perPage },
+    });
     return res.data;
 }
 

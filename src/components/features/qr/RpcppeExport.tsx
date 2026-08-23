@@ -4,30 +4,23 @@ import { toZonedTime } from 'date-fns-tz';
 import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import type { RpcType, RpcInventoryReportRow, RpcInventoryReportResponse } from '@/types/rpcInventory';
 
-// ── Column indices (1-based, template uses B=2 … N=14) ───────────────────────
-const C_ARTICLE = 2;  // B
-const C_DESC = 3;  // C
-const C_PROP_NO = 4;  // D
-const C_UNIT = 5;  // E
-const C_UNIT_COST = 6;  // F
-const C_TOTAL_COST = 7;  // G
-const C_QTY_CARD = 8;  // H
-const C_QTY_COUNT = 9;  // I
-const C_SHORTAGE_Q = 10; // J
-const C_SHORTAGE_V = 11; // K
-const C_REMARKS = 12; // L
-const C_END_USER = 13; // M
-const C_DATE_DEPT = 14; // N
+const C_ARTICLE = 2;
+const C_DESC = 3;
+const C_PROP_NO = 4;
+const C_UNIT = 5;
+const C_UNIT_COST = 6;
+const C_TOTAL_COST = 7;
+const C_QTY_CARD = 8;
+const C_QTY_COUNT = 9;
+const C_SHORTAGE_Q = 10;
+const C_SHORTAGE_V = 11;
+const C_REMARKS = 12;
+const C_END_USER = 13;
+const C_DATE_DEPT = 14;
 
-// Template fixed rows
-const HEADER_ROW_1 = 11;
-const HEADER_ROW_2 = 12;
 const DATA_START = 13;
-
 const FONT = 'Aptos Narrow';
 const THIN: ExcelJS.BorderStyle = 'thin';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const normalizeSortText = (v?: string | null) => (v || '').trim().toLocaleLowerCase();
 
@@ -82,8 +75,6 @@ const thinBox = (): Partial<ExcelJS.Borders> => ({
     right: { style: THIN },
 });
 
-// ── Main export ───────────────────────────────────────────────────────────────
-
 export async function exportRPCPPEToExcel(
     report: RpcInventoryReportResponse,
     type: RpcType = 'RPCPPE',
@@ -99,16 +90,19 @@ export async function exportRPCPPEToExcel(
     const ws = wb.getWorksheet(1);
     if (!ws) throw new Error('Worksheet not found in RPCPPE template');
 
-    // Extract page setup / views / column widths from template before any mutation
-    const templatePageSetup = { ...ws.pageSetup };
+    // Capture template metadata field-by-field — never spread pageSetup
+    const tps = ws.pageSetup;
+    const templatePaperSize = tps.paperSize;
+    const templateMargins = tps.margins;
+    const templateHCenter = tps.horizontalCentered;
+    const templateVCenter = tps.verticalCentered;
     const templateViews = [...ws.views];
     const templateColWidths: number[] = [];
     ws.columns.forEach((col, i) => {
         templateColWidths[i] = col.width ?? 8;
     });
 
-    // Rename original template tab to placeholder to avoid conflicts during group naming
-    ws.name = "TEMPLATE_TEMP_REMOVED";
+    ws.name = 'TEMPLATE_TEMP_REMOVED';
 
     const bucket = type === 'RPCPPE' ? report.rpcppe : report.rpcsep;
 
@@ -116,8 +110,6 @@ export async function exportRPCPPEToExcel(
     const year = format(toZonedTime(new Date(generatedAt), 'Asia/Manila'), 'yyyy');
     const reportAsOfDate = `December 31, ${year}`;
     const assumedDate = `DECEMBER ${year}`;
-
-    // ── Group rows by property_type ───────────────────────────────────────────
 
     const groupedRows = bucket.rows.reduce<Record<string, RpcInventoryReportRow[]>>((acc, row) => {
         const key = (row.property_type || '').trim();
@@ -142,14 +134,32 @@ export async function exportRPCPPEToExcel(
         : [{ propertyType: '', rows: [] as RpcInventoryReportRow[] }];
 
     groups.forEach((group, groupIndex) => {
-        let sheet: ExcelJS.Worksheet;
+        const sheet = wb.addWorksheet(group.propertyType.slice(0, 31) || `Sheet${groupIndex + 1}`);
 
-        // Create a FRESH sheet for EVERY group to completely bypass ExcelJS's manual clear corruption on Sheet 1
-        sheet = wb.addWorksheet(group.propertyType.slice(0, 31) || `Sheet${groupIndex + 1}`);
-        sheet.pageSetup = { ...templatePageSetup };
+        // Restore pageSetup field-by-field — spread assign causes malformed XML
+        sheet.pageSetup.paperSize = templatePaperSize;
+        sheet.pageSetup.margins = templateMargins;
+        sheet.pageSetup.horizontalCentered = templateHCenter;
+        sheet.pageSetup.verticalCentered = templateVCenter;
+        sheet.pageSetup.fitToPage = true;
+        sheet.pageSetup.fitToWidth = 1;
+        sheet.pageSetup.fitToHeight = undefined;
+        sheet.pageSetup.orientation = 'landscape';
+
         sheet.views = [...templateViews];
+
         templateColWidths.forEach((w, i) => {
             if (w) sheet.getColumn(i + 1).width = w;
+        });
+
+        // Restore header row heights lost on addWorksheet()
+        const HEADER_ROW_HEIGHTS: Record<number, number> = {
+            2: 30, 3: 20, 4: 20, 5: 20,
+            7: 40, 8: 20,
+            11: 30, 12: 25,
+        };
+        Object.entries(HEADER_ROW_HEIGHTS).forEach(([r, h]) => {
+            sheet.getRow(Number(r)).height = h;
         });
 
         writeTemplateHeader(sheet, type, reportAsOfDate, assumedDate, group.propertyType);
@@ -158,7 +168,6 @@ export async function exportRPCPPEToExcel(
         const lastDataRow = DATA_START + rows.length - 1;
         const TOTAL_ROW = DATA_START + rows.length;
 
-        // ── Write data rows ───────────────────────────────────────────────────
         rows.forEach((row, idx) => {
             const r = DATA_START + idx;
 
@@ -182,7 +191,6 @@ export async function exportRPCPPEToExcel(
             set(C_UNIT, row.unit_of_measure || '');
             set(C_UNIT_COST, row.unit_value || 0, '#,##0.00');
 
-            // G = H*F  (Total Cost)
             const gCell = sheet.getCell(r, C_TOTAL_COST);
             gCell.value = { formula: `H${r}*F${r}` };
             gCell.font = { name: FONT, size: 11 };
@@ -193,7 +201,6 @@ export async function exportRPCPPEToExcel(
             set(C_QTY_CARD, row.quantity_per_card ?? 0, 'General');
             set(C_QTY_COUNT, row.quantity_per_count ?? 0, 'General');
 
-            // J = H-I  (Shortage qty)
             const jCell = sheet.getCell(r, C_SHORTAGE_Q);
             jCell.value = { formula: `H${r}-I${r}` };
             jCell.font = { name: FONT, size: 11 };
@@ -201,7 +208,6 @@ export async function exportRPCPPEToExcel(
             jCell.border = thinBox();
             jCell.numFmt = '0';
 
-            // K = G/H*J  (Shortage value — uses Total Cost G, NOT Unit Cost F)
             const kCell = sheet.getCell(r, C_SHORTAGE_V);
             kCell.value = { formula: `G${r}/H${r}*J${r}` };
             kCell.font = { name: FONT, size: 11 };
@@ -212,7 +218,6 @@ export async function exportRPCPPEToExcel(
             set(C_REMARKS, computeRemarks(row));
             set(C_END_USER, formatPrintEndUser(type, row.accountable_officer));
 
-            // N: Date purchased or Department
             const nCell = sheet.getCell(r, C_DATE_DEPT);
             if (type === 'RPCPPE') {
                 const dp = row.date_purchased && row.date_purchased !== '-' ? row.date_purchased : null;
@@ -226,12 +231,11 @@ export async function exportRPCPPEToExcel(
             nCell.border = thinBox();
         });
 
-        // ── Totals row ────────────────────────────────────────────────────────
+        // Totals row
         sheet.getCell(TOTAL_ROW, C_UNIT).value = 'TOTAL';
         sheet.getCell(TOTAL_ROW, C_UNIT).font = { name: FONT, size: 11, bold: true };
         sheet.getCell(TOTAL_ROW, C_UNIT).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // F:G merged — SUM of G column (Total Cost)
         sheet.mergeCells(TOTAL_ROW, C_UNIT_COST, TOTAL_ROW, C_TOTAL_COST);
         const totalValCell = sheet.getCell(TOTAL_ROW, C_UNIT_COST);
         totalValCell.value = rows.length > 0
@@ -255,7 +259,7 @@ export async function exportRPCPPEToExcel(
         totalQtyCount.font = { name: FONT, size: 11, bold: true };
         totalQtyCount.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // ── Signature block ───────────────────────────────────────────────────
+        // Signature block
         const sigOffset = (templateRow: number) => TOTAL_ROW + (templateRow - 152);
 
         const setStr = (r: number, col: number, value: string, bold = false, sz = 14) => {
@@ -266,7 +270,6 @@ export async function exportRPCPPEToExcel(
 
         setStr(sigOffset(158), C_ARTICLE, 'Prepared by: ');
 
-        // JUN RAY B. APAG. LPT (Left Aligned, Underlined)
         setStr(sigOffset(160), C_DESC, 'JUN RAY B. APAG. LPT', true);
         sheet.getCell(sigOffset(160), C_DESC).alignment = { horizontal: 'left' };
         sheet.getCell(sigOffset(160), C_DESC).font = { name: FONT, size: 14, bold: true, underline: true };
@@ -277,15 +280,12 @@ export async function exportRPCPPEToExcel(
         setStr(sigOffset(164), C_ARTICLE, 'Certified Correct:');
         setStr(sigOffset(164), C_QTY_COUNT, 'Approved by:');
 
-        // NILO J. SABAYANON (Underlined)
         setStr(sigOffset(166), C_DESC, 'NILO J. SABAYANON', true);
         sheet.getCell(sigOffset(166), C_DESC).font = { name: FONT, size: 14, bold: true, underline: true };
 
-        // MARY PAULINE J. GABULE, CPA (Underlined)
         setStr(sigOffset(166), C_PROP_NO, 'MARY PAULINE J. GABULE, CPA', true);
         sheet.getCell(sigOffset(166), C_PROP_NO).font = { name: FONT, size: 14, bold: true, underline: true };
 
-        // HON. EDGAR S. LIGNES (Centered & Underlined within the merged columns J to L)
         sheet.mergeCells(sigOffset(166), C_SHORTAGE_Q, sigOffset(166), C_REMARKS);
         setStr(sigOffset(166), C_SHORTAGE_Q, 'HON. EDGAR S. LIGNES', true);
         sheet.getCell(sigOffset(166), C_SHORTAGE_Q).alignment = { horizontal: 'center', vertical: 'middle' };
@@ -294,16 +294,13 @@ export async function exportRPCPPEToExcel(
         setStr(sigOffset(167), C_DESC, '  OIC - GSO ');
         setStr(sigOffset(167), C_PROP_NO, 'CITY ACCOUNTANT');
 
-        // CITY MAYOR (Centered within the merged columns J to L)
         sheet.mergeCells(sigOffset(167), C_SHORTAGE_Q, sigOffset(167), C_REMARKS);
         setStr(sigOffset(167), C_SHORTAGE_Q, 'CITY MAYOR');
         sheet.getCell(sigOffset(167), C_SHORTAGE_Q).alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
-    // Remove the original placeholder sheet completely so it is omitted from the file download
-    wb.removeWorksheet("TEMPLATE_TEMP_REMOVED");
+    wb.removeWorksheet('TEMPLATE_TEMP_REMOVED');
 
-    // ── Download ──────────────────────────────────────────────────────────────
     const outBuffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([outBuffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -319,8 +316,6 @@ export async function exportRPCPPEToExcel(
     URL.revokeObjectURL(url);
 }
 
-// ── Write all header content onto any sheet (first or cloned) ─────────────────
-
 function writeTemplateHeader(
     sheet: ExcelJS.Worksheet,
     type: RpcType,
@@ -335,17 +330,16 @@ function writeTemplateHeader(
     });
 
     const merge = (r: number, c1: number, c2: number) => {
-        try { sheet.mergeCells(r, c1, r, c2); } catch (_) { /* already merged */ }
+        try { sheet.mergeCells(r, c1, r, c2); } catch (_) { }
     };
     const setCell = (
         r: number, c: number, value: string,
         sz: number, bold: boolean,
         hAlign: ExcelJS.Alignment['horizontal'] = 'center',
-        fontName = FONT,
     ) => {
         const cell = sheet.getCell(r, c);
         cell.value = value;
-        cell.font = { name: fontName, size: sz, bold };
+        cell.font = { name: FONT, size: sz, bold };
         cell.alignment = { horizontal: hAlign, vertical: 'middle', wrapText: true };
     };
 
@@ -369,20 +363,19 @@ function writeTemplateHeader(
         9, false,
     );
 
-    // Row-span header cells (merged row 11–12)
+    // Row 11–12 span cols: only for cols that have NO sub-header in row 12
+    // cols 8 and 9 are NOT merged across rows — they have separate row 11 label and row 12 sub-label
     const rowSpanCols: Array<[number, string]> = [
         [2, 'ARTICLE'],
         [3, 'DESCRIPTION'],
         [4, type === 'RPCPPE' ? 'PROPERTY NUMBER' : 'SEMI-EXPENDABLE PROPERTY NO.'],
         [5, 'UNIT OF MEASURE'],
-        [8, 'BALANCE PER CARD'],
-        [9, 'ON HAND PER COUNT'],
         [12, 'REMARKS'],
         [13, 'END USER '],
         [14, type === 'RPCPPE' ? 'DATE PURCHASE' : 'DEPARTMENT'],
     ];
     rowSpanCols.forEach(([col, label]) => {
-        try { sheet.mergeCells(11, col, 12, col); } catch (_) { /* ignore */ }
+        try { sheet.mergeCells(11, col, 12, col); } catch (_) { }
         const cell = sheet.getCell(11, col);
         cell.value = label;
         cell.font = { name: FONT, size: 11 };
@@ -390,23 +383,37 @@ function writeTemplateHeader(
         cell.border = thinBox();
     });
 
-    // F11:G11 — Unit Value colspan
-    try { sheet.mergeCells(11, 6, 11, 7); } catch (_) { /* ignore */ }
+    // F11:G11 — Unit Value colspan (row 11 only, sub-headers go in row 12)
+    try { sheet.mergeCells(11, 6, 11, 7); } catch (_) { }
     const uvCell = sheet.getCell(11, 6);
     uvCell.value = 'UNIT VALUE';
     uvCell.font = { name: FONT, size: 11 };
     uvCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     uvCell.border = thinBox();
 
-    // J11:K11 — Shortage/Overage colspan
-    try { sheet.mergeCells(11, 10, 11, 11); } catch (_) { /* ignore */ }
+    // H11 — BALANCE PER CARD (row 11 only, sub-header goes in row 12)
+    const bpcCell = sheet.getCell(11, C_QTY_CARD);
+    bpcCell.value = 'BALANCE PER CARD';
+    bpcCell.font = { name: FONT, size: 11 };
+    bpcCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    bpcCell.border = thinBox();
+
+    // I11 — ON HAND PER COUNT (row 11 only, sub-header goes in row 12)
+    const ohpcCell = sheet.getCell(11, C_QTY_COUNT);
+    ohpcCell.value = 'ON HAND PER COUNT';
+    ohpcCell.font = { name: FONT, size: 11 };
+    ohpcCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    ohpcCell.border = thinBox();
+
+    // J11:K11 — Shortage/Overage colspan (row 11 only, sub-headers go in row 12)
+    try { sheet.mergeCells(11, 10, 11, 11); } catch (_) { }
     const soCell = sheet.getCell(11, 10);
     soCell.value = 'SHORTAGE/OVERAGE';
     soCell.font = { name: FONT, size: 11 };
     soCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     soCell.border = thinBox();
 
-    // Row 12 sub-headers
+    // Row 12 sub-headers — written directly to row 12 cells (no merge conflict now)
     const subHeaders: Array<[number, string]> = [
         [6, 'Unit Cost'], [7, 'Total Cost'],
         [8, '(Quantity)'], [9, '(Quantity)'],

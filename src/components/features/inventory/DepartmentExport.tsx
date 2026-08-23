@@ -113,14 +113,14 @@ function formatPropertyNumbers(propNums: string[]): string {
     return resultRanges.join(', ');
 }
 
-function buildCombinedRows(items: ExportableItem[]): CombinedRow[] {
+function buildCombinedRows(items: ExportableItem[], fallbackDepartmentName?: string): CombinedRow[] {
     const map = new Map<string, CombinedRow>();
 
     for (const item of items) {
         const article = (item.dr_article_name || item.PropertyName || '').trim();
         const brand = (item.Brand || '').trim();
         const model = (item.ModelNumber || '').trim();
-        const dept = (item.locationDepartment || 'Unassigned').trim();
+        const dept = (item.locationDepartment || fallbackDepartmentName || 'Unassigned').trim();
 
         const key = `${dept.toLowerCase()}||${article.toLowerCase()}||${brand.toLowerCase()}||${model.toLowerCase()}`;
 
@@ -133,7 +133,8 @@ function buildCombinedRows(items: ExportableItem[]): CombinedRow[] {
             'Unassigned'
         ).trim();
         const dateAcq = formatPHDate(item.DateAcquired || item.lastIssuedDate || item.CreatedDate || null);
-        const qty = Number(item.CombinedQuantity ?? item.Quantity ?? 1);
+        // Each item in combined mode is 1 unit; they get summed by combined key below
+        const qty = Number(item.Quantity ?? 1) || 1;
         const unitCost = Number(item.UnitCost ?? 0);
         const desc = (item.Description || item.dr_item_description || '').trim();
 
@@ -249,7 +250,7 @@ function buildWorksheet(ws: ExcelJS.Worksheet, departmentName: string, items: Ex
     headerRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
 
     // ── Data rows ─────────────────────────────────────────────────────────────
-    const rows = buildCombinedRows(items);
+    const rows = buildCombinedRows(items, departmentName);
 
     rows.forEach((r, i) => {
         const rowNum = 5 + i;
@@ -304,11 +305,32 @@ function sanitizeSheetName(name: string, index: number): string {
 
 // ── Public exports ────────────────────────────────────────────────────────────
 
+function filterActiveIssuedServiceable(items: ExportableItem[]): ExportableItem[] {
+    return items.filter(item => {
+        const statusId = Number(item.PropertyStatusID ?? 0);
+        const statusName = (item.StatusName || '').toLowerCase();
+        const conditionId = Number(item.ConditionID ?? 0);
+        const conditionName = (item.ConditionName || '').toLowerCase();
+        
+        // Exclude removed/deleted items
+        const isRemoved = !!(item.deleted_at || item.deletedAt || item.removed_at || item.removedAt);
+        
+        // Exclude unserviceable items (ID 2 is unserviceable, or name contains "unserviceable")
+        const isUnserviceable = conditionId === 2 || conditionName.includes('unserviceable');
+        
+        // Must be issued (ID 2 is issued, or status name is "issued" or "assigned")
+        const isIssued = statusId === 2 || statusName === 'issued' || statusName === 'assigned';
+
+        return isIssued && !isUnserviceable && !isRemoved;
+    });
+}
+
 export async function exportDepartmentItemsToExcel(items: ExportableItem[], departmentName: string) {
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Department Items');
+    const ws = wb.addWorksheet(sanitizeSheetName(departmentName, 0));
 
-    buildWorksheet(ws, departmentName, items);
+    const filtered = filterActiveIssuedServiceable(items);
+    buildWorksheet(ws, departmentName, filtered);
 
     const buffer = await wb.xlsx.writeBuffer();
     triggerDownload(
@@ -320,8 +342,9 @@ export async function exportDepartmentItemsToExcel(items: ExportableItem[], depa
 export async function exportAllItemsToExcel(items: ExportableItem[]) {
     const wb = new ExcelJS.Workbook();
 
+    const filtered = filterActiveIssuedServiceable(items);
     const deptMap = new Map<string, ExportableItem[]>();
-    for (const item of items) {
+    for (const item of filtered) {
         const dept = (item.locationDepartment || 'Unassigned').trim();
         if (!deptMap.has(dept)) deptMap.set(dept, []);
         deptMap.get(dept)!.push(item);
