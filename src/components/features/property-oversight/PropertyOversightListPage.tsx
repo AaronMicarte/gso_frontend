@@ -141,12 +141,16 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
     const { data: allConditions } = useAllConditions();
 
     const statusOptions = useMemo(() => {
-        // exclude 'Available' from department head list — Department heads oversee assigned assets, not global availability
-        return (allStatuses ?? []).filter(s => (s.name ?? '').trim().toLowerCase() !== 'available').map((s) => ({ id: s.id, name: s.name }));
+        const allowed = new Set(['for issuance', 'issued']);
+        return (allStatuses ?? [])
+            .filter(s => allowed.has((s.name ?? '').trim().toLowerCase()))
+            .map((s) => ({ id: s.id, name: s.name }));
     }, [allStatuses]);
 
     const allConditionOptions = useMemo(() => {
-        return (allConditions ?? []).map((c) => ({ id: c.id, name: c.name }));
+        return (allConditions ?? [])
+            .filter(c => (c.name ?? '').trim().toLowerCase() !== 'under repair')
+            .map((c) => ({ id: c.id, name: c.name }));
     }, [allConditions]);
 
     const editableConditionOptions = useMemo(() => {

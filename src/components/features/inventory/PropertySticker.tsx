@@ -99,7 +99,7 @@ const buildPrintHtml = (
     qrDataUrls: string[],
     logoDataUrl: string,
 ): string => {
-    const STICKERS_PER_PAGE = 12; // 3 cols × 4 rows
+    const STICKERS_PER_PAGE = 12;
     const pages: { item: PropertyStickerItem; qr: string }[][] = [];
     const pairs = itemsToPrint.map((item, i) => ({ item, qr: qrDataUrls[i] || '' }));
     for (let i = 0; i < pairs.length; i += STICKERS_PER_PAGE) {
@@ -132,12 +132,12 @@ const buildPrintHtml = (
         <div class="field"><span class="fl">MODEL NUMBER: </span><span class="fv">${escapeHtml((item.modelNumber || '-').toUpperCase())}</span></div>
         <div class="field"><span class="fl">SERIAL NUMBER: </span><span class="fv">${escapeHtml((item.serialNumber || '-').toUpperCase())}</span></div>
         <div class="field"><span class="fl">ACQUISITION DATE: </span><span class="fv">${escapeHtml(formatDate(item.date).toUpperCase())}</span></div>
-      <div class="field"><span class="fl">ACQUISITION COST: </span><span class="fv">${escapeHtml(formatCost(item.unitCost))}</span></div>
+        <div class="field"><span class="fl">ACQUISITION COST: </span><span class="fv">${escapeHtml(formatCost(item.unitCost))}</span></div>
         <div class="field acct"><span class="fl">ACCOUNTABLE PERSON: </span><span class="fv fv-name">${escapeHtml(getAccountablePerson(item).toUpperCase())}</span></div>
       </div>
     </div>
     <div class="vert-divider"></div>
-   <div class="right">
+    <div class="right">
       ${qr ? `<div class="qr-wrap"><img class="qr-img" src="${qr}" alt="QR" /></div>` : '<div class="qr-wrap qr-empty"></div>'}
     </div>
   </div>
@@ -171,8 +171,6 @@ const buildPrintHtml = (
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-
-  /* 3 cols × 4 rows = 12 stickers filling full A4 landscape */
   .page {
     width: 297mm;
     height: 210mm;
@@ -185,8 +183,6 @@ const buildPrintHtml = (
     break-after: page;
   }
   .page:last-child { page-break-after: avoid; break-after: avoid; }
-
-  /* Each sticker fills its grid cell */
   .sticker {
     background: #fff;
     color: #000;
@@ -201,8 +197,6 @@ const buildPrintHtml = (
     min-width: 0;
     min-height: 0;
   }
-
-  /* Header */
   .header {
     display: flex;
     align-items: center;
@@ -213,10 +207,7 @@ const buildPrintHtml = (
   .logo { width: 8mm; height: 8mm; object-fit: contain; flex-shrink: 0; }
   .city-name   { font-size: 6px; font-weight: 900; letter-spacing: 0.02em; line-height: 1.15; }
   .office-name { font-size: 3.5px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.15; }
-
   .divider { border-top: 0.5px solid #000; width: 100%; flex-shrink: 0; }
-
-  /* Body */
   .body {
     display: flex;
     align-items: stretch;
@@ -224,7 +215,6 @@ const buildPrintHtml = (
     min-height: 0;
     padding: 0.7mm 0;
   }
-
   .left {
     flex: 1;
     display: flex;
@@ -232,12 +222,9 @@ const buildPrintHtml = (
     min-width: 0;
     padding-right: 1.2mm;
   }
-
   .pn-section  { text-align: center; flex-shrink: 0; margin-bottom: 0; }
   .pn-label    { font-size: 4.5px; font-weight: 900; letter-spacing: 0.08em; line-height: 1.2; }
   .pn-value    { font-size: 7px;   font-weight: 900; letter-spacing: 0.02em; line-height: 1.2; }
-
-  /* Fields spread to fill left column height */
   .fields {
     flex: 1;
     display: flex;
@@ -254,9 +241,7 @@ const buildPrintHtml = (
   .fl { font-weight: 900; }
   .fv { font-weight: 900; }
   .acct .fv-name { font-weight: 900; font-size: 5px; }
-
   .vert-divider { width: 0.5px; background: #000; flex-shrink: 0; align-self: stretch; }
-
   .right {
     display: flex;
     flex-direction: column;
@@ -269,8 +254,6 @@ const buildPrintHtml = (
   .qr-wrap  { border: 0.5px solid #000; padding: 0.5mm; display: inline-block; }
   .qr-img   { width: 22mm; height: 22mm; display: block; object-fit: contain; }
   .qr-empty { width: 22mm; height: 22mm; }
-
-  /* Footer */
   .footer {
     display: flex;
     flex-direction: column;
@@ -301,13 +284,15 @@ function StickerPreview({
     item,
     idx,
     onPrint,
+    large = false,
 }: {
     item: PropertyStickerItem;
     idx: number;
     onPrint: (item: PropertyStickerItem, idx: number) => void;
+    large?: boolean;
 }) {
     const fields: [string, string][] = [
-        ['DESCRIPTION OF THE PROPERTY', getPropertyDescription(item.itemName, item.brand).toUpperCase()],
+        ['DESCRIPTION', getPropertyDescription(item.itemName, item.brand).toUpperCase()],
         ['MODEL NUMBER', (item.modelNumber || '-').toUpperCase()],
         ['SERIAL NUMBER', (item.serialNumber || '-').toUpperCase()],
         ['ACQUISITION DATE', formatDate(item.date).toUpperCase()],
@@ -344,78 +329,92 @@ function StickerPreview({
         footer: { display: 'flex' as const, flexDirection: 'column' as const, alignItems: 'center' as const, gap: 1, flexShrink: 0, paddingTop: 2 },
     };
 
-    return (
-        <div className="flex flex-col items-center gap-2">
-            <div style={S.root}>
-                {/* Header */}
-                <div style={S.header}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={LOGO_SRC} alt="seal" style={{ width: 30, height: 30, objectFit: 'contain', flexShrink: 0 }} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#000', letterSpacing: '0.02em', lineHeight: 1.1 }}>
-                            CITY OF EL SALVADOR CITY
-                        </div>
-                        <div style={{ fontSize: 6, fontWeight: 700, color: '#000', letterSpacing: '0.04em', lineHeight: 1.1 }}>
-                            PROPERTY AND SUPPLY MANAGEMENT OFFICE
-                        </div>
+    const sticker = (
+        <div style={S.root}>
+            {/* Header */}
+            <div style={S.header}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={LOGO_SRC} alt="seal" style={{ width: 30, height: 30, objectFit: 'contain', flexShrink: 0 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <div style={{ fontSize: 10, fontWeight: 900, color: '#000', letterSpacing: '0.02em', lineHeight: 1.1 }}>
+                        CITY OF EL SALVADOR CITY
                     </div>
-                </div>
-
-                <div style={S.divider} />
-
-                {/* Body */}
-                <div style={S.body}>
-                    {/* Left */}
-                    <div style={S.left}>
-                        <div style={{ fontSize: 7, fontWeight: 900, textAlign: 'center', letterSpacing: '0.08em', lineHeight: 1, marginBottom: 1 }}>
-                            PROPERTY NUMBER
-                        </div>
-                        <div style={{ fontSize: 9, fontWeight: 900, textAlign: 'center', letterSpacing: '0.02em', lineHeight: 1.1, marginBottom: 2 }}>
-                            {item.propertyNumber}
-                        </div>
-                        <div style={{ borderTop: '0.7px solid #000', marginBottom: 3, flexShrink: 0 }} />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                            {fields.map(([label, value]) => (
-                                <div key={label} style={{ fontSize: 6.2, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: 170 }}>
-                                    <span style={{
-                                        fontWeight: 900, // was 500
-                                        fontSize: label === 'ACCOUNTABLE PERSON' ? 6.8 : undefined,
-                                    }}>{value}</span>
-                                </div>
-                            ))}
-                        </div>
+                    <div style={{ fontSize: 6, fontWeight: 700, color: '#000', letterSpacing: '0.04em', lineHeight: 1.1 }}>
+                        PROPERTY AND SUPPLY MANAGEMENT OFFICE
                     </div>
-
-                    {/* Vertical divider */}
-                    <div style={{ width: 1, background: '#000', flexShrink: 0, alignSelf: 'stretch' }} />
-
-                    {/* Right — QR */}
-                    <div style={S.right}>
-                        <div style={{ width: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingLeft: 6, flexShrink: 0 }}>
-                            <div id={`sticker-qr-${idx}`} style={{ border: '1px solid #000', padding: 2, background: '#fff', display: 'inline-block' }}>
-                                <QRCodeCanvas
-                                    value={item.url || 'https://iams-gso.gov.ph'}
-                                    size={72}
-                                    level="M"
-                                    includeMargin={false}
-                                    bgColor="#ffffff"
-                                    fgColor="#000000"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style={S.divider} />
-
-                {/* Footer */}
-                <div style={S.footer}>
-                    <div style={{ width: 110, borderTop: '0.7px solid #000', marginBottom: 1 }} />
-                    <div style={{ fontSize: 5, letterSpacing: '0.04em' }}>INVENTORY COMMITTEE REPRESENTATIVE</div>
-                    <div style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.04em' }}>NOTE - PLEASE DO NOT REMOVE</div>
-                    <div style={{ fontSize: 4.5, fontStyle: 'italic' }}>Unauthorized removal or tampering will be subject to disciplinary action</div>
                 </div>
             </div>
+
+            <div style={S.divider} />
+
+            {/* Body */}
+            <div style={S.body}>
+                {/* Left */}
+                <div style={S.left}>
+                    <div style={{ fontSize: 7, fontWeight: 900, textAlign: 'center', letterSpacing: '0.08em', lineHeight: 1, marginBottom: 1 }}>
+                        PROPERTY NUMBER
+                    </div>
+                    <div style={{ fontSize: 9, fontWeight: 900, textAlign: 'center', letterSpacing: '0.02em', lineHeight: 1.1, marginBottom: 2 }}>
+                        {item.propertyNumber}
+                    </div>
+                    <div style={{ borderTop: '0.7px solid #000', marginBottom: 3, flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        {fields.map(([label, value]) => (
+                            <div key={label} style={{ fontSize: 6.2, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: 170 }}>
+                                <span style={{ fontWeight: 900, fontSize: label === 'ACCOUNTABLE PERSON' ? 6.8 : undefined }}>
+                                    {value}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Vertical divider */}
+                <div style={{ width: 1, background: '#000', flexShrink: 0, alignSelf: 'stretch' }} />
+
+                {/* Right — QR */}
+                <div style={S.right}>
+                    <div id={`sticker-qr-${idx}`} style={{ border: '1px solid #000', padding: 2, background: '#fff', display: 'inline-block' }}>
+                        <QRCodeCanvas
+                            value={item.url || 'https://iams-gso.gov.ph'}
+                            size={72}
+                            level="M"
+                            includeMargin={false}
+                            bgColor="#ffffff"
+                            fgColor="#000000"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div style={S.divider} />
+
+            {/* Footer */}
+            <div style={S.footer}>
+                <div style={{ width: 110, borderTop: '0.7px solid #000', marginBottom: 1 }} />
+                <div style={{ fontSize: 5, letterSpacing: '0.04em' }}>INVENTORY COMMITTEE REPRESENTATIVE</div>
+                <div style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.04em' }}>NOTE - PLEASE DO NOT REMOVE</div>
+                <div style={{ fontSize: 4.5, fontStyle: 'italic' }}>Unauthorized removal or tampering will be subject to disciplinary action</div>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="flex flex-col items-center gap-4">
+            {large ? (
+                // Single item — scale up and compensate layout space
+                <div style={{ position: 'relative', width: 288 * 1.6, height: 192 * 1.6 }}>
+                    <div style={{
+                        transform: 'scale(1.6)',
+                        transformOrigin: 'top left',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                    }}>
+                        {sticker}
+                    </div>
+                </div>
+            ) : sticker}
 
             <button
                 type="button"
@@ -474,6 +473,8 @@ export function PropertySticker({
         endUserName, currentDepartmentHead,
     ]);
 
+    const isSingle = resolvedItems.length === 1;
+
     const handlePrintItems = useCallback(
         async (itemsToPrint: PropertyStickerItem[], startIdx: number) => {
             const qrDataUrls = itemsToPrint.map((_, i) => {
@@ -512,7 +513,7 @@ export function PropertySticker({
 
                     <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-slate-50">
                         <h3 className="text-base font-semibold text-slate-900">
-                            {resolvedItems.length > 1 ? `Property Stickers (${resolvedItems.length})` : 'Property Sticker'}
+                            {isSingle ? 'Property Sticker' : `Property Stickers (${resolvedItems.length})`}
                         </h3>
                         <button
                             type="button"
@@ -520,7 +521,7 @@ export function PropertySticker({
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
                         >
                             <Printer className="w-4 h-4" />
-                            {resolvedItems.length > 1 ? 'Print All' : 'Print Sticker'}
+                            {isSingle ? 'Print Sticker' : 'Print All'}
                         </button>
                     </div>
 
@@ -531,13 +532,14 @@ export function PropertySticker({
                     </Dialog.Close>
 
                     <div className="flex-1 overflow-y-auto p-6">
-                        <div className="grid grid-cols-2 gap-6 justify-items-center">
+                        <div className={`grid gap-6 justify-items-center ${isSingle ? 'grid-cols-1' : 'grid-cols-2'}`}>
                             {resolvedItems.map((item, idx) => (
                                 <StickerPreview
                                     key={idx}
                                     item={item}
                                     idx={idx}
                                     onPrint={handlePrintSingle}
+                                    large={isSingle}
                                 />
                             ))}
                         </div>

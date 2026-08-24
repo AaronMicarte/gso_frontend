@@ -430,9 +430,7 @@ export function AllItemsPage() {
                                 <option value="">All Status</option>
                                 <option value={1}>For Issuance</option>
                                 <option value={2}>Issued</option>
-                                <option value={3}>For Repair</option>
-                                <option value={4}>For Disposal</option>
-                                <option value={5}>Disposed</option>
+
                             </select>
                         </div>
 
