@@ -25,7 +25,7 @@ export function useDeliveryReceipts(filters?: DeliveryReceiptFilters) {
         queryKey: deliveryReceiptKeys.list(filters),
         queryFn: () => getDeliveryReceipts(filters),
         placeholderData: keepPreviousData,
-        staleTime: 5 * 60 * 1000,
+        staleTime: 0,
         gcTime: 10 * 60 * 1000,
     });
 }
