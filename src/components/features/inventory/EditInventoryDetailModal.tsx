@@ -46,7 +46,7 @@ function FieldLabel({ htmlFor, children, badge }: LabelProps) {
     return (
         <label
             htmlFor={htmlFor}
-            className="flex justify-between items-center text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5"
+            className="flex justify-between items-center text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5"
         >
             <span>{children}</span>
             {badge}
@@ -55,7 +55,7 @@ function FieldLabel({ htmlFor, children, badge }: LabelProps) {
 }
 
 const inputClass =
-    'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm text-slate-800 placeholder:text-slate-300 transition-colors';
+    'w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm text-slate-900 placeholder:text-slate-400 transition-colors';
 
 export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedInventoryModalProps) {
     const updateInventoryDetail = useUpdateInventoryDetail();
@@ -102,7 +102,6 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
         }
     }, [open, assetInstances, activeTab]);
 
-    // Tab A Action Handler: Save Descriptive Metadata Changes
     const handleSaveDetails = async () => {
         if (!form) return;
 
@@ -143,7 +142,6 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
         }
     };
 
-    // Tab B Action Handler: Instant Condition Toggle
     const handleToggleCondition = async (targetId: number, targetCondition: 'Serviceable' | 'Unserviceable') => {
         setSavingConditionId(targetId);
         const previousCondition = localConditions[targetId];
@@ -184,28 +182,30 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
 
                 <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150 focus:outline-none">
 
+                    {/* Header */}
                     <div className="px-6 pt-4 pb-2 flex-shrink-0">
                         <div className="flex items-center justify-between">
                             <div>
                                 <Dialog.Title className="text-base font-bold text-slate-900 leading-tight">
                                     Asset Control Hub
                                 </Dialog.Title>
-                                <Dialog.Description className="text-xs text-slate-400 mt-0.5">
-                                    Target Batch Line: <span className="font-semibold text-slate-600">{form?.articleName || 'Dynamic Ledger'}</span>
+                                <Dialog.Description className="text-xs text-slate-600 mt-0.5">
+                                    Target Batch Line: <span className="font-semibold text-slate-800">{form?.articleName || 'Dynamic Ledger'}</span>
                                 </Dialog.Description>
                             </div>
-                            <Dialog.Close className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none">
+                            <Dialog.Close className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none">
                                 <X className="w-4 h-4" />
                             </Dialog.Close>
                         </div>
 
-                        <div className="flex gap-1 border-b border-slate-100 mt-4">
+                        {/* Tabs */}
+                        <div className="flex gap-1 border-b border-slate-200 mt-4">
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('details')}
                                 className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 transition-all focus:outline-none ${activeTab === 'details'
                                     ? 'border-slate-900 text-slate-900'
-                                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 <Pencil className="w-3.5 h-3.5" />
@@ -216,13 +216,13 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                 onClick={() => setActiveTab('condition')}
                                 className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 transition-all focus:outline-none ${activeTab === 'condition'
                                     ? 'border-slate-900 text-slate-900'
-                                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 <Settings2 className="w-3.5 h-3.5" />
                                 Change Condition
                                 {assetInstances.length > 0 && (
-                                    <span className={`ml-1 text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === 'condition' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'condition' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
                                         {assetInstances.length}
                                     </span>
                                 )}
@@ -230,6 +230,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                         </div>
                     </div>
 
+                    {/* Body */}
                     <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4 bg-slate-50/40">
 
                         {activeTab === 'details' && (
@@ -279,7 +280,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                         htmlFor="edit-serial"
                                         badge={
                                             isSiblingsMode ? (
-                                                <span className="text-[10px] text-amber-600 font-medium bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded normal-case tracking-normal">
+                                                <span className="text-[10px] text-amber-700 font-medium bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded normal-case tracking-normal">
                                                     Cannot bulk-edit
                                                 </span>
                                             ) : null
@@ -292,7 +293,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                         value={isSiblingsMode ? (item?.SerialNumber ?? '') : (form?.SerialNumber ?? '')}
                                         onChange={(e) => updateField('SerialNumber', e.target.value)}
                                         disabled={isSiblingsMode}
-                                        className={`${inputClass} resize-vertical min-h-[38px] max-h-[120px] disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed bg-white`}
+                                        className={`${inputClass} resize-vertical min-h-[38px] max-h-[120px] disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed bg-white`}
                                         placeholder="Enter serial number..."
                                         rows={1}
                                         maxLength={100}
@@ -300,7 +301,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                 </div>
 
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                                         Apply Changes To
                                     </p>
                                     <div className="flex flex-col sm:flex-row gap-3">
@@ -317,7 +318,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                                 key={value}
                                                 className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer select-none text-sm font-medium transition-colors ${applyScope === value
                                                     ? 'border-slate-800 bg-white text-slate-900 shadow-sm'
-                                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800'
                                                     }`}
                                             >
                                                 <input
@@ -333,8 +334,8 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                     </div>
 
                                     {applyScope === 'this' && siblingCount > 0 && (
-                                        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-100 text-amber-800 rounded-lg px-3 py-2.5 text-xs">
-                                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2.5 text-xs">
+                                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                                             <p>
                                                 <span className="font-semibold">{siblingCount} other matching item lines</span> won't receive these field modifications.
                                             </p>
@@ -347,35 +348,35 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                         {activeTab === 'condition' && (
                             <div className="space-y-3 animate-in fade-in duration-100">
                                 {inventoryQuery.isLoading ? (
-                                    <div className="py-12 text-center text-xs text-slate-400 font-medium">Resolving individual operational units...</div>
+                                    <div className="py-12 text-center text-xs text-slate-500 font-medium">Resolving individual operational units...</div>
                                 ) : assetInstances.length === 0 ? (
-                                    <div className="py-12 text-center text-xs text-slate-400">No individual component lines registered under this asset type.</div>
+                                    <div className="py-12 text-center text-xs text-slate-500">No individual component lines registered under this asset type.</div>
                                 ) : (
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                         <table className="w-full text-left border-collapse">
                                             <thead>
-                                                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                                                     <th className="px-4 py-3">Property Number</th>
                                                     <th className="px-4 py-3">Serial Number</th>
                                                     <th className="px-4 py-3 text-right">Condition Toggle Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
+                                            <tbody className="divide-y divide-slate-100 text-slate-800 text-xs">
                                                 {assetInstances.map((inst) => {
                                                     const currentCondition = localConditions[inst.InventoryDetailID] || 'Serviceable';
                                                     const isItemProcessing = savingConditionId === inst.InventoryDetailID;
 
                                                     return (
-                                                        <tr key={inst.InventoryDetailID} className={`hover:bg-slate-50/40 transition-colors ${inst.InventoryDetailID === item?.id ? 'bg-blue-50/10 font-medium' : ''}`}>
+                                                        <tr key={inst.InventoryDetailID} className={`hover:bg-slate-50 transition-colors ${inst.InventoryDetailID === item?.id ? 'bg-blue-50/30 font-medium' : ''}`}>
                                                             <td className="px-4 py-3 font-mono font-semibold text-slate-900">
-                                                                {inst.PropertyNumber || <span className="text-slate-300 font-normal">No Prop #</span>}
+                                                                {inst.PropertyNumber || <span className="text-slate-400 font-normal">No Prop #</span>}
                                                                 {inst.InventoryDetailID === item?.id && (
-                                                                    <span className="ml-1.5 text-[9px] bg-blue-100 text-blue-700 px-1 py-0.2 rounded font-sans font-medium">Focused Target</span>
+                                                                    <span className="ml-1.5 text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-sans font-medium">Focused Target</span>
                                                                 )}
                                                             </td>
 
-                                                            <td className="px-4 py-3 font-mono text-slate-500">
-                                                                {inst.SerialNumber || <span className="text-slate-300 font-normal">--</span>}
+                                                            <td className="px-4 py-3 font-mono text-slate-600">
+                                                                {inst.SerialNumber || <span className="text-slate-400 font-normal">--</span>}
                                                             </td>
 
                                                             <td className="px-4 py-3 text-right">
@@ -386,7 +387,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                                                         onClick={() => handleToggleCondition(inst.InventoryDetailID, 'Serviceable')}
                                                                         className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all ${currentCondition === 'Serviceable'
                                                                             ? 'bg-white text-emerald-700 shadow-sm'
-                                                                            : 'text-slate-400 hover:text-slate-600'
+                                                                            : 'text-slate-500 hover:text-slate-700'
                                                                             }`}
                                                                     >
                                                                         <CheckCircle2 className={`w-3 h-3 ${currentCondition === 'Serviceable' ? 'text-emerald-600' : ''}`} />
@@ -398,7 +399,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                                                         onClick={() => handleToggleCondition(inst.InventoryDetailID, 'Unserviceable')}
                                                                         className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all ${currentCondition === 'Unserviceable'
                                                                             ? 'bg-white text-rose-600 shadow-sm'
-                                                                            : 'text-slate-400 hover:text-slate-600'
+                                                                            : 'text-slate-500 hover:text-slate-700'
                                                                             }`}
                                                                     >
                                                                         <AlertTriangle className={`w-3 h-3 ${currentCondition === 'Unserviceable' ? 'text-rose-500' : ''}`} />
@@ -417,11 +418,12 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                         )}
                     </div>
 
-                    <div className="flex justify-end items-center gap-2 px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-white">
+                    {/* Footer */}
+                    <div className="flex justify-end items-center gap-2 px-6 py-4 border-t border-slate-200 flex-shrink-0 bg-white">
                         <Dialog.Close asChild>
                             <button
                                 type="button"
-                                className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none"
+                                className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors focus:outline-none"
                             >
                                 {activeTab === 'condition' ? 'Close Control' : 'Cancel'}
                             </button>
