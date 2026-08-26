@@ -18,7 +18,6 @@ import {
     BarChart3,
     FileCheck,
     RefreshCw,
-    Database,
     LucideIcon,
 } from 'lucide-react';
 import { formatActivityAction, getActivityVisual } from '@/lib/activityPresentation';
@@ -64,6 +63,66 @@ function StatCard({ title, value, icon: Icon, iconColor, bgColor, loading, href 
     return content;
 }
 
+// Inventory overview component
+function InventoryOverview({ stats, loading }: { stats: DashboardStats | null; loading: boolean }) {
+    const total = stats?.totalInventory ?? 0;
+    const issued = stats?.issuedInventory ?? 0;
+    const forIssuance = stats?.forIssuanceInventory ?? 0;
+    const utilization = total > 0 ? Math.round((issued / total) * 100) : 0;
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-slate-500" />
+                Inventory Overview
+            </h3>
+            <div className="space-y-4">
+                {/* Utilization Progress Bar */}
+                <div>
+                    <div className="flex justify-between text-sm text-slate-600 mb-2">
+                        <span>Utilization Rate</span>
+                        <span>{utilization}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-3">
+                        <div
+                            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                            style={{ width: `${utilization}%` }}
+                        />
+                    </div>
+                </div>
+
+                {/* Breakdown */}
+                <div className="grid grid-cols-3 gap-4 text-center">
+                    <Link href="/staff/inventory/all-items?status=all" className="block">
+                        <div className="p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
+                            <div className="text-2xl font-bold text-blue-600">
+                                {loading ? '...' : total.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-slate-500">Total Items</div>
+                        </div>
+                    </Link>
+                    <Link href="/staff/inventory/all-items?status=for-issuance" className="block">
+                        <div className="p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors cursor-pointer">
+                            <div className="text-2xl font-bold text-green-600">
+                                {loading ? '...' : forIssuance.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-slate-500">For Issuance</div>
+                        </div>
+                    </Link>
+                    <Link href="/staff/inventory/all-items?status=issued" className="block">
+                        <div className="p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer">
+                            <div className="text-2xl font-bold text-amber-600">
+                                {loading ? '...' : issued.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-slate-500">Issued</div>
+                        </div>
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // Recent activity component
 interface RecentActivityProps {
     activities: Activity[];
@@ -90,7 +149,6 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
             </div>
             <div className="divide-y divide-slate-100">
                 {loading ? (
-                    // Loading skeleton
                     [...Array(5)].map((_, i) => (
                         <div key={i} className="p-4">
                             <div className="flex items-center gap-3">
@@ -112,12 +170,29 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                     activities.map((activity) => {
                         const visual = getActivityVisual(activity);
                         const ActivityIcon = visual.icon;
-                        const actionLabel = formatActivityAction(activity);
+
+                        const performedBy = activity.performed_by ?? activity.user ?? '';
+                        const meta = activity.meta ?? {};
+
+                        const getMetaAny = (keys: string[]) => {
+                            for (const k of keys) {
+                                if (meta[k]) return String(meta[k]);
+                            }
+                            return null;
+                        };
+
+                        const refNumber = getMetaAny(['drNumber', 'dr_number', 'transfer_number', 'borrow_number', 'propertyNumber', 'property_number', 'iarNumber', 'iar_number', 'reference']);
+
+                        const actionLabel = (() => {
+                            const baseLabel = formatActivityAction(activity);
+                            if (refNumber) return `${baseLabel} — ${refNumber}`;
+                            return baseLabel;
+                        })();
 
                         return (
                             <div key={activity.id} className="p-4 hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-full bg-slate-100`}>
+                                    <div className="p-2 rounded-full bg-slate-100">
                                         <ActivityIcon className={`w-4 h-4 ${visual.iconColorClass}`} />
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -125,11 +200,10 @@ function RecentActivity({ activities, loading, onRefresh }: RecentActivityProps)
                                             {actionLabel}
                                         </p>
                                         <p className="text-xs text-slate-500 truncate">
-                                            {activity.description} • {activity.user}
+                                            {activity.description}
+                                            {performedBy && <> • {performedBy}</>}
                                             {activity.type === 'login' && activity.ip_address && (
-                                                <span className="ml-1 text-slate-400">
-                                                    ({activity.ip_address})
-                                                </span>
+                                                <span className="ml-1 text-slate-400">({activity.ip_address})</span>
                                             )}
                                         </p>
                                     </div>
@@ -185,6 +259,13 @@ interface SystemStatusProps {
 function SystemStatus({ stats, loading }: SystemStatusProps) {
     const statusItems = [
         {
+            label: 'Active Departments',
+            value: stats?.totalDepartments ?? 0,
+            icon: Building2,
+            color: 'text-blue-500',
+            bgColor: 'bg-blue-50',
+        },
+        {
             label: 'For Repair',
             value: stats?.forRepair ?? 0,
             icon: Wrench,
@@ -197,13 +278,6 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
             icon: Trash2,
             color: 'text-red-500',
             bgColor: 'bg-red-50',
-        },
-        {
-            label: 'Active Departments',
-            value: stats?.totalDepartments ?? 0,
-            icon: Building2,
-            color: 'text-blue-500',
-            bgColor: 'bg-blue-50',
         },
     ];
 
@@ -244,7 +318,6 @@ export default function StaffDashboardPage() {
     const [statsLoading, setStatsLoading] = useState(true);
     const [activityLoading, setActivityLoading] = useState(true);
 
-    // Fetch dashboard data
     const fetchStats = async () => {
         setStatsLoading(true);
         try {
@@ -360,8 +433,9 @@ export default function StaffDashboardPage() {
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                {/* Recent Activity - Takes 2 columns on large screens */}
-                <div className="lg:col-span-2">
+                {/* Left column - Inventory Overview & Recent Activity */}
+                <div className="lg:col-span-2 space-y-6">
+                    <InventoryOverview stats={stats} loading={statsLoading} />
                     <RecentActivity
                         activities={activities.filter(a => a.type !== 'login')}
                         loading={activityLoading}

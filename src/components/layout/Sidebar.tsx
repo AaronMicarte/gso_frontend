@@ -85,11 +85,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
         {
             section: 'DELIVERY',
             items: [
-                {
-                    label: 'Delivery', icon: Truck, children: [
-                        { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
-                    ]
-                },
+                { label: 'Delivery Receipts', href: `${baseRoute}/delivery-receipts`, icon: Truck },
             ],
             roles: ['admin', 'staff'],
         },

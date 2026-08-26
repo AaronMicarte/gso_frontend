@@ -5,9 +5,6 @@
 
 /* ==============================================
    IAMS-GSO COLOR THEME
-   
-   TO CHANGE COLORS: Just edit the values below!
-   All components using these will update automatically.
    ============================================== */
 
 :root {
@@ -50,6 +47,8 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .bg-app {

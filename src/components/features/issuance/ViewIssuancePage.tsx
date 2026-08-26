@@ -397,7 +397,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                         </div>
                     </div>
                     <div className="flex items-center space-x-3">
-                        <button
+                        {/* <button
                             onClick={handleOpenPrintView}
                             disabled={!canShowQr}
                             className={`inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] ${canShowQr
@@ -407,7 +407,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                         >
                             <FileText className="w-4 h-4 mr-2" />
                             Open PAR/ICS print view
-                        </button>
+                        </button> */}
                         <button
                             onClick={() => setAssignModalOpen(true)}
                             disabled={!issuance}
