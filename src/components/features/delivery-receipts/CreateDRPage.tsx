@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { useCreateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { ItemDetailsModal } from './ItemDetailsModal';
-import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers, getUsedSerialNumbers } from '@/lib/api/deliveryReceipts';
 import { getActiveArticles } from '@/lib/api/masterData';
@@ -75,7 +75,7 @@ const drSchema = z.object({
     invoice_number: z.string().min(1, 'Invoice number is required'),
     date_received: z.string().min(1, 'Date received is required'),
     remarks: z.string().optional(),
-    dr_picture: z.custom<FileList>().refine((files) => files && files.length > 0, 'DR picture is required'),
+    dr_picture: z.custom<FileList>().optional(),
     details: z.array(drItemSchema).min(1, 'At least one item is required'),
     items_still_pending_delivery: z.boolean().optional(),
 });
@@ -434,7 +434,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             article_id: item?.article_id || 0, item_description: item?.item_description || '',
             brand: item?.brand || '',
             model_number: item?.model_number || '',
-            serial_number: item?.serial_number || '',
+            serial_number: '',
             property_type_id: item?.property_type_id || 0,
             unit_of_measure_id: item?.unit_of_measure_id || (units.length ? units[0].id : 1),
             quantity_delivered: item?.quantity_delivered || 1,
@@ -477,12 +477,12 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                                     placeholder="Enter DR number (manual)"
                                 />
-                                {errors.dr_number && (
+                                {/* {errors.dr_number && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <AlertCircle className="w-3 h-3" />
                                         {errors.dr_number.message}
                                     </p>
-                                )}
+                                )} */}
                             </div>
                             {/* Supplier Name */}
                             <div className="relative">
@@ -685,7 +685,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                         {/* DR Picture */}
                         <div className="mt-6">
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                DR Picture *
+                                DR Picture
                             </label>
                             <input
                                 {...register('dr_picture')}
@@ -809,7 +809,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                                     title="Duplicate item"
                                                     className="text-slate-500 hover:text-slate-700 transition-colors"
                                                 >
-                                                    <Plus className="w-4 h-4" />
+                                                    <Copy className="w-4 h-4" />
                                                 </button>
 
                                                 {fields.length > 1 && (
