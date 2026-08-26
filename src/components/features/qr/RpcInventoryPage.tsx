@@ -1218,11 +1218,13 @@ export function RpcInventoryPage() {
                                         onChange={(e) => setConditionId(Number(e.target.value))}
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                                     >
-                                        {conditions.map((condition) => (
-                                            <option key={condition.ConditionID} value={condition.ConditionID}>
-                                                {condition.ConditionName}
-                                            </option>
-                                        ))}
+                                        {conditions
+                                            .filter((condition) => condition.ConditionName !== 'Under Repair')
+                                            .map((condition) => (
+                                                <option key={condition.ConditionID} value={condition.ConditionID}>
+                                                    {condition.ConditionName}
+                                                </option>
+                                            ))}
                                     </select>
                                 </label>
                                 <label className="text-sm">
@@ -1320,11 +1322,13 @@ export function RpcInventoryPage() {
                                                     }}
                                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                                                 >
-                                                    {conditions.map((condition) => (
-                                                        <option key={condition.ConditionID} value={condition.ConditionID}>
-                                                            {condition.ConditionName}
-                                                        </option>
-                                                    ))}
+                                                    {conditions
+                                                        .filter((condition) => condition.ConditionName !== 'Under Repair')
+                                                        .map((condition) => (
+                                                            <option key={condition.ConditionID} value={condition.ConditionID}>
+                                                                {condition.ConditionName}
+                                                            </option>
+                                                        ))}
                                                 </select>
 
                                                 <button
