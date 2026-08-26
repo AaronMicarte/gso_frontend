@@ -90,13 +90,11 @@ export async function exportRPCPPEToExcel(
     const ws = wb.getWorksheet(1);
     if (!ws) throw new Error('Worksheet not found in RPCPPE template');
 
-    // Capture template metadata field-by-field — never spread pageSetup
     const tps = ws.pageSetup;
     const templatePaperSize = tps.paperSize;
     const templateMargins = tps.margins;
     const templateHCenter = tps.horizontalCentered;
     const templateVCenter = tps.verticalCentered;
-    const templateViews = [...ws.views];
     const templateColWidths: number[] = [];
     ws.columns.forEach((col, i) => {
         templateColWidths[i] = col.width ?? 8;
@@ -136,23 +134,30 @@ export async function exportRPCPPEToExcel(
     groups.forEach((group, groupIndex) => {
         const sheet = wb.addWorksheet(group.propertyType.slice(0, 31) || `Sheet${groupIndex + 1}`);
 
-        // Restore pageSetup field-by-field — spread assign causes malformed XML
-        sheet.pageSetup.paperSize = templatePaperSize;
-        sheet.pageSetup.margins = templateMargins;
-        sheet.pageSetup.horizontalCentered = templateHCenter;
-        sheet.pageSetup.verticalCentered = templateVCenter;
-        sheet.pageSetup.fitToPage = true;
-        sheet.pageSetup.fitToWidth = 1;
-        sheet.pageSetup.fitToHeight = undefined;
+        sheet.pageSetup.paperSize = 5; // Legal
         sheet.pageSetup.orientation = 'landscape';
+        sheet.pageSetup.scale = 51;
+        sheet.pageSetup.fitToPage = false;
+        sheet.pageSetup.fitToWidth = undefined;
+        sheet.pageSetup.fitToHeight = 0;
+        sheet.pageSetup.margins = templateMargins;
 
-        sheet.views = [...templateViews];
+        // Freeze rows 1-12 (header) so only data rows scroll
+        sheet.views = [
+            {
+                state: 'frozen',
+                ySplit: 12,
+                topLeftCell: 'A13',
+                activeCell: 'A13',
+                zoomScale: 70,
+                zoomScaleNormal: 70,
+            }
+        ];
 
         templateColWidths.forEach((w, i) => {
             if (w) sheet.getColumn(i + 1).width = w;
         });
 
-        // Restore header row heights lost on addWorksheet()
         const HEADER_ROW_HEIGHTS: Record<number, number> = {
             2: 30, 3: 20, 4: 20, 5: 20,
             7: 40, 8: 20,
@@ -297,6 +302,9 @@ export async function exportRPCPPEToExcel(
         sheet.mergeCells(sigOffset(167), C_SHORTAGE_Q, sigOffset(167), C_REMARKS);
         setStr(sigOffset(167), C_SHORTAGE_Q, 'CITY MAYOR');
         sheet.getCell(sigOffset(167), C_SHORTAGE_Q).alignment = { horizontal: 'center', vertical: 'middle' };
+        // Dynamic print area
+        const lastPrintRow = sigOffset(167);
+        sheet.pageSetup.printArea = `A1:P${lastPrintRow}`;
     });
 
     wb.removeWorksheet('TEMPLATE_TEMP_REMOVED');
@@ -363,8 +371,6 @@ function writeTemplateHeader(
         9, false,
     );
 
-    // Row 11–12 span cols: only for cols that have NO sub-header in row 12
-    // cols 8 and 9 are NOT merged across rows — they have separate row 11 label and row 12 sub-label
     const rowSpanCols: Array<[number, string]> = [
         [2, 'ARTICLE'],
         [3, 'DESCRIPTION'],
@@ -383,7 +389,6 @@ function writeTemplateHeader(
         cell.border = thinBox();
     });
 
-    // F11:G11 — Unit Value colspan (row 11 only, sub-headers go in row 12)
     try { sheet.mergeCells(11, 6, 11, 7); } catch (_) { }
     const uvCell = sheet.getCell(11, 6);
     uvCell.value = 'UNIT VALUE';
@@ -391,21 +396,18 @@ function writeTemplateHeader(
     uvCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     uvCell.border = thinBox();
 
-    // H11 — BALANCE PER CARD (row 11 only, sub-header goes in row 12)
     const bpcCell = sheet.getCell(11, C_QTY_CARD);
     bpcCell.value = 'BALANCE PER CARD';
     bpcCell.font = { name: FONT, size: 11 };
     bpcCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     bpcCell.border = thinBox();
 
-    // I11 — ON HAND PER COUNT (row 11 only, sub-header goes in row 12)
     const ohpcCell = sheet.getCell(11, C_QTY_COUNT);
     ohpcCell.value = 'ON HAND PER COUNT';
     ohpcCell.font = { name: FONT, size: 11 };
     ohpcCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     ohpcCell.border = thinBox();
 
-    // J11:K11 — Shortage/Overage colspan (row 11 only, sub-headers go in row 12)
     try { sheet.mergeCells(11, 10, 11, 11); } catch (_) { }
     const soCell = sheet.getCell(11, 10);
     soCell.value = 'SHORTAGE/OVERAGE';
@@ -413,7 +415,6 @@ function writeTemplateHeader(
     soCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     soCell.border = thinBox();
 
-    // Row 12 sub-headers — written directly to row 12 cells (no merge conflict now)
     const subHeaders: Array<[number, string]> = [
         [6, 'Unit Cost'], [7, 'Total Cost'],
         [8, '(Quantity)'], [9, '(Quantity)'],
