@@ -8,7 +8,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { ArticlePreviewModal } from '@/components/ui/ArticlePreviewModal';
 import { toast } from 'sonner';
-import { Package, Calculator, Hash } from 'lucide-react';
+import { Package, Calculator, Hash, ExternalLink, RefreshCw } from 'lucide-react';
 
 const itemSchema = z.object({
     article_id: z.number().int().min(1, 'Article is required'),
@@ -45,8 +45,11 @@ interface ItemDetailsModalProps {
     propertyTypes: { PropertyTypeID: number; PropertyName: string }[];
     units: { id: number; name: string }[];
     onSave: (values: ItemFormValues) => Promise<void> | void;
+    onRefreshArticles?: () => void; // Optional callback to refetch articles from parent
     loading?: boolean;
     existingSerials?: string[];
+    /** Route to the article creation page, defaults to /master-data/articles?mode=create */
+    articleCreateRoute?: string;
 }
 
 export function ItemDetailsModal({
@@ -57,8 +60,10 @@ export function ItemDetailsModal({
     propertyTypes,
     units,
     onSave,
+    onRefreshArticles,
     loading = false,
     existingSerials = [],
+    articleCreateRoute = '/admin/masterdata/articles?mode=create',
 }: ItemDetailsModalProps) {
     const { register, handleSubmit, formState: { errors }, reset, watch, setValue, setError, clearErrors } = useForm<ItemFormValues>({
         resolver: zodResolver(itemSchema),
@@ -89,6 +94,10 @@ export function ItemDetailsModal({
     const selectedArticle = articles.find((a) => a.id === selectedArticleId) || null;
     const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
     const [articleModalUrl, setArticleModalUrl] = useState<string | null>(null);
+
+    // Track whether the user has opened the article creation tab so we can show a refresh hint
+    const [articleTabOpened, setArticleTabOpened] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Serial number toggle state: true = With Serial Number, false = No Serial Number
     const [hasSerialToggle, setHasSerialToggle] = useState<boolean>(() => {
@@ -169,6 +178,37 @@ export function ItemDetailsModal({
         return () => document.removeEventListener('mousedown', handleDocClick);
     }, []);
 
+    // Auto-refresh articles list when the user returns from the article creation tab
+    useEffect(() => {
+        if (!open || !onRefreshArticles) return;
+
+        const handleFocus = () => {
+            if (articleTabOpened) {
+                handleRefreshArticles();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [open, articleTabOpened, onRefreshArticles]);
+
+    const handleRefreshArticles = async () => {
+        if (!onRefreshArticles || isRefreshing) return;
+        setIsRefreshing(true);
+        try {
+            await onRefreshArticles();
+            toast.success('Articles list refreshed');
+        } finally {
+            setIsRefreshing(false);
+            setArticleTabOpened(false);
+        }
+    };
+
+    const handleOpenArticleTab = () => {
+        window.open(articleCreateRoute, '_blank', 'noopener,noreferrer');
+        setArticleTabOpened(true);
+    };
+
     // When modal opens, reset form values and toggle state
     useEffect(() => {
         if (open && !prevOpenRef.current) {
@@ -208,6 +248,7 @@ export function ItemDetailsModal({
 
             setSerialErrors({});
             setArticleTouched(false);
+            setArticleTabOpened(false);
             clearErrors('serial_number');
         }
         prevOpenRef.current = open;
@@ -328,7 +369,7 @@ export function ItemDetailsModal({
         }
 
         return valid;
-    }
+    };
 
     const submit = handleSubmit(async (data) => {
         if (hasSerialToggle && !validateSerials()) {
@@ -365,10 +406,50 @@ export function ItemDetailsModal({
             <div className="space-y-6">
                 {/* 1. Article Selection (searchable) */}
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-[var(--primary)]" />
-                        <label className="text-sm font-semibold text-slate-900">Article Type *</label>
+                    {/* Label row with Add New Article shortcut */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Package className="w-4 h-4 text-[var(--primary)]" />
+                            <label className="text-sm font-semibold text-slate-900">Article Type *</label>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            {/* Refresh button — visible only after the user opened the creation tab */}
+                            {articleTabOpened && onRefreshArticles && (
+                                <button
+                                    type="button"
+                                    onClick={handleRefreshArticles}
+                                    disabled={isRefreshing}
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-300 rounded-md px-2 py-1 hover:bg-slate-50 transition-all disabled:opacity-50"
+                                    title="Refresh articles list to see newly added article"
+                                >
+                                    <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                    {isRefreshing ? 'Refreshing...' : 'Refresh list'}
+                                </button>
+                            )}
+
+                            {/* Open article creation in new tab */}
+                            <button
+                                type="button"
+                                onClick={handleOpenArticleTab}
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--primary)] hover:text-[var(--primary)]/80 border border-[var(--primary)]/30 rounded-md px-2.5 py-1 hover:bg-[var(--primary)]/5 transition-all"
+                                title="Open article creation form in a new tab"
+                            >
+                                <ExternalLink className="w-3 h-3" />
+                                Add New Article
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Refresh hint banner — shown after tab is opened */}
+                    {articleTabOpened && onRefreshArticles && (
+                        <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            <RefreshCw className="w-3 h-3 flex-shrink-0" />
+                            <span>
+                                After saving the new article, click <strong>Refresh list</strong> above to load it here.
+                            </span>
+                        </div>
+                    )}
 
                     <div className="relative" ref={articleComboboxRef}>
                         <input
@@ -396,7 +477,16 @@ export function ItemDetailsModal({
                         {articleOpen && (
                             <ul id="article-listbox" role="listbox" className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
                                 {filteredArticles.length === 0 ? (
-                                    <li className="px-3 py-2 text-sm text-slate-500">No articles found</li>
+                                    <li className="px-3 py-2 text-sm text-slate-500">
+                                        No articles found.{' '}
+                                        <button
+                                            type="button"
+                                            onClick={handleOpenArticleTab}
+                                            className="text-[var(--primary)] font-medium hover:underline"
+                                        >
+                                            Add one now ↗
+                                        </button>
+                                    </li>
                                 ) : (
                                     filteredArticles.map((a, idx) => {
                                         const imgUrl = resolveArticleImageUrl(a);
@@ -513,7 +603,7 @@ export function ItemDetailsModal({
                     </div>
                 </div>
 
-                {/* 4. Quantity Requested & Unit Cost (UPPER IN BRAND AND MODEL) */}
+                {/* 4. Quantity Requested & Unit Cost */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
                     <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
@@ -603,7 +693,7 @@ export function ItemDetailsModal({
                             </div>
                         </div>
 
-                        {/* Serial Number Inputs (Shown only when With Serial Number is toggled ON) */}
+                        {/* Serial Number Inputs */}
                         {hasSerialToggle && (
                             <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                                 <div className="text-xs text-slate-500 font-medium">

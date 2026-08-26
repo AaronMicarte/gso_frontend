@@ -857,6 +857,11 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                 .filter((_, idx) => isAddingItem || idx !== editingIndex)
                                 .flatMap(item => String(item?.serial_number || '').split(',').map(s => s.trim()).filter(Boolean))
                         ]))}
+                        onRefreshArticles={async () => {
+                            const fresh = await getActiveArticles();
+                            setArticles(fresh);
+                        }}
+                        articleCreateRoute="/admin/masterdata/articles"
                     />
 
                     {/* Summary */}
