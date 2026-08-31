@@ -1177,12 +1177,12 @@ export function RpcInventoryPage() {
                                 </div>
                             )}
 
-                            {previewAsset.group_remaining_count === 0 && (
+                            {/* {previewAsset.group_remaining_count === 0 && (
                                 <div className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-rose-900 text-sm flex items-start gap-2">
                                     <AlertTriangle className="w-4 h-4 mt-0.5" />
                                     All property numbers for this asset group are already scanned.
                                 </div>
-                            )}
+                            )} */}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                                 <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">

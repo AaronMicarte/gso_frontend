@@ -115,7 +115,7 @@ const buildPrintHtml = (
   <div class="header">
     ${logoTag}
     <div class="header-text">
-      <div class="city-name">CITY OF EL SALVADOR CITY</div>
+      <div class="city-name">CITY OF EL SALVADOR</div>
       <div class="office-name">PROPERTY AND SUPPLY MANAGEMENT OFFICE</div>
     </div>
   </div>
@@ -337,7 +337,7 @@ function StickerPreview({
                 <img src={LOGO_SRC} alt="seal" style={{ width: 30, height: 30, objectFit: 'contain', flexShrink: 0 }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <div style={{ fontSize: 10, fontWeight: 900, color: '#000', letterSpacing: '0.02em', lineHeight: 1.1 }}>
-                        CITY OF EL SALVADOR CITY
+                        CITY OF EL SALVADOR
                     </div>
                     <div style={{ fontSize: 6, fontWeight: 700, color: '#000', letterSpacing: '0.04em', lineHeight: 1.1 }}>
                         PROPERTY AND SUPPLY MANAGEMENT OFFICE
