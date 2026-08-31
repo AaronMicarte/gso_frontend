@@ -355,6 +355,9 @@ async function writeReceiverSheet(
     ws.getCell(60, 4).font = { name: FONT, size: 11 };
     ws.getCell(60, 4).alignment = { horizontal: 'center' };
 
+    // ── FIX: Remove #REF! error from cell C79 (if present) ───────────────────
+    ws.getCell('C79').value = null;
+
     // ── Print setup ───────────────────────────────────────────────────────────
     ws.pageSetup = {
         orientation: 'portrait',
