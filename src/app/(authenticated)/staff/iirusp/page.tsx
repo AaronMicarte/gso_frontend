@@ -1,5 +1,5 @@
-import { IiruspListPage } from '@/components/features/iirup';
+import { IirupListPage } from '@/components/features/iirup';
 
 export default function StaffIiruspPage() {
-    return <IiruspListPage baseRoute="/staff" />;
+    return <IirupListPage baseRoute="/staff" initialType="semi_expendable" />;
 }

@@ -153,8 +153,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                             { label: 'RLSDDP Reports', href: `${baseRoute}/rlsddp`, icon: ShieldAlert },
                         ] : []),
                         ...((isAdmin || isGSOStaff) ? [
-                            { label: 'IIRUP (PPE)', href: `${baseRoute}/iirup`, icon: FileWarning },
-                            { label: 'IIRUSP (Semi-Expe)', href: `${baseRoute}/iirusp`, icon: FileWarning },
+                            { label: 'IIRUP Reports', href: `${baseRoute}/iirup`, icon: FileWarning },
                         ] : []),
                     ]
                 },

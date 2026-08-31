@@ -7,16 +7,21 @@ import { toast } from 'sonner';
 import { listUnserviceable } from '@/lib/api/propertyWaste';
 import type { UnserviceableItemRow } from '@/types/propertyWaste';
 import { IirupPrintView } from './IirupPrintView';
+import { IiruspPrintView } from './IiruspPrintView';
 import { exportIirupToExcel } from './IirupExport';
+import { exportIiruspToExcel } from './IiruspExport';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isValidDateValue = (value: string) => DATE_RE.test(value) && !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
 
-interface IirupRangePrintPageProps {
+export type IirupPrintAssetType = 'non_expendable' | 'semi_expendable';
+
+export interface IirupRangePrintPageProps {
     baseRoute?: '/admin' | '/staff';
+    forcedType?: IirupPrintAssetType;
 }
 
-function IirupRangePrintPageContent({ baseRoute = '/admin' }: IirupRangePrintPageProps) {
+function IirupRangePrintPageContent({ baseRoute = '/admin', forcedType }: IirupRangePrintPageProps) {
     const params = useParams<{ startDate: string; endDate: string }>();
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -24,6 +29,17 @@ function IirupRangePrintPageContent({ baseRoute = '/admin' }: IirupRangePrintPag
     const startDate = String(params?.startDate ?? '');
     const endDate = String(params?.endDate ?? '');
     const mode = (searchParams.get('mode') || 'custom') as 'month' | 'custom';
+
+    const typeParam = searchParams.get('type') || searchParams.get('asset_type');
+    const assetType: IirupPrintAssetType = useMemo(() => {
+        if (forcedType) return forcedType;
+        if (typeParam === 'semi' || typeParam === 'semi_expendable' || typeParam === 'iirusp') {
+            return 'semi_expendable';
+        }
+        return 'non_expendable';
+    }, [forcedType, typeParam]);
+
+    const isPPE = assetType === 'non_expendable';
 
     const [rows, setRows] = useState<UnserviceableItemRow[] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -51,7 +67,7 @@ function IirupRangePrintPageContent({ baseRoute = '/admin' }: IirupRangePrintPag
             try {
                 setLoading(true);
                 const data = await listUnserviceable({
-                    asset_type: 'non_expendable',
+                    asset_type: assetType,
                     start_date: startDate,
                     end_date: endDate,
                     per_page: 100,
@@ -76,7 +92,7 @@ function IirupRangePrintPageContent({ baseRoute = '/admin' }: IirupRangePrintPag
                 setRows(formattedItems);
             } catch (e) {
                 console.error(e);
-                toast.error('Failed to load unserviceable items for the selected range');
+                toast.error(`Failed to load unserviceable ${isPPE ? 'PPE' : 'semi-expendable'} items for the selected range`);
                 setRows([]);
             } finally {
                 setLoading(false);
@@ -84,13 +100,18 @@ function IirupRangePrintPageContent({ baseRoute = '/admin' }: IirupRangePrintPag
         };
 
         run();
-    }, [endDate, isRangeValid, startDate]);
+    }, [assetType, endDate, isPPE, isRangeValid, startDate]);
 
     const handleExcelExport = async () => {
         if (!rows || rows.length === 0) return;
         setIsExporting(true);
         try {
-            await exportIirupToExcel({ rows, startDate, endDate, mode });
+            if (isPPE) {
+                await exportIirupToExcel({ rows, startDate, endDate, mode });
+            } else {
+                await exportIiruspToExcel({ rows, startDate, endDate, mode });
+            }
+            toast.success(`Exported ${isPPE ? 'IIRUP' : 'IIRUSP'} Excel file successfully`);
         } catch (e) {
             console.error(e);
             toast.error('Failed to export Excel');
@@ -107,20 +128,23 @@ function IirupRangePrintPageContent({ baseRoute = '/admin' }: IirupRangePrintPag
                 <button onClick={() => router.back()} className="inline-flex items-center gap-2">
                     <ArrowLeft className="h-4 w-4" /> Back
                 </button>
-                <div className="mt-4 text-slate-700 font-semibold">Invalid IIRUP date range.</div>
+                <div className="mt-4 text-slate-700 font-semibold">Invalid date range.</div>
             </div>
         );
     }
 
     return (
         <div className="print-scope p-4 bg-white min-h-screen">
-            <div className="no-print flex items-center justify-between mb-4 p-3 rounded-lg">
-                <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-slate-700">
+            <div className="no-print flex items-center justify-between mb-4 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900 font-medium">
                     <ArrowLeft className="h-4 w-4" /> Back
                 </button>
                 <div className="flex items-center gap-4">
-                    <div className="text-sm text-slate-600">
-                        Date Range: <span className="font-semibold text-slate-900">{startDate} to {endDate}</span>
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-900 text-white">
+                            {isPPE ? 'IIRUP (PPE)' : 'IIRUSP (Semi-Expendable)'}
+                        </span>
+                        <span>Date Range: <span className="font-semibold text-slate-900">{startDate} to {endDate}</span></span>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -153,10 +177,12 @@ function IirupRangePrintPageContent({ baseRoute = '/admin' }: IirupRangePrintPag
 
             {!rows || rows.length === 0 ? (
                 <div className="text-slate-700 p-8 text-center border border-dashed rounded-lg">
-                    No unserviceable items found for this date range.
+                    No unserviceable {isPPE ? 'PPE' : 'semi-expendable'} items found for this date range.
                 </div>
-            ) : (
+            ) : isPPE ? (
                 <IirupPrintView rows={rows} startDate={startDate} endDate={endDate} mode={mode} />
+            ) : (
+                <IiruspPrintView rows={rows} startDate={startDate} endDate={endDate} mode={mode} />
             )}
         </div>
     );

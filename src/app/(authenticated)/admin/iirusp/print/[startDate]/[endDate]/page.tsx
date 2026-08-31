@@ -1,5 +1,5 @@
-import { IiruspRangePrintPage } from '@/components/features/iirup';
+import { IirupRangePrintPage } from '@/components/features/iirup';
 
 export default function AdminIiruspRangePrintPage() {
-    return <IiruspRangePrintPage baseRoute="/admin" />;
+    return <IirupRangePrintPage baseRoute="/admin" forcedType="semi_expendable" />;
 }
