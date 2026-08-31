@@ -9,7 +9,8 @@ import {
     deleteNotification,
     deleteAllNotifications,
     NotificationItem,
-    listNotifications,
+    getUnreadNotificationCount,
+    listRecentNotifications,
     markAllNotificationsRead,
     markNotificationRead,
 } from '@/lib/api/notifications';
@@ -613,10 +614,9 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
 
         const fetchUnread = async () => {
             try {
-                const notifications = await listNotifications(100);
+                const unread = await getUnreadNotificationCount();
                 if (!isMounted) return;
 
-                const unread = notifications.filter((n) => n.read_at === null).length;
                 setUnreadCount(unread);
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
@@ -683,7 +683,7 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
             if (showSkeleton) {
                 setNotificationMenuLoading(true);
             }
-            const notifications = await listNotifications(8);
+            const notifications = await listRecentNotifications(8);
             setRecentNotifications(notifications);
             setRecentNotificationsLoaded(true);
             setRecentNotificationsLastLoadedAt(Date.now());
@@ -718,7 +718,7 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
 
         setNotificationActionLoading(true);
         try {
-            const notifications = await listNotifications(100);
+            const notifications = await listRecentNotifications(15);
             const latestUnread = notifications.find((n) => n.read_at === null);
 
             if (!latestUnread) {
