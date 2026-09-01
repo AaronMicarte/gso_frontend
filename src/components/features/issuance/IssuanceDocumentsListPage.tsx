@@ -31,6 +31,11 @@ const statusConfig = {
         color: 'bg-green-100 text-green-800',
         icon: CheckCircle
     },
+    partially_acknowledged: {
+        label: 'Partially Acknowledged',
+        color: 'bg-amber-100 text-amber-800',
+        icon: CheckCircle
+    },
     returned: {
         label: 'Returned',
         color: 'bg-blue-100 text-blue-800',

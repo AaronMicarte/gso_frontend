@@ -47,7 +47,7 @@ export default function VerifyMFAPage() {
 
     const form = useForm<CodeFormData>({
         resolver: zodResolver(codeSchema),
-        defaultValues: { code: '', trust_device: false },
+        defaultValues: { code: '', trust_device: true },
     });
 
     useEffect(() => {
@@ -79,13 +79,22 @@ export default function VerifyMFAPage() {
 
             if (response.device_token && typeof window !== 'undefined') {
                 localStorage.setItem('trusted_device_token', response.device_token);
+                if (pending.userId) {
+                    localStorage.setItem(`trusted_device_token_uid_${pending.userId}`, response.device_token);
+                }
+                if (pending.userName) {
+                    localStorage.setItem(`trusted_device_token_${pending.userName.toLowerCase()}`, response.device_token);
+                }
+                if (pending.userEmail) {
+                    localStorage.setItem(`trusted_device_token_${pending.userEmail.toLowerCase()}`, response.device_token);
+                }
             }
 
             sessionStorage.removeItem('mfa_verify_pending');
             toast.success('Login successful!', {
                 description: `Welcome back, ${response.user.FullName || response.user.Username}!`,
             });
-            router.replace(getDashboardRoute(response.user.Role, response.user.UserRoleID));
+            router.replace(getDashboardRoute(response.user.Role, response.user.UserRoleID, response.user.UserID));
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Invalid code. Please try again.');
             form.setValue('code', '');

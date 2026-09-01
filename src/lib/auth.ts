@@ -35,9 +35,47 @@ export async function changeTemporaryPassword(payload: ChangeTemporaryPasswordPa
 }
 
 /**
- * Get dashboard route based on user role
+ * Get dashboard or preferred default landing route based on user role and saved preferences
  */
-export function getDashboardRoute(role?: string, userRoleID?: number): string {
+export function getDashboardRoute(role?: string, userRoleID?: number, userId?: number): string {
+  // Check if user has a custom landing page preference saved in localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const targetUserId = userId || (function () {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('gso_settings_v1_')) {
+            return k.replace('gso_settings_v1_', '');
+          }
+        }
+        return null;
+      })();
+
+      if (targetUserId) {
+        const raw = localStorage.getItem(`gso_settings_v1_${targetUserId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.defaultLandingRoute && typeof parsed.defaultLandingRoute === 'string' && parsed.defaultLandingRoute.trim() !== '') {
+            const landingRoute = parsed.defaultLandingRoute.trim();
+            const expectedPrefix = userRoleID === 1 || role === 'Admin'
+              ? '/admin'
+              : userRoleID === 2 || role === 'GSO Staff'
+              ? '/staff'
+              : userRoleID === 4 || role === 'Department Head'
+              ? '/department_head'
+              : '';
+
+            if (!expectedPrefix || landingRoute.startsWith(expectedPrefix)) {
+              return landingRoute;
+            }
+          }
+        }
+      }
+    } catch {
+      // Fallback on JSON parse error
+    }
+  }
+
   if (userRoleID === 1) return '/admin/dashboard'; // Admin
   if (userRoleID === 2) return '/staff/dashboard'; // GSO Staff
   if (userRoleID === 4) return '/department_head/dashboard'; // Department Head

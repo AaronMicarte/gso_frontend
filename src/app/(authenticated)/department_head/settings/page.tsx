@@ -10,6 +10,7 @@ export default function DepartmentHeadSettingsPage() {
                 { label: 'Received Items', route: '/department_head/received-items' },
                 { label: 'Property Transfers', route: '/department_head/transfer' },
                 { label: 'Borrow Requests', route: '/department_head/borrow' },
+                { label: 'Service Records', route: '/department_head/service-records' },
             ]}
         />
     );

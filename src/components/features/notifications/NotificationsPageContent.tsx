@@ -179,22 +179,20 @@ export function NotificationsPageContent() {
                                 <button
                                     type="button"
                                     onClick={() => handleFilterChange(false)}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                                        !unreadOnly
+                                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${!unreadOnly
                                             ? 'bg-slate-900 text-white'
                                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                                    }`}
+                                        }`}
                                 >
                                     All Notifications
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => handleFilterChange(true)}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                                        unreadOnly
+                                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${unreadOnly
                                             ? 'bg-slate-900 text-white'
                                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                                    }`}
+                                        }`}
                                 >
                                     Unread Only {unreadCount > 0 && `(${unreadCount})`}
                                 </button>
@@ -257,11 +255,10 @@ export function NotificationsPageContent() {
                                     return (
                                         <article
                                             key={notification.UserNotificationID}
-                                            className={`rounded-xl border p-4 shadow-sm transition-all ${
-                                                isUnread
+                                            className={`rounded-xl border p-4 shadow-sm transition-all ${isUnread
                                                     ? 'border-blue-200 bg-blue-50/50 hover:bg-blue-50/70'
                                                     : 'border-slate-200 bg-white hover:bg-slate-50'
-                                            }`}
+                                                }`}
                                         >
                                             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                                 <div className="min-w-0 flex-1">
@@ -273,9 +270,9 @@ export function NotificationsPageContent() {
                                                         )}
 
                                                         {notification.payload?.link &&
-                                                        (typeof notification.payload.link === 'string' ||
-                                                            (typeof notification.payload.link === 'object' &&
-                                                                notification.payload.link !== null)) ? (
+                                                            (typeof notification.payload.link === 'string' ||
+                                                                (typeof notification.payload.link === 'object' &&
+                                                                    notification.payload.link !== null)) ? (
                                                             <Link
                                                                 href={String(notification.payload.link)}
                                                                 className="cursor-pointer text-sm font-bold text-[var(--primary)] hover:underline truncate"
@@ -372,11 +369,10 @@ export function NotificationsPageContent() {
                                                 key={pageNum}
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 disabled={loading}
-                                                className={`min-w-[32px] h-8 rounded-lg text-xs font-semibold transition-colors shadow-sm ${
-                                                    currentPage === pageNum
+                                                className={`min-w-[32px] h-8 rounded-lg text-xs font-semibold transition-colors shadow-sm ${currentPage === pageNum
                                                         ? 'bg-slate-900 text-white'
                                                         : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>
@@ -412,7 +408,7 @@ export function NotificationsPageContent() {
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
                     <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
                     <span>
-                        All notifications will be deleted from the database. Unread notifications will also be cleared.
+                        All notifications will be deleted. Unread notifications will also be cleared.
                     </span>
                 </div>
             </Dialog>

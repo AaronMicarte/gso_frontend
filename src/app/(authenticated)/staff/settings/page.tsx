@@ -8,8 +8,10 @@ export default function StaffSettingsPage() {
             landingOptions={[
                 { label: 'Staff Dashboard', route: '/staff/dashboard' },
                 { label: 'Inventory', route: '/staff/inventory' },
-                { label: 'Issuance Requests', route: '/staff/issuance' },
+                { label: 'Property Issuance', route: '/staff/issuance' },
                 { label: 'Delivery Receipts', route: '/staff/delivery-receipts' },
+                { label: 'Property Transfers', route: '/staff/transfer' },
+                { label: 'Property Borrow', route: '/staff/borrow' },
             ]}
         />
     );

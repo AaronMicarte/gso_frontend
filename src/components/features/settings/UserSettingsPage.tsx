@@ -205,10 +205,10 @@ export function UserSettingsPage({ baseRoute, roleLabel, landingOptions }: UserS
                             </dl>
                         </div>
 
-                        {/* <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                            <h2 className="text-lg font-semibold text-slate-900 mb-2">Quick Access</h2>
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <h2 className="text-lg font-semibold text-slate-900 mb-2">Default Landing Page Preview</h2>
                             <p className="text-sm text-slate-600 mb-4">
-                                Jump directly to your most-used destination.
+                                Test opening your configured landing page destination.
                             </p>
                             <div className="flex flex-wrap items-center gap-3">
                                 <Button
@@ -217,25 +217,25 @@ export function UserSettingsPage({ baseRoute, roleLabel, landingOptions }: UserS
                                 >
                                     Open Default Landing
                                 </Button>
-                                <span className="text-sm text-slate-500 inline-flex items-center gap-1">
-                                    <ChevronRight className="w-4 h-4" />
-                                    {prefs.defaultLandingRoute || defaultRoute}
+                                <span className="text-sm text-slate-700 font-medium inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-md">
+                                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                                    {landingOptions.find((o) => o.route === (prefs.defaultLandingRoute || defaultRoute))?.label || 'Dashboard'}
                                 </span>
                             </div>
-                        </div> */}
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="preferences" className="space-y-4">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
                             <div>
                                 <h2 className="text-lg font-semibold text-slate-900">Operational Preferences</h2>
-                                <p className="text-sm text-slate-600">These defaults are saved per account on this browser.</p>
+                                <p className="text-sm text-slate-600">These defaults are saved per account on this browser and applied automatically on login.</p>
                             </div>
 
                             <label className="block">
                                 <span className="text-sm font-medium text-slate-700">Default landing page</span>
                                 <select
-                                    value={prefs.defaultLandingRoute}
+                                    value={prefs.defaultLandingRoute || defaultRoute}
                                     onChange={(e) => setPrefs((prev) => ({ ...prev, defaultLandingRoute: e.target.value }))}
                                     className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                                 >

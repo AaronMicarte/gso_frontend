@@ -108,7 +108,7 @@ export interface AssetIssuance {
     IssuedToName?: string | null;
     IssuedBy: number;
     IssuanceDate: string;
-    Status: 'pending_acknowledgment' | 'acknowledged' | 'returned' | 'disposed';
+    Status: 'pending_acknowledgment' | 'acknowledged' | 'partially_acknowledged' | 'returned' | 'disposed';
     IssuanceNotes: string | null;
     IssuerSignature?: string | null;
     IssuerSignatureSource?: 'canvas' | 'upload' | null;

@@ -395,9 +395,13 @@ export function IssuanceListPage({
                             {filteredRows.map((row) => {
                                 const isAccepted = !!row.IsAccepted;
                                 const issuanceByType = row.issuances_by_document_type ?? {};
-                                const hasAcknowledgedIssuance = Object.values(issuanceByType).some(
+                                const hasFullyAcknowledgedIssuance = Object.values(issuanceByType).some(
                                     (issuance) => issuance?.Status === 'acknowledged'
                                 );
+                                const hasPartiallyAcknowledgedIssuance = Object.values(issuanceByType).some(
+                                    (issuance) => issuance?.Status === 'partially_acknowledged'
+                                );
+                                const hasAcknowledgedIssuance = hasFullyAcknowledgedIssuance || hasPartiallyAcknowledgedIssuance;
                                 const availableTypes = getAvailableDocumentTypes(row);
                                 const selectedType = getSelectedDocumentType(row, docTypeByDr);
                                 const currentItems = (row.items_by_document_type ?? {})[selectedType] ?? [];
@@ -437,12 +441,16 @@ export function IssuanceListPage({
                                                     let badgeClass = 'bg-yellow-100 text-yellow-800';
                                                     let Icon = Clock;
 
-                                                    if (hasAcknowledgedIssuance) {
-                                                        label = isPartial ? 'Partial / Issued' : 'Acknowledged';
-                                                        badgeClass = isPartial ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-700';
+                                                    if (isPartial && (hasPartiallyAcknowledgedIssuance || hasAcknowledgedIssuance)) {
+                                                        label = 'Partially Acknowledged';
+                                                        badgeClass = 'bg-amber-100 text-amber-800';
+                                                        Icon = CheckCircle;
+                                                    } else if (hasFullyAcknowledgedIssuance || (hasAcknowledgedIssuance && !isPartial)) {
+                                                        label = 'Acknowledged';
+                                                        badgeClass = 'bg-emerald-100 text-emerald-800';
                                                         Icon = CheckCircle;
                                                     } else if (isAccepted) {
-                                                        label = isPartial ? 'Partial / Issued' : 'Accepted';
+                                                        label = isPartial ? 'Partially Acknowledged' : 'Accepted';
                                                         badgeClass = isPartial ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700';
                                                         Icon = CheckCircle;
                                                     } else if (row.InspectionStatus === 'pending') {

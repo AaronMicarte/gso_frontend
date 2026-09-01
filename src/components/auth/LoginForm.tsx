@@ -105,8 +105,11 @@ export function LoginForm() {
     setActivation(null);
 
     try {
+      const userKey = (data.username || '').trim().toLowerCase();
       const trustedDeviceToken = typeof window !== 'undefined'
-        ? localStorage.getItem('trusted_device_token') ?? undefined
+        ? (localStorage.getItem(`trusted_device_token_${userKey}`) ||
+           localStorage.getItem('trusted_device_token') ||
+           undefined)
         : undefined;
 
       const response = await login({
@@ -124,11 +127,6 @@ export function LoginForm() {
 
       // Check if MFA is required (either setup or verification)
       if (response.mfa_required && response.user_id) {
-        // Device token was not accepted by backend; remove stale fallback token.
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('trusted_device_token');
-        }
-
         const isSetupRequired = response.mfa_setup_required === true;
 
         // If MFA setup required, redirect to dedicated setup page
@@ -158,8 +156,8 @@ export function LoginForm() {
         description: `Welcome back, ${response.user?.FullName || response.user?.Username || 'User'}!`
       });
 
-      // Redirect based on user role
-      const dashboardRoute = getDashboardRoute(response.user?.Role, response.user?.UserRoleID);
+      // Redirect based on user role and saved landing page preference
+      const dashboardRoute = getDashboardRoute(response.user?.Role, response.user?.UserRoleID, response.user?.UserID);
       router.push(dashboardRoute);
     } catch (err: unknown) {
       const error = err as LoginError;
