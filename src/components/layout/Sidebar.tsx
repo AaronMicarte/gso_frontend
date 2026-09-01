@@ -364,6 +364,7 @@ interface NotificationMenuItemProps {
     defaultHref: string;
     menuOpen: boolean;
     notifications: NotificationItem[];
+    totalUnreadCount: number;
     menuLoading: boolean;
     actionLoading: boolean;
     panelTop: number;
@@ -395,6 +396,7 @@ function NotificationMenuItem({
     defaultHref,
     menuOpen,
     notifications,
+    totalUnreadCount,
     menuLoading,
     actionLoading,
     panelTop,
@@ -411,7 +413,6 @@ function NotificationMenuItem({
     onDeleteAll,
 }: NotificationMenuItemProps) {
     const Icon = item.icon;
-    const unreadCount = notifications.filter((notification) => notification.read_at === null).length;
 
     return (
         <div className="relative" data-notification-trigger>
@@ -453,7 +454,7 @@ function NotificationMenuItem({
                                 <div className="flex items-center gap-2">
                                     <div className="text-sm font-semibold text-slate-900">Notifications</div>
                                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                                        {unreadCount} unread
+                                        {totalUnreadCount} unread
                                     </span>
                                 </div>
                                 <a
@@ -683,8 +684,12 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
             if (showSkeleton) {
                 setNotificationMenuLoading(true);
             }
-            const notifications = await listRecentNotifications(8);
+            const [notifications, unread] = await Promise.all([
+                listRecentNotifications(8),
+                getUnreadNotificationCount(),
+            ]);
             setRecentNotifications(notifications);
+            setUnreadCount(unread);
             setRecentNotificationsLoaded(true);
             setRecentNotificationsLastLoadedAt(Date.now());
         } catch (error) {
@@ -854,6 +859,7 @@ export default function Sidebar({ user, isOpen, onLogout, baseRoute }: SidebarPr
                                         defaultHref={`${baseRoute}/notifications`}
                                         menuOpen={notificationMenuOpen}
                                         notifications={recentNotifications}
+                                        totalUnreadCount={unreadCount}
                                         menuLoading={notificationMenuLoading}
                                         actionLoading={notificationActionLoading}
                                         panelTop={menuPanelTop}
