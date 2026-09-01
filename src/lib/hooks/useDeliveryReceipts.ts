@@ -83,8 +83,8 @@ export function useDeleteDeliveryReceipt() {
 export function useAddDeliveryReceiptItems() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, details }: { id: number; details: Record<string, unknown>[] }) =>
-            addDeliveryReceiptItems(id, details),
+        mutationFn: ({ id, details, finalize_dr }: { id: number; details: Record<string, unknown>[]; finalize_dr?: boolean }) =>
+            addDeliveryReceiptItems(id, details, finalize_dr),
         onSuccess: (_, { id }) => {
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
             queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.detail(id) });

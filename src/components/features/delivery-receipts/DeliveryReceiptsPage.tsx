@@ -36,8 +36,8 @@ const workflowBadgeStyles: Record<string, string> = {
     partial: 'bg-amber-100 text-amber-800',
 };
 
-function getDrStatusDisplay(dr: { workflow_status?: string; workflow_status_label?: string | null; is_partial?: boolean; IsPartial?: boolean }) {
-    const isPartial = dr.is_partial ?? dr.IsPartial ?? false;
+function getDrStatusDisplay(dr: { workflow_status?: string; workflow_status_label?: string | null; is_partial?: boolean; IsPartial?: boolean; FinalizedAt?: string | null }) {
+    const isPartial = Boolean(dr.is_partial ?? dr.IsPartial ?? false) && !dr.FinalizedAt;
     const workflowStatus = dr.workflow_status || 'to_be_issued';
 
     if (isPartial) {
@@ -51,12 +51,14 @@ function getDrStatusDisplay(dr: { workflow_status?: string; workflow_status_labe
         to_be_issued: 'For Issuance',
         issued: 'Issued',
         acknowledged: 'Issued',
-        partially_acknowledged: 'Partially Acknowledged',
+        partially_acknowledged: 'Issued',
     };
 
     return {
-        label: dr.workflow_status_label || workflowLabels[workflowStatus] || 'For Issuance',
-        badgeClass: workflowBadgeStyles[workflowStatus] || workflowBadgeStyles.to_be_issued,
+        label: dr.workflow_status_label && !dr.workflow_status_label.startsWith('Partial')
+            ? dr.workflow_status_label
+            : (workflowLabels[workflowStatus] || 'For Issuance'),
+        badgeClass: workflowBadgeStyles[workflowStatus === 'partially_acknowledged' ? 'acknowledged' : workflowStatus] || workflowBadgeStyles.to_be_issued,
     };
 }
 

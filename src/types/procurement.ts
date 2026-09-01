@@ -99,7 +99,7 @@ export interface CreateDeliveryReceiptPayload {
     invoice_number: string;
     date_received: string;
     remarks?: string;
-    dr_picture: File;
+    dr_picture?: File;
     details: {
         item_description: string;
         brand?: string;
@@ -124,7 +124,7 @@ export interface UpdateDeliveryReceiptPayload {
     invoice_number: string;
     date_received: string;
     remarks?: string;
-    dr_picture: File;
+    dr_picture?: File;
     details: {
         dr_detail_id?: number; // Optional for updates, undefined for new items
         item_description: string;

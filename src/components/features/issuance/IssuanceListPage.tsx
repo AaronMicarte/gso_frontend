@@ -190,7 +190,7 @@ export function IssuanceListPage({
             const createdRisNumber = (response as { data?: { ris_number?: string } }).data?.ris_number;
             toast.success(
                 createdRisNumber
-                    ? `IAR acknowledged and RIS ${createdRisNumber} created`
+                    ? `IAR acknowledged`
                     : 'IAR acknowledged and inventory updated'
             );
             await loadRows(currentPage);

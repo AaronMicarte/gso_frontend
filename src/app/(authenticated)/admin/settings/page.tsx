@@ -7,7 +7,7 @@ export default function AdminSettingsPage() {
             roleLabel="Admin"
             landingOptions={[
                 { label: 'Admin Dashboard', route: '/admin/dashboard' },
-                { label: 'Inventory', route: '/admin/inventory' },
+                { label: 'Inventory', route: '/admin/inventory/all-items' },
                 { label: 'User Management', route: '/admin/users' },
                 { label: 'Delivery Receipts', route: '/admin/delivery-receipts' },
                 { label: 'Property Issuance', route: '/admin/issuance' },

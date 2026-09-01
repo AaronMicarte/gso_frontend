@@ -388,10 +388,12 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             await createMutation.mutateAsync(formData);
             toast.success('Delivery receipt created successfully');
 
-            // Ensure the delivery receipts list is refreshed before navigating
+            // Invalidate and refresh DR list
             await queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
+            await queryClient.refetchQueries({ queryKey: deliveryReceiptKeys.all });
 
             router.push(`${baseRoute}/delivery-receipts`);
+            router.refresh();
         } catch (err: unknown) {
             console.error('Full error object:', err);
             const resp = (err as { response?: { data?: { errors?: Record<string, string | string[]>; message?: string } } })?.response?.data;
@@ -685,7 +687,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                         {/* DR Picture */}
                         <div className="mt-6">
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                DR Picture
+                                DR Picture <span className="text-slate-400 font-normal text-xs">(Optional)</span>
                             </label>
                             <input
                                 {...register('dr_picture')}
