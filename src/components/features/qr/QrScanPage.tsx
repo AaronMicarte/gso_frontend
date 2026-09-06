@@ -606,19 +606,32 @@ export function QrScanPage() {
 
                 {/* Initial Empty State */}
                 {!assetResult && !error && !loading && (
-                    <div className="rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-sm p-8 sm:p-12 shadow-sm text-center space-y-4">
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto shadow-sm">
-                            <Search className="w-7 h-7 sm:w-8 sm:h-8" />
-                        </div>
-                        <div className="max-w-md mx-auto space-y-1.5">
-                            <h3 className="text-base sm:text-lg font-bold text-slate-900">Search Property Record</h3>
-                            <p className="text-sm text-slate-500">
-                                Enter a property number in the search bar above (e.g. <span className="font-mono text-slate-700 font-medium">2026-000003</span>) and press Enter to view all its assigned specifications, current custodian, and issuance details.
-                            </p>
-                        </div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs">
-                            <Shield className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Instant lookup without affecting active inventory cycle counts</span>
+                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                        <div className="px-6 sm:px-10 py-10 sm:py-14 text-center">
+                            {/* Icon */}
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto">
+                                <Search className="w-7 h-7 sm:w-9 sm:h-9" />
+                            </div>
+
+                            {/* Content */}
+                            <div className="mt-5 max-w-lg mx-auto">
+                                <h3 className="text-lg sm:text-xl font-bold text-slate-900">
+                                    Search Property Record
+                                </h3>
+                                <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+                                    Enter a property number in the search bar above
+                                    <span className="block sm:inline">
+                                        {' '}(e.g. <span className="font-mono text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded">2026-000003</span>)
+                                    </span>
+                                    {' '}to view complete asset specifications, custodian, and issuance history.
+                                </p>
+                            </div>
+
+                            {/* Badge */}
+                            <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-xs">
+                                <Shield className="w-3.5 h-3.5 text-blue-500" />
+                                <span>Read-only lookup • No inventory changes</span>
+                            </div>
                         </div>
                     </div>
                 )}
