@@ -114,3 +114,32 @@ export interface QrScanResponse {
     property: QrScanAssignedProperty;
     latest_issuance_detail?: QrScanIssuanceDetail | null;
 }
+
+export interface QrUnassignedInventoryDetail {
+    InventoryDetailID: number;
+    PropertyNumber?: string | null;
+    Description?: string | null;
+    Brand?: string | null;
+    ModelNumber?: string | null;
+    SerialNumber?: string | null;
+    UnitCost?: number | null;
+    UnitName?: string | null;
+    PropertyName?: string | null;
+    ClassificationName?: string | null;
+    ArticleName?: string | null;
+    ConditionName?: string | null;
+    DateAcquired?: string | null;
+    DRNumber?: string | null;
+    Supplier?: string | null;
+    Status: string;
+}
+
+export interface QrLookupResponse {
+    success: boolean;
+    found: boolean;
+    type?: 'assigned' | 'inventory_unassigned';
+    property?: QrScanAssignedProperty;
+    latest_issuance_detail?: QrScanIssuanceDetail | null;
+    inventory_detail?: QrUnassignedInventoryDetail;
+    message?: string;
+}

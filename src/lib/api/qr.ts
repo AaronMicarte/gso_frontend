@@ -82,6 +82,13 @@ export async function scanProperty(propertyId: number) {
     return res.data;
 }
 
+export async function lookupQrAsset(query: string) {
+    const res = await apiClient.get<import('@/types/qr').QrLookupResponse>('/qr/lookup', {
+        params: { query },
+    });
+    return res.data;
+}
+
 export async function updatePropertyCondition(propertyId: number, conditionId: number) {
     const res = await apiClient.put(`/qr/properties/${propertyId}`, { condition_id: conditionId });
     return res.data;

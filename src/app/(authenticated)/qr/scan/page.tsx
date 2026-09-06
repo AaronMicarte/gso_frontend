@@ -1,5 +1,5 @@
-import { QrScanPage } from '@/components/features/qr/QrScanPage';
+import { redirect } from 'next/navigation';
 
 export default function QrScanRoute() {
-    return <QrScanPage />;
+    redirect('/qr/search');
 }
