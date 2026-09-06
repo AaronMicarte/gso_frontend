@@ -2,6 +2,7 @@ import type { AxiosResponse } from 'axios';
 import apiClient from './client';
 import type {
     RpcInventoryCondition,
+    RpcInventoryCycle,
     RpcInventoryAuditLogPaginated,
     RpcInventoryCyclesResponse,
     RpcInventoryReportResponse,
@@ -15,7 +16,7 @@ export async function listRpcInventoryCycles() {
 }
 
 export async function createCurrentRpcInventoryCycle() {
-    const res = await apiClient.post<{ message: string }>('/rpc-inventory/cycles/current');
+    const res = await apiClient.post<{ message: string; cycle: RpcInventoryCycle }>('/rpc-inventory/cycles/current');
     return res.data;
 }
 
@@ -68,6 +69,14 @@ export async function deleteRpcScan(scanId: number) {
     return res.data;
 }
 
+export async function updateRpcAssetCondition(
+    cycleId: number,
+    payload: { inventory_detail_id?: number; property_id?: number; condition_id: number }
+) {
+    const res = await apiClient.post(`/rpc-inventory/cycles/${cycleId}/update-condition`, payload);
+    return res.data;
+}
+
 export async function listRpcConditions() {
     const res: AxiosResponse<{ data: RpcInventoryCondition[] }> = await apiClient.get('/rpc-inventory/helpers/conditions');
     return res.data.data;
@@ -94,9 +103,17 @@ export async function getClosureSummary(cycleId: number) {
     return res.data;
 }
 
-export async function closeRpcCycle(cycleId: number, reason: string) {
+export async function closeRpcCycle(
+    cycleId: number,
+    payload: { reason: string; password: string } | string,
+    password?: string
+) {
+    const closeReason = typeof payload === 'object' ? payload.reason : payload;
+    const adminPassword = typeof payload === 'object' ? payload.password : (password || '');
+
     const res = await apiClient.post(`/rpc-inventory/cycles/${cycleId}/close`, {
-        close_reason: reason,
+        close_reason: closeReason,
+        password: adminPassword,
     });
     return res.data;
 }

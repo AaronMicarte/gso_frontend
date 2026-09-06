@@ -10,11 +10,21 @@ import {
 export interface ClosureSummary {
     total_expected: number;
     total_scanned: number;
+    total_scans_recorded?: number;
     missing_count: number;
     excess_count?: number;
+    serviceable_count?: number;
+    unserviceable_count?: number;
     completed_locations: number;
     pending_locations: number;
-    last_scan_time: string;
+    completed_departments?: number;
+    pending_departments?: number;
+    total_departments?: number;
+    progress_percentage?: number;
+    last_scan_time: string | null;
+    reopen_count?: number;
+    max_reopens?: number;
+    can_reopen?: boolean;
 }
 
 export interface ReopenRequestResponse {

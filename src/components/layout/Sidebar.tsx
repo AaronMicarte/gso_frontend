@@ -161,13 +161,13 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             ],
             roles: ['admin', 'staff', 'department_head'],
         },
-        {
-            section: 'MAINTENANCE',
-            items: [
-                { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
-            ],
-            roles: ['admin', 'staff', 'department_head'],
-        },
+        // {
+        //     section: 'MAINTENANCE',
+        //     items: [
+        //         { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
+        //     ],
+        //     roles: ['admin', 'staff', 'department_head'],
+        // },
         {
             section: 'QR MANAGEMENT',
             items: [

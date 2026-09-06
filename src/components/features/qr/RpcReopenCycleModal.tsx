@@ -85,11 +85,7 @@ export function RpcReopenCycleModal({
             onOpenChange={onClose}
             title="Request to Reopen Inventory Cycle"
             description="Reopen this closed cycle to add, edit, or delete scans."
-            onConfirm={handleReopen}
-            confirmText={loading ? 'Reopening...' : 'Reopen Cycle'}
-            cancelText="Cancel"
-            loading={loading}
-            hideConfirm
+            hideFooter
             contentClassName="max-w-2xl"
         >
             <div className='space-y-6'>
@@ -124,7 +120,7 @@ export function RpcReopenCycleModal({
                         <AlertCircle className='h-5 w-5 text-red-700 flex-shrink-0 mt-0.5' />
                         <div className='text-sm text-red-800'>
                             <p className='font-semibold'>Reopen Limit Reached</p>
-                            <p>This cycle has reached the maximum reopen limit (2). It is now permanently locked and cannot be reopened.</p>
+                            <p>This cycle has reached the maximum reopen limit (2). It is now permanently locked and can&apos;t be open again.</p>
                         </div>
                     </div>
                 )}
@@ -223,6 +219,14 @@ export function RpcReopenCycleModal({
 
                 {!canReopen && (
                     <div className='flex gap-3 justify-end'>
+                        <Button
+                            type="button"
+                            disabled
+                            variant='outline'
+                            className="border-slate-300 text-slate-400 bg-slate-100 cursor-not-allowed disabled:cursor-not-allowed opacity-60 select-none"
+                        >
+                            Can&apos;t be open again
+                        </Button>
                         <Button variant='outline' onClick={onClose}>
                             Close
                         </Button>

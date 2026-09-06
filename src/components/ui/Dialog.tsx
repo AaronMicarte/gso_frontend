@@ -6,11 +6,13 @@ export interface DialogProps extends React.ComponentPropsWithoutRef<typeof Dialo
     description?: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onConfirm: () => void;
+    onConfirm?: () => void;
     confirmText?: string;
     cancelText?: string;
     loading?: boolean;
     hideConfirm?: boolean;
+    hideCancel?: boolean;
+    hideFooter?: boolean;
     children?: React.ReactNode;
     // Optional class to override content container size/styling for wide dialogs
     contentClassName?: string;
@@ -26,6 +28,8 @@ export function Dialog({
     cancelText = "Cancel",
     loading = false,
     hideConfirm = false,
+    hideCancel = false,
+    hideFooter = false,
     children,
     ...props
 }: DialogProps) {
@@ -43,25 +47,29 @@ export function Dialog({
 
                     <div className="mt-4 overflow-y-auto pr-1">{children}</div>
 
-                    <div className="shrink-0 flex justify-end gap-2 pt-4">
-                        <DialogPrimitive.Close asChild>
-                            <button
-                                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors font-medium text-sm"
-                                disabled={loading}
-                            >
-                                {cancelText}
-                            </button>
-                        </DialogPrimitive.Close>
-                        {!hideConfirm && (
-                            <button
-                                className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-colors font-medium text-sm disabled:opacity-60"
-                                onClick={onConfirm}
-                                disabled={loading}
-                            >
-                                {loading ? "Processing..." : confirmText}
-                            </button>
-                        )}
-                    </div>
+                    {!hideFooter && (
+                        <div className="shrink-0 flex justify-end gap-2 pt-4">
+                            {!hideCancel && (
+                                <DialogPrimitive.Close asChild>
+                                    <button
+                                        className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors font-medium text-sm"
+                                        disabled={loading}
+                                    >
+                                        {cancelText}
+                                    </button>
+                                </DialogPrimitive.Close>
+                            )}
+                            {!hideConfirm && onConfirm && (
+                                <button
+                                    className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-colors font-medium text-sm disabled:opacity-60"
+                                    onClick={onConfirm}
+                                    disabled={loading}
+                                >
+                                    {loading ? "Processing..." : confirmText}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </DialogPrimitive.Content>
             </DialogPrimitive.Portal>
         </DialogPrimitive.Root>

@@ -14,6 +14,8 @@ export interface RpcInventoryCycle {
     reopened_by_user_id?: number | null;
     reopen_reason?: string | null;
     reopen_count?: number;
+    can_reopen?: boolean;
+    is_permanently_closed?: boolean;
     scans_count: number;
     rpcppe_count: number;
     rpcsep_count: number;
@@ -47,6 +49,8 @@ export interface RpcInventoryPreviewAsset {
     end_user_id: number | null;
     department_id: number | null;
     department_name: string | null;
+    condition_id?: number | null;
+    condition_name?: string | null;
 }
 
 export interface RpcInventoryPreviewCandidate {
@@ -149,6 +153,11 @@ export interface RpcInventoryAuditLogScan {
     property_number: string | null;
     inventory_detail_id: number;
     condition_id?: number | null;
+    remarks?: string | null;
+    rpc_type?: string | null;
+    article?: string | null;
+    description?: string | null;
+    accountable_officer?: string | null;
 }
 
 export interface RpcInventoryAuditLog {

@@ -23,6 +23,7 @@ import {
     previewRpcScan,
     storeRpcScan,
     updateRpcScan,
+    updateRpcAssetCondition,
 } from '@/lib/api/rpcInventory';
 import { useRpcInventoryScans } from '@/lib/hooks/useRpcInventoryScans';
 import type {
@@ -42,6 +43,13 @@ type PreviewAssetState = RpcInventoryPreviewAsset & {
     candidates: RpcInventoryPreviewCandidate[];
 };
 
+type ConditionBadgeSummary = {
+    name: string;
+    count: number;
+    isUnserviceable: boolean;
+    isServiceable: boolean;
+};
+
 type GroupedScanRow = {
     key: string;
     primaryScan: RpcInventoryScanRecord;
@@ -50,6 +58,7 @@ type GroupedScanRow = {
     propertyNumbersFull: string[];
     scansCount: number;
     createdMonth: string;
+    conditionsSummary: ConditionBadgeSummary[];
 };
 
 type EditScanItem = {
@@ -160,6 +169,7 @@ export function RpcInventoryPage() {
     const [alreadyScanned, setAlreadyScanned] = useState(false);
     const [selectedInventoryDetailIds, setSelectedInventoryDetailIds] = useState<number[]>([]);
     const [conditionId, setConditionId] = useState<number>(0);
+    const [updatingPreviewCondition, setUpdatingPreviewCondition] = useState(false);
     const [scanRemarks, setScanRemarks] = useState('');
 
     const [editOpen, setEditOpen] = useState(false);
@@ -180,6 +190,13 @@ export function RpcInventoryPage() {
     const selectedCycle = useMemo(
         () => cycles.find((cycle) => cycle.id === selectedCycleId) ?? null,
         [cycles, selectedCycleId]
+    );
+
+    const isCycleClosed = selectedCycle?.status === 'closed';
+    const isPermanentlyClosed = isCycleClosed && (
+        (selectedCycle?.reopen_count ?? 0) >= 2 ||
+        selectedCycle?.is_permanently_closed === true ||
+        selectedCycle?.can_reopen === false
     );
 
     const now = new Date();
@@ -366,128 +383,237 @@ export function RpcInventoryPage() {
     };
 
     const summarizeAuditLog = (log: RpcInventoryAuditLog): string => {
-        const details = log.details || {};
+        const details = (log.details || {}) as Record<string, unknown>;
         const entries = [] as string[];
 
+        // Batch actions
         if (typeof log.action === 'string' && (log.action.startsWith('sync_batch') || log.action === 'scan_created_bulk')) {
             const created = typeof details.created === 'number' ? details.created : Number(details.created ?? 0);
             const duplicates = typeof details.duplicates === 'number' ? details.duplicates : Number(details.duplicates ?? 0);
             const errors = typeof details.errors === 'number' ? details.errors : Number(details.errors ?? 0);
             entries.push(`${created || 0} created`, `${duplicates || 0} duplicates`, `${errors || 0} errors`);
-            // Prefer showing a short list of property numbers when available
-            const propertyNumbers = Array.isArray(details.property_numbers) ? details.property_numbers.filter((v): v is string => typeof v === 'string') : [];
-            if (propertyNumbers.length > 0) {
-                const preview = propertyNumbers.length <= 3 ? propertyNumbers.join(', ') : `${propertyNumbers.slice(0, 3).join(', ')} ...`;
-                entries.unshift(`Property # ${preview}`);
-            }
-
             return entries.join(' • ');
         }
 
-        const propertyNumber = log.property_number || log.scan?.property_number;
-        if (propertyNumber) {
-            entries.push(`Property # ${propertyNumber}`);
+        // Update actions: show condition / remarks diff
+        if (log.action === 'scan_updated') {
+            const before = details.before as Record<string, unknown> | undefined;
+            const after = details.after as Record<string, unknown> | undefined;
+            const beforeCond = before?.condition_id
+                ? formatAuditFieldValue('previous_condition_id', before.condition_id)
+                : (log.previous_condition_id ? formatAuditFieldValue('previous_condition_id', log.previous_condition_id) : null);
+            const afterCond = after?.condition_id
+                ? formatAuditFieldValue('condition_id', after.condition_id)
+                : (log.condition_id ? formatAuditFieldValue('condition_id', log.condition_id) : null);
+
+            if (beforeCond && afterCond && beforeCond !== afterCond) {
+                entries.push(`Condition: ${beforeCond} ➔ ${afterCond}`);
+            } else if (afterCond) {
+                entries.push(`Condition: ${afterCond}`);
+            }
+
+            const beforeRemarks = (before?.remarks as string) || log.previous_remarks;
+            const afterRemarks = (after?.remarks as string) || log.new_remarks;
+            if (afterRemarks && afterRemarks !== beforeRemarks) {
+                entries.push(`Remarks: ${afterRemarks}`);
+            } else if (afterRemarks) {
+                entries.push(`Remarks: ${afterRemarks}`);
+            }
+
+            return entries.length > 0 ? entries.join(' • ') : 'Scan updated';
         }
 
+        // Asset condition updated directly
+        if (log.action === 'asset_condition_updated') {
+            const condName = (details.condition_name as string) || formatAuditFieldValue('condition_id', log.condition_id);
+            const articleDesc = (details.article as string) || (details.description as string) || log.scan?.article || log.scan?.description;
+            const parts = [];
+            if (condName) parts.push(`Condition: ${condName}`);
+            if (articleDesc) parts.push(articleDesc);
+            return parts.length > 0 ? parts.join(' • ') : 'Condition updated';
+        }
+
+        // Scan deleted
+        if (log.action === 'scan_deleted') {
+            const articleDesc = (details.article as string) || (details.description as string) || log.scan?.article || log.scan?.description;
+            return articleDesc ? `Removed: ${articleDesc}` : 'Scan removed from inventory cycle';
+        }
+
+        // Cycle closed or reopened
+        if (log.action === 'cycle_closed') {
+            const reason = typeof details.close_reason === 'string' ? details.close_reason.trim() : '';
+            return reason ? `Cycle closed: ${reason}` : 'Inventory cycle closed';
+        }
+        if (log.action === 'cycle_reopened') {
+            const reason = typeof details.reopen_reason === 'string' ? details.reopen_reason.trim() : '';
+            return reason ? `Cycle reopened: ${reason}` : 'Inventory cycle reopened';
+        }
+
+        // Normal scans (scan_created, scan_synced)
         const currentCondition =
+            (details.condition_name as string) ||
             formatAuditFieldValue('condition_id', log.condition_id) ||
             formatAuditFieldValue('condition_id', log.scan?.condition_id ?? null);
         if (currentCondition) {
-            entries.push(`Condition ${currentCondition}`);
+            entries.push(`Condition: ${currentCondition}`);
         }
 
-        const remarks = log.new_remarks || log.previous_remarks || (typeof details.remarks === 'string' ? details.remarks : null);
-        if (remarks) {
-            entries.push(`Remarks ${remarks}`);
+        const articleDesc = (details.article as string) || (details.description as string) || log.scan?.article || log.scan?.description;
+        if (articleDesc) {
+            entries.push(articleDesc);
         }
 
-        const source = typeof details.source === 'string' ? details.source : log.source;
-        if (source) {
-            entries.push(`Source ${source.charAt(0).toUpperCase() + source.slice(1)}`);
+        const remarks = (typeof details.remarks === 'string' ? details.remarks : null) || log.new_remarks || log.previous_remarks || log.scan?.remarks;
+        if (remarks && remarks.trim() !== '') {
+            entries.push(`Remarks: ${remarks.trim()}`);
         }
 
-        return entries.length > 0 ? entries.join(' • ') : 'View details';
+        return entries.length > 0 ? entries.join(' • ') : '-';
     };
 
     const formatDetailEntries = (log: RpcInventoryAuditLog): Array<{ key: string; label: string; value: string }> => {
-        const details = log.details || {};
+        const details = (log.details || {}) as Record<string, unknown>;
         const entries: Array<{ key: string; label: string; value: string }> = [];
 
+        // 1. Batch actions
+        if (typeof log.action === 'string' && (log.action.startsWith('sync_batch') || log.action === 'scan_created_bulk')) {
+            const propertyNumbers = Array.isArray(details.property_numbers)
+                ? details.property_numbers.filter((value): value is string => typeof value === 'string')
+                : [];
+            if (propertyNumbers.length > 0) {
+                entries.push({ key: 'property_numbers', label: 'Property Numbers', value: propertyNumbers.join(', ') });
+            }
+            if (details.total !== undefined && details.total !== null) {
+                entries.push({ key: 'total', label: 'Total', value: String(details.total) });
+            }
+            if (details.created !== undefined && details.created !== null) {
+                entries.push({ key: 'created', label: 'Created', value: String(details.created) });
+            }
+            if (details.duplicates !== undefined && details.duplicates !== null) {
+                entries.push({ key: 'duplicates', label: 'Duplicates', value: String(details.duplicates) });
+            }
+            if (details.errors !== undefined && details.errors !== null) {
+                entries.push({ key: 'errors', label: 'Errors', value: String(details.errors) });
+            }
+            if (typeof details.status === 'string') {
+                entries.push({ key: 'status', label: 'Status', value: details.status.replace(/_/g, ' ').toUpperCase() });
+            }
+            return entries;
+        }
+
+        // 2. Scan update actions
         if (log.action === 'scan_updated') {
             const before = details.before as Record<string, unknown> | undefined;
             const after = details.after as Record<string, unknown> | undefined;
 
-            const beforeCondition = before ? formatAuditFieldValue('previous_condition_id', before.condition_id) : null;
-            const afterCondition = after ? formatAuditFieldValue('condition_id', after.condition_id) : null;
-            const beforeRemarks = before && typeof before.remarks === 'string' ? before.remarks : null;
-            const afterRemarks = after && typeof after.remarks === 'string' ? after.remarks : null;
+            const beforeCondition = before?.condition_id
+                ? formatAuditFieldValue('previous_condition_id', before.condition_id)
+                : (log.previous_condition_id ? formatAuditFieldValue('previous_condition_id', log.previous_condition_id) : null);
+            const afterCondition = after?.condition_id
+                ? formatAuditFieldValue('condition_id', after.condition_id)
+                : (log.condition_id ? formatAuditFieldValue('condition_id', log.condition_id) : null);
 
-            if (beforeCondition) entries.push({ key: 'before_condition_id', label: 'Before condition', value: beforeCondition });
-            if (afterCondition) entries.push({ key: 'new_condition_id', label: 'After condition', value: afterCondition });
-            if (beforeRemarks) entries.push({ key: 'previous_remarks', label: 'Before remarks', value: beforeRemarks });
-            if (afterRemarks) entries.push({ key: 'remarks', label: 'After remarks', value: afterRemarks });
+            const beforeRemarks = (before?.remarks as string) || log.previous_remarks || null;
+            const afterRemarks = (after?.remarks as string) || log.new_remarks || null;
+
+            if (beforeCondition || afterCondition) {
+                if (beforeCondition && afterCondition && beforeCondition !== afterCondition) {
+                    entries.push({ key: 'condition_diff', label: 'Condition Change', value: `${beforeCondition} ➔ ${afterCondition}` });
+                } else if (afterCondition) {
+                    entries.push({ key: 'after_condition', label: 'Condition', value: afterCondition });
+                }
+            }
+
+            if (beforeRemarks || afterRemarks) {
+                if (beforeRemarks && afterRemarks && beforeRemarks !== afterRemarks) {
+                    entries.push({ key: 'remarks_diff', label: 'Remarks Change', value: `"${beforeRemarks}" ➔ "${afterRemarks}"` });
+                } else if (afterRemarks) {
+                    entries.push({ key: 'after_remarks', label: 'Remarks', value: afterRemarks });
+                }
+            }
+
+            const rpcType = (details.rpc_type as string) || log.scan?.rpc_type;
+            if (rpcType) entries.push({ key: 'rpc_type', label: 'RPC Type', value: rpcType });
+
+            const article = (details.article as string) || log.scan?.article;
+            if (article) entries.push({ key: 'article', label: 'Article', value: article });
+
+            const description = (details.description as string) || log.scan?.description;
+            if (description) entries.push({ key: 'description', label: 'Description', value: description });
+
+            const officer = (details.accountable_officer as string) || log.scan?.accountable_officer;
+            if (officer) entries.push({ key: 'accountable_officer', label: 'Accountable Officer', value: normalizeAccountableOfficer(officer) });
+
             return entries;
         }
 
-        if (typeof log.action === 'string' && (log.action.startsWith('sync_batch') || log.action === 'scan_created_bulk')) {
-            const propertyNumbers = Array.isArray(details.property_numbers) ? details.property_numbers.filter((value): value is string => typeof value === 'string') : [];
-            if (propertyNumbers.length > 0) {
-                entries.push({ key: 'property_numbers', label: 'Property numbers', value: propertyNumbers.join(', ') });
+        // 3. Asset condition updated
+        if (log.action === 'asset_condition_updated') {
+            const cond = (details.condition_name as string) || formatAuditFieldValue('condition_id', log.condition_id);
+            if (cond) {
+                entries.push({ key: 'condition', label: 'Condition', value: cond });
             }
-            if (typeof details.total === 'number' || typeof details.total === 'string') {
-                entries.push({ key: 'total', label: 'Total', value: String(details.total) });
+            const rpcType = (details.rpc_type as string) || log.scan?.rpc_type;
+            if (rpcType) entries.push({ key: 'rpc_type', label: 'RPC Type', value: rpcType });
+
+            const article = (details.article as string) || log.scan?.article;
+            if (article) entries.push({ key: 'article', label: 'Article', value: article });
+
+            const description = (details.description as string) || log.scan?.description;
+            if (description) entries.push({ key: 'description', label: 'Description', value: description });
+
+            const officer = (details.accountable_officer as string) || log.scan?.accountable_officer;
+            if (officer) entries.push({ key: 'accountable_officer', label: 'Accountable Officer', value: normalizeAccountableOfficer(officer) });
+
+            return entries;
+        }
+
+        // 4. Cycle lifecycle actions
+        if (log.action === 'cycle_closed') {
+            if (details.close_reason) {
+                entries.push({ key: 'close_reason', label: 'Close Reason', value: String(details.close_reason) });
             }
-            if (typeof details.created === 'number' || typeof details.created === 'string') {
-                entries.push({ key: 'created', label: 'Created', value: String(details.created) });
-            }
-            if (typeof details.duplicates === 'number' || typeof details.duplicates === 'string') {
-                entries.push({ key: 'duplicates', label: 'Duplicates', value: String(details.duplicates) });
-            }
-            if (typeof details.errors === 'number' || typeof details.errors === 'string') {
-                entries.push({ key: 'errors', label: 'Errors', value: String(details.errors) });
-            }
-            if (typeof details.status === 'string') {
-                entries.push({ key: 'status', label: 'Status', value: details.status.replace(/_/g, ' ') });
-            }
-            if (typeof details.source === 'string') {
-                entries.push({ key: 'source', label: 'Source', value: details.source.charAt(0).toUpperCase() + details.source.slice(1) });
-            }
-            // Show RPC types if provided (plural)
-            if (Array.isArray(details.rpc_types) && details.rpc_types.length > 0) {
-                entries.push({ key: 'rpc_types', label: 'RPC Type', value: (details.rpc_types as string[]).join(', ') });
+            if (details.summary && typeof details.summary === 'object') {
+                const s = details.summary as Record<string, unknown>;
+                if (s.total_scans !== undefined) entries.push({ key: 'total_scans', label: 'Total Scans', value: String(s.total_scans) });
+                if (s.serviceable_count !== undefined) entries.push({ key: 'serviceable', label: 'Serviceable Count', value: String(s.serviceable_count) });
+                if (s.unserviceable_count !== undefined) entries.push({ key: 'unserviceable', label: 'Unserviceable Count', value: String(s.unserviceable_count) });
             }
             return entries;
         }
 
-        const pairs: Array<[string, unknown]> = [
-            ['property_number', log.property_number],
-            ['condition_id', log.condition_id],
-            ['previous_condition_id', log.previous_condition_id],
-            ['previous_remarks', log.previous_remarks],
-            ['new_remarks', log.new_remarks],
-            ['rpc_type', details.rpc_type],
-            ['source', details.source ?? log.source],
-            ['scanned_at', details.scanned_at],
-        ];
-
-        // For bulk actions and synced scan entries, hide fields that are not relevant
-        const action = String(log.action ?? '');
-        const hideKeysForBulk = new Set([
-            'previous_condition_id',
-            'previous_remarks',
-            'new_remarks',
-            'scanned_at',
-        ]);
-
-        const shouldHideBulkFields = action === 'scan_created_bulk' || action === 'scan_synced' || action.startsWith('sync_batch');
-
-        pairs.forEach(([key, value]) => {
-            if (shouldHideBulkFields && hideKeysForBulk.has(key)) return;
-            const formattedValue = formatAuditFieldValue(key, value);
-            if (formattedValue) {
-                entries.push({ key, label: formatAuditFieldLabel(key), value: formattedValue });
+        if (log.action === 'cycle_reopened') {
+            if (details.reopen_reason) {
+                entries.push({ key: 'reopen_reason', label: 'Reopen Reason', value: String(details.reopen_reason) });
             }
-        });
+            if (details.reopen_count !== undefined) {
+                entries.push({ key: 'reopen_count', label: 'Reopen Count', value: `${details.reopen_count} of 2` });
+            }
+            return entries;
+        }
+
+        // 5. Default / scan_created / scan_synced / scan_deleted
+        const condition = formatAuditFieldValue('condition_id', log.condition_id || details.condition_id || log.scan?.condition_id);
+        if (condition) {
+            entries.push({ key: 'condition', label: 'Condition', value: condition });
+        }
+
+        const rpcType = (details.rpc_type as string) || log.scan?.rpc_type;
+        if (rpcType) entries.push({ key: 'rpc_type', label: 'RPC Type', value: rpcType });
+
+        const article = (details.article as string) || log.scan?.article;
+        if (article) entries.push({ key: 'article', label: 'Article', value: article });
+
+        const description = (details.description as string) || log.scan?.description;
+        if (description) entries.push({ key: 'description', label: 'Description', value: description });
+
+        const officer = (details.accountable_officer as string) || log.scan?.accountable_officer;
+        if (officer) entries.push({ key: 'accountable_officer', label: 'Accountable Officer', value: normalizeAccountableOfficer(officer) });
+
+        const remarks = (details.remarks as string) || log.new_remarks || log.previous_remarks || log.scan?.remarks;
+        if (remarks && remarks.trim() !== '') {
+            entries.push({ key: 'remarks', label: 'Remarks', value: remarks.trim() });
+        }
 
         return entries;
     };
@@ -556,24 +682,61 @@ export function RpcInventoryPage() {
             }
         }
 
-        return Array.from(grouped.entries()).map(([key, groupedList]) => {
-            const sorted = [...groupedList].sort(
-                (a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime()
-            );
-            const oldestScan = [...sorted].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            )[0];
-            const propertyNumbers = extractPropertyNumbers(sorted);
-            return {
-                key,
-                primaryScan: sorted[0],
-                groupScans: sorted,
-                propertyNumbersPreview: buildPropertyNumbersPreview(sorted),
-                propertyNumbersFull: propertyNumbers,
-                scansCount: sorted.length,
-                createdMonth: formatCreatedMonth(oldestScan?.created_month || oldestScan?.created_at),
-            };
-        });
+        return Array.from(grouped.entries())
+            .map(([key, groupedList]) => {
+                const sorted = [...groupedList].sort((a, b) => {
+                    const timeDiff = new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime();
+                    if (timeDiff !== 0) return timeDiff;
+                    return (b.id || 0) - (a.id || 0);
+                });
+                const oldestScan = [...sorted].sort(
+                    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                )[0];
+                const propertyNumbers = extractPropertyNumbers(sorted);
+
+                const conditionCounts = new Map<string, number>();
+                for (const s of sorted) {
+                    const name = s.condition?.ConditionName?.trim() || 'Unknown';
+                    conditionCounts.set(name, (conditionCounts.get(name) || 0) + 1);
+                }
+
+                const conditionsSummary: ConditionBadgeSummary[] = Array.from(conditionCounts.entries())
+                    .map(([name, count]) => {
+                        const lower = name.toLowerCase();
+                        return {
+                            name,
+                            count,
+                            isUnserviceable: lower.includes('unserviceable'),
+                            isServiceable: lower === 'serviceable',
+                        };
+                    })
+                    .sort((a, b) => {
+                        if (a.isServiceable && !b.isServiceable) return -1;
+                        if (!a.isServiceable && b.isServiceable) return 1;
+                        if (a.isUnserviceable && !b.isUnserviceable) return -1;
+                        if (!a.isUnserviceable && b.isUnserviceable) return 1;
+                        return a.name.localeCompare(b.name);
+                    });
+
+                return {
+                    key,
+                    primaryScan: sorted[0],
+                    groupScans: sorted,
+                    propertyNumbersPreview: buildPropertyNumbersPreview(sorted),
+                    propertyNumbersFull: propertyNumbers,
+                    scansCount: sorted.length,
+                    createdMonth: formatCreatedMonth(oldestScan?.created_month || oldestScan?.created_at),
+                    conditionsSummary,
+                };
+            })
+            .sort((a, b) => {
+                const timeA = new Date(a.primaryScan?.scanned_at || 0).getTime();
+                const timeB = new Date(b.primaryScan?.scanned_at || 0).getTime();
+                if (timeB !== timeA) {
+                    return timeB - timeA;
+                }
+                return (b.primaryScan?.id || 0) - (a.primaryScan?.id || 0);
+            });
     }, [scans, propertyTypeFilter, search, typeFilter]);
 
     const SCANNED_ASSETS_PER_PAGE = 10;
@@ -747,7 +910,7 @@ export function RpcInventoryPage() {
     };
 
     useEffect(() => {
-        if (scanMode === 'camera') {
+        if (scanMode === 'camera' && !isCycleClosed) {
             void startCamera();
         } else {
             stopCamera();
@@ -755,13 +918,16 @@ export function RpcInventoryPage() {
 
         return () => stopCamera();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scanMode]);
+    }, [scanMode, isCycleClosed]);
 
     const handleCreateCurrentCycle = async () => {
         try {
-            await createCurrentRpcInventoryCycle();
+            const res = await createCurrentRpcInventoryCycle();
             toast.success('Current inventory cycle is ready.');
             await loadCycles();
+            if (res?.cycle?.id) {
+                setSelectedCycleId(res.cycle.id);
+            }
         } catch (error: unknown) {
             const serverMessage =
                 typeof error === 'object' && error !== null && 'response' in error && (error as any).response?.data?.message
@@ -792,7 +958,11 @@ export function RpcInventoryPage() {
     };
 
     const handleRequestReopen = async () => {
-        if (!selectedCycleId) return;
+        if (!selectedCycleId || !selectedCycle) return;
+        if (isPermanentlyClosed) {
+            toast.error("This cycle has reached the maximum reopen limit (2) and can't be open again.");
+            return;
+        }
         try {
             const info = await getReopenRequest(selectedCycleId);
             setReopenInfo(info);
@@ -814,6 +984,11 @@ export function RpcInventoryPage() {
     const handlePreview = async (target: ParsedRpcScanTarget, rawValue?: string) => {
         if (!selectedCycleId) {
             toast.error('Select a cycle first.');
+            return;
+        }
+
+        if (isCycleClosed) {
+            toast.error('Cannot scan in a closed inventory cycle. Cycle is locked.');
             return;
         }
 
@@ -840,7 +1015,9 @@ export function RpcInventoryPage() {
                 ? [preview.asset.inventory_detail_id]
                 : (unscannedIds[0] ? [unscannedIds[0]] : []);
             setSelectedInventoryDetailIds(defaultSelection);
-            if (conditions.length > 0) {
+            if (preview.asset.condition_id) {
+                setConditionId(preview.asset.condition_id);
+            } else if (conditions.length > 0) {
                 setConditionId(conditions[0].ConditionID);
             }
 
@@ -886,8 +1063,39 @@ export function RpcInventoryPage() {
         }
     };
 
+    const handlePreviewConditionChange = async (newConditionId: number) => {
+        setConditionId(newConditionId);
+        if (!selectedCycleId || !previewAsset) return;
+
+        const detailId = previewAsset.inventory_detail_id;
+        const propId = previewAsset.property_id ?? undefined;
+        if (!detailId && !propId) return;
+
+        try {
+            setUpdatingPreviewCondition(true);
+            await updateRpcAssetCondition(selectedCycleId, {
+                inventory_detail_id: detailId || undefined,
+                property_id: propId,
+                condition_id: newConditionId,
+            });
+            const condName = conditions.find((c) => c.ConditionID === newConditionId)?.ConditionName ?? 'updated condition';
+            toast.success(`Inventory condition updated to ${condName}`);
+            setPreviewAsset((prev) => prev ? { ...prev, condition_id: newConditionId, condition_name: condName } : null);
+            void loadScans();
+        } catch (error) {
+            console.error('Failed to sync condition to inventory:', error);
+            toast.error('Failed to update inventory condition. Please try again.');
+        } finally {
+            setUpdatingPreviewCondition(false);
+        }
+    };
+
     const handleSubmitScan = async () => {
         if (!selectedCycleId || !previewAsset) return;
+        if (isCycleClosed) {
+            toast.error('Cannot submit scans in a closed inventory cycle. Cycle is locked.');
+            return;
+        }
         if (!conditionId) {
             toast.error('Select a condition first.');
             return;
@@ -945,6 +1153,10 @@ export function RpcInventoryPage() {
     };
 
     const handleOpenEdit = (group: GroupedScanRow) => {
+        if (isCycleClosed) {
+            toast.error('Cannot edit scans in a closed inventory cycle.');
+            return;
+        }
         setEditingGroup(group);
         setEditingItems(
             group.groupScans.map((scan) => ({
@@ -961,6 +1173,10 @@ export function RpcInventoryPage() {
 
     const handleUpdateGroupScans = async () => {
         if (!editingGroup) return;
+        if (isCycleClosed) {
+            toast.error('Cannot update scans in a closed inventory cycle.');
+            return;
+        }
 
         const selectedItems = editingItems.filter((item) => item.included);
         const removedItems = editingItems.filter((item) => !item.included);
@@ -1012,12 +1228,20 @@ export function RpcInventoryPage() {
     };
 
     const handleDeleteGroup = (group: GroupedScanRow) => {
+        if (isCycleClosed) {
+            toast.error('Cannot remove scans from a closed inventory cycle.');
+            return;
+        }
         setDeletingGroup(group);
         setDeleteDialogOpen(true);
     };
 
     const handleConfirmDeleteGroup = async () => {
         if (!deletingGroup || !selectedCycleId) return;
+        if (isCycleClosed) {
+            toast.error('Cannot remove scans from a closed inventory cycle.');
+            return;
+        }
 
         try {
             setDeletingGroupLoading(true);
@@ -1051,6 +1275,11 @@ export function RpcInventoryPage() {
     const onPreviewFromInput = async () => {
         if (!selectedCycleId) {
             toast.error('Select a cycle first.');
+            return;
+        }
+
+        if (isCycleClosed) {
+            toast.error('Cannot scan in a closed inventory cycle. Cycle is locked.');
             return;
         }
 
@@ -1099,7 +1328,9 @@ export function RpcInventoryPage() {
                 ? [preview.asset.inventory_detail_id]
                 : (unscannedIds[0] ? [unscannedIds[0]] : []);
             setSelectedInventoryDetailIds(defaultSelection);
-            if (conditions.length > 0) {
+            if (preview.asset.condition_id) {
+                setConditionId(preview.asset.condition_id);
+            } else if (conditions.length > 0) {
                 setConditionId(conditions[0].ConditionID);
             }
 
@@ -1212,11 +1443,17 @@ export function RpcInventoryPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <label className="text-sm">
-                                    <span className="block text-slate-600 mb-1">Condition</span>
+                                    <span className="block text-slate-600 mb-1 flex items-center justify-between">
+                                        <span>Condition</span>
+                                        {updatingPreviewCondition && (
+                                            <span className="text-xs text-blue-600 animate-pulse font-medium">Syncing with inventory...</span>
+                                        )}
+                                    </span>
                                     <select
                                         value={conditionId}
-                                        onChange={(e) => setConditionId(Number(e.target.value))}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                        onChange={(e) => void handlePreviewConditionChange(Number(e.target.value))}
+                                        disabled={updatingPreviewCondition}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
                                     >
                                         {conditions
                                             .filter((condition) => condition.ConditionName !== 'Under Repair')
@@ -1226,6 +1463,9 @@ export function RpcInventoryPage() {
                                                 </option>
                                             ))}
                                     </select>
+                                    <span className="text-[11px] text-slate-500 mt-1 block">
+                                        Changing condition here directly updates Inventory & All Items.
+                                    </span>
                                 </label>
                                 <label className="text-sm">
                                     <span className="block text-slate-600 mb-1">Quantity Counted</span>
@@ -1449,9 +1689,10 @@ export function RpcInventoryPage() {
                                         key={cycle.id}
                                         type="button"
                                         onClick={() => setSelectedCycleId(cycle.id)}
-                                        className={`text-left rounded-xl border p-4 transition-all ${isSelected
-                                            ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                            : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+                                        title={`Click to view ${cycle.cycle_label}`}
+                                        className={`text-left rounded-xl border p-4 transition-all cursor-pointer ${isSelected
+                                            ? 'border-slate-900 bg-slate-900 text-white shadow-md ring-2 ring-slate-900'
+                                            : 'border-slate-200 bg-white hover:border-slate-400 hover:shadow-md'
                                             }`}
                                     >
                                         <div className={`text-[11px] uppercase tracking-wide ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>{cycle.status}</div>
@@ -1481,7 +1722,7 @@ export function RpcInventoryPage() {
                 {selectedCycle ? (
                     <>
                         <RpcCycleStatusBanner
-                            status={selectedCycle.status as 'active' | 'closed' | 'permanently_locked'}
+                            status={isPermanentlyClosed ? 'permanently_locked' : (selectedCycle.status as 'active' | 'closed' | 'permanently_locked')}
                             closedAt={selectedCycle.closed_at}
                             reopenCount={selectedCycle.reopen_count}
                             closeReason={selectedCycle.close_reason}
@@ -1519,16 +1760,30 @@ export function RpcInventoryPage() {
                                                 Close Cycle
                                             </Button>
                                         )}
-                                        {isAdmin && selectedCycle.status === 'closed' && (
-                                            <Button
-                                                onClick={handleRequestReopen}
-                                                size="sm"
-                                                variant="outline"
-                                                className="border-green-600 text-green-600 hover:bg-green-50"
-                                            >
-                                                <Unlock className="w-4 h-4 mr-1" />
-                                                Reopen Cycle
-                                            </Button>
+                                        {selectedCycle.status === 'closed' && (
+                                            isPermanentlyClosed ? (
+                                                <Button
+                                                    type="button"
+                                                    disabled
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="border-slate-300 text-slate-400 bg-slate-100 cursor-not-allowed disabled:cursor-not-allowed opacity-75 select-none"
+                                                    title="Maximum reopens (2) reached. This cycle can't be open again."
+                                                >
+                                                    <Lock className="w-4 h-4 mr-1 text-slate-400" />
+                                                    Can&apos;t be open again
+                                                </Button>
+                                            ) : isAdmin ? (
+                                                <Button
+                                                    onClick={handleRequestReopen}
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="border-green-600 text-green-600 hover:bg-green-50 cursor-pointer"
+                                                >
+                                                    <Unlock className="w-4 h-4 mr-1" />
+                                                    Reopen Cycle
+                                                </Button>
+                                            ) : null
                                         )}
                                     </div>
                                 </div>
@@ -1536,15 +1791,29 @@ export function RpcInventoryPage() {
                                 <div className="bg-slate-100 rounded-xl p-1 inline-flex gap-1">
                                     <button
                                         type="button"
+                                        disabled={isCycleClosed}
                                         onClick={() => setScanMode('paste')}
-                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${scanMode === 'paste' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                            isCycleClosed
+                                                ? 'cursor-not-allowed text-slate-400 disabled:cursor-not-allowed'
+                                                : scanMode === 'paste'
+                                                ? 'bg-white shadow-sm text-slate-900'
+                                                : 'text-slate-600 hover:text-slate-900'
+                                        }`}
                                     >
                                         <QrCode className="w-4 h-4 inline mr-1" /> Paste / Manual
                                     </button>
                                     <button
                                         type="button"
+                                        disabled={isCycleClosed}
                                         onClick={() => setScanMode('camera')}
-                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${scanMode === 'camera' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                            isCycleClosed
+                                                ? 'cursor-not-allowed text-slate-400 disabled:cursor-not-allowed'
+                                                : scanMode === 'camera'
+                                                ? 'bg-white shadow-sm text-slate-900'
+                                                : 'text-slate-600 hover:text-slate-900'
+                                        }`}
                                     >
                                         <Camera className="w-4 h-4 inline mr-1" /> Camera
                                     </button>
@@ -1552,29 +1821,62 @@ export function RpcInventoryPage() {
 
                                 {scanMode === 'paste' ? (
                                     <div className="flex flex-col md:flex-row gap-2">
-                                        <input
-                                            value={scanInput}
-                                            onChange={(e) => setScanInput(e.target.value)}
-                                            placeholder="Property Number (e.g. 2026-000003)"
-                                            className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl"
-                                        />
+                                        <div className="relative flex-1">
+                                            <input
+                                                value={scanInput}
+                                                disabled={isCycleClosed}
+                                                onChange={(e) => setScanInput(e.target.value)}
+                                                placeholder={isCycleClosed ? "Scanning disabled - cycle is closed" : "Property Number (e.g. 2026-000003)"}
+                                                className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl ${
+                                                    isCycleClosed
+                                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed disabled:cursor-not-allowed'
+                                                        : ''
+                                                }`}
+                                            />
+                                            {isCycleClosed && (
+                                                <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                            )}
+                                        </div>
                                         <Button
-                                            className="w-auto bg-[var(--primary)] hover:bg-[var(--primary-hover)]"
+                                            className={`w-auto ${
+                                                isCycleClosed
+                                                    ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed disabled:cursor-not-allowed hover:bg-slate-200'
+                                                    : 'bg-[var(--primary)] hover:bg-[var(--primary-hover)]'
+                                            }`}
                                             size="sm"
                                             onClick={() => void onPreviewFromInput()}
-                                            disabled={previewProcessing}
+                                            disabled={isCycleClosed || previewProcessing}
                                         >
-                                            {previewProcessing ? 'Processing...' : 'Preview Scan'}
+                                            {isCycleClosed ? (
+                                                <>
+                                                    <Lock className="w-3.5 h-3.5 mr-1 inline" />
+                                                    Locked
+                                                </>
+                                            ) : previewProcessing ? (
+                                                'Processing...'
+                                            ) : (
+                                                'Preview Scan'
+                                            )}
                                         </Button>
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
-                                        <div className="rounded-xl overflow-hidden border border-slate-200 bg-black">
-                                            <video ref={videoRef} className="w-full h-[340px] object-cover" muted playsInline />
-                                        </div>
-                                        <div className="text-sm text-slate-600">
-                                            {cameraReady ? 'Point the camera to a property QR code.' : 'Starting camera...'}
-                                        </div>
+                                        {isCycleClosed ? (
+                                            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-2 cursor-not-allowed">
+                                                <Lock className="w-8 h-8 text-slate-400" />
+                                                <p className="font-semibold text-slate-700">Camera scanning is blocked</p>
+                                                <p className="text-xs text-slate-500">This cycle is closed and read-only. No scans can be performed.</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="rounded-xl overflow-hidden border border-slate-200 bg-black">
+                                                    <video ref={videoRef} className="w-full h-[340px] object-cover" muted playsInline />
+                                                </div>
+                                                <div className="text-sm text-slate-600">
+                                                    {cameraReady ? 'Point the camera to a property QR code.' : 'Starting camera...'}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1699,7 +2001,31 @@ export function RpcInventoryPage() {
                                                         <td className="px-4 py-3">{scan.article || scan.description || '-'}</td>
                                                         <td className="px-4 py-3">{normalizeAccountableOfficer(scan.accountable_officer) || '-'}</td>
 
-                                                        <td className="px-4 py-3">{scan.condition?.ConditionName || '-'}</td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                {group.conditionsSummary && group.conditionsSummary.length > 0 ? (
+                                                                    group.conditionsSummary.map((c) => (
+                                                                        <span
+                                                                            key={c.name}
+                                                                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                                                                c.isUnserviceable
+                                                                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                                                    : c.isServiceable
+                                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                                                                            }`}
+                                                                        >
+                                                                            {c.name}
+                                                                            {group.conditionsSummary.length > 1 || group.scansCount > 1 ? (
+                                                                                <span className="ml-1 opacity-80">({c.count})</span>
+                                                                            ) : null}
+                                                                        </span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="text-slate-500">{scan.condition?.ConditionName || '-'}</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                         <td className="px-4 py-3 text-center">
                                                             {group.scansCount > 1 ? (
                                                                 <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
@@ -1713,17 +2039,27 @@ export function RpcInventoryPage() {
                                                             <div className="inline-flex gap-1">
                                                                 <button
                                                                     type="button"
+                                                                    disabled={isCycleClosed}
                                                                     onClick={() => handleOpenEdit(group)}
-                                                                    className="p-2 rounded-md border border-slate-200 hover:bg-slate-100"
-                                                                    title="Edit"
+                                                                    className={`p-2 rounded-md border ${
+                                                                        isCycleClosed
+                                                                            ? 'border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed disabled:cursor-not-allowed'
+                                                                            : 'border-slate-200 hover:bg-slate-100 cursor-pointer text-slate-700'
+                                                                    }`}
+                                                                    title={isCycleClosed ? "Cycle is closed. Editing is blocked." : "Edit"}
                                                                 >
                                                                     <Edit3 className="w-4 h-4" />
                                                                 </button>
                                                                 <button
                                                                     type="button"
+                                                                    disabled={isCycleClosed}
                                                                     onClick={() => handleDeleteGroup(group)}
-                                                                    className="p-2 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
-                                                                    title="Remove"
+                                                                    className={`p-2 rounded-md border ${
+                                                                        isCycleClosed
+                                                                            ? 'border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed disabled:cursor-not-allowed'
+                                                                            : 'border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer'
+                                                                    }`}
+                                                                    title={isCycleClosed ? "Cycle is closed. Deletion is blocked." : "Remove"}
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
                                                                 </button>
@@ -1934,45 +2270,75 @@ export function RpcInventoryPage() {
 
                                     <div className="space-y-2">
                                         {(() => {
-                                            const allEntries = formatDetailEntries(selectedAuditLog);
-                                            let entriesToShow = allEntries;
-
-                                            if (selectedAuditLog.action === 'scan_deleted') {
-                                                entriesToShow = allEntries.filter((e) => ['property_number'].includes(e.key));
-                                            } else if (selectedAuditLog.action === 'scan_created') {
-                                                entriesToShow = allEntries.filter((e) => !['before_condition_id', 'previous_condition_id', 'previous_remarks', 'new_remarks', 'scanned_at'].includes(e.key));
-                                            }
+                                            const entriesToShow = formatDetailEntries(selectedAuditLog);
 
                                             if (entriesToShow.length === 0) {
-                                                return <div className="text-slate-500">No additional details.</div>;
+                                                return <div className="text-slate-500 py-2">No additional details recorded.</div>;
                                             }
 
                                             return entriesToShow.map((entry) => {
                                                 const fieldKey = `${selectedAuditLog.AuditID}:${entry.key}`;
                                                 const expanded = expandedAuditFields.has(fieldKey);
-                                                const longValue = entry.value.length > 120;
+                                                const isLong = entry.value.length > 120;
+
+                                                const isCondition = entry.key === 'condition' || entry.key === 'after_condition';
+                                                const isConditionDiff = entry.key === 'condition_diff';
+
                                                 return (
-                                                    <button
+                                                    <div
                                                         key={fieldKey}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setExpandedAuditFields((prev) => {
-                                                                const next = new Set(prev);
-                                                                if (next.has(fieldKey)) {
-                                                                    next.delete(fieldKey);
-                                                                } else {
-                                                                    next.add(fieldKey);
-                                                                }
-                                                                return next;
-                                                            });
-                                                        }}
-                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left"
+                                                        className="rounded-xl border border-slate-200 bg-white p-3 text-left"
                                                     >
-                                                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{entry.label}</div>
-                                                        <div className={`text-slate-900 ${!expanded && longValue ? 'truncate' : ''}`}>
-                                                            {expanded || !longValue ? entry.value : `${entry.value.slice(0, 117)}...`}
-                                                        </div>
-                                                    </button>
+                                                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">{entry.label}</div>
+                                                        {isConditionDiff ? (
+                                                            <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                                                                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">{entry.value.split(' ➔ ')[0]}</span>
+                                                                <span className="text-slate-400">➔</span>
+                                                                <span className={`px-2 py-0.5 rounded font-semibold ${
+                                                                    entry.value.split(' ➔ ')[1]?.toLowerCase().includes('unserviceable')
+                                                                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                                }`}>
+                                                                    {entry.value.split(' ➔ ')[1] || entry.value}
+                                                                </span>
+                                                            </div>
+                                                        ) : isCondition ? (
+                                                            <div>
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                                                    entry.value.toLowerCase().includes('unserviceable')
+                                                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                                        : entry.value.toLowerCase() === 'serviceable'
+                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                                                                }`}>
+                                                                    {entry.value}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-slate-900 break-words whitespace-pre-wrap">
+                                                                {!expanded && isLong ? `${entry.value.slice(0, 120)}...` : entry.value}
+                                                                {isLong && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setExpandedAuditFields((prev) => {
+                                                                                const next = new Set(prev);
+                                                                                if (next.has(fieldKey)) {
+                                                                                    next.delete(fieldKey);
+                                                                                } else {
+                                                                                    next.add(fieldKey);
+                                                                                }
+                                                                                return next;
+                                                                            });
+                                                                        }}
+                                                                        className="ml-2 text-xs font-semibold text-blue-600 hover:underline"
+                                                                    >
+                                                                        {expanded ? 'Show less' : 'Show more'}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 );
                                             });
                                         })()}
@@ -1986,6 +2352,7 @@ export function RpcInventoryPage() {
                                 cycleId={selectedCycleId!}
                                 cycleName={cycleDisplayLabel}
                                 summary={closeSummary}
+                                reopenCount={selectedCycle?.reopen_count ?? closeSummary.reopen_count ?? 0}
                                 onClose={() => setShowCloseModal(false)}
                                 onSuccess={handleCloseSuccess}
                             />
