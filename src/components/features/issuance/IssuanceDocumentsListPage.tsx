@@ -51,12 +51,12 @@ const statusConfig = {
 const documentTypeConfig = {
     PAR: {
         label: 'PAR',
-        color: 'bg-purple-100 text-purple-800',
+        color: 'bg-amber-50 text-amber-800 border border-amber-200',
         fullName: 'Property Acknowledgment Receipt'
     },
     ICS: {
         label: 'ICS',
-        color: 'bg-indigo-100 text-indigo-800',
+        color: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
         fullName: 'Inventory Custodian Slip'
     },
 } satisfies Record<AssetIssuance['DocumentType'], { label: string; color: string; fullName: string }>;
@@ -90,7 +90,8 @@ interface IssuanceDocumentsListPageProps {
     baseRoute: string;
     pageTitle?: string;
     pageDescription?: string;
-    fixedDocumentType: 'PAR' | 'ICS';
+    fixedDocumentType?: 'PAR' | 'ICS';
+    defaultDocumentType?: 'PAR' | 'ICS';
 }
 
 const ROWS_PER_PAGE = 10;
@@ -173,13 +174,14 @@ export function IssuanceDocumentsListPage({
     pageTitle,
     pageDescription,
     fixedDocumentType,
+    defaultDocumentType,
 }: IssuanceDocumentsListPageProps) {
     const [allGroups, setAllGroups] = useState<GroupedIssuance[]>([]);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isFetching, setIsFetching] = useState(false);
     const [filters, setFilters] = useState<AssetIssuanceFilters>(() => ({
         status: undefined,
-        document_type: fixedDocumentType,
+        document_type: fixedDocumentType ?? defaultDocumentType,
     }));
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -187,13 +189,32 @@ export function IssuanceDocumentsListPage({
     const [totalEntries, setTotalEntries] = useState(0);
     const [serverPaginated, setServerPaginated] = useState(false);
 
+    const [overallCounts, setOverallCounts] = useState<{ all: number; par: number; ics: number } | null>(null);
+
     const detailsBaseRoute = useMemo(
-        () => baseRoute.replace(/\/(par|ics)\/?$/i, ''),
+        () => baseRoute.replace(/\/(par|ics|documents)\/?$/i, ''),
         [baseRoute]
     );
 
-    // Keep the document type locked for this page.
+    const totalCounts = useMemo(() => {
+        if (overallCounts) return overallCounts;
+        let all = 0;
+        let par = 0;
+        let ics = 0;
+        for (const g of allGroups) {
+            for (const iss of g.issuances) {
+                if (filters.status && iss.Status !== filters.status) continue;
+                all++;
+                if (iss.DocumentType === 'PAR') par++;
+                else if (iss.DocumentType === 'ICS') ics++;
+            }
+        }
+        return { all, par, ics };
+    }, [overallCounts, allGroups, filters.status]);
+
+    // Keep the document type locked for this page only if fixedDocumentType is provided
     useEffect(() => {
+        if (!fixedDocumentType) return;
         setFilters(prev => (
             prev.document_type === fixedDocumentType
                 ? prev
@@ -207,6 +228,7 @@ export function IssuanceDocumentsListPage({
 
             const response = await issuanceAPI.getAll({
                 ...filters,
+                search: searchTerm.trim() || undefined,
                 page,
                 per_page: ROWS_PER_PAGE,
             });
@@ -216,6 +238,11 @@ export function IssuanceDocumentsListPage({
                 current_page?: number;
                 last_page?: number;
                 total?: number;
+                counts?: {
+                    all: number;
+                    par: number;
+                    ics: number;
+                };
                 pagination?: {
                     current_page?: number;
                     last_page?: number;
@@ -227,6 +254,10 @@ export function IssuanceDocumentsListPage({
                     total?: number;
                 };
             };
+
+            if (responseAny.counts && typeof responseAny.counts.all === 'number') {
+                setOverallCounts(responseAny.counts);
+            }
 
             const grouped = Array.isArray(responseAny.data) ? responseAny.data : [];
 
@@ -280,7 +311,7 @@ export function IssuanceDocumentsListPage({
             setIsFetching(false);
             setIsInitialLoading(false);
         }
-    }, [filters]);
+    }, [filters, searchTerm]);
 
     useEffect(() => {
         loadDocuments(1);
@@ -322,6 +353,11 @@ export function IssuanceDocumentsListPage({
         return flattenGroups(filteredGroups, filters);
     }, [filteredGroups, filters]);
 
+    // Reset to page 1 whenever filters or search term change so filtered results are immediately visible
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filters, searchTerm]);
+
     // Recompute client-side pagination totals whenever allRows changes.
     useEffect(() => {
         if (serverPaginated) return;
@@ -350,17 +386,19 @@ export function IssuanceDocumentsListPage({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">
-                            {pageTitle || `${fixedDocumentType} Documents`}
+                            {pageTitle || (fixedDocumentType ? `${fixedDocumentType} Documents` : 'PAR & ICS Documents')}
                         </h1>
                         <p className="text-slate-500 text-sm">
-                            {pageDescription || `Browse and manage ${documentTypeConfig[fixedDocumentType].fullName} documents (one-by-one)`}
+                            {pageDescription || (fixedDocumentType
+                                ? `Browse and manage ${documentTypeConfig[fixedDocumentType].fullName} documents (one-by-one)`
+                                : 'Consolidated register for Property Acknowledgment Receipts (PAR) and Inventory Custodian Slips (ICS).')}
                         </p>
                     </div>
                     <div className="flex gap-2">
                         <button
                             onClick={handleRefresh}
                             disabled={isFetching}
-                            className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                            className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg hover:bg-slate-50 shadow-2xs transition-colors disabled:opacity-50"
                         >
                             <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Refresh</span>
@@ -369,32 +407,85 @@ export function IssuanceDocumentsListPage({
                 </div>
 
                 {/* Filters */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex flex-col sm:flex-row gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    {/* Document Type Tabs (when not hard-locked to one type) */}
+                    {!fixedDocumentType && (
+                        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Type:</span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFilters(prev => ({ ...prev, document_type: undefined }));
+                                    setCurrentPage(1);
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${!filters.document_type ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            >
+                                <span>All Documents</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${!filters.document_type ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                                    {totalCounts.all}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFilters(prev => ({ ...prev, document_type: 'PAR' }));
+                                    setCurrentPage(1);
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${filters.document_type === 'PAR' ? 'bg-amber-600 text-white shadow-xs' : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'}`}
+                            >
+                                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                                <span>PAR</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${filters.document_type === 'PAR' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'}`}>
+                                    {totalCounts.par}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFilters(prev => ({ ...prev, document_type: 'ICS' }));
+                                    setCurrentPage(1);
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${filters.document_type === 'ICS' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'}`}
+                            >
+                                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                <span>ICS</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${filters.document_type === 'ICS' ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-900'}`}>
+                                    {totalCounts.ics}
+                                </span>
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-3">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
                                 placeholder="Search document number, DR number, requester, or department..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                             />
                         </div>
                         <div className="flex gap-2">
                             <select
                                 value={filters.status || ''}
-                                onChange={(e) => setFilters(prev => ({
-                                    ...prev,
-                                    status: (e.target.value || undefined) as AssetIssuanceFilters['status']
-                                }))}
-                                className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                onChange={(e) => {
+                                    setFilters(prev => ({
+                                        ...prev,
+                                        status: (e.target.value || undefined) as AssetIssuanceFilters['status']
+                                    }));
+                                    setCurrentPage(1);
+                                }}
+                                aria-label="Filter documents by status"
+                                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 bg-white"
                             >
                                 <option value="">All Status</option>
-                                <option value="pending_acknowledgment">Pending Acknowledgment</option>
                                 <option value="acknowledged">Acknowledged</option>
-                                <option value="returned">Returned</option>
-                                <option value="disposed">Disposed</option>
+                                <option value="pending_acknowledgment">Pending</option>
                             </select>
                         </div>
                     </div>
@@ -421,63 +512,69 @@ export function IssuanceDocumentsListPage({
                             ))}
                         </div>
                     ) : visibleRows.length === 0 ? (
-                        <div className="p-8 text-center text-slate-500">
+                        <div className="p-12 text-center text-slate-500">
                             <Package className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                            <h3 className="text-lg font-medium text-slate-400 mb-1">No Documents Found</h3>
-                            <p className="text-sm text-slate-400">
-                                {searchTerm ? 'Try adjusting your search terms' : 'No issuance documents have been created yet'}
+                            <h3 className="text-base font-semibold text-slate-700 mb-1">No Documents Found</h3>
+                            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                                {searchTerm ? 'Try adjusting your search terms or filters' : 'No issuance documents match the selected filter'}
                             </p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-slate-200">
+                        <div className="divide-y divide-slate-100">
                             {visibleRows.map((row) => {
                                 const issuance = row.issuance;
                                 const StatusIcon = statusConfig[issuance.Status]?.icon ?? AlertCircle;
+                                const isPar = issuance.DocumentType === 'PAR';
 
                                 return (
-                                    <div key={issuance.IssuanceID} className="p-4 hover:bg-slate-50 transition-colors">
+                                    <div key={issuance.IssuanceID} className="p-4 hover:bg-slate-50/80 transition-colors">
                                         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <div className="font-semibold text-slate-900 truncate">
+                                                    <span className="font-bold text-slate-900 text-sm">
                                                         {issuance.DocumentNumber}
-                                                    </div>
-                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${documentTypeConfig[issuance.DocumentType]?.color || 'bg-gray-100 text-gray-800'}`}>
-                                                        {documentTypeConfig[issuance.DocumentType]?.label || issuance.DocumentType}
                                                     </span>
-                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig[issuance.Status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${isPar ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                                                        {issuance.DocumentType}
+                                                    </span>
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium ${statusConfig[issuance.Status]?.color || 'bg-gray-100 text-gray-800'}`}>
                                                         <StatusIcon className="w-3 h-3" />
                                                         {statusConfig[issuance.Status]?.label || issuance.Status}
                                                     </span>
                                                 </div>
 
-                                                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
-                                                    <span className="flex items-center gap-1">
-                                                        <User className="w-3 h-3" />
+                                                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                                                    <span className="flex items-center gap-1 font-medium text-slate-700">
+                                                        <User className="w-3.5 h-3.5 text-slate-400" />
                                                         {row.requesterName}
                                                     </span>
                                                     <span>{row.departmentName}</span>
-                                                    <span>DR: {issuance.deliveryReceipt?.DRNumber ?? 'N/A'}</span>
+                                                    <span>DR: <span className="font-medium text-slate-700">{issuance.deliveryReceipt?.DRNumber ?? 'N/A'}</span></span>
                                                     <span>Issued: {formatPHDate(issuance.IssuanceDate)}</span>
                                                     <span>Source Date: {formatPHDate(row.RequestDate)}</span>
                                                     {row.itemsCount > 0 && (
-                                                        <span>{row.itemsCount} Item{row.itemsCount !== 1 ? 's' : ''}</span>
+                                                        <span className="font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                            {row.itemsCount} Item{row.itemsCount !== 1 ? 's' : ''}
+                                                        </span>
                                                     )}
                                                 </div>
 
-                                                <div className="mt-1 text-sm text-slate-600">
-                                                    <span className="font-medium">Issued To:</span>{' '}
-                                                    {issuance.issuedToUser?.FullName || issuance.IssuedToName || 'N/A'}
+                                                <div className="mt-1.5 text-xs text-slate-600 flex items-center gap-1.5">
+                                                    <span className="text-slate-400">Accountable Officer:</span>
+                                                    <span className="font-semibold text-slate-800">
+                                                        {issuance.issuedToUser?.FullName || issuance.IssuedToName || 'N/A'}
+                                                    </span>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-2 lg:justify-end">
+                                            <div className="flex items-center gap-2 lg:justify-end shrink-0">
                                                 <Link
                                                     href={`${detailsBaseRoute}/${issuance.IssuanceID}`}
-                                                    className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
-                                                    title="View Details"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:text-[var(--primary)] border border-slate-200 hover:border-slate-300 rounded-lg shadow-2xs transition-all group"
+                                                    title="View Document Details"
                                                 >
-                                                    <Eye className="w-4 h-4" />
+                                                    <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-[var(--primary)] transition-colors" />
+                                                    <span>View</span>
                                                 </Link>
                                             </div>
                                         </div>

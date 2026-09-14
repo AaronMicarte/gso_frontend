@@ -394,6 +394,7 @@ export interface AssetRequestFilters {
 export interface AssetIssuanceFilters {
     status?: AssetIssuance['Status'];
     document_type?: 'PAR' | 'ICS';
+    search?: string;
     per_page?: number;
     page?: number;
 }

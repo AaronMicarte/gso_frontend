@@ -126,8 +126,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                     {
                         label: 'Property Issuance', icon: FileText, children: [
                             { label: 'For Issuance', href: `${baseRoute}/issuance`, icon: FileText },
-                            { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
-                            { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
+                            { label: 'PAR & ICS Documents', href: `${baseRoute}/issuance/documents`, icon: FileCheck },
                             // { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
                             // { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
                         ]
@@ -137,8 +136,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                     {
                         label: 'Property Issuance', icon: FileText, children: [
                             { label: 'Issuance Requests', href: `${baseRoute}/issuance`, icon: FileText },
-                            { label: 'PAR Documents', href: `${baseRoute}/issuance/par`, icon: FileCheck },
-                            { label: 'ICS Documents', href: `${baseRoute}/issuance/ics`, icon: FileText },
+                            { label: 'PAR & ICS Documents', href: `${baseRoute}/issuance/documents`, icon: FileCheck },
                             // { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
                         ]
                     },
@@ -278,7 +276,7 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
     useEffect(() => {
         if (hasChildren && item.children) {
             const hasActiveChild = item.children.some(
-                (child) => child.href && pathname.startsWith(child.href)
+                (child) => (child.href && pathname.startsWith(child.href)) || (/\/issuance\/\d+/.test(pathname) && child.href?.endsWith('/issuance/documents'))
             );
             if (hasActiveChild) {
                 // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -312,7 +310,18 @@ function MenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
                                 const isOtherChildActive = item.children?.some(c => c !== child && c.href === pathname);
 
                                 const isExactMatch = pathname === child.href;
-                                const isPrefixMatch = child.href ? pathname.startsWith(child.href + '/') : false;
+                                let isPrefixMatch = child.href ? pathname.startsWith(child.href + '/') : false;
+
+                                // Special handling for issuance document details (/issuance/123 or /issuance/123/print):
+                                // Viewing an issued document belongs to "PAR & ICS Documents", NOT "For Issuance"
+                                const isIssuanceDetailRoute = /\/issuance\/\d+/.test(pathname);
+                                if (isIssuanceDetailRoute) {
+                                    if (child.href?.endsWith('/issuance/documents')) {
+                                        isPrefixMatch = true;
+                                    } else if (child.href?.endsWith('/issuance')) {
+                                        isPrefixMatch = false;
+                                    }
+                                }
 
                                 const isActive = isExactMatch || (isPrefixMatch && !isOtherChildActive);
 

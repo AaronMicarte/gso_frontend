@@ -1,5 +1,6 @@
 export { IssuanceListPage } from './IssuanceListPage';
 export { IssuanceDocumentsListPage } from './IssuanceDocumentsListPage';
+export { IssuanceCombinedDocumentsPage } from './IssuanceCombinedDocumentsPage';
 export { CreateIssuancePage } from './CreateIssuancePage';
 export { ViewIssuancePage } from './ViewIssuancePage';
 export { PARDocumentsPage } from './PARDocumentsPage';

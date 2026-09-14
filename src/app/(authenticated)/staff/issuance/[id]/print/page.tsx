@@ -3,5 +3,5 @@
 import { IssuanceCombinedPrintView } from '@/components/features/issuance/IssuanceCombinedPrintView';
 
 export default function StaffIssuancePrintPage() {
-    return <IssuanceCombinedPrintView backHref="/staff/issuance" />;
+    return <IssuanceCombinedPrintView backHref="/staff/issuance/documents" />;
 }
