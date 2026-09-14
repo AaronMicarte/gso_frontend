@@ -113,6 +113,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                         children: [
                             { label: 'Property Inventory', href: `${baseRoute}/inventory`, icon: Box },
                             { label: 'All Items', href: `${baseRoute}/inventory/all-items`, icon: Package },
+                            { label: 'Search Property', href: `/qr/search`, icon: Search },
                         ]
                     },
                 ],
@@ -174,12 +175,11 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             items: [
                 {
                     label: 'QR Codes', icon: QrCode, children: [
-                        { label: 'Search Property', href: `/qr/search`, icon: Search },
                         { label: 'RPCPPE / RPCSEP', href: `/qr/rpc-inventory`, icon: ClipboardList },
                     ]
                 },
             ],
-            roles: ['admin', 'staff', 'department_head'],
+            roles: ['admin', 'staff'],
         },
         {
             section: 'USER MANAGEMENT',

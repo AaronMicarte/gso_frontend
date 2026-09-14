@@ -50,7 +50,24 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
     const [saving, setSaving] = React.useState(false);
     const [savingRows, setSavingRows] = React.useState<Record<string, boolean>>({});
     const [loadingHistory, setLoadingHistory] = React.useState(false);
+    const [receiverSuggestions, setReceiverSuggestions] = React.useState<Array<{ receiver_name: string; position_office?: string | null }>>([]);
+    const [activeReceiverDropdown, setActiveReceiverDropdown] = React.useState<string | null>(null);
     const scrollRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        if (!open) return;
+        let isMounted = true;
+        issuanceAPI.getReceiverSuggestions()
+            .then(res => {
+                if (!isMounted) return;
+                const list = Array.isArray(res) ? res : (res?.data || []);
+                setReceiverSuggestions(list);
+            })
+            .catch(err => {
+                console.error("Failed to load receiver suggestions:", err);
+            });
+        return () => { isMounted = false; };
+    }, [open]);
 
     const availableItems = React.useMemo(() => {
         const itemMap: Record<string, { ids: number[]; label: string; maxQty: number }> = {};
@@ -322,15 +339,86 @@ export default function AssignReceiversModal({ open, onOpenChange, issuanceId, d
 
                                         {/* Top section: receiver info */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pt-5 pb-3 border-b border-slate-100">
-                                            <div>
+                                            <div className="relative">
                                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Receiver Name *</label>
                                                 <input
                                                     type="text"
                                                     value={row.receiver_name || ''}
-                                                    onChange={e => updateRow(row.id, { receiver_name: e.target.value })}
+                                                    onFocus={() => setActiveReceiverDropdown(row.id)}
+                                                    onChange={e => {
+                                                        updateRow(row.id, { receiver_name: e.target.value });
+                                                        setActiveReceiverDropdown(row.id);
+                                                    }}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Escape') setActiveReceiverDropdown(null);
+                                                    }}
                                                     placeholder="Enter complete name..."
                                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium text-slate-800"
                                                 />
+
+                                                {activeReceiverDropdown === row.id && (
+                                                    <>
+                                                        <div
+                                                            className="fixed inset-0 z-10"
+                                                            onClick={() => setActiveReceiverDropdown(null)}
+                                                        />
+                                                        <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-20 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                                                            {(() => {
+                                                                const q = (row.receiver_name || '').toLowerCase().trim();
+                                                                const matches = receiverSuggestions.filter(s =>
+                                                                    !q ||
+                                                                    s.receiver_name.toLowerCase().includes(q) ||
+                                                                    (s.position_office && s.position_office.toLowerCase().includes(q))
+                                                                );
+
+                                                                if (matches.length === 0) {
+                                                                    return (
+                                                                        <div className="p-3 text-xs text-slate-400 italic text-center">
+                                                                            {q ? 'No matching receiver found' : 'No previous receivers found'}
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                return matches.map((s, sIdx) => (
+                                                                    <button
+                                                                        key={`${s.receiver_name}_${s.position_office || ''}_${sIdx}`}
+                                                                        type="button"
+                                                                        onMouseDown={(e) => {
+                                                                            e.preventDefault();
+                                                                            updateRow(row.id, {
+                                                                                receiver_name: s.receiver_name,
+                                                                                position_office: s.position_office || row.position_office || '',
+                                                                            });
+                                                                            setActiveReceiverDropdown(null);
+                                                                        }}
+                                                                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-slate-50 flex items-center justify-between gap-2 transition-colors cursor-pointer group"
+                                                                    >
+                                                                        <div className="flex flex-col min-w-0 pr-2">
+                                                                            <span className="font-semibold text-slate-800 group-hover:text-[var(--primary)] transition-colors truncate">
+                                                                                {s.receiver_name}
+                                                                            </span>
+                                                                            {s.position_office ? (
+                                                                                <span className="text-[11px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                                                                                    <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                                                    </svg>
+                                                                                    {s.position_office}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-[10px] text-slate-400 italic">No position specified</span>
+                                                                            )}
+                                                                        </div>
+                                                                        {s.position_office && (
+                                                                            <span className="shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
+                                                                                {s.position_office}
+                                                                            </span>
+                                                                        )}
+                                                                    </button>
+                                                                ));
+                                                            })()}
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Position / Office</label>

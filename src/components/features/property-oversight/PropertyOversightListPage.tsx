@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, RefreshCw, Search, Package, X, Edit3, Check } from 'lucide-react';
+import { Eye, RefreshCw, Search, Package, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
-import { useQrProperties, useUpdatePropertyCondition } from '@/lib/hooks/useQrProperties';
+import { useQrProperties } from '@/lib/hooks/useQrProperties';
 import { useAllPropertyStatuses } from '@/lib/hooks/masterData/usePropertyStatuses';
 import { useAllConditions } from '@/lib/hooks/masterData/useConditions';
 import type { QrScanAssignedProperty } from '@/types/qr';
@@ -30,8 +30,6 @@ function formatPHDate(dateString: string | null | undefined): string {
 }
 
 function getItemName(p: QrScanAssignedProperty): string {
-    // Real item name comes from Delivery Receipt detail (ItemDescription).
-    // propertyinventorydetail.Description is often just remarks/specs (e.g., "good").
     return text(
         p.inventoryDetail?.drDetail?.ItemDescription
         ?? p.inventoryDetail?.Description
@@ -41,8 +39,6 @@ function getItemName(p: QrScanAssignedProperty): string {
 }
 
 function getRequesterName(p: QrScanAssignedProperty): string {
-    // For ICS issuances, show the requester (who requested the asset).
-    // For PAR issuances, show the end user (who is assigned the asset).
     if (p.documentType === 'ICS') {
         return text(p.requester, 'Requester not recorded');
     }
@@ -64,7 +60,6 @@ function isUnserviceableCondition(name: string): boolean {
 function getDocumentType(p: QrScanAssignedProperty): DocumentTypeFilter {
     if (p.documentType === 'PAR') return 'PAR';
     if (p.documentType === 'ICS') return 'ICS';
-    // Fallback to infer from PropertyCardNumber
     const card = (p.PropertyCardNumber ?? '').trim().toUpperCase();
     if (card.startsWith('PAR-')) return 'PAR';
     if (card.startsWith('ICS-')) return 'ICS';
@@ -102,15 +97,8 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<QrScanAssignedProperty | null>(null);
 
-    const [editingConditionPropertyId, setEditingConditionPropertyId] = useState<number | null>(null);
-    const [editingConditionId, setEditingConditionId] = useState<number | ''>('');
-
-    const updatePropertyCondition = useUpdatePropertyCondition();
-
     const openPropertyModal = (property: QrScanAssignedProperty) => {
         setSelectedProperty(property);
-        setEditingConditionPropertyId(null);
-        setEditingConditionId('');
         setIsModalOpen(true);
     };
 
@@ -153,13 +141,6 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
             .map((c) => ({ id: c.id, name: c.name }));
     }, [allConditions]);
 
-    const editableConditionOptions = useMemo(() => {
-        const allowed = new Set(['serviceable', 'unserviceable']);
-        return (allConditions ?? [])
-            .filter((c) => allowed.has((c.name ?? '').trim().toLowerCase()))
-            .map((c) => ({ id: c.id, name: c.name }));
-    }, [allConditions]);
-
     const filtered = useMemo(() => {
         return properties.filter((p) => {
             if (docType !== 'ALL' && getDocumentType(p) !== docType) return false;
@@ -175,23 +156,6 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
 
     const canGoPrev = currentPage > 1;
     const canGoNext = currentPage < totalPages;
-
-    const handleSaveRowCondition = async (property: QrScanAssignedProperty) => {
-        if (!editingConditionId) {
-            toast.error('Choose a condition before saving.');
-            return;
-        }
-
-        try {
-            await updatePropertyCondition.mutateAsync({ propertyId: property.PropertyID, conditionId: Number(editingConditionId) });
-            toast.success('Condition updated successfully.');
-            setEditingConditionPropertyId(null);
-            setEditingConditionId('');
-        } catch (error) {
-            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-            toast.error(message || 'Failed to update condition');
-        }
-    };
 
     return (
         <div
@@ -303,7 +267,6 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                 ) : (
                                     filtered.map((p) => {
                                         const itemName = getItemName(p);
-                                        const title = itemName;
 
                                         const article = getArticleName(p);
                                         const description = getItemDescription(p);
@@ -315,9 +278,6 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                             <tr key={p.PropertyID} className="hover:bg-slate-50">
                                                 <td className="px-6 py-4 font-medium text-slate-900 max-w-[400px]">
                                                     <div className="truncate" title={article}>{article}</div>
-                                                    <div className="text-xs text-slate-500 mt-1">
-                                                        Dept: {deptName}
-                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-700 truncate" title={description}>{description}</td>
                                                 <td className="px-6 py-4 text-slate-700">{propertyNo}</td>
@@ -328,54 +288,9 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    {editingConditionPropertyId === p.PropertyID ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <select
-                                                                value={editingConditionId}
-                                                                onChange={(e) => setEditingConditionId(e.target.value ? Number(e.target.value) : '')}
-                                                                className="px-2 py-1 border border-slate-300 rounded-lg text-sm"
-                                                            >
-                                                                <option value="">Select</option>
-                                                                {editableConditionOptions.map((c) => (
-                                                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                                                ))}
-                                                            </select>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleSaveRowCondition(p)}
-                                                                disabled={updatePropertyCondition.isPending || !editingConditionId}
-                                                                className="text-green-600 hover:text-green-800"
-                                                                title="Save condition"
-                                                            >
-                                                                <Check className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => { setEditingConditionPropertyId(null); setEditingConditionId(''); }}
-                                                                className="text-slate-400 hover:text-slate-700"
-                                                                title="Cancel"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isUnserviceableCondition(getConditionName(p)) ? 'bg-rose-100 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                                                                {getConditionName(p)}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setEditingConditionPropertyId(p.PropertyID);
-                                                                    setEditingConditionId(p.ConditionID || p.condition?.ConditionID || '');
-                                                                }}
-                                                                className="p-1 text-slate-400 hover:text-slate-700"
-                                                                title="Edit condition"
-                                                            >
-                                                                <Edit3 className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isUnserviceableCondition(getConditionName(p)) ? 'bg-rose-100 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                                        {getConditionName(p)}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-700">{formatPHDate(p.AssignedDate)}</td>
                                                 <td className="px-6 py-4 text-right">
@@ -423,6 +338,7 @@ export function PropertyOversightListPage({ baseRoute }: PropertyOversightListPa
                     )}
                 </div>
 
+                {/* Property Details Modal */}
                 {isModalOpen && selectedProperty && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                         <div className="fixed inset-0 bg-black/50" onClick={closePropertyModal} />
