@@ -128,7 +128,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                             { label: 'For Issuance', href: `${baseRoute}/issuance`, icon: FileText },
                             { label: 'PAR & ICS Documents', href: `${baseRoute}/issuance/documents`, icon: FileCheck },
                             // { label: 'RSMI Reports', href: `${baseRoute}/rsmi`, icon: FileBarChart },
-                            // { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
+                            { label: 'RIS Records', href: `${baseRoute}/ris`, icon: FileText },
                         ]
                     },
                 ]

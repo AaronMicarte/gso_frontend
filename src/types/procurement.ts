@@ -95,6 +95,11 @@ export interface DeliveryReceipt {
         };
     };
 
+    // RIS linkage (populated by backend when acknowledgment has created a RIS)
+    ris_id?: number | null;
+    ris_number?: string | null;
+    ris_status?: string | null;
+
     // Relationships
     details?: DeliveryReceiptDetail[];
     receivedByUser?: {

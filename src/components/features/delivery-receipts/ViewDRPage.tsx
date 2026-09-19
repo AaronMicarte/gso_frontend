@@ -34,12 +34,14 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
 
     const resolvedId = drId ?? (params.id ? parseInt(params.id as string, 10) : null);
 
-    // Permissions
-    const canEdit = user?.UserRoleID === 1 || user?.UserRoleID === 2; // Admin or Staff
+    const canEdit = user?.UserRoleID === 1 || user?.UserRoleID === 2;
     const inspectionStatus = dr?.inspection_status || dr?.InspectionStatus || 'pending';
     const isPartial = dr?.is_partial ?? dr?.IsPartial ?? false;
     const workflowStatus = dr?.workflow_status || (inspectionStatus === 'inspected' ? 'to_be_issued' : 'pending_inspection');
     const workflowLabel = dr?.workflow_status_label || (workflowStatus === 'to_be_issued' ? 'For Issuance' : workflowStatus === 'issued' ? 'Issued' : workflowStatus === 'acknowledged' ? 'Issued' : (workflowStatus === 'pending_inspection' ? 'Pending inspection' : ''));
+
+    const risId = (dr as unknown as { ris_id?: number })?.ris_id ?? null;
+    const risNumber = (dr as unknown as { ris_number?: string })?.ris_number ?? null;
 
     useEffect(() => {
         const fetchDR = async () => {
@@ -48,7 +50,6 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                 const data = await getDeliveryReceipt(resolvedId);
                 setDr(data);
 
-                // Ensure issuances exist and get their IDs for Print PAR / ICS buttons
                 try {
                     const ensured = await issuanceAPI.ensureIssuances({ dr_id: resolvedId });
                     const byType = ensured.data?.issuances_by_document_type ?? {};
@@ -57,7 +58,6 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                         ICS: byType.ICS?.IssuanceID,
                     });
                 } catch {
-                    // Silent — buttons just won't show
                     setIssuanceIds({});
                 }
             } catch {
@@ -122,6 +122,14 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
         window.open(`/admin/issuance/${id}/print?type=${type}`, '_blank');
     };
 
+    const handlePrintRis = () => {
+        if (!risId) {
+            toast.error('No RIS available for this DR yet');
+            return;
+        }
+        window.open(`/admin/ris/${risId}`, '_blank');
+    };
+
     return (
         <div className={isModal ? 'print:hidden' : 'min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden'} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="p-6 w-full space-y-6">
@@ -178,6 +186,17 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                         >
                             <FileText className="w-4 h-4" />
                             Print ICS
+                        </button>
+                    )}
+                    {risId && (
+                        <button
+                            type="button"
+                            onClick={handlePrintRis}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                            title={`Print Requisition and Issue Slip${risNumber ? ` (${risNumber})` : ''}`}
+                        >
+                            <FileText className="w-4 h-4" />
+                            Print RIS
                         </button>
                     )}
                     {canEdit && (

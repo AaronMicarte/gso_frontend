@@ -122,7 +122,15 @@ const issuanceAPI = {
 
     // Acknowledge inspected IAR to ingest inventory
     acknowledgeInspection: async (payload: { dr_id?: number; iar_id?: number }) => {
-        const { data } = await apiClient.post<{ message: string }>(
+        const { data } = await apiClient.post<{
+            message: string;
+            data?: {
+                DRID: number;
+                issuances_created: number;
+                ris_id?: number;
+                ris_number?: string;
+            };
+        }>(
             '/property-issuances/acknowledge-iar',
             payload
         );

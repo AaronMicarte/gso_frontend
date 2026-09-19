@@ -16,6 +16,7 @@ import {
     RefreshCw,
     CheckCircle,
     PackagePlus,
+    ClipboardCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -23,6 +24,8 @@ import { toast } from 'sonner';
 import { ViewDRPage } from './ViewDRPage';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 import { useAuth } from '@/lib/hooks/useAuth';
+import issuanceAPI from '@/lib/api/issuance';
+
 interface DeliveryReceiptsPageProps {
     baseRoute: string;
     canDelete?: boolean;
@@ -75,6 +78,15 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedDrId, setSelectedDrId] = useState<number | null>(null);
 
+    // Acknowledge confirm dialog state
+    const [ackConfirmOpen, setAckConfirmOpen] = useState(false);
+    const [pendingAckRow, setPendingAckRow] = useState<{
+        DRID: number;
+        DRNumber: string;
+        IARNumber?: string | null;
+    } | null>(null);
+    const [acknowledgingId, setAcknowledgingId] = useState<number | null>(null);
+
     const { user } = useAuth();
     const canEdit = !user || user?.UserRoleID === 1 || user?.UserRoleID === 2 || user?.UserRoleID === 6 || baseRoute === '/admin' || baseRoute === '/staff';
     const deleteMutation = useDeleteDeliveryReceipt();
@@ -126,6 +138,31 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
     const handleView = (id: number) => {
         setSelectedDrId(id);
         setIsViewOpen(true);
+    };
+
+    const openAckConfirm = (row: { DRID: number; DRNumber: string; IARNumber?: string | null }) => {
+        setPendingAckRow(row);
+        setAckConfirmOpen(true);
+    };
+
+    const confirmAcknowledge = async () => {
+        if (!pendingAckRow) return;
+        const row = pendingAckRow;
+
+        try {
+            setAcknowledgingId(row.DRID);
+            await issuanceAPI.acknowledgeInspection({ dr_id: row.DRID });
+            toast.success('Delivery receipt acknowledged');
+            await refetch();
+        } catch (error: unknown) {
+            const maybeAxios = error as { response?: { data?: { message?: string } } };
+            const message = maybeAxios?.response?.data?.message;
+            toast.error(message || 'Failed to acknowledge delivery receipt');
+        } finally {
+            setAcknowledgingId(null);
+            setAckConfirmOpen(false);
+            setPendingAckRow(null);
+        }
     };
 
     return (
@@ -225,83 +262,96 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                         </td>
                                     </tr>
                                 ) : (
-                                    tableRows.map((dr) => (
-                                        <tr key={dr.DRID} className="hover:bg-slate-50">
-                                            <td className="px-6 py-4 font-medium text-slate-900">
-                                                {dr.DRNumber}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                {dr.IARNumber ? (
-                                                    <span className="font-mono text-sm">{dr.IARNumber}</span>
-                                                ) : (
-                                                    <span className="text-slate-400 italic text-xs">Pending</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                {dr.PONumber || <span className="text-slate-400 italic">None</span>}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                {dr.SupplierName}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                {format(toZonedTime(new Date(dr.DateReceived), 'Asia/Manila'), 'MMM dd, yyyy')}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                {dr.receivedByUser?.FullName || 'N/A'}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {(() => {
-                                                    const { label, badgeClass } = getDrStatusDisplay(dr);
+                                    tableRows.map((dr) => {
+                                        const inspectionOk = (dr.inspection_status || dr.InspectionStatus) === 'inspected';
+                                        const isPartialRow = Boolean(dr.is_partial ?? dr.IsPartial) && !dr.FinalizedAt;
+                                        const workflowStatus = dr.workflow_status || '';
+                                        const alreadyAcknowledged = workflowStatus === 'acknowledged' || workflowStatus === 'partially_acknowledged';
+                                        const canAcknowledge =
+                                            inspectionOk &&
+                                            !alreadyAcknowledged &&
+                                            !isPartialRow &&
+                                            acknowledgingId !== dr.DRID;
 
-                                                    return (
-                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
-                                                            <CheckCircle className="w-3 h-3" />
-                                                            {label}
-                                                        </span>
-                                                    );
-                                                })()}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleView(dr.DRID)}
-                                                        className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
-                                                        title="View Details"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    {canEdit && (
-                                                        <Link
-                                                            href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
-                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                            title="Edit"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </Link>
+                                        return (
+                                            <tr key={dr.DRID} className="hover:bg-slate-50">
+                                                <td className="px-6 py-4 font-medium text-slate-900">
+                                                    {dr.DRNumber}
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    {dr.IARNumber ? (
+                                                        <span className="font-mono text-sm">{dr.IARNumber}</span>
+                                                    ) : (
+                                                        <span className="text-slate-400 italic text-xs">Pending</span>
                                                     )}
-                                                    {/* {canDelete && (
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    {dr.PONumber || <span className="text-slate-400 italic">None</span>}
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    {dr.SupplierName}
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    {format(toZonedTime(new Date(dr.DateReceived), 'Asia/Manila'), 'MMM dd, yyyy')}
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    {dr.receivedByUser?.FullName || 'N/A'}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {(() => {
+                                                        const { label, badgeClass } = getDrStatusDisplay(dr);
+                                                        return (
+                                                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
+                                                                <CheckCircle className="w-3 h-3" />
+                                                                {label}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={() => handleDelete(dr.DRID, dr.DRNumber)}
-                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                            title="Delete"
+                                                            type="button"
+                                                            onClick={() => handleView(dr.DRID)}
+                                                            className="p-2 text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
+                                                            title="View Details"
                                                         >
-                                                            <Trash2 className="w-4 h-4" />
+                                                            <Eye className="w-4 h-4" />
                                                         </button>
-                                                    )} */}
-                                                    {(dr.is_partial ?? dr.IsPartial) && (
-                                                        <Link
-                                                            href={`${baseRoute}/delivery-receipts/${dr.DRID}/add-items`}
-                                                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                            title="Add Items"
-                                                        >
-                                                            <PackagePlus className="w-4 h-4" />
-                                                        </Link>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                        {canEdit && !alreadyAcknowledged && (
+                                                            <Link
+                                                                href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
+                                                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                title="Edit"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </Link>
+                                                        )}
+                                                        {(dr.is_partial ?? dr.IsPartial) && (
+                                                            <Link
+                                                                href={`${baseRoute}/delivery-receipts/${dr.DRID}/add-items`}
+                                                                className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                title="Add Items"
+                                                            >
+                                                                <PackagePlus className="w-4 h-4" />
+                                                            </Link>
+                                                        )}
+                                                        {canAcknowledge && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openAckConfirm({ DRID: dr.DRID, DRNumber: dr.DRNumber, IARNumber: dr.IARNumber })}
+                                                                disabled={acknowledgingId === dr.DRID}
+                                                                className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
+                                                                title={acknowledgingId === dr.DRID ? 'Acknowledging...' : 'Acknowledge'}
+                                                            >
+                                                                <ClipboardCheck className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
@@ -339,6 +389,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                 </div>
             </div>
 
+            {/* DR View Modal */}
             <DialogPrimitive.Root open={isViewOpen} onOpenChange={handleOpenChange}>
                 <DialogPrimitive.Portal>
                     <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40 z-40" />
@@ -352,6 +403,51 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                 onClose={() => handleOpenChange(false)}
                             />
                         ) : null}
+                    </DialogPrimitive.Content>
+                </DialogPrimitive.Portal>
+            </DialogPrimitive.Root>
+
+            {/* Acknowledge confirm modal */}
+            <DialogPrimitive.Root open={ackConfirmOpen} onOpenChange={setAckConfirmOpen}>
+                <DialogPrimitive.Portal>
+                    <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40 z-40" />
+                    <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md bg-white rounded-xl shadow-xl p-6">
+                        <DialogPrimitive.Title className="text-lg font-semibold text-slate-900">
+                            Confirm Acknowledgment
+                        </DialogPrimitive.Title>
+                        <DialogPrimitive.Description className="mt-2 text-sm text-slate-600">
+                            Are you sure you want to acknowledge this IAR? Make sure the item is signed on paper by the department head or end user.
+                        </DialogPrimitive.Description>
+
+                        {pendingAckRow && (
+                            <div className="mt-3 text-sm text-slate-700 space-y-0.5">
+                                <div>DR: <span className="font-medium">{pendingAckRow.DRNumber}</span></div>
+                                {pendingAckRow.IARNumber && <div>IAR: <span className="font-medium">{pendingAckRow.IARNumber}</span></div>}
+                            </div>
+                        )}
+
+                        <div className="mt-6 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => { setAckConfirmOpen(false); setPendingAckRow(null); }}
+                                disabled={acknowledgingId !== null}
+                                className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmAcknowledge}
+                                disabled={acknowledgingId !== null}
+                                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] disabled:opacity-50"
+                            >
+                                {acknowledgingId ? 'Processing...' : 'Yes, Acknowledge'}
+                            </button>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-slate-200 text-xs text-slate-500">
+                            This will also generate a RIS number for the delivery receipt and mark it as acknowledged.
+                        </div>
                     </DialogPrimitive.Content>
                 </DialogPrimitive.Portal>
             </DialogPrimitive.Root>

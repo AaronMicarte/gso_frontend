@@ -205,6 +205,18 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                     getDeliveryReceipt(drId),
                     getUsedSerialNumbers(drId)
                 ]);
+
+                // ── LOCK: block edits once the DR has been acknowledged ────────────────
+                const workflowStatus = drData.workflow_status || '';
+                const isAcknowledged = workflowStatus === 'acknowledged' || workflowStatus === 'partially_acknowledged';
+
+                if (isAcknowledged) {
+                    toast.error('This delivery receipt is acknowledged and can no longer be edited.');
+                    router.push(`${baseRoute}/delivery-receipts`);
+                    return;
+                }
+                // ───────────────────────────────────────────────────────────────────────
+
                 setPropertyTypes(propertyTypesData);
                 setArticles(articlesData);
                 setUsedSerials(usedSerialsData || []);
