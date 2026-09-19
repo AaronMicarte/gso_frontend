@@ -56,7 +56,14 @@ export function getDashboardRoute(role?: string, userRoleID?: number, userId?: n
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed?.defaultLandingRoute && typeof parsed.defaultLandingRoute === 'string' && parsed.defaultLandingRoute.trim() !== '') {
-            const landingRoute = parsed.defaultLandingRoute.trim();
+            let landingRoute = parsed.defaultLandingRoute.trim();
+            if (landingRoute === '/admin/inventory/all-items') {
+              landingRoute = '/admin/inventory';
+              try {
+                parsed.defaultLandingRoute = landingRoute;
+                localStorage.setItem(`gso_settings_v1_${targetUserId}`, JSON.stringify(parsed));
+              } catch {}
+            }
             const expectedPrefix = userRoleID === 1 || role === 'Admin'
               ? '/admin'
               : userRoleID === 2 || role === 'GSO Staff'

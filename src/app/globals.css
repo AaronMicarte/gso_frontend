@@ -1,8 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
-
-
 /* ==============================================
    IAMS-GSO COLOR THEME
    ============================================== */
@@ -163,14 +161,11 @@ html.reduce-motion *::after {
   }
 }
 
-/* NOTE: Most browsers automatically add a header/footer with date, URL,
-   and page numbers when printing from the browser. That setting is
-   controlled by the user's print dialog ("Headers and footers").
-   We set the page margin to 0 to reduce visible browser margins;
-   to fully remove the browser-added header/footer the user must
-   disable headers/footers in the print dialog or use server-side
-   PDF generation (e.g. Puppeteer) which can disable headers.
-*/
+/* Default page setup for the whole app. Individual print views
+   (e.g. the Department Cross-Check modal) can override this with
+   their own scoped @page rule inside their <style jsx global>.
+   NOTE: Do NOT add another @page rule at the bottom of this file —
+   the last one wins and will clobber per-view overrides. */
 @page {
   size: A4;
   margin: 0;
@@ -216,9 +211,19 @@ html.reduce-motion *::after {
   }
 }
 
+/* ==============================================
+   ⚠️ REMOVED — do not re-add
+   ----------------------------------------------
+   This block was overriding every per-view @page rule
+   (including the landscape orientation used by the
+   Department Cross-Check modal), causing 13-column
+   tables to print in portrait and spill to 6+ pages. */
+
 @media print {
   @page {
     size: auto;
     margin: 10mm;
   }
 }
+
+/* ============================================== */

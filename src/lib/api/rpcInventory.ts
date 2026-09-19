@@ -8,6 +8,8 @@ import type {
     RpcInventoryReportResponse,
     RpcInventoryScanPreviewResponse,
     RpcInventoryScansPaginated,
+    DepartmentCrossCheckResponse,
+    RpcType,
 } from '@/types/rpcInventory';
 
 export async function listRpcInventoryCycles() {
@@ -127,6 +129,18 @@ export async function reopenRpcCycle(cycleId: number, payload: { password: strin
     const res = await apiClient.post(`/rpc-inventory/cycles/${cycleId}/reopen`, {
         password: payload.password,
         reopen_reason: payload.reason,
+    });
+    return res.data;
+}
+
+export async function getDepartmentCrossCheck(params: {
+    department_id: number;
+    cycle_id?: number;
+    type?: 'ALL' | RpcType;
+    search?: string;
+}) {
+    const res: AxiosResponse<DepartmentCrossCheckResponse> = await apiClient.get('/rpc-inventory/department-cross-check', {
+        params,
     });
     return res.data;
 }

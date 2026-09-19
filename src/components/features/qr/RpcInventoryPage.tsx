@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Camera, Edit3, Plus, QrCode, RefreshCw, Search, Trash2, Lock, Unlock } from 'lucide-react';
+import { AlertTriangle, Camera, Edit3, Plus, QrCode, RefreshCw, Search, Trash2, Lock, Unlock, Building2, Printer, ClipboardList, CheckCircle2 } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
 import { toast } from 'sonner';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
@@ -13,6 +13,9 @@ import { useAuth } from '@/lib/providers/AuthProvider';
 import { RpcCloseCycleModal } from './RpcCloseCycleModal';
 import { RpcReopenCycleModal } from './RpcReopenCycleModal';
 import { RpcCycleStatusBanner } from './RpcCycleStatusBanner';
+import { RpcDepartmentCrossCheckModal } from './RpcDepartmentCrossCheckModal';
+import { RpcDepartmentCrossCheckSection } from './RpcDepartmentCrossCheckSection';
+import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { useRpcCycleActions, ClosureSummary, ReopenRequestResponse } from '@/hooks/useRpcCycleActions';
 import {
     createCurrentRpcInventoryCycle,
@@ -24,6 +27,7 @@ import {
     storeRpcScan,
     updateRpcScan,
     updateRpcAssetCondition,
+    getDepartmentCrossCheck,
 } from '@/lib/api/rpcInventory';
 import { useRpcInventoryScans } from '@/lib/hooks/useRpcInventoryScans';
 import type {
@@ -181,6 +185,41 @@ export function RpcInventoryPage() {
     const [deletingGroup, setDeletingGroup] = useState<GroupedScanRow | null>(null);
     const [deletingGroupLoading, setDeletingGroupLoading] = useState(false);
     const [expandedPropertyGroups, setExpandedPropertyGroups] = useState<Set<string>>(new Set());
+
+    // Department Cross-Checking State
+    const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'scans' | 'cross_check'>('scans');
+    const [crossCheckDeptId, setCrossCheckDeptId] = useState<number | null>(null);
+    const [crossCheckType, setCrossCheckType] = useState<'ALL' | RpcType>('ALL');
+    const [crossCheckSearch, setCrossCheckSearch] = useState('');
+    const [crossCheckPage, setCrossCheckPage] = useState(1);
+    const [crossCheckModalOpen, setCrossCheckModalOpen] = useState(false);
+
+    const { data: allDepartments = [], isLoading: loadingDepartments } = useAllDepartments();
+
+    useEffect(() => {
+        if (!crossCheckDeptId && allDepartments.length > 0) {
+            setCrossCheckDeptId(allDepartments[0].id);
+        }
+    }, [allDepartments, crossCheckDeptId]);
+
+    const {
+        data: crossCheckData,
+        isLoading: loadingCrossCheck,
+        refetch: refetchCrossCheck,
+    } = useQuery({
+        queryKey: ['rpc-department-cross-check', crossCheckDeptId, crossCheckType, crossCheckSearch, selectedCycleId],
+        queryFn: () => {
+            if (!crossCheckDeptId) return null;
+            return getDepartmentCrossCheck({
+                department_id: crossCheckDeptId,
+                cycle_id: selectedCycleId || undefined,
+                type: crossCheckType,
+                search: crossCheckSearch || undefined,
+            });
+        },
+        enabled: !!crossCheckDeptId,
+        placeholderData: keepPreviousData,
+    });
 
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const controlsRef = useRef<IScannerControls | null>(null);
@@ -1669,7 +1708,50 @@ export function RpcInventoryPage() {
                     </div>
                 </section>
 
-                <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
+                {/* Mode Selector Tabs */}
+                <div className="flex border-b border-slate-200 gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setActiveWorkspaceTab('scans')}
+                        className={`flex items-center gap-2 pb-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+                            activeWorkspaceTab === 'scans'
+                                ? 'border-slate-900 text-slate-900'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <ClipboardList className="w-4 h-4" />
+                        <span>Physical Count Workspace</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveWorkspaceTab('cross_check')}
+                        className={`flex items-center gap-2 pb-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+                            activeWorkspaceTab === 'cross_check'
+                                ? 'border-slate-900 text-slate-900'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <Building2 className="w-4 h-4" />
+                        <span>Department Cross-Check</span>
+                    </button>
+                </div>
+
+                {activeWorkspaceTab === 'cross_check' ? (
+                    <RpcDepartmentCrossCheckSection
+                        departments={allDepartments}
+                        selectedDeptId={crossCheckDeptId}
+                        onSelectDeptId={setCrossCheckDeptId}
+                        selectedType={crossCheckType}
+                        onSelectType={setCrossCheckType}
+                        search={crossCheckSearch}
+                        onSearchChange={setCrossCheckSearch}
+                        data={crossCheckData || null}
+                        isLoading={loadingCrossCheck || loadingDepartments}
+                        onOpenPreview={() => setCrossCheckModalOpen(true)}
+                    />
+                ) : (
+                    <>
+                        <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div className="text-xs font-semibold tracking-[0.14em] uppercase text-slate-500">Inventory Cycles</div>
                         <div className="text-xs text-slate-500">{cycles.length} total</div>
@@ -1750,6 +1832,16 @@ export function RpcInventoryPage() {
                                         >
                                             Generate RPCSEP Report
                                         </Link>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setActiveWorkspaceTab('cross_check')}
+                                            className="border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+                                        >
+                                            <Building2 className="w-4 h-4 text-slate-600" />
+                                            <span>Cross-Check by Dept</span>
+                                        </Button>
                                         {isAdmin && selectedCycle.status === 'active' && (
                                             <Button
                                                 onClick={handleRequestClose}
@@ -2375,7 +2467,16 @@ export function RpcInventoryPage() {
                         No cycle selected.
                     </div>
                 )}
+                </>
+                )}
 
+                <RpcDepartmentCrossCheckModal
+                    isOpen={crossCheckModalOpen}
+                    onClose={() => setCrossCheckModalOpen(false)}
+                    data={crossCheckData || null}
+                    selectedType={crossCheckType}
+                    loading={loadingCrossCheck}
+                />
             </div>
         </div>
     );

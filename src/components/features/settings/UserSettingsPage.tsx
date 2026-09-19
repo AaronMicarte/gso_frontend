@@ -50,8 +50,12 @@ function getStorageKey(userId: number): string {
 }
 
 function mergePreferences(stored: Partial<SettingsPreferences>, fallbackRoute: string): SettingsPreferences {
+    let landing = stored.defaultLandingRoute || fallbackRoute;
+    if (landing === '/admin/inventory/all-items') {
+        landing = '/admin/inventory';
+    }
     return {
-        defaultLandingRoute: stored.defaultLandingRoute || fallbackRoute,
+        defaultLandingRoute: landing,
         browserAlerts: stored.browserAlerts ?? FALLBACK_PREFS.browserAlerts,
         emailDigests: stored.emailDigests ?? FALLBACK_PREFS.emailDigests,
         reduceMotion: stored.reduceMotion ?? FALLBACK_PREFS.reduceMotion,

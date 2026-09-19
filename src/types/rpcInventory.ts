@@ -196,3 +196,38 @@ export interface RpcInventoryReportResponse {
     rpcppe: RpcInventoryReportBucket;
     rpcsep: RpcInventoryReportBucket;
 }
+
+export interface DepartmentCrossCheckItem {
+    inventory_detail_id: number;
+    po_number: string;
+    supplier: string;
+    par_ics_number: string;
+    quantity: number;
+    unit: string;
+    description: string;
+    property_number: string;
+    unit_cost: number;
+    total_cost: number;
+    date_received: string;
+    remarks: string;
+    end_user: string;
+    scan_status: string;
+    rpc_type: RpcType;
+    property_type: string;
+}
+
+export interface DepartmentCrossCheckResponse {
+    department: {
+        DepartmentID: number;
+        DepartmentName: string;
+        DepartmentCode: string;
+        DepartmentHead?: string | null;
+    };
+    summary: {
+        total_items: number;
+        total_cost: number;
+        rpcppe_count: number;
+        rpcsep_count: number;
+    };
+    data: DepartmentCrossCheckItem[];
+}
