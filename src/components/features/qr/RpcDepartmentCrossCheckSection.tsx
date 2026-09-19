@@ -233,9 +233,6 @@ export function RpcDepartmentCrossCheckSection({
                 <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/70">
                     <div className="flex items-center gap-2">
                         <span className="font-semibold text-sm">Assigned Assets</span>
-                        <span className="text-xs bg-slate-200 px-2 py-0.5 rounded-full font-medium">
-                            {items.length} items
-                        </span>
                     </div>
                     <div className="text-xs text-slate-500">
                         Showing {items.length ? (page - 1) * PER_PAGE + 1 : 0} to {Math.min(page * PER_PAGE, items.length)} of {items.length}
