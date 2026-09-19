@@ -22,7 +22,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
 import { ViewDRPage } from './ViewDRPage';
 import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
-
+import { useAuth } from '@/lib/hooks/useAuth';
 interface DeliveryReceiptsPageProps {
     baseRoute: string;
     canDelete?: boolean;
@@ -74,6 +74,9 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
     const [endDate, setEndDate] = useState('');
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedDrId, setSelectedDrId] = useState<number | null>(null);
+
+    const { user } = useAuth();
+    const canEdit = !user || user?.UserRoleID === 1 || user?.UserRoleID === 2 || user?.UserRoleID === 6 || baseRoute === '/admin' || baseRoute === '/staff';
     const deleteMutation = useDeleteDeliveryReceipt();
     const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
@@ -268,26 +271,24 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    {(dr.inspection_status || dr.InspectionStatus) !== 'inspected' && (
-                                                        <>
-                                                            <Link
-                                                                href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
-                                                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                                title="Edit"
-                                                            >
-                                                                <Edit className="w-4 h-4" />
-                                                            </Link>
-                                                            {canDelete && (
-                                                                <button
-                                                                    onClick={() => handleDelete(dr.DRID, dr.DRNumber)}
-                                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                    title="Delete"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
-                                                            )}
-                                                        </>
+                                                    {canEdit && (
+                                                        <Link
+                                                            href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
+                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="Edit"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </Link>
                                                     )}
+                                                    {/* {canDelete && (
+                                                        <button
+                                                            onClick={() => handleDelete(dr.DRID, dr.DRNumber)}
+                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )} */}
                                                     {(dr.is_partial ?? dr.IsPartial) && (
                                                         <Link
                                                             href={`${baseRoute}/delivery-receipts/${dr.DRID}/add-items`}

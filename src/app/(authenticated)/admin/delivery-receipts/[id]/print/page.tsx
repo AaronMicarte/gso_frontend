@@ -87,7 +87,7 @@ export default function AdminDeliveryReceiptPrintPage() {
     return (
         <div className="print-scope min-h-screen bg-slate-100 py-6">
             <div className="no-print max-w-4xl mx-auto px-4 mb-4 flex items-center justify-between">
-                <Link href={`/admin/delivery-receipts/${dr.DRID}`} className="text-sm text-[var(--primary)] underline">
+                <Link href={`/admin/delivery-receipts`} className="text-sm text-[var(--primary)] underline">
                     Back to DR
                 </Link>
                 <div className="flex items-center gap-2">

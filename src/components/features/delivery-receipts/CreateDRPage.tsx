@@ -10,9 +10,10 @@ import { z } from 'zod';
 import { useCreateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { ItemDetailsModal } from './ItemDetailsModal';
-import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit, Copy, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers, getUsedSerialNumbers } from '@/lib/api/deliveryReceipts';
+import issuanceAPI from '@/lib/api/issuance';
 import { getActiveArticles } from '@/lib/api/masterData';
 import { Article } from '@/types/masterData';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -42,7 +43,6 @@ const drItemSchema = z.object({
         }
     }
 
-    // serial_number may contain multiple comma-separated serials; require quantities to match count
     const serials = String(data.serial_number || '')
         .split(',')
         .map(s => s.trim())
@@ -92,6 +92,14 @@ interface CreateDRPageProps {
     baseRoute: string;
 }
 
+interface DRAssignmentRow {
+    id: string;
+    item_index: number;
+    receiver_name: string;
+    position_office: string;
+    quantity: number;
+}
+
 export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -99,9 +107,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
     const [articles, setArticles] = useState<Article[]>([]);
 
-    // Manila today's date (YYYY-MM-DD) for client-side max date and validation
     const manilaToday = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
-    // Manila minimum allowed date (1 year back)
     const manilaMinDate = new Date();
     manilaMinDate.setFullYear(manilaMinDate.getFullYear() - 1);
     const manilaMin = formatInTimeZone(manilaMinDate, 'Asia/Manila', 'yyyy-MM-dd');
@@ -142,7 +148,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         name: 'details',
     });
 
-    // Modal state for editing a single item; add-only flag for creating new items
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [isAddingItem, setIsAddingItem] = useState(false);
@@ -156,7 +161,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const handleSaveItem = async (values: z.infer<typeof drItemSchema>) => {
         try {
             if (isAddingItem) {
-                // append only when user saves the new item from the modal
                 append(values);
                 setIsAddingItem(false);
             } else {
@@ -170,6 +174,23 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     };
 
     const [usedSerials, setUsedSerials] = useState<string[]>([]);
+    const [assignments, setAssignments] = useState<DRAssignmentRow[]>([]);
+    const [receiverSuggestions, setReceiverSuggestions] = useState<Array<{ receiver_name: string; position_office?: string | null }>>([]);
+    const [activeReceiverDropdown, setActiveReceiverDropdown] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        issuanceAPI.getReceiverSuggestions()
+            .then(res => {
+                if (!isMounted) return;
+                const list = Array.isArray(res) ? res : (res?.data || []);
+                setReceiverSuggestions(list);
+            })
+            .catch(err => {
+                console.error("Failed to load receiver suggestions:", err);
+            });
+        return () => { isMounted = false; };
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -190,9 +211,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         fetchData();
     }, []);
 
-    // Units of measure for items
     const { data: unitsData } = useAllUnitsOfMeasure();
-    // API returns UnitOfMeasureResource (id,name) — normalize to {id, name} to be safe
     type UnitOfMeasureResponse = { id?: number; name?: string; UnitOfMeasureID?: number; UnitName?: string };
     const units = Array.isArray(unitsData)
         ? (unitsData as UnitOfMeasureResponse[])
@@ -206,6 +225,42 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const totalAmount = details?.reduce((sum, item) => {
         return sum + (item.quantity_delivered * (item.unit_cost || 0));
     }, 0) || 0;
+
+    // ─────────────────────────────────────────────────────────────
+    // Allocation math
+    // ─────────────────────────────────────────────────────────────
+    const totalDeliveredQty = (details || []).reduce(
+        (sum, item) => sum + (Number(item?.quantity_delivered) || 0),
+        0
+    );
+    const totalAssignedQty = assignments.reduce(
+        (sum, a) => sum + (Number(a.quantity) || 0),
+        0
+    );
+    const isEverythingAssigned = totalDeliveredQty > 0 && totalAssignedQty >= totalDeliveredQty;
+
+    const getItemAssignedQty = (itemIndex: number) =>
+        assignments
+            .filter(a => a.item_index === itemIndex)
+            .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+
+    const isItemFullyAssigned = (itemIndex: number) => {
+        const delivered = Number(details?.[itemIndex]?.quantity_delivered) || 0;
+        return delivered > 0 && getItemAssignedQty(itemIndex) >= delivered;
+    };
+
+    // Items that still have unassigned quantity
+    const unassignedItems = (details || [])
+        .map((item, idx) => {
+            const delivered = Number(item?.quantity_delivered) || 0;
+            const assigned = getItemAssignedQty(idx);
+            const remaining = Math.max(0, delivered - assigned);
+            return { idx, delivered, assigned, remaining };
+        })
+        .filter(x => x.remaining > 0);
+
+    const hasUnassignedItems = unassignedItems.length > 0;
+    // ─────────────────────────────────────────────────────────────
 
     useEffect(() => {
         const fetchRequesters = async () => {
@@ -242,14 +297,12 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         return supplier.SupplierName.toLowerCase().includes(supplierQuery.trim().toLowerCase());
     });
 
-    // Combobox state for accessible dropdown search - Requesters
     const [comboboxOpen, setComboboxOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const comboboxRef = useRef<HTMLDivElement | null>(null);
     const comboboxInputRef = useRef<HTMLInputElement | null>(null);
     const comboboxListRef = useRef<HTMLUListElement | null>(null);
 
-    // Combobox state for suppliers
     const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
     const [supplierHighlightedIndex, setSupplierHighlightedIndex] = useState(-1);
     const supplierComboboxRef = useRef<HTMLDivElement | null>(null);
@@ -326,7 +379,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     };
 
     useEffect(() => {
-        // If requester id is set externally (e.g. form reset), populate the visible combobox text.
         const requester = requesters.find((user) => user.UserID === watchedRequesterId);
         if (requester && requesterQuery.trim().length === 0) {
             const departmentName = requester.DepartmentName || `Department ${requester.DepartmentID}`;
@@ -336,7 +388,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     }, [watchedRequesterId, requesters]);
 
     useEffect(() => {
-        // If supplier name in form is set externally, populate the visible combobox text.
         const supplierName = watch('supplier_name');
         if (supplierName && supplierQuery.trim().length === 0) {
             setSupplierQuery(supplierName);
@@ -345,7 +396,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     }, [watch('supplier_name'), suppliers]);
 
     const onSubmit = async (data: DRFormValues) => {
-        // client-side checks: prevent future dates and too-old dates (unless override requested)
         if (data.date_received > manilaToday) {
             toast.error('Date received cannot be in the future.');
             return;
@@ -355,11 +405,9 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             return;
         }
 
-        // Prepare FormData for file upload
         const formData = new FormData();
         Object.entries(data).forEach(([key, value]) => {
             if (key === 'details') {
-                // Serialize details array properly for Laravel
                 const details = value as typeof data.details;
                 details.forEach((item, index) => {
                     Object.entries(item).forEach(([itemKey, itemValue]) => {
@@ -369,13 +417,11 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                     });
                 });
             } else if (key === 'dr_picture') {
-                // Extract the first file from FileList
                 const fileList = value as FileList;
                 if (fileList && fileList.length > 0) {
                     formData.append(key, fileList[0]);
                 }
             } else if (value !== undefined && value !== null) {
-                // Convert booleans to '1' or '0' for Laravel
                 if (typeof value === 'boolean') {
                     formData.append(key, value ? '1' : '0');
                 } else {
@@ -384,11 +430,22 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             }
         });
 
+        // Always send assignments — empty array means backend falls back all items to requesting officer.
+        const payloadAssignments = assignments
+            .filter(a => Number(a.quantity) > 0)
+            .map(a => ({
+                item_index: Number(a.item_index),
+                receiver_name: a.receiver_name ? a.receiver_name.trim() : '',
+                position_office: a.position_office?.trim() || null,
+                quantity: Number(a.quantity) || 1,
+            }));
+
+        formData.append('assignments', JSON.stringify(payloadAssignments));
+
         try {
             await createMutation.mutateAsync(formData);
             toast.success('Delivery receipt created successfully');
 
-            // Invalidate and refresh DR list
             await queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
             await queryClient.refetchQueries({ queryKey: deliveryReceiptKeys.all });
 
@@ -401,12 +458,10 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
 
             if (resp?.errors) {
                 console.error('Validation errors:', resp.errors);
-                // Map Laravel validation errors to react-hook-form setError
                 Object.entries(resp.errors).forEach(([field, messages]) => {
                     const message = Array.isArray(messages) ? messages[0] : String(messages);
                     console.log(`Setting error for field: ${field} => ${message}`);
                     try {
-                        // field names from Laravel already come in dot notation (e.g. details.0.item_description)
                         setError(field as Path<DRFormValues>, { type: 'server', message });
                     } catch (e) {
                         console.error(`Failed to set error for field ${field}:`, e);
@@ -424,7 +479,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     };
 
     const addItem = () => {
-        // Do not append immediately — open the modal and append only on save
         setIsAddingItem(true);
         setEditingIndex(null);
         setIsItemModalOpen(true);
@@ -446,9 +500,64 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         });
     };
 
+    const handleRemoveItem = (index: number) => {
+        remove(index);
+        setAssignments(prev =>
+            prev
+                .filter(a => a.item_index !== index)
+                .map(a => (a.item_index > index ? { ...a, item_index: a.item_index - 1 } : a))
+        );
+    };
+
+    const addAssignmentRow = (itemIndex = 0, defaultReceiver = '', defaultPosition = '') => {
+        if (isEverythingAssigned) {
+            toast.info('All delivered quantities are already assigned.');
+            return;
+        }
+
+        const targetItem = details?.[itemIndex];
+        const deliveredQty = targetItem ? Number(targetItem.quantity_delivered) || 1 : 1;
+        const alreadyAssigned = assignments
+            .filter(a => a.item_index === itemIndex)
+            .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+        const remaining = Math.max(1, deliveredQty - alreadyAssigned);
+
+        const newId = Math.random().toString(36).slice(2, 9);
+        setAssignments(prev => [
+            ...prev,
+            {
+                id: newId,
+                item_index: itemIndex,
+                receiver_name: defaultReceiver,
+                position_office: defaultPosition,
+                quantity: remaining,
+            }
+        ]);
+    };
+
+    const removeAssignmentRow = (id: string) => {
+        setAssignments(prev => prev.filter(a => a.id !== id));
+    };
+
+    const updateAssignmentRow = (id: string, patch: Partial<DRAssignmentRow>) => {
+        setAssignments(prev => prev.map(a => {
+            if (a.id !== id) return a;
+            const updated = { ...a, ...patch };
+            if (patch.item_index !== undefined && patch.item_index !== a.item_index) {
+                const targetItem = details?.[patch.item_index];
+                const deliveredQty = targetItem ? Number(targetItem.quantity_delivered) || 1 : 1;
+                const otherAssigned = prev
+                    .filter(row => row.item_index === patch.item_index && row.id !== id)
+                    .reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+                updated.quantity = Math.max(1, deliveredQty - otherAssigned);
+            }
+            return updated;
+        }));
+    };
+
     return (
         <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
-            <div className="p-6 max-w-5xl mx-auto space-y-6">
+            <div className="p-6 w-full space-y-6">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => router.back()}
@@ -468,7 +577,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Basic Information</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* DR Number (manual) */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Delivery Receipt Number *
@@ -479,14 +587,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
                                     placeholder="Enter DR number (manual)"
                                 />
-                                {/* {errors.dr_number && (
-                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        {errors.dr_number.message}
-                                    </p>
-                                )} */}
                             </div>
-                            {/* Supplier Name */}
                             <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Supplier Name *
@@ -542,7 +643,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                     </p>
                                 )}
                             </div>
-                            {/* Requested By (Department Head) */}
                             <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Requested By (Department Head) *
@@ -593,7 +693,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                 )}
                             </div>
 
-                            {/* PR Number */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                     PR Number *
@@ -612,7 +711,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                 )}
                             </div>
 
-                            {/* PO Number */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                     PO Number *
@@ -631,7 +729,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                 )}
                             </div>
 
-                            {/* Invoice Number */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Invoice Number *
@@ -650,7 +747,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                 )}
                             </div>
 
-                            {/* Date Received */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Date Received *
@@ -671,7 +767,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                             </div>
                         </div>
 
-                        {/* Remarks */}
                         <div className="mt-6">
                             <label className="block text-sm font-medium text-slate-700 mb-2">
                                 Remarks
@@ -684,7 +779,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                             />
                         </div>
 
-                        {/* DR Picture */}
                         <div className="mt-6">
                             <label className="block text-sm font-medium text-slate-700 mb-2">
                                 DR Picture <span className="text-slate-400 font-normal text-xs">(Optional)</span>
@@ -817,7 +911,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                                 {fields.length > 1 && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => remove(index)}
+                                                        onClick={() => handleRemoveItem(index)}
                                                         title="Remove item"
                                                         className="text-red-600 hover:text-red-700 transition-colors"
                                                     >
@@ -865,6 +959,296 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                         }}
                         articleCreateRoute="/admin/masterdata/articles"
                     />
+
+                    {/* End User Assignments Section */}
+                    <div id="assignments-section" className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-slate-100">
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h2 className="text-lg font-semibold text-slate-900">End User Assignments</h2>
+                                    <span className="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full border border-slate-200">
+                                        Property Issuance
+                                    </span>
+                                    {isEverythingAssigned && (
+                                        <span className="text-xs bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
+                                            All assigned ✓
+                                        </span>
+                                    )}
+                                    {!isEverythingAssigned && fields.length > 0 && (
+                                        <span className="text-xs bg-amber-50 text-amber-700 font-semibold px-2 py-0.5 rounded-full border border-amber-200 inline-flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            {unassignedItems.reduce((s, x) => s + x.remaining, 0)} unassigned
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-slate-500 text-xs mt-1">
+                                    All delivered quantities must be assigned to end users before saving.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={fields.length === 0 || isEverythingAssigned}
+                                    onClick={() => addAssignmentRow(0)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[var(--primary)] hover:bg-[var(--primary)]/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    title={
+                                        isEverythingAssigned
+                                            ? 'All delivered quantities are already assigned'
+                                            : fields.length === 0
+                                                ? 'Add delivered items first'
+                                                : 'Add a new assignment row'
+                                    }
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Add Assignment
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Delivered items allocation summary badges */}
+                        {fields.length > 0 && (
+                            <div className="mb-5">
+                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                    Allocation Status by Item
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {fields.map((field, idx) => {
+                                        const item = details?.[idx];
+                                        const articleName = articles.find(a => a.id === item?.article_id)?.name || 'Item';
+                                        const desc = [item?.brand, item?.model_number].filter(Boolean).join(' ') || item?.item_description || '';
+                                        const label = `${articleName}${desc ? ` (${desc})` : ''}`;
+                                        const delivered = Number(item?.quantity_delivered) || 1;
+                                        const assigned = assignments
+                                            .filter(a => a.item_index === idx)
+                                            .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+                                        const isComplete = assigned === delivered;
+                                        const isOver = assigned > delivered;
+
+                                        return (
+                                            <span
+                                                key={field.id}
+                                                className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${isOver
+                                                    ? 'bg-red-50 border-red-200 text-red-700'
+                                                    : isComplete
+                                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                                        : 'bg-amber-50 border-amber-200 text-amber-700'
+                                                    }`}
+                                            >
+                                                <span className="truncate max-w-[220px]">{label}</span>
+                                                <span className="font-bold">
+                                                    {assigned}/{delivered}
+                                                </span>
+                                                {isComplete && <span className="text-[10px]">✓</span>}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Assignments list */}
+                        {fields.length === 0 ? (
+                            <div className="py-8 text-center text-sm text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                Add items in the &quot;Items Delivered&quot; section above first to configure end-user assignments.
+                            </div>
+                        ) : assignments.length === 0 ? (
+                            <div className="py-6 px-4 text-center text-sm text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                <p className="font-medium text-slate-700 mb-1">No assignments added yet</p>
+                                <p className="text-xs text-slate-400 mb-3">
+                                    Every delivered item must be assigned to an end user before you can save.
+                                </p>
+                                <div className="flex items-center justify-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => addAssignmentRow(0)}
+                                        disabled={isEverythingAssigned}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[var(--primary)] hover:bg-[var(--primary)]/90 rounded-lg shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Add Assignment
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {assignments.map((row, rowIdx) => {
+                                    const chosenItem = details?.[row.item_index];
+                                    const deliveredQty = chosenItem ? Number(chosenItem.quantity_delivered) || 1 : 1;
+                                    const otherAssigned = assignments
+                                        .filter(r => r.item_index === row.item_index && r.id !== row.id)
+                                        .reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+                                    const maxAllowed = Math.max(1, deliveredQty - otherAssigned);
+                                    const rowItemFullyAssigned = isItemFullyAssigned(row.item_index);
+
+                                    return (
+                                        <div
+                                            key={row.id}
+                                            className="relative border border-slate-200 hover:border-slate-300 rounded-xl bg-white shadow-xs transition-all"
+                                        >
+                                            <div className="absolute -top-2.5 left-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                                #{rowIdx + 1}
+                                            </div>
+
+                                            <div className="p-4 pt-5 grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                                                <div className="sm:col-span-4 relative">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                                        Receiver Name *
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={row.receiver_name}
+                                                        onFocus={() => setActiveReceiverDropdown(row.id)}
+                                                        onChange={(e) => {
+                                                            updateAssignmentRow(row.id, { receiver_name: e.target.value });
+                                                            setActiveReceiverDropdown(row.id);
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Escape') setActiveReceiverDropdown(null);
+                                                        }}
+                                                        placeholder="Enter complete name..."
+                                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium text-slate-800"
+                                                    />
+
+                                                    {activeReceiverDropdown === row.id && (
+                                                        <>
+                                                            <div
+                                                                className="fixed inset-0 z-10"
+                                                                onClick={() => setActiveReceiverDropdown(null)}
+                                                            />
+                                                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-20 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                                                                {(() => {
+                                                                    const q = (row.receiver_name || '').toLowerCase().trim();
+                                                                    const matches = receiverSuggestions.filter(s =>
+                                                                        !q ||
+                                                                        s.receiver_name.toLowerCase().includes(q) ||
+                                                                        (s.position_office && s.position_office.toLowerCase().includes(q))
+                                                                    );
+
+                                                                    if (matches.length === 0) {
+                                                                        return (
+                                                                            <div className="p-3 text-xs text-slate-400 italic text-center">
+                                                                                {q ? 'No matching receiver found' : 'No previous receivers found'}
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    return matches.map((s, sIdx) => (
+                                                                        <button
+                                                                            key={`${s.receiver_name}_${s.position_office || ''}_${sIdx}`}
+                                                                            type="button"
+                                                                            onMouseDown={(e) => {
+                                                                                e.preventDefault();
+                                                                                updateAssignmentRow(row.id, {
+                                                                                    receiver_name: s.receiver_name,
+                                                                                    position_office: s.position_office || row.position_office || '',
+                                                                                });
+                                                                                setActiveReceiverDropdown(null);
+                                                                            }}
+                                                                            className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center justify-between gap-2 transition-colors cursor-pointer group"
+                                                                        >
+                                                                            <div className="flex flex-col min-w-0 pr-2">
+                                                                                <span className="font-semibold text-slate-800 group-hover:text-[var(--primary)] transition-colors truncate">
+                                                                                    {s.receiver_name}
+                                                                                </span>
+                                                                                {s.position_office && (
+                                                                                    <span className="text-[11px] text-slate-500 truncate mt-0.5">
+                                                                                        {s.position_office}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            {s.position_office && (
+                                                                                <span className="shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
+                                                                                    {s.position_office}
+                                                                                </span>
+                                                                            )}
+                                                                        </button>
+                                                                    ));
+                                                                })()}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                <div className="sm:col-span-3">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                                        Position / Office
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={row.position_office}
+                                                        onChange={(e) => updateAssignmentRow(row.id, { position_office: e.target.value })}
+                                                        placeholder="e.g. Admin Officer"
+                                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium text-slate-800"
+                                                    />
+                                                </div>
+
+                                                <div className="sm:col-span-3">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                                        Assigned Item *
+                                                    </label>
+                                                    <select
+                                                        value={row.item_index}
+                                                        onChange={(e) => updateAssignmentRow(row.id, { item_index: Number(e.target.value) })}
+                                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium text-slate-800 bg-white"
+                                                    >
+                                                        {fields.map((f, fIdx) => {
+                                                            const it = details?.[fIdx];
+                                                            const artName = articles.find(a => a.id === it?.article_id)?.name || 'Item';
+                                                            const dsc = [it?.brand, it?.model_number].filter(Boolean).join(' ') || it?.item_description || '';
+                                                            const fullLabel = `${artName}${dsc ? ` - ${dsc}` : ''} (Qty: ${it?.quantity_delivered || 1})`;
+                                                            return (
+                                                                <option key={f.id} value={fIdx}>
+                                                                    {fullLabel}
+                                                                </option>
+                                                            );
+                                                        })}
+                                                    </select>
+                                                </div>
+
+                                                <div className="sm:col-span-1">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                                        Qty *
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        max={maxAllowed}
+                                                        value={row.quantity}
+                                                        onChange={(e) => updateAssignmentRow(row.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                                                        className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm text-center font-bold focus:ring-2 focus:ring-[var(--primary)] outline-none"
+                                                    />
+                                                </div>
+
+                                                <div className="sm:col-span-1 flex items-center justify-end gap-1.5 pt-6">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => addAssignmentRow(row.item_index, row.receiver_name, row.position_office)}
+                                                        disabled={rowItemFullyAssigned}
+                                                        title={
+                                                            rowItemFullyAssigned
+                                                                ? 'This item is fully assigned'
+                                                                : 'Add another item for this receiver'
+                                                        }
+                                                        className="p-1.5 text-slate-400 hover:text-[var(--primary)] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400 disabled:hover:bg-transparent"
+                                                    >
+                                                        <Plus className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeAssignmentRow(row.id)}
+                                                        title="Remove assignment"
+                                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
 
                     {/* Summary */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
@@ -925,4 +1309,3 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         </div>
     );
 }
-

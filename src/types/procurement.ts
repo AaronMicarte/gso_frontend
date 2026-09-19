@@ -2,6 +2,12 @@
 // Note: Purchase Requests and Purchase Orders have been removed per project requirements
 // The system now starts directly at Delivery Receipts (DR)
 
+export interface DeliveryReceiptEndUserAssignment {
+    inventory_detail_id: number;
+    receiver_name: string | null;
+    position_office: string | null;
+}
+
 export interface DeliveryReceiptDetail {
     DRDetailID?: number;
     DRID?: number;
@@ -35,7 +41,16 @@ export interface DeliveryReceiptDetail {
         SourceDRDetailID: number;
         PropertyNumber: string;
     }[];
+    // snake_case alias from backend show()
+    inventory_details?: {
+        InventoryDetailID?: number;
+        inventory_detail_id?: number;
+        SourceDRDetailID?: number;
+        PropertyNumber?: string;
+    }[];
     propertyNumbers?: string[];
+    // NEW: end user assignments per item (from backend show())
+    end_user_assignments?: DeliveryReceiptEndUserAssignment[];
 }
 
 export interface DeliveryReceiptStatus {
@@ -151,5 +166,3 @@ export interface DeliveryReceiptFilters {
     supplier_id?: number;
     status?: 'to_be_issued' | 'acknowledged';
 }
-
-

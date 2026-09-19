@@ -95,7 +95,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
 
     return (
         <div className={isModal ? 'print:hidden' : 'min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden'} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
-            <div className="p-6 max-w-6xl mx-auto space-y-6">
+            <div className="p-6 w-full space-y-6">
                 <div className="flex items-center gap-4">
                     {isModal ? (
                         <button
@@ -129,7 +129,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                         <Printer className="w-4 h-4" />
                         Print IAR
                     </Link>
-                    {canEdit && inspectionStatus !== 'inspected' && (
+                    {canEdit && (
                         <Link
                             href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
@@ -247,34 +247,69 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-24">Qty</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
                                     <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Total Cost</th>
+                                    <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[180px]">End User</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {dr.details?.map((item, index) => (
-                                    <tr key={item.DRDetailID}>
-                                        <td className="py-3 px-3 text-sm text-slate-600">{index + 1}</td>
-                                        <td className="py-3 px-3 text-sm text-slate-900">{item.article?.ArticleName || '—'}</td>
-                                        <td className="py-3 px-3 text-sm text-slate-900">{item.ItemDescription}</td>
-                                        <td className="py-3 px-3 min-w-[160px] text-sm text-slate-600">{item.propertyType?.PropertyName || ''}</td>
-                                        <td className="py-3 px-3 min-w-[220px] text-sm text-slate-600">
-                                            <div className="text-sm text-slate-700">
-                                                {item.Brand && <span className="mr-2">{`Brand: ${item.Brand}`}</span>}
-                                                {item.ModelNumber && <span className="mr-2">{`Model: ${item.ModelNumber}`}</span>}
-                                                {item.SerialNumber && <span className="mr-2">{`Serial: ${item.SerialNumber}`}</span>}
-                                            </div>
-                                        </td>
-                                        <td className="py-3 px-3 w-28 text-center">
-                                            <div className="text-sm">{item.QuantityDelivered}</div>
-                                            <div className="text-xs text-slate-500 mt-1">{item.unitOfMeasure?.UnitName || 'N/A'}</div>
-                                        </td>
-                                        <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.UnitCost)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                        <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.TotalCost)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                    </tr>
-                                ))}
+                                {dr.details?.map((item, index) => {
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    const assignments: { inventory_detail_id: number; receiver_name: string; position_office: string | null }[] = (item as any).end_user_assignments ?? [];
+                                    // Deduplicate: group by receiver_name
+                                    const uniqueReceivers = assignments.reduce<{ receiver_name: string; position_office: string | null; count: number }[]>((acc, a) => {
+                                        const existing = acc.find(r => r.receiver_name === a.receiver_name);
+                                        if (existing) { existing.count++; }
+                                        else { acc.push({ receiver_name: a.receiver_name, position_office: a.position_office, count: 1 }); }
+                                        return acc;
+                                    }, []);
+
+                                    return (
+                                        <tr key={item.DRDetailID}>
+                                            <td className="py-3 px-3 text-sm text-slate-600">{index + 1}</td>
+                                            <td className="py-3 px-3 text-sm text-slate-900">{item.article?.ArticleName || '—'}</td>
+                                            <td className="py-3 px-3 text-sm text-slate-900">{item.ItemDescription}</td>
+                                            <td className="py-3 px-3 min-w-[160px] text-sm text-slate-600">{item.propertyType?.PropertyName || ''}</td>
+                                            <td className="py-3 px-3 min-w-[220px] text-sm text-slate-600">
+                                                <div className="text-sm text-slate-700">
+                                                    {item.Brand && <span className="mr-2">{`Brand: ${item.Brand}`}</span>}
+                                                    {item.ModelNumber && <span className="mr-2">{`Model: ${item.ModelNumber}`}</span>}
+                                                    {item.SerialNumber && <span className="mr-2">{`Serial: ${item.SerialNumber}`}</span>}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-3 w-28 text-center">
+                                                <div className="text-sm">{item.QuantityDelivered}</div>
+                                                <div className="text-xs text-slate-500 mt-1">{item.unitOfMeasure?.UnitName || 'N/A'}</div>
+                                            </td>
+                                            <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.UnitCost)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            <td className="py-3 px-3 text-sm text-slate-600">₱{parseFloat(String(item.TotalCost)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            <td className="py-3 px-3 min-w-[180px] text-sm">
+                                                {uniqueReceivers.length === 0 ? (
+                                                    <span className="text-slate-400 italic text-xs">Not assigned</span>
+                                                ) : (
+                                                    <div className="space-y-1">
+                                                        {uniqueReceivers.map((r, ri) => (
+                                                            <div key={ri} className="flex flex-col">
+                                                                <span className="font-medium text-slate-800 text-xs">
+                                                                    {r.receiver_name}
+                                                                    {uniqueReceivers.length > 1 || (assignments.length > 1 && r.count > 1)
+                                                                        ? <span className="ml-1 text-slate-400 font-normal">×{r.count}</span>
+                                                                        : null}
+                                                                </span>
+                                                                {r.position_office && (
+                                                                    <span className="text-xs text-slate-500">{r.position_office}</span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 </div>
+
 
                 {/* Summary */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
