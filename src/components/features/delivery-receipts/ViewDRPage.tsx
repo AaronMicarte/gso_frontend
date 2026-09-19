@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, AlertCircle, Printer, Plus } from 'lucide-react';
+import { ArrowLeft, Edit, AlertCircle, Printer, Plus, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
+import issuanceAPI from '@/lib/api/issuance';
 import { DeliveryReceipt } from '@/types/procurement';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -18,12 +19,18 @@ interface ViewDRPageProps {
     onClose?: () => void;
 }
 
+interface IssuanceIds {
+    PAR?: number;
+    ICS?: number;
+}
+
 export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDRPageProps) {
     const params = useParams();
     const router = useRouter();
     const { user } = useAuth();
     const [dr, setDr] = useState<DeliveryReceipt | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [issuanceIds, setIssuanceIds] = useState<IssuanceIds>({});
 
     const resolvedId = drId ?? (params.id ? parseInt(params.id as string, 10) : null);
 
@@ -40,6 +47,19 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                 if (!resolvedId) return;
                 const data = await getDeliveryReceipt(resolvedId);
                 setDr(data);
+
+                // Ensure issuances exist and get their IDs for Print PAR / ICS buttons
+                try {
+                    const ensured = await issuanceAPI.ensureIssuances({ dr_id: resolvedId });
+                    const byType = ensured.data?.issuances_by_document_type ?? {};
+                    setIssuanceIds({
+                        PAR: byType.PAR?.IssuanceID,
+                        ICS: byType.ICS?.IssuanceID,
+                    });
+                } catch {
+                    // Silent — buttons just won't show
+                    setIssuanceIds({});
+                }
             } catch {
                 toast.error('Failed to load delivery receipt');
                 if (isModal) {
@@ -93,6 +113,15 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
         return sum + cost;
     }, 0) : 0;
 
+    const handlePrint = (type: 'PAR' | 'ICS') => {
+        const id = type === 'PAR' ? issuanceIds.PAR : issuanceIds.ICS;
+        if (!id) {
+            toast.error(`No ${type} document available yet`);
+            return;
+        }
+        window.open(`/admin/issuance/${id}/print?type=${type}`, '_blank');
+    };
+
     return (
         <div className={isModal ? 'print:hidden' : 'min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden'} style={isModal ? undefined : { backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
             <div className="p-6 w-full space-y-6">
@@ -129,6 +158,28 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                         <Printer className="w-4 h-4" />
                         Print IAR
                     </Link>
+                    {issuanceIds.PAR && (
+                        <button
+                            type="button"
+                            onClick={() => handlePrint('PAR')}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
+                            title="Print Property Acknowledgment Receipt"
+                        >
+                            <FileText className="w-4 h-4" />
+                            Print PAR
+                        </button>
+                    )}
+                    {issuanceIds.ICS && (
+                        <button
+                            type="button"
+                            onClick={() => handlePrint('ICS')}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                            title="Print Inventory Custodian Slip"
+                        >
+                            <FileText className="w-4 h-4" />
+                            Print ICS
+                        </button>
+                    )}
                     {canEdit && (
                         <Link
                             href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
@@ -254,7 +305,6 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                                 {dr.details?.map((item, index) => {
                                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     const assignments: { inventory_detail_id: number; receiver_name: string; position_office: string | null }[] = (item as any).end_user_assignments ?? [];
-                                    // Deduplicate: group by receiver_name
                                     const uniqueReceivers = assignments.reduce<{ receiver_name: string; position_office: string | null; count: number }[]>((acc, a) => {
                                         const existing = acc.find(r => r.receiver_name === a.receiver_name);
                                         if (existing) { existing.count++; }
@@ -309,7 +359,6 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                         </table>
                     </div>
                 </div>
-
 
                 {/* Summary */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
