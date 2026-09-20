@@ -34,9 +34,9 @@ const formatPrintEndUser = (type: RpcType, accountableOfficer?: string | null) =
         if (nameParts.length === 1) return nameParts[0].toUpperCase();
 
         const firstInitial = `${nameParts[0][0].toUpperCase()}.`;
-        const lastNameParts = nameParts.slice(1).join(' ').toUpperCase();
+        const lastName = nameParts[nameParts.length - 1].toUpperCase();
 
-        return `${firstInitial} ${lastNameParts}`;
+        return `${firstInitial} ${lastName}`;
     }
 
     // RPCSEP: Full Name style in Caps (e.g., "AARON MICARTE")
