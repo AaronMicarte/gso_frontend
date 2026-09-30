@@ -117,7 +117,7 @@ const issuanceAPI = {
     },
 
     // Acknowledge inspected IAR to ingest inventory
-    acknowledgeInspection: async (payload: { dr_id?: number; iar_id?: number }) => {
+    acknowledgeInspection: async (payload: { dr_id?: number; iar_id?: number; dr_number?: string; ris_number?: string }) => {
         const { data } = await apiClient.post<{
             message: string;
             data?: {

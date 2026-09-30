@@ -66,7 +66,8 @@ const drItemSchema = z.object({
 });
 
 const drSchema = z.object({
-    dr_number: z.string().min(1, 'DR number is required'),
+    dr_number: z.string().optional(),
+    is_temporary_dr: z.boolean().optional(),
     supplier_id: z.coerce.number().min(1, 'Supplier is required'),
     supplier_name: z.string().optional(),
     requested_by_user_id: z.coerce.number().min(1, 'Requested by is required'),
@@ -78,6 +79,14 @@ const drSchema = z.object({
     dr_picture: z.custom<FileList>().optional(),
     details: z.array(drItemSchema).min(1, 'At least one item is required'),
     items_still_pending_delivery: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+    if (!data.is_temporary_dr && (!data.dr_number || !data.dr_number.trim())) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['dr_number'],
+            message: 'DR number is required (or check Temporary DR)',
+        });
+    }
 });
 
 type DRFormValues = z.infer<typeof drSchema>;
@@ -106,6 +115,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const createMutation = useCreateDeliveryReceipt();
     const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
     const [articles, setArticles] = useState<Article[]>([]);
+    const [isTemporaryDR, setIsTemporaryDR] = useState(false);
 
     const manilaToday = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
     const manilaMinDate = new Date();
@@ -119,11 +129,13 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         watch,
         setValue,
         setError,
+        clearErrors,
         formState: { errors, isSubmitting },
     } = useForm<DRFormValues>({
         resolver: zodResolver(drSchema),
         defaultValues: {
             dr_number: '',
+            is_temporary_dr: false,
             supplier_id: 0,
             supplier_name: '',
             requested_by_user_id: 0,
@@ -578,15 +590,45 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Basic Information</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Delivery Receipt Number *
-                                </label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-sm font-medium text-slate-700">
+                                        Delivery Receipt Number {!isTemporaryDR && <span className="text-red-0">*</span>}
+                                    </label>
+                                    <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none hover:text-slate-900 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={isTemporaryDR}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                setIsTemporaryDR(checked);
+                                                setValue('is_temporary_dr', checked);
+                                                if (checked) {
+                                                    clearErrors('dr_number');
+                                                }
+                                            }}
+                                            className="w-4 h-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)] cursor-pointer"
+                                        />
+                                        <span>Temporary DR (leave blank)</span>
+                                    </label>
+                                </div>
                                 <input
                                     {...register('dr_number')}
                                     type="text"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                                    placeholder="Enter DR number (manual)"
+                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 ${errors.dr_number ? 'border-red-300 bg-red-50/20' : 'border-slate-200'
+                                        }`}
+                                    placeholder={isTemporaryDR ? `TEMP-DR-${new Date().getFullYear()}-XXXX (Auto-assigned)` : "Enter DR number (manual)"}
                                 />
+                                {isTemporaryDR ? (
+                                    <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                                        <span>Temporary placeholder name will be assigned if left blank. You will be prompted to rename it upon acknowledgment.</span>
+                                    </p>
+                                ) : errors.dr_number ? (
+                                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                        <AlertCircle className="w-3.5 h-3.5" />
+                                        {errors.dr_number.message}
+                                    </p>
+                                ) : null}
                             </div>
                             <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">

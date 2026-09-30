@@ -231,7 +231,14 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-slate-700">DR Number</label>
-                            <p className="mt-1 text-slate-900">{dr.DRNumber}</p>
+                            <div className="mt-1 flex items-center gap-2">
+                                <p className="text-slate-900">{dr.DRNumber}</p>
+                                {/temp/i.test(dr.DRNumber) && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                                        TEMPORARY
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">IAR Number</label>

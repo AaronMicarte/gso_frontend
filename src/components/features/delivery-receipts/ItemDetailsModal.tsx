@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Dialog } from '@/components/ui/Dialog';
@@ -9,6 +9,102 @@ import { Input } from '@/components/ui/Input';
 import { ArticlePreviewModal } from '@/components/ui/ArticlePreviewModal';
 import { toast } from 'sonner';
 import { Package, Calculator, Hash, ExternalLink, RefreshCw } from 'lucide-react';
+
+// ─────────────────────────────────────────────────────────────
+// Currency input helper — displays commas, stores raw number
+// ─────────────────────────────────────────────────────────────
+function CurrencyInput({
+    value,
+    onChange,
+    onBlur,
+    name,
+    className,
+    placeholder,
+}: {
+    value: number | undefined | null;
+    onChange: (val: number) => void;
+    onBlur?: () => void;
+    name?: string;
+    className?: string;
+    placeholder?: string;
+}) {
+    // Local string so the user can type "1000." and ".05" without the dot being eaten
+    const [text, setText] = useState<string>(() =>
+        value === undefined || value === null || isNaN(Number(value))
+            ? ''
+            : String(value)
+    );
+    const focusedRef = useRef(false);
+
+    // Sync from parent only when NOT focused (e.g. reset / external changes)
+    useEffect(() => {
+        if (focusedRef.current) return;
+        const next =
+            value === undefined || value === null || isNaN(Number(value))
+                ? ''
+                : String(value);
+        setText(next);
+    }, [value]);
+
+    const formatWithCommas = (raw: string): string => {
+        if (!raw) return '';
+        // Split integer and decimal parts, preserving trailing dot
+        const [intPart, ...rest] = raw.split('.');
+        const decPart = rest.join(''); // collapse extra dots
+        const hasDot = raw.includes('.');
+        const intFormatted = intPart === ''
+            ? ''
+            : Number(intPart).toLocaleString('en-PH');
+        return hasDot ? `${intFormatted}.${decPart}` : intFormatted;
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        // Strip everything except digits and dot
+        let raw = e.target.value.replace(/[^0-9.]/g, '');
+        // Collapse multiple dots to a single one
+        const firstDot = raw.indexOf('.');
+        if (firstDot !== -1) {
+            raw =
+                raw.slice(0, firstDot + 1) +
+                raw.slice(firstDot + 1).replace(/\./g, '');
+        }
+        // Limit to 2 decimals
+        const [intPart, decPart] = raw.split('.');
+        const limitedDec =
+            decPart === undefined ? undefined : decPart.slice(0, 2);
+        const normalized =
+            limitedDec === undefined ? intPart : `${intPart}.${limitedDec}`;
+
+        setText(normalized);
+
+        const num = normalized === '' || normalized === '.' ? 0 : Number(normalized);
+        onChange(isNaN(num) ? 0 : num);
+    };
+
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        focusedRef.current = false;
+        // Reformat nicely on blur
+        const num = Number(text);
+        if (!isNaN(num)) {
+            setText(String(num));
+        }
+        onBlur?.();
+    };
+
+    return (
+        <input
+            type="text"
+            inputMode="decimal"
+            name={name}
+            value={formatWithCommas(text)}
+            onChange={handleChange}
+            onFocus={() => { focusedRef.current = true; }}
+            onBlur={handleBlur}
+            placeholder={placeholder ?? '0.00'}
+            className={className}
+        />
+    );
+}
 
 const itemSchema = z.object({
     article_id: z.number().int().min(1, 'Article is required'),
@@ -65,7 +161,7 @@ export function ItemDetailsModal({
     existingSerials = [],
     articleCreateRoute = '/admin/masterdata/articles?mode=create',
 }: ItemDetailsModalProps) {
-    const { register, handleSubmit, formState: { errors }, reset, watch, setValue, setError, clearErrors } = useForm<ItemFormValues>({
+    const { register, control, handleSubmit, formState: { errors }, reset, watch, setValue, setError, clearErrors } = useForm<ItemFormValues>({
         resolver: zodResolver(itemSchema),
         defaultValues: {
             article_id: 0,
@@ -622,14 +718,23 @@ export function ItemDetailsModal({
                         <label className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
                             Unit Cost (₱) *
                         </label>
-                        <Input
-                            {...register('unit_cost', { valueAsNumber: true })}
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            placeholder="0.00"
-                            error={errors.unit_cost?.message}
+                        <Controller
+                            control={control}
+                            name="unit_cost"
+                            render={({ field }) => (
+                                <CurrencyInput
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    onBlur={field.onBlur}
+                                    name={field.name}
+                                    className="w-full px-4 py-2.5 bg-white border-2 border-[var(--border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200 text-right"
+                                    placeholder="0.00"
+                                />
+                            )}
                         />
+                        {errors.unit_cost && (
+                            <p className="text-sm text-red-600">{errors.unit_cost.message}</p>
+                        )}
                     </div>
                 </div>
 

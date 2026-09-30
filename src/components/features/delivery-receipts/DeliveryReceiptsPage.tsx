@@ -85,6 +85,8 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
         DRNumber: string;
         IARNumber?: string | null;
     } | null>(null);
+    const [officialDrNumber, setOfficialDrNumber] = useState('');
+    const [ackError, setAckError] = useState<string | null>(null);
     const [acknowledgingId, setAcknowledgingId] = useState<number | null>(null);
 
     const { user } = useAuth();
@@ -142,26 +144,49 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
 
     const openAckConfirm = (row: { DRID: number; DRNumber: string; IARNumber?: string | null }) => {
         setPendingAckRow(row);
+        setOfficialDrNumber('');
+        setAckError(null);
         setAckConfirmOpen(true);
     };
 
     const confirmAcknowledge = async () => {
         if (!pendingAckRow) return;
         const row = pendingAckRow;
+        const isTemp = /temp/i.test(row.DRNumber);
+
+        if (isTemp) {
+            const trimmed = officialDrNumber.trim();
+            if (!trimmed) {
+                setAckError('Official DR number is required.');
+                return;
+            }
+            if (/temp/i.test(trimmed)) {
+                setAckError('Official DR number cannot be a temporary name.');
+                return;
+            }
+        }
 
         try {
             setAcknowledgingId(row.DRID);
-            await issuanceAPI.acknowledgeInspection({ dr_id: row.DRID });
+            await issuanceAPI.acknowledgeInspection({
+                dr_id: row.DRID,
+                ...(isTemp && officialDrNumber.trim() ? { dr_number: officialDrNumber.trim() } : {})
+            });
             toast.success('Delivery receipt acknowledged');
             await refetch();
+            setAckConfirmOpen(false);
+            setPendingAckRow(null);
+            setOfficialDrNumber('');
         } catch (error: unknown) {
-            const maybeAxios = error as { response?: { data?: { message?: string } } };
-            const message = maybeAxios?.response?.data?.message;
+            const maybeAxios = error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+            const resp = maybeAxios?.response?.data;
+            const message = resp?.errors?.dr_number?.[0] || resp?.message;
+            if (isTemp && resp?.errors?.dr_number) {
+                setAckError(resp.errors.dr_number[0]);
+            }
             toast.error(message || 'Failed to acknowledge delivery receipt');
         } finally {
             setAcknowledgingId(null);
-            setAckConfirmOpen(false);
-            setPendingAckRow(null);
         }
     };
 
@@ -276,7 +301,14 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                                         return (
                                             <tr key={dr.DRID} className="hover:bg-slate-50">
                                                 <td className="px-6 py-4 font-medium text-slate-900">
-                                                    {dr.DRNumber}
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span>{dr.DRNumber}</span>
+                                                        {/temp/i.test(dr.DRNumber) && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                                                                TEMP
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-600">
                                                     {dr.IARNumber ? (
@@ -421,15 +453,47 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
 
                         {pendingAckRow && (
                             <div className="mt-3 text-sm text-slate-700 space-y-0.5">
-                                <div>DR: <span className="font-medium">{pendingAckRow.DRNumber}</span></div>
+                                <div>
+                                    DR: <span className="font-medium">{pendingAckRow.DRNumber}</span>
+                                    {/temp/i.test(pendingAckRow.DRNumber) && (
+                                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                                            TEMPORARY
+                                        </span>
+                                    )}
+                                </div>
                                 {pendingAckRow.IARNumber && <div>IAR: <span className="font-medium">{pendingAckRow.IARNumber}</span></div>}
+                            </div>
+                        )}
+
+                        {pendingAckRow && /temp/i.test(pendingAckRow.DRNumber) && (
+                            <div className="mt-4 p-3 bg-amber-50/80 border border-amber-200 rounded-lg space-y-2">
+                                <label className="block text-xs font-semibold text-slate-800">
+                                    Official DR Number <span className="text-red-500">*</span>
+                                </label>
+                                <p className="text-xs text-amber-800">
+                                    This receipt currently uses a temporary DR name. Please provide the official DR number to proceed with acknowledgment:
+                                </p>
+                                <input
+                                    type="text"
+                                    value={officialDrNumber}
+                                    onChange={(e) => {
+                                        setOfficialDrNumber(e.target.value);
+                                        if (ackError) setAckError(null);
+                                    }}
+                                    placeholder="Enter official DR number"
+                                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]"
+                                    autoFocus
+                                />
+                                {ackError && (
+                                    <p className="text-xs text-red-600 font-medium">{ackError}</p>
+                                )}
                             </div>
                         )}
 
                         <div className="mt-6 flex items-center justify-end gap-2">
                             <button
                                 type="button"
-                                onClick={() => { setAckConfirmOpen(false); setPendingAckRow(null); }}
+                                onClick={() => { setAckConfirmOpen(false); setPendingAckRow(null); setOfficialDrNumber(''); setAckError(null); }}
                                 disabled={acknowledgingId !== null}
                                 className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                             >
@@ -438,7 +502,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                             <button
                                 type="button"
                                 onClick={confirmAcknowledge}
-                                disabled={acknowledgingId !== null}
+                                disabled={acknowledgingId !== null || Boolean(pendingAckRow && /temp/i.test(pendingAckRow.DRNumber) && !officialDrNumber.trim())}
                                 className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] disabled:opacity-50"
                             >
                                 {acknowledgingId ? 'Processing...' : 'Yes, Acknowledge'}

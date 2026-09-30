@@ -123,6 +123,8 @@ export function IssuanceListPage({
     const [acknowledgingId, setAcknowledgingId] = useState<number | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [pendingRow, setPendingRow] = useState<DeliveryReceiptForIssuance | null>(null);
+    const [officialDrNumber, setOfficialDrNumber] = useState('');
+    const [ackError, setAckError] = useState<string | null>(null);
     // RIS number input removed per request; backend will auto-generate if omitted
     const [docTypeByDr, setDocTypeByDr] = useState<Record<number, 'PAR' | 'ICS'>>({});
     const [expandedByDr, setExpandedByDr] = useState<Record<number, boolean>>({});
@@ -179,13 +181,14 @@ export function IssuanceListPage({
         ));
     }, [rows, searchTerm]);
 
-    const handleAcknowledge = async (row: DeliveryReceiptForIssuance, risNumber?: string) => {
-        if (acknowledgingId) return;
+    const handleAcknowledge = async (row: DeliveryReceiptForIssuance, risNumber?: string, drNumber?: string): Promise<boolean> => {
+        if (acknowledgingId) return false;
 
         try {
             setAcknowledgingId(row.DRID);
             const payload: Record<string, unknown> = { dr_id: row.DRID };
             if (risNumber) payload.ris_number = risNumber;
+            if (drNumber) payload.dr_number = drNumber;
             const response = await issuanceAPI.acknowledgeInspection(payload);
             const createdRisNumber = (response as { data?: { ris_number?: string } }).data?.ris_number;
             toast.success(
@@ -194,10 +197,16 @@ export function IssuanceListPage({
                     : 'IAR acknowledged and inventory updated'
             );
             await loadRows(currentPage);
+            return true;
         } catch (error: unknown) {
-            const maybeAxios = error as { response?: { data?: { message?: string } } };
-            const message = maybeAxios?.response?.data?.message;
+            const maybeAxios = error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+            const resp = maybeAxios?.response?.data;
+            const message = resp?.errors?.dr_number?.[0] || resp?.message;
+            if (resp?.errors?.dr_number) {
+                setAckError(resp.errors.dr_number[0]);
+            }
             toast.error(message || 'Failed to acknowledge IAR');
+            return false;
         } finally {
             setAcknowledgingId(null);
         }
@@ -205,15 +214,33 @@ export function IssuanceListPage({
 
     const openConfirm = (row: DeliveryReceiptForIssuance) => {
         setPendingRow(row);
+        setOfficialDrNumber('');
+        setAckError(null);
         setConfirmOpen(true);
     };
 
     const confirmAcknowledge = async () => {
         if (!pendingRow) return;
-        // Call acknowledge without RIS number — backend will auto-generate if needed.
-        await handleAcknowledge(pendingRow);
-        setConfirmOpen(false);
-        setPendingRow(null);
+        const isTemp = /temp/i.test(pendingRow.DRNumber);
+
+        if (isTemp) {
+            const trimmed = officialDrNumber.trim();
+            if (!trimmed) {
+                setAckError('Official DR number is required.');
+                return;
+            }
+            if (/temp/i.test(trimmed)) {
+                setAckError('Official DR number cannot be a temporary name.');
+                return;
+            }
+        }
+
+        const success = await handleAcknowledge(pendingRow, undefined, isTemp ? officialDrNumber.trim() : undefined);
+        if (success) {
+            setConfirmOpen(false);
+            setPendingRow(null);
+            setOfficialDrNumber('');
+        }
     };
 
     const handlePrint = (row: DeliveryReceiptForIssuance) => {
@@ -420,6 +447,11 @@ export function IssuanceListPage({
                                                 <div>
                                                     <div className="flex items-center gap-2">
                                                         <h3 className="font-semibold text-slate-900">{row.DRNumber}</h3>
+                                                        {/temp/i.test(row.DRNumber) && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                                                                TEMP
+                                                            </span>
+                                                        )}
                                                         {row.IARNumber && (
                                                             <span className="text-xs text-slate-500">IAR: {row.IARNumber}</span>
                                                         )}
@@ -618,23 +650,56 @@ export function IssuanceListPage({
 
             <Dialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <Dialog.Portal>
-                    <Dialog.Overlay className="fixed inset-0 bg-black/40" />
-                    <Dialog.Content className="fixed left-1/2 top-1/2 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl">
+                    <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/40" />
+                    <Dialog.Content className="fixed z-[101] left-1/2 top-1/2 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl">
                         <Dialog.Title className="text-lg font-semibold text-slate-900">Confirm Acknowledgment</Dialog.Title>
                         <Dialog.Description className="mt-2 text-sm text-slate-600">
                             Are you sure you want to acknowledge this IAR? Make sure the item is signed on paper by the department head or end user.
                         </Dialog.Description>
                         {pendingRow && (
-                            <div className="mt-3 text-sm text-slate-700">
-                                <div>DR: {pendingRow.DRNumber}</div>
-                                {pendingRow.IARNumber && <div>IAR: {pendingRow.IARNumber}</div>}
+                            <div className="mt-3 text-sm text-slate-700 space-y-0.5">
+                                <div>
+                                    DR: <span className="font-medium">{pendingRow.DRNumber}</span>
+                                    {/temp/i.test(pendingRow.DRNumber) && (
+                                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                                            TEMPORARY
+                                        </span>
+                                    )}
+                                </div>
+                                {pendingRow.IARNumber && <div>IAR: <span className="font-medium">{pendingRow.IARNumber}</span></div>}
                             </div>
                         )}
-                        {/* RIS number input removed — backend will auto-generate if needed */}
+
+                        {pendingRow && /temp/i.test(pendingRow.DRNumber) && (
+                            <div className="mt-4 p-3 bg-amber-50/80 border border-amber-200 rounded-lg space-y-2">
+                                <label className="block text-xs font-semibold text-slate-800">
+                                    Official DR Number <span className="text-red-500">*</span>
+                                </label>
+                                <p className="text-xs text-amber-800">
+                                    This receipt currently uses a temporary DR name. Please provide the official DR number to proceed with acknowledgment:
+                                </p>
+                                <input
+                                    type="text"
+                                    value={officialDrNumber}
+                                    onChange={(e) => {
+                                        setOfficialDrNumber(e.target.value);
+                                        if (ackError) setAckError(null);
+                                    }}
+                                    placeholder="Enter official DR number"
+                                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]"
+                                    autoFocus
+                                />
+                                {ackError && (
+                                    <p className="text-xs text-red-600 font-medium">{ackError}</p>
+                                )}
+                            </div>
+                        )}
+
                         <div className="mt-6 flex items-center justify-end gap-2">
                             <Dialog.Close asChild>
                                 <button
                                     type="button"
+                                    onClick={() => { setPendingRow(null); setOfficialDrNumber(''); setAckError(null); }}
                                     className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50"
                                 >
                                     Cancel
@@ -643,10 +708,15 @@ export function IssuanceListPage({
                             <button
                                 type="button"
                                 onClick={confirmAcknowledge}
-                                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)]"
+                                disabled={acknowledgingId !== null || Boolean(pendingRow && /temp/i.test(pendingRow.DRNumber) && !officialDrNumber.trim())}
+                                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] disabled:opacity-50"
                             >
-                                Yes, Acknowledge
+                                {acknowledgingId ? 'Processing...' : 'Yes, Acknowledge'}
                             </button>
+
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-200 text-xs text-slate-500">
+                            This will also generate a RIS number for the delivery receipt and mark it as acknowledged.
                         </div>
                     </Dialog.Content>
                 </Dialog.Portal>
