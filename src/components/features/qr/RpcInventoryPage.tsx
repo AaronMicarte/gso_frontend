@@ -38,6 +38,7 @@ import type {
     RpcInventoryPreviewCandidate,
     RpcInventoryScanRecord,
     RpcType,
+    DepartmentCrossCheckResponse,
 } from '@/types/rpcInventory';
 
 type PreviewAssetState = RpcInventoryPreviewAsset & {
@@ -191,8 +192,8 @@ export function RpcInventoryPage() {
     const [crossCheckDeptId, setCrossCheckDeptId] = useState<number | null>(null);
     const [crossCheckType, setCrossCheckType] = useState<'ALL' | RpcType>('ALL');
     const [crossCheckSearch, setCrossCheckSearch] = useState('');
-    const [crossCheckPage, setCrossCheckPage] = useState(1);
     const [crossCheckModalOpen, setCrossCheckModalOpen] = useState(false);
+    const [previewCrossCheckData, setPreviewCrossCheckData] = useState<DepartmentCrossCheckResponse | null>(null);
 
     const { data: allDepartments = [], isLoading: loadingDepartments } = useAllDepartments();
 
@@ -1747,7 +1748,10 @@ export function RpcInventoryPage() {
                         onSearchChange={setCrossCheckSearch}
                         data={crossCheckData || null}
                         isLoading={loadingCrossCheck || loadingDepartments}
-                        onOpenPreview={() => setCrossCheckModalOpen(true)}
+                        onOpenPreview={(filtered) => {
+                            setPreviewCrossCheckData(filtered || null);
+                            setCrossCheckModalOpen(true);
+                        }}
                     />
                 ) : (
                     <>
@@ -2472,8 +2476,11 @@ export function RpcInventoryPage() {
 
                 <RpcDepartmentCrossCheckModal
                     isOpen={crossCheckModalOpen}
-                    onClose={() => setCrossCheckModalOpen(false)}
-                    data={crossCheckData || null}
+                    onClose={() => {
+                        setCrossCheckModalOpen(false);
+                        setPreviewCrossCheckData(null);
+                    }}
+                    data={previewCrossCheckData || crossCheckData || null}
                     selectedType={crossCheckType}
                     loading={loadingCrossCheck}
                 />

@@ -212,6 +212,9 @@ export interface DepartmentCrossCheckItem {
     remarks: string;
     end_user: string;
     scan_status: string;
+    scanned_count?: number;
+    unscanned_count?: number;
+    total_in_group?: number;
     rpc_type: RpcType;
     property_type: string;
 }
