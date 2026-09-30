@@ -704,7 +704,9 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                                                 {canShowSingleQr && !!inv?.PropertyNumber && (
                                                     <PropertySticker
-                                                        propertyNumber={inv.PropertyNumber}
+                                                        propertyNumber={inv?.PropertyNumber || ''}
+                                                        parIcsNumber={issuance.DocumentNumber}
+                                                        documentType={issuance.DocumentType}
                                                         itemName={inv?.propertyInventory?.ItemName || inv?.propertyInventory?.ItemDescription || 'Asset'}
                                                         category={
                                                             inv?.propertyType?.PropertyName ||
@@ -718,7 +720,7 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                                                             const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
                                                             if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
 
-                                                            return `${origin}/admin/inventory/${inv.InventoryID}?detail=${inv.InventoryDetailID}`;
+                                                            return `${origin}/admin/inventory/${inv?.InventoryID}?detail=${inv?.InventoryDetailID}`;
                                                         })()}
                                                         custodianName={issuance.IssuedToName || issuance.issuedToUser?.FullName || 'Unassigned'}
                                                         date={issuance.IssuanceDate ? format(toZonedTime(new Date(issuance.IssuanceDate), 'Asia/Manila'), 'MM/dd/yyyy') : '-'}

@@ -65,6 +65,8 @@ export type InventoryDetail = {
     rlsddpStatus?: 'Lost' | 'Stolen' | 'Damaged' | 'Destroyed' | null;
     rlsddpNumber?: string | null;
     rlsddpId?: number | null;
+    par_ics_number?: string | null;
+    par_ics_type?: 'PAR' | 'ICS' | null;
 };
 
 export type InventoryResponse = {
@@ -109,7 +111,6 @@ export type PropertyCardResponse = {
         property_number?: string | null;
         description: string | null;
         unit_cost: number | null;
-        // Optional fields added by backend to surface receiving details
         po_number?: string | null;
         supplier?: string | null;
         date_received?: string | null;
@@ -120,7 +121,59 @@ export type PropertyCardResponse = {
     rows: PropertyCardRow[];
 };
 export type PendingIar = { IARID: number; IARNumber: string; DateAccepted: string; details: { IARDetailID: number; QuantityAccepted: number; ItemDescription?: string; VerifiedBrand?: string; VerifiedModel?: string; VerifiedSerial?: string; UnitCost?: number; propertyType?: { PropertyTypeID: number; PropertyName: string } }[]; signatures?: { id: number; role: string; url?: string; created_at: string; user?: { UserID: number; FullName: string } }[] };
-export type InventoryItem = { InventoryDetailID: number; InventoryID: number; PropertyTypeID?: number; ConditionID: number; Brand?: string; ModelNumber?: string; SerialNumber?: string; PropertyNumber?: string; Description?: string; Quantity: number; QuantityAvailable: number; PropertyStatusID: number; UnitOfMeasureID?: number; UnitCost?: number; TotalCost?: number; SourceIARDetailID?: number; SourceDRDetailID?: number; Remarks?: string; CreatedDate: string; UpdatedDate?: string; PropertyName?: string; ClassificationName?: string; DocumentType?: 'ICS' | 'PAR'; InventoryNumber?: string; StatusName?: string; ConditionName?: string; dr_item_description?: string; dr_article_name?: string; dr_drid?: number | null; dr_brand?: string; dr_model?: string; dr_serial?: string; custodianName?: string; locationDepartment?: string; locationDepartmentId?: number | null; currentDepartmentHead?: string | null; departmentHeadVacant?: boolean; accountabilityLabel?: string | null; lastIssuedDate?: string | null; currentBorrowerName?: string | null; currentBorrowerDepartment?: string | null; qrCodeData?: string | null; rlsddpStatus?: 'Lost' | 'Stolen' | 'Damaged' | 'Destroyed' | null; rlsddpNumber?: string | null; rlsddpId?: number | null; endUserName?: string | null; endUserPosition?: string | null; };
+
+export type InventoryItem = {
+    InventoryDetailID: number;
+    InventoryID: number;
+    PropertyTypeID?: number;
+    ConditionID: number;
+    Brand?: string;
+    ModelNumber?: string;
+    SerialNumber?: string;
+    PropertyNumber?: string;
+    Description?: string;
+    Quantity: number;
+    QuantityAvailable: number;
+    PropertyStatusID: number;
+    UnitOfMeasureID?: number;
+    UnitCost?: number;
+    TotalCost?: number;
+    SourceIARDetailID?: number;
+    SourceDRDetailID?: number;
+    Remarks?: string;
+    CreatedDate: string;
+    UpdatedDate?: string;
+    PropertyName?: string;
+    ClassificationName?: string;
+    DocumentType?: 'ICS' | 'PAR';
+    InventoryNumber?: string;
+    StatusName?: string;
+    ConditionName?: string;
+    dr_item_description?: string;
+    dr_article_name?: string;
+    dr_drid?: number | null;
+    dr_brand?: string;
+    dr_model?: string;
+    dr_serial?: string;
+    custodianName?: string;
+    locationDepartment?: string;
+    locationDepartmentId?: number | null;
+    currentDepartmentHead?: string | null;
+    departmentHeadVacant?: boolean;
+    accountabilityLabel?: string | null;
+    lastIssuedDate?: string | null;
+    currentBorrowerName?: string | null;
+    currentBorrowerDepartment?: string | null;
+    qrCodeData?: string | null;
+    rlsddpStatus?: 'Lost' | 'Stolen' | 'Damaged' | 'Destroyed' | null;
+    rlsddpNumber?: string | null;
+    rlsddpId?: number | null;
+    endUserName?: string | null;
+    endUserPosition?: string | null;
+    par_ics_number?: string | null;
+    par_ics_type?: 'PAR' | 'ICS' | null;
+};
+
 export type InventoryItemsListResponse = {
     data: InventoryItem[];
     total: number;

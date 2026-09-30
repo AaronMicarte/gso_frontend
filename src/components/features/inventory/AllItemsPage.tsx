@@ -63,7 +63,6 @@ export function AllItemsPage() {
         return null;
     });
 
-    // Property status (For Issuance / Issued / For Repair / For Disposal / Disposed)
     const [selectedPropertyStatus, setSelectedPropertyStatus] = useState<number | null>(() => {
         const statusParam = (searchParams.get('status') || '').toLowerCase();
         if (statusParam) {
@@ -132,7 +131,6 @@ export function AllItemsPage() {
     const handleExportAll = async () => {
         setIsExportingAll(true);
         try {
-            // Fetch the first page to determine total items (no filters - export ALL)
             const initialData = await getAllInventoryItems({
                 per_page: 1,
                 property_status_id: 2,
@@ -141,8 +139,6 @@ export function AllItemsPage() {
             });
             const totalItems = initialData.total || 1000;
 
-            // Fetch all items without any UI filters (search, condition, property type, etc)
-            // Only exclude removed items from active inventory
             const allItemsData = await getAllInventoryItems({
                 per_page: totalItems,
                 display_mode: 'individual',
@@ -192,6 +188,8 @@ export function AllItemsPage() {
                         : `${origin}/admin/inventory/${ci.InventoryID}?detail=${ci.InventoryDetailID}`;
                     return {
                         propertyNumber: ci.PropertyNumber || '',
+                        parIcsNumber: (ci as any).par_ics_number || '',
+                        office: (ci as any).locationDepartment || '',
                         custodianName: ci.custodianName || '',
                         itemName: getItemName(ci),
                         brand: ci.Brand || '',
@@ -203,6 +201,7 @@ export function AllItemsPage() {
                         modelNumber: ci.ModelNumber || '',
                         endUserName: ci.endUserName || '',
                         currentDepartmentHead: ci.currentDepartmentHead || '',
+                        documentType: (ci as any).par_ics_type || ci.DocumentType || '',
                     };
                 });
             return { ...item, combinedItems, stickerItems };
@@ -338,8 +337,6 @@ export function AllItemsPage() {
                                     const dept = allDepartments?.find(d => d.id === selectedDepartment);
                                     if (!dept) return;
                                     try {
-                                        // Fetch ALL items for this department without UI filters
-                                        // Only exclude removed items from active inventory
                                         const initialData = await getAllInventoryItems({
                                             per_page: 1,
                                             department_id: selectedDepartment,
@@ -372,7 +369,6 @@ export function AllItemsPage() {
 
                 {/* ── Filter Panel ── */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                    {/* Top bar */}
                     <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                         <div className="flex items-center gap-2">
                             <Filter className="w-3.5 h-3.5 text-gray-400" />
@@ -401,9 +397,7 @@ export function AllItemsPage() {
                         )}
                     </div>
 
-                    {/* Filter row — always one row */}
                     <div className="px-5 py-4 flex flex-wrap lg:flex-nowrap items-end gap-4">
-
                         <div className="flex flex-col gap-1.5 flex-1 min-w-[160px]">
                             <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Department</label>
                             <select
@@ -430,7 +424,6 @@ export function AllItemsPage() {
                                 <option value="">All Status</option>
                                 <option value={1}>For Issuance</option>
                                 <option value={2}>Issued</option>
-
                             </select>
                         </div>
 
@@ -488,10 +481,8 @@ export function AllItemsPage() {
                                 <option value="ICS">ICS</option>
                             </select>
                         </div>
-
                     </div>
 
-                    {/* Active filter chips */}
                     {activeFilterCount > 0 && (
                         <div className="flex flex-wrap gap-2 px-5 pb-3">
                             {selectedDepartment && (
@@ -573,7 +564,6 @@ export function AllItemsPage() {
                             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 text-sm text-gray-900 placeholder:text-gray-400"
                         />
                     </div>
-                    {/* Individual / Combined toggle — replaces 25/page */}
                     <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-lg shrink-0">
                         <button
                             onClick={() => { setDisplayMode('individual'); setPage(1); }}
@@ -710,6 +700,8 @@ export function AllItemsPage() {
                                                                 propertyNumber={item.PropertyNumber}
                                                                 itemName={getItemName(item)}
                                                                 category={item.PropertyName || item.ClassificationName || '-'}
+                                                                // 👇 OFFICE — pass locationDepartment
+                                                                office={item.locationDepartment || ''}
                                                                 url={(() => {
                                                                     const origin = typeof window !== 'undefined' ? window.location.origin : '';
                                                                     const qrCodeData = getQrCodeData(item);
@@ -725,6 +717,8 @@ export function AllItemsPage() {
                                                                 modelNumber={item.ModelNumber || ''}
                                                                 endUserName={item.endUserName || ''}
                                                                 currentDepartmentHead={item.currentDepartmentHead || ''}
+                                                                parIcsNumber={(item as any).par_ics_number || ''}
+                                                                documentType={(item as any).par_ics_type || item.DocumentType || ''}
                                                             />
                                                         )}
                                                         <InventoryHistoryDialog inventoryDetailId={item.InventoryDetailID} itemName={getItemName(item)} />

@@ -6,7 +6,8 @@ import { QrCode, X, Printer } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 
 export interface PropertyStickerItem {
-    propertyNumber: string;
+    propertyNumber: string;   // physical property tag (PROPERTY NO:)
+    parIcsNumber?: string;    // issuance document number (PAR NO: / ICS NO:)
     custodianName?: string;
     itemName?: string;
     category?: string;
@@ -18,10 +19,13 @@ export interface PropertyStickerItem {
     url: string;
     endUserName?: string | null;
     currentDepartmentHead?: string | null;
+    documentType?: string;
+    office?: string;
 }
 
 interface PropertyStickerProps {
     propertyNumber?: string;
+    parIcsNumber?: string;
     description?: string;
     department?: string;
     url?: string;
@@ -37,9 +41,12 @@ interface PropertyStickerProps {
     brand?: string;
     endUserName?: string | null;
     currentDepartmentHead?: string | null;
+    documentType?: string;
+    office?: string;
     items?: PropertyStickerItem[];
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const formatDate = (dateStr?: string | null): string => {
     if (!dateStr || dateStr === '-' || dateStr === 'N/A') return '-';
     try {
@@ -49,11 +56,11 @@ const formatDate = (dateStr?: string | null): string => {
     } catch { return dateStr; }
 };
 
-const getPropertyDescription = (itemName?: string, brand?: string) => {
-    const item = (itemName || '').trim();
+const getBrandModel = (brand?: string, model?: string) => {
     const b = (brand || '').trim();
-    if (!item || item === '-') return b && b !== '-' ? `(${b})` : '-';
-    return b && b !== '-' ? `${item} (${b})` : item;
+    const m = (model || '').trim();
+    if (!b && !m) return '-';
+    return [b, m].filter(Boolean).join(' / ');
 };
 
 const getAccountablePerson = (item: PropertyStickerItem) => {
@@ -76,7 +83,8 @@ const formatCost = (v?: number | string | null) => {
     return n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const LOGO_SRC = '/assets/images/background/propertysticker.png';
+const LOGO_LEFT_SRC = '/assets/images/background/propertysticker.png';
+const LOGO_RIGHT_SRC = '/assets/images/background/propertysticker.png';
 
 const imgToDataUrl = (src: string): Promise<string> =>
     new Promise((resolve) => {
@@ -93,11 +101,70 @@ const imgToDataUrl = (src: string): Promise<string> =>
         img.src = src;
     });
 
+// ── Per–document-type copy (PAR / ICS reference stickers) ─────────────────────
+type DocType = 'PAR' | 'ICS' | 'OTHER';
+
+const normalizeDocType = (v?: string | null, parIcsNo?: string | null): DocType => {
+    const t = (v || '').trim().toUpperCase();
+    if (t === 'PAR') return 'PAR';
+    if (t === 'ICS') return 'ICS';
+    const no = (parIcsNo || '').trim().toUpperCase();
+    if (no.startsWith('PAR')) return 'PAR';
+    if (no.startsWith('ICS')) return 'ICS';
+    return 'OTHER';
+};
+
+const getDocCopy = (docType: DocType) => {
+    switch (docType) {
+        case 'PAR':
+            return {
+                docNoLabel: 'PAR NO:',
+                showSignature: true,
+                showFinePrint: true,
+                footerFine: 'Unauthorized removal or tampering will be subject to disciplinary action',
+            };
+        case 'ICS':
+            return {
+                docNoLabel: 'ICS NO:',
+                showSignature: false,
+                showFinePrint: false,
+                footerFine: '',
+            };
+        default:
+            return {
+                docNoLabel: 'PAR NO:',
+                showSignature: true,
+                showFinePrint: true,
+                footerFine: 'Unauthorized removal or tampering will be subject to disciplinary action',
+            };
+    }
+};
+
+const getFields = (item: PropertyStickerItem): [string, string][] => {
+    const copy = getDocCopy(normalizeDocType(item.documentType, item.parIcsNumber));
+    // parIcsNumber = issuance document number (PAR-2026-XXXX / ICS-2026-XXXX)
+    // propertyNumber = physical property tag stamped on the asset
+    const docNumber = (item.parIcsNumber || '-').toUpperCase();
+    const propNumber = (item.propertyNumber || '-').toUpperCase();
+    return [
+        [copy.docNoLabel, docNumber],
+        ['PROPERTY NO:', propNumber],
+        ['ARTICLE:', (item.itemName || '-').toUpperCase()],
+        ['BRAND/MODEL:', getBrandModel(item.brand, item.modelNumber).toUpperCase()],
+        ['SERIAL NO:', (item.serialNumber || '-').toUpperCase()],
+        ['ACQUISITION DATE:', formatDate(item.date).toUpperCase()],
+        ['ACQUISITION COST:', formatCost(item.unitCost)],
+        ['OFFICE:', (item.office || item.category || '-').toUpperCase()],
+        ['ACCOUNTABLE PERSON:', getAccountablePerson(item).toUpperCase()],
+    ];
+};
+
 // ── Print HTML ────────────────────────────────────────────────────────────────
 const buildPrintHtml = (
     itemsToPrint: PropertyStickerItem[],
     qrDataUrls: string[],
-    logoDataUrl: string,
+    logoLeftDataUrl: string,
+    logoRightDataUrl: string,
 ): string => {
     const STICKERS_PER_PAGE = 12;
     const pages: { item: PropertyStickerItem; qr: string }[][] = [];
@@ -106,49 +173,54 @@ const buildPrintHtml = (
         pages.push(pairs.slice(i, i + STICKERS_PER_PAGE));
     }
 
-    const logoTag = logoDataUrl
-        ? `<img class="logo" src="${logoDataUrl}" alt="seal" />`
+    const logoLeftTag = logoLeftDataUrl
+        ? `<img class="logo" src="${logoLeftDataUrl}" alt="seal" />`
+        : '';
+    const logoRightTag = logoRightDataUrl
+        ? `<img class="logo" src="${logoRightDataUrl}" alt="seal" />`
         : '';
 
-    const stickerHtml = ({ item, qr }: { item: PropertyStickerItem; qr: string }) => `
+    const stickerHtml = ({ item, qr }: { item: PropertyStickerItem; qr: string }) => {
+        const docType = normalizeDocType(item.documentType);
+        const copy = getDocCopy(docType);
+        const fields = getFields(item);
+        return `
 <div class="sticker">
   <div class="header">
-    ${logoTag}
+    ${logoLeftTag}
     <div class="header-text">
-      <div class="city-name">CITY OF EL SALVADOR</div>
-      <div class="office-name">PROPERTY AND SUPPLY MANAGEMENT OFFICE</div>
+      <div class="lgu-name">LOCAL GOVERNMENT UNIT</div>
+      <div class="city-name">EL SALVADOR CITY</div>
     </div>
+    ${logoRightTag}
   </div>
   <div class="divider"></div>
   <div class="body">
     <div class="left">
-      <div class="pn-section">
-        <div class="pn-label">PROPERTY NUMBER</div>
-        <div class="pn-value">${escapeHtml(item.propertyNumber)}</div>
-      </div>
-      <div class="divider" style="margin:0.7mm 0;"></div>
-      <div class="fields">
-        <div class="field"><span class="fl">DESCRIPTION: </span><span class="fv">${escapeHtml(getPropertyDescription(item.itemName, item.brand).toUpperCase())}</span></div>
-        <div class="field"><span class="fl">MODEL NUMBER: </span><span class="fv">${escapeHtml((item.modelNumber || '-').toUpperCase())}</span></div>
-        <div class="field"><span class="fl">SERIAL NUMBER: </span><span class="fv">${escapeHtml((item.serialNumber || '-').toUpperCase())}</span></div>
-        <div class="field"><span class="fl">ACQUISITION DATE: </span><span class="fv">${escapeHtml(formatDate(item.date).toUpperCase())}</span></div>
-        <div class="field"><span class="fl">ACQUISITION COST: </span><span class="fv">${escapeHtml(formatCost(item.unitCost))}</span></div>
-        <div class="field acct"><span class="fl">ACCOUNTABLE PERSON: </span><span class="fv fv-name">${escapeHtml(getAccountablePerson(item).toUpperCase())}</span></div>
-      </div>
+      ${fields.map(([label, value]) => `
+      <div class="field">
+        <span class="fl">${escapeHtml(label)}</span>
+        <span class="fv">${escapeHtml(value)}</span>
+      </div>`).join('')}
     </div>
     <div class="vert-divider"></div>
     <div class="right">
       ${qr ? `<div class="qr-wrap"><img class="qr-img" src="${qr}" alt="QR" /></div>` : '<div class="qr-wrap qr-empty"></div>'}
     </div>
   </div>
-  <div class="divider"></div>
+  ${copy.showSignature ? `
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div class="sig-label">INVENTORY COMMITTEE REPRESENTATIVE</div>
+    </div>
+  </div>` : ''}
   <div class="footer">
-    <div class="sig-line"></div>
-    <div class="sig-label">INVENTORY COMMITTEE REPRESENTATIVE</div>
     <div class="note-bold">NOTE - PLEASE DO NOT REMOVE</div>
-    <div class="note-fine">Unauthorized removal or tampering will be subject to disciplinary action</div>
+    ${copy.showFinePrint ? `<div class="note-fine">${escapeHtml(copy.footerFine)}</div>` : ''}
   </div>
 </div>`;
+    };
 
     const pagesHtml = pages
         .map(pg => `<div class="page">${pg.map(stickerHtml).join('')}</div>`)
@@ -177,7 +249,7 @@ const buildPrintHtml = (
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(4, 1fr);
-    gap: 0.8mm;
+    gap: 1mm;
     padding: 1mm;
     page-break-after: always;
     break-after: page;
@@ -186,8 +258,8 @@ const buildPrintHtml = (
   .sticker {
     background: #fff;
     color: #000;
-    border: 0.6px solid #000;
-    padding: 1mm 1.2mm 0.7mm;
+    border: 1.2px solid #000;
+    padding: 1.4mm 2mm 1mm;
     display: flex;
     flex-direction: column;
     page-break-inside: avoid;
@@ -200,72 +272,93 @@ const buildPrintHtml = (
   .header {
     display: flex;
     align-items: center;
-    gap: 1.2mm;
+    justify-content: space-between;
+    gap: 1.5mm;
     flex-shrink: 0;
-    padding-bottom: 0.6mm;
+    padding-bottom: 0.8mm;
   }
-  .logo { width: 8mm; height: 8mm; object-fit: contain; flex-shrink: 0; }
-  .city-name   { font-size: 6px; font-weight: 900; letter-spacing: 0.02em; line-height: 1.15; }
-  .office-name { font-size: 3.5px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.15; }
-  .divider { border-top: 0.5px solid #000; width: 100%; flex-shrink: 0; }
+  .logo { width: 9mm; height: 9mm; object-fit: contain; flex-shrink: 0; }
+  .header-text { flex: 1; text-align: center; display: flex; flex-direction: column; gap: 0.4mm; }
+  .lgu-name { font-size: 8px; font-weight: 900; letter-spacing: 0.06em; line-height: 1.1; }
+  .city-name { font-size: 6.5px; font-weight: 700; letter-spacing: 0.18em; line-height: 1.1; }
+  .divider { border-top: 0.7px solid #000; width: 100%; flex-shrink: 0; }
   .body {
     display: flex;
     align-items: stretch;
     flex: 1;
     min-height: 0;
-    padding: 0.7mm 0;
+    padding: 1mm 0 0.6mm;
   }
   .left {
     flex: 1;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     min-width: 0;
-    padding-right: 1.2mm;
-  }
-  .pn-section  { text-align: center; flex-shrink: 0; margin-bottom: 0; }
-  .pn-label    { font-size: 4.5px; font-weight: 900; letter-spacing: 0.08em; line-height: 1.2; }
-  .pn-value    { font-size: 7px;   font-weight: 900; letter-spacing: 0.02em; line-height: 1.2; }
-  .fields {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-evenly;
+    padding-right: 1.5mm;
   }
   .field {
-    font-size: 4.5px;
+    display: flex;
+    align-items: flex-end;
+    font-size: 5.5px;
     line-height: 1.2;
+    min-width: 0;
+  }
+  .fl { 
+    font-weight: 900; 
+    white-space: nowrap; 
+    flex-shrink: 0; 
+    width: 17mm; /* 👈 INCREASED: 17mm to give more room for labels */
+  }
+  .fv {
+    flex: 1;
+    font-weight: 700;
+    border-bottom: 0.5px solid #000;
+    margin-left: 1mm;
+    padding: 0 0.5mm;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: left;
+    min-width: 0;
   }
-  .fl { font-weight: 900; }
-  .fv { font-weight: 900; }
-  .acct .fv-name { font-weight: 900; font-size: 5px; }
-  .vert-divider { width: 0.5px; background: #000; flex-shrink: 0; align-self: stretch; }
+  .vert-divider { width: 0.7px; background: #000; flex-shrink: 0; align-self: stretch; }
   .right {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding-left: 1.2mm;
+    padding-left: 1.5mm;
     flex-shrink: 0;
     width: 24mm;
   }
-  .qr-wrap  { border: 0.5px solid #000; padding: 0.5mm; display: inline-block; }
-  .qr-img   { width: 22mm; height: 22mm; display: block; object-fit: contain; }
-  .qr-empty { width: 22mm; height: 22mm; }
+  .qr-wrap  { border: 0.7px solid #000; padding: 0.6mm; display: inline-block; background: #fff; }
+  .qr-img   { width: 21mm; height: 21mm; display: block; object-fit: contain; }
+  .qr-empty { width: 21mm; height: 21mm; }
+  .sig-row {
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+    padding-top: 0.6mm;
+  }
+  .sig-block { width: 45mm; text-align: center; }
+  .sig-line  { border-top: 0.6px solid #000; margin-bottom: 0.4mm; }
+  .sig-label { font-size: 3.4px; font-weight: 700; letter-spacing: 0.05em; }
   .footer {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.3mm;
     flex-shrink: 0;
-    padding-top: 0.5mm;
+    padding-top: 0.6mm;
   }
-  .sig-line  { width: 25mm; border-top: 0.4px solid #000; margin-bottom: 0.3mm; }
-  .sig-label { font-size: 2.8px; letter-spacing: 0.04em; }
-  .note-bold { font-size: 4.5px; font-weight: 900; letter-spacing: 0.03em; }
-  .note-fine { font-size: 2.8px; font-style: italic; }
+  .note-bold { font-size: 6px; font-weight: 900; letter-spacing: 0.08em; }
+  .note-fine { 
+    font-size: 3.8px; 
+    font-weight: 400; 
+    font-style: normal; 
+    margin-top: 0.3mm; 
+    text-transform: none;
+  }
 </style>
 </head>
 <body>
@@ -277,7 +370,6 @@ const buildPrintHtml = (
 </body>
 </html>`;
 };
-
 
 // ── Preview ───────────────────────────────────────────────────────────────────
 function StickerPreview({
@@ -291,42 +383,41 @@ function StickerPreview({
     onPrint: (item: PropertyStickerItem, idx: number) => void;
     large?: boolean;
 }) {
-    const fields: [string, string][] = [
-        ['DESCRIPTION', getPropertyDescription(item.itemName, item.brand).toUpperCase()],
-        ['MODEL NUMBER', (item.modelNumber || '-').toUpperCase()],
-        ['SERIAL NUMBER', (item.serialNumber || '-').toUpperCase()],
-        ['ACQUISITION DATE', formatDate(item.date).toUpperCase()],
-        ['ACQUISITION COST', `${formatCost(item.unitCost)}`],
-        ['ACCOUNTABLE PERSON', getAccountablePerson(item).toUpperCase()],
-    ];
+    const docType = normalizeDocType(item.documentType);
+    const copy = getDocCopy(docType);
+    const fields = getFields(item);
 
+    // 👇 INCREASED WIDTH AND HEIGHT HERE
     const S = {
         root: {
-            width: 288,
-            height: 192,
+            width: 360, // 👈 was 288
+            height: 240, // 👈 was 192
             background: '#fff',
             color: '#000',
-            border: '1px solid #000',
+            border: '1.5px solid #000',
             fontFamily: 'Arial, Helvetica, sans-serif',
             display: 'flex' as const,
             flexDirection: 'column' as const,
-            padding: '4px 5px 3px',
-            gap: 0,
+            padding: '6px 8px 5px', // 👈 slightly more padding
             textTransform: 'uppercase' as const,
             overflow: 'hidden',
         },
         header: {
             display: 'flex' as const,
             alignItems: 'center' as const,
+            justifyContent: 'space-between' as const,
             gap: 6,
             flexShrink: 0,
-            paddingBottom: 3,
+            paddingBottom: 4,
         },
-        divider: { borderTop: '0.7px solid #000', width: '100%', flexShrink: 0 },
-        body: { display: 'flex' as const, alignItems: 'stretch' as const, flex: 1, overflow: 'hidden', padding: '2px 0' },
-        left: { flex: 1, display: 'flex' as const, flexDirection: 'column' as const, overflow: 'hidden', paddingRight: 4 },
-        right: { width: 75, display: 'flex' as const, flexDirection: 'column' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 2, paddingLeft: 4, flexShrink: 0 },
-        footer: { display: 'flex' as const, flexDirection: 'column' as const, alignItems: 'center' as const, gap: 1, flexShrink: 0, paddingTop: 2 },
+        headerText: { flex: 1, textAlign: 'center' as const, display: 'flex' as const, flexDirection: 'column' as const, gap: 1 },
+        divider: { borderTop: '1px solid #000', width: '100%', flexShrink: 0 },
+        body: { display: 'flex' as const, alignItems: 'stretch' as const, flex: 1, overflow: 'hidden', padding: '4px 0 3px' },
+        left: { flex: 1, display: 'flex' as const, flexDirection: 'column' as const, justifyContent: 'space-between' as const, overflow: 'hidden', paddingRight: 6 },
+        right: { width: 80, display: 'flex' as const, flexDirection: 'column' as const, alignItems: 'center' as const, justifyContent: 'center' as const, paddingLeft: 6, flexShrink: 0 },
+        sigRow: { display: 'flex' as const, justifyContent: 'center' as const, flexShrink: 0, paddingTop: 3 },
+        sigBlock: { width: 160, textAlign: 'center' as const },
+        footer: { display: 'flex' as const, flexDirection: 'column' as const, alignItems: 'center' as const, flexShrink: 0, paddingTop: 3 },
     };
 
     const sticker = (
@@ -334,39 +425,44 @@ function StickerPreview({
             {/* Header */}
             <div style={S.header}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={LOGO_SRC} alt="seal" style={{ width: 30, height: 30, objectFit: 'contain', flexShrink: 0 }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <div style={{ fontSize: 10, fontWeight: 900, color: '#000', letterSpacing: '0.02em', lineHeight: 1.1 }}>
-                        CITY OF EL SALVADOR
+                <img src={LOGO_LEFT_SRC} alt="seal" style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }} />
+                <div style={S.headerText}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#000', letterSpacing: '0.06em', lineHeight: 1.1 }}>
+                        LOCAL GOVERNMENT UNIT
                     </div>
-                    <div style={{ fontSize: 6, fontWeight: 700, color: '#000', letterSpacing: '0.04em', lineHeight: 1.1 }}>
-                        PROPERTY AND SUPPLY MANAGEMENT OFFICE
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#000', letterSpacing: '0.18em', lineHeight: 1.1 }}>
+                        EL SALVADOR CITY
                     </div>
                 </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={LOGO_RIGHT_SRC} alt="seal" style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }} />
             </div>
 
             <div style={S.divider} />
 
             {/* Body */}
             <div style={S.body}>
-                {/* Left */}
+                {/* Left — fields */}
                 <div style={S.left}>
-                    <div style={{ fontSize: 7, fontWeight: 900, textAlign: 'center', letterSpacing: '0.08em', lineHeight: 1, marginBottom: 1 }}>
-                        PROPERTY NUMBER
-                    </div>
-                    <div style={{ fontSize: 9, fontWeight: 900, textAlign: 'center', letterSpacing: '0.02em', lineHeight: 1.1, marginBottom: 2 }}>
-                        {item.propertyNumber}
-                    </div>
-                    <div style={{ borderTop: '0.7px solid #000', marginBottom: 3, flexShrink: 0 }} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        {fields.map(([label, value]) => (
-                            <div key={label} style={{ fontSize: 6.2, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: 170 }}>
-                                <span style={{ fontWeight: 900, fontSize: label === 'ACCOUNTABLE PERSON' ? 6.8 : undefined }}>
-                                    {value}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
+                    {fields.map(([label, value]) => (
+                        <div key={label} style={{ display: 'flex', alignItems: 'flex-end', fontSize: 8.5, lineHeight: 1.2, minWidth: 0 }}>
+                            <span style={{ fontWeight: 900, whiteSpace: 'nowrap', flexShrink: 0, width: 120 }}>{label}</span>
+                            <span style={{
+                                flex: 1,
+                                fontWeight: 700,
+                                borderBottom: '0.7px solid #000',
+                                marginLeft: 4,
+                                padding: '0 2px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                textAlign: 'left',
+                                minWidth: 0,
+                            }}>
+                                {value}
+                            </span>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Vertical divider */}
@@ -377,7 +473,7 @@ function StickerPreview({
                     <div id={`sticker-qr-${idx}`} style={{ border: '1px solid #000', padding: 2, background: '#fff', display: 'inline-block' }}>
                         <QRCodeCanvas
                             value={item.url || 'https://iams-gso.gov.ph'}
-                            size={72}
+                            size={72} // 👈 slightly bigger QR
                             level="M"
                             includeMargin={false}
                             bgColor="#ffffff"
@@ -387,14 +483,24 @@ function StickerPreview({
                 </div>
             </div>
 
-            <div style={S.divider} />
+            {/* Signature — PAR only */}
+            {copy.showSignature && (
+                <div style={S.sigRow}>
+                    <div style={S.sigBlock}>
+                        <div style={{ borderTop: '0.8px solid #000', marginBottom: 1 }} />
+                        <div style={{ fontSize: 5.5, fontWeight: 700, letterSpacing: '0.05em' }}>INVENTORY COMMITTEE REPRESENTATIVE</div>
+                    </div>
+                </div>
+            )}
 
             {/* Footer */}
             <div style={S.footer}>
-                <div style={{ width: 110, borderTop: '0.7px solid #000', marginBottom: 1 }} />
-                <div style={{ fontSize: 5, letterSpacing: '0.04em' }}>INVENTORY COMMITTEE REPRESENTATIVE</div>
-                <div style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.04em' }}>NOTE - PLEASE DO NOT REMOVE</div>
-                <div style={{ fontSize: 4.5, fontStyle: 'italic' }}>Unauthorized removal or tampering will be subject to disciplinary action</div>
+                <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.08em' }}>NOTE - PLEASE DO NOT REMOVE</div>
+                {copy.showFinePrint && (
+                    <div style={{ fontSize: 6, fontWeight: 400, fontStyle: 'normal', marginTop: 1, textTransform: 'none' }}>
+                        {copy.footerFine}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -402,10 +508,9 @@ function StickerPreview({
     return (
         <div className="flex flex-col items-center gap-4">
             {large ? (
-                // Single item — scale up and compensate layout space
-                <div style={{ position: 'relative', width: 288 * 1.6, height: 192 * 1.6 }}>
+                <div style={{ position: 'relative', width: 360 * 1.4, height: 240 * 1.4 }}>
                     <div style={{
-                        transform: 'scale(1.6)',
+                        transform: 'scale(1.4)',
                         transformOrigin: 'top left',
                         position: 'absolute',
                         top: 0,
@@ -428,10 +533,10 @@ function StickerPreview({
     );
 }
 
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 export function PropertySticker({
     propertyNumber,
+    parIcsNumber,
     description,
     department,
     url,
@@ -447,6 +552,8 @@ export function PropertySticker({
     brand,
     endUserName,
     currentDepartmentHead,
+    documentType,
+    office,
     items,
 }: PropertyStickerProps) {
     const [open, setOpen] = useState(false);
@@ -455,6 +562,7 @@ export function PropertySticker({
         if (items && items.length > 0) return items;
         return [{
             propertyNumber: propertyNumber || '',
+            parIcsNumber: parIcsNumber || '',
             custodianName: custodianName || 'Unassigned',
             itemName: itemName || description || '-',
             category: category || classification || '-',
@@ -466,11 +574,13 @@ export function PropertySticker({
             url: url || '',
             endUserName: endUserName || '',
             currentDepartmentHead: currentDepartmentHead || '',
+            documentType: documentType || '',
+            office: office || department || '',
         }];
     }, [
-        items, propertyNumber, custodianName, itemName, description, category,
+        items, propertyNumber, parIcsNumber, custodianName, itemName, description, category,
         classification, date, acquisitionDate, unitCost, serialNumber, modelNumber, brand, url,
-        endUserName, currentDepartmentHead,
+        endUserName, currentDepartmentHead, documentType, office, department,
     ]);
 
     const isSingle = resolvedItems.length === 1;
@@ -482,11 +592,15 @@ export function PropertySticker({
                 const canvas = container?.querySelector<HTMLCanvasElement>('canvas');
                 return canvas ? canvas.toDataURL('image/png') : '';
             });
-            const logoDataUrl = await imgToDataUrl(window.location.origin + LOGO_SRC);
+            const origin = window.location.origin;
+            const [logoLeftDataUrl, logoRightDataUrl] = await Promise.all([
+                imgToDataUrl(origin + LOGO_LEFT_SRC),
+                imgToDataUrl(origin + LOGO_RIGHT_SRC),
+            ]);
             const win = window.open('', 'gso-property-sticker-print');
             if (!win) return;
             win.document.open();
-            win.document.write(buildPrintHtml(itemsToPrint, qrDataUrls, logoDataUrl));
+            win.document.write(buildPrintHtml(itemsToPrint, qrDataUrls, logoLeftDataUrl, logoRightDataUrl));
             win.document.close();
         },
         [],

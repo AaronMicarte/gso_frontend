@@ -492,6 +492,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 : `${origin}/admin/inventory/${ci.InventoryID}?detail=${ci.InventoryDetailID}`;
                                                             return {
                                                                 propertyNumber: ci.PropertyNumber || '',
+                                                                parIcsNumber: (ci as any).par_ics_number || '',
                                                                 custodianName: ci.custodianName || '',
                                                                 itemName: getItemName(ci),
                                                                 brand: ci.Brand || '',
@@ -503,6 +504,7 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                 modelNumber: ci.ModelNumber || '',
                                                                 endUserName: ci.endUserName || '',
                                                                 currentDepartmentHead: ci.currentDepartmentHead || '',
+                                                                documentType: (ci as any).par_ics_type || ci.DocumentType || '',
                                                             };
                                                         });
 
@@ -653,6 +655,8 @@ export function ViewInventoryPage({ baseRoute }: { baseRoute: string }) {
                                                                             modelNumber={d.ModelNumber || ''}
                                                                             endUserName={d.endUserName || ''}
                                                                             currentDepartmentHead={d.currentDepartmentHead || ''}
+                                                                            parIcsNumber={(d as any).par_ics_number || ''}
+                                                                            documentType={(d as any).par_ics_type || d.DocumentType || ''}
                                                                         />
                                                                     )}
                                                                     <InventoryReceiptDialog
