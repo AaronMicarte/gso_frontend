@@ -16,6 +16,7 @@ import {
     RotateCcw,
     User,
     Truck,
+    Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import type { Department } from '@/types/masterData';
@@ -85,33 +86,26 @@ function getScanCategory(item: DepartmentCrossCheckItem): 'SCANNED' | 'NOT_SCANN
     return 'PARTIALLY_SCANNED';
 }
 
-const ScanStatusBadge = memo(function ScanStatusBadge({ item }: { item: DepartmentCrossCheckItem }) {
+const ScanStatusText = memo(function ScanStatusText({ item }: { item: DepartmentCrossCheckItem }) {
     const category = getScanCategory(item);
     const unscanned = getUnscannedCount(item);
     const scanned = getScannedCount(item);
 
     if (category === 'SCANNED') {
-        return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Scanned</span>
-            </span>
-        );
+        return <span className="text-amber-700 font-medium">Scanned</span>;
     }
 
     if (category === 'NOT_SCANNED') {
         return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                <span>Not Scanned {unscanned > 1 ? `(${unscanned})` : ''}</span>
+            <span className="text-amber-700 font-medium">
+                Not Scanned {unscanned > 1 ? `(${unscanned})` : ''}
             </span>
         );
     }
 
     return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200" title={`${scanned} Scanned / ${unscanned} Not Scanned`}>
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span>{scanned} Scanned / {unscanned} Unscanned</span>
+        <span className="text-amber-700 font-medium" title={`${scanned} Scanned / ${unscanned} Not Scanned`}>
+            {scanned} Scanned / {unscanned} Unscanned
         </span>
     );
 });
@@ -138,7 +132,7 @@ const AssetRow = memo(function AssetRow({ item }: { item: DepartmentCrossCheckIt
             </td>
             <td className="px-3 py-2.5 whitespace-nowrap text-slate-800">{item.end_user}</td>
             <td className="px-3 py-2.5 whitespace-nowrap">
-                <ScanStatusBadge item={item} />
+                <ScanStatusText item={item} />
             </td>
         </tr>
     );
@@ -447,17 +441,16 @@ export function RpcDepartmentCrossCheckSection({
                                 setScanFilter(e.target.value as ScanFilterOption);
                                 setPage(1);
                             }}
-                            className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-400 ${
-                                scanFilter !== 'ALL'
-                                    ? 'border-amber-400 bg-amber-50/30 font-medium text-amber-900'
-                                    : 'border-slate-200 text-slate-900'
-                            }`}
+                            className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-400 ${scanFilter !== 'ALL'
+                                ? 'border-amber-400 bg-amber-50/30 font-medium text-amber-900'
+                                : 'border-slate-200 text-slate-900'
+                                }`}
                         >
                             <option value="ALL">All Scan Statuses ({scanStats.totalRows})</option>
-                            <option value="NEEDS_ATTENTION">⚠️ Needs Attention ({scanStats.needsAttention})</option>
-                            <option value="NOT_SCANNED">❌ Not Scanned ({scanStats.notScanned})</option>
-                            <option value="PARTIALLY_SCANNED">⚡ Partially Scanned ({scanStats.partiallyScanned})</option>
-                            <option value="SCANNED">✅ Fully Scanned ({scanStats.fullyScanned})</option>
+                            <option value="NEEDS_ATTENTION">Needs Attention ({scanStats.needsAttention})</option>
+                            <option value="NOT_SCANNED">Not Scanned ({scanStats.notScanned})</option>
+                            <option value="PARTIALLY_SCANNED">Partially Scanned ({scanStats.partiallyScanned})</option>
+                            <option value="SCANNED">Fully Scanned ({scanStats.fullyScanned})</option>
                         </select>
                     </div>
 
@@ -473,14 +466,13 @@ export function RpcDepartmentCrossCheckSection({
                                 setSortBy(e.target.value as SortOption);
                                 setPage(1);
                             }}
-                            className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-400 ${
-                                sortBy.startsWith('UNSCANNED')
-                                    ? 'border-indigo-400 bg-indigo-50/30 font-medium text-indigo-900'
-                                    : 'border-slate-200 text-slate-900'
-                            }`}
+                            className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-400 ${sortBy.startsWith('UNSCANNED')
+                                ? 'border-indigo-400 bg-indigo-50/30 font-medium text-indigo-900'
+                                : 'border-slate-200 text-slate-900'
+                                }`}
                         >
-                            <option value="UNSCANNED_DESC">🔻 Unscanned Count: High to Low (5 to 1)</option>
-                            <option value="UNSCANNED_ASC">🔺 Unscanned Count: Low to High (1 to 5)</option>
+                            <option value="UNSCANNED_DESC">Unscanned Count: High to Low (5 to 1)</option>
+                            <option value="UNSCANNED_ASC">Unscanned Count: Low to High (1 to 5)</option>
                             <option value="PROPERTY_ASC">Property Number (Ascending)</option>
                             <option value="PROPERTY_DESC">Property Number (Descending)</option>
                             <option value="TOTAL_COST_DESC">Total Cost (Highest First)</option>
@@ -633,11 +625,10 @@ export function RpcDepartmentCrossCheckSection({
                 <button
                     type="button"
                     onClick={() => { setScanFilter('ALL'); setPage(1); }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer ${
-                        scanFilter === 'ALL'
-                            ? 'bg-slate-900 text-white shadow-xs'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer ${scanFilter === 'ALL'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
                 >
                     All Assets ({scanStats.totalRows})
                 </button>
@@ -645,11 +636,10 @@ export function RpcDepartmentCrossCheckSection({
                 <button
                     type="button"
                     onClick={() => { setScanFilter('NEEDS_ATTENTION'); setPage(1); }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                        scanFilter === 'NEEDS_ATTENTION'
-                            ? 'bg-amber-600 text-white shadow-xs'
-                            : 'bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${scanFilter === 'NEEDS_ATTENTION'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100'
+                        }`}
                 >
                     <AlertTriangle className="w-3 h-3" />
                     <span>Needs Attention ({scanStats.needsAttention})</span>
@@ -658,11 +648,10 @@ export function RpcDepartmentCrossCheckSection({
                 <button
                     type="button"
                     onClick={() => { setScanFilter('NOT_SCANNED'); setPage(1); }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                        scanFilter === 'NOT_SCANNED'
-                            ? 'bg-rose-600 text-white shadow-xs'
-                            : 'bg-rose-50 border border-rose-200 text-rose-800 hover:bg-rose-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${scanFilter === 'NOT_SCANNED'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-rose-50 border border-rose-200 text-rose-800 hover:bg-rose-100'
+                        }`}
                 >
                     <XCircle className="w-3 h-3" />
                     <span>Not Scanned ({scanStats.notScanned})</span>
@@ -671,23 +660,22 @@ export function RpcDepartmentCrossCheckSection({
                 <button
                     type="button"
                     onClick={() => { setScanFilter('PARTIALLY_SCANNED'); setPage(1); }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                        scanFilter === 'PARTIALLY_SCANNED'
-                            ? 'bg-amber-500 text-white shadow-xs'
-                            : 'bg-amber-50/60 border border-amber-200/80 text-amber-700 hover:bg-amber-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${scanFilter === 'PARTIALLY_SCANNED'
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'bg-amber-50/60 border border-amber-200/80 text-amber-700 hover:bg-amber-100'
+                        }`}
                 >
-                    <span>⚡ Partially Scanned ({scanStats.partiallyScanned})</span>
+                    <Zap className="w-3 h-3" />
+                    <span>Partially Scanned ({scanStats.partiallyScanned})</span>
                 </button>
 
                 <button
                     type="button"
                     onClick={() => { setScanFilter('SCANNED'); setPage(1); }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                        scanFilter === 'SCANNED'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${scanFilter === 'SCANNED'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                        }`}
                 >
                     <CheckCircle2 className="w-3 h-3" />
                     <span>Fully Scanned ({scanStats.fullyScanned})</span>
