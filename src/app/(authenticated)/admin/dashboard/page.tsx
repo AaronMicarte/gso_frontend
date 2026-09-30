@@ -11,8 +11,7 @@ import {
     ClipboardList,
     Users,
     Building2,
-    Wrench,
-    Trash2,
+    AlertTriangle,
     Clock,
     UserPlus,
     FileText,
@@ -20,6 +19,7 @@ import {
     FileCheck,
     RefreshCw,
     LucideIcon,
+    CheckCircle2,
 } from 'lucide-react';
 import { formatActivityAction, getActivityVisual } from '@/lib/activityPresentation';
 
@@ -265,6 +265,9 @@ interface SystemStatusProps {
 }
 
 function SystemStatus({ stats, loading }: SystemStatusProps) {
+    const unserviceableItems = (stats?.forRepair ?? 0) + (stats?.forDisposal ?? 0);
+    const serviceableItems = Math.max((stats?.totalInventory ?? 0) - unserviceableItems, 0);
+
     const statusItems = [
         {
             label: 'Active Departments',
@@ -274,19 +277,20 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
             bgColor: 'bg-blue-50',
         },
         {
-            label: 'For Repair',
-            value: stats?.forRepair ?? 0,
-            icon: Wrench,
-            color: 'text-amber-500',
-            bgColor: 'bg-amber-50',
+            label: 'Serviceable',
+            value: serviceableItems,
+            icon: CheckCircle2,
+            color: 'text-emerald-500',
+            bgColor: 'bg-emerald-50',
         },
         {
-            label: 'For Disposal',
-            value: stats?.forDisposal ?? 0,
-            icon: Trash2,
-            color: 'text-red-500',
-            bgColor: 'bg-red-50',
-        },
+            label: 'Unserviceable',
+            value: unserviceableItems,
+            icon: AlertTriangle,
+            color: 'text-amber-500',
+            bgColor: 'bg-amber-50',
+        }
+
     ];
 
     return (

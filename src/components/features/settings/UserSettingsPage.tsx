@@ -52,7 +52,7 @@ function getStorageKey(userId: number): string {
 function mergePreferences(stored: Partial<SettingsPreferences>, fallbackRoute: string): SettingsPreferences {
     let landing = stored.defaultLandingRoute || fallbackRoute;
     if (landing === '/admin/inventory/all-items') {
-        landing = '/admin/inventory';
+        landing = '/admin/inventory/all-items';
     }
     return {
         defaultLandingRoute: landing,

@@ -78,7 +78,6 @@ interface GroupedIssuance {
 }
 
 const issuanceAPI = {
-    // Get all property issuances with filters (now returns grouped data)
     getAll: async (filters?: AssetIssuanceFilters) => {
         const { data } = await apiClient.get<PaginatedResponse<GroupedIssuance>>(
             '/property-issuances',
@@ -87,13 +86,11 @@ const issuanceAPI = {
         return data;
     },
 
-    // Get single issuance by ID
     getById: async (id: number) => {
         const { data } = await apiClient.get<AssetIssuance>(`/property-issuances/${id}`);
         return data;
     },
 
-    // Create new issuance following GSO workflow
     create: async (issuanceData: CreateIssuanceData) => {
         const { data } = await apiClient.post<import('@/types/assetIssuance').AssetIssuanceCreateResponse>(
             '/property-issuances',
@@ -102,7 +99,6 @@ const issuanceAPI = {
         return data;
     },
 
-    // Issue assets from approved request (legacy method)
     issueFromRequest: async (requestId: number, issuanceData: IssueAssetData) => {
         const { data } = await apiClient.post<AssetIssuanceResponse>(
             `/asset-requests/${requestId}/issue`,
