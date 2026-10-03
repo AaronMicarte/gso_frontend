@@ -1023,9 +1023,9 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-slate-500 text-xs mt-1">
+                                {/* <p className="text-slate-500 text-xs mt-1">
                                     All delivered quantities must be assigned to end users before saving.
-                                </p>
+                                </p> */}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
