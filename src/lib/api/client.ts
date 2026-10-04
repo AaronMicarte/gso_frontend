@@ -137,7 +137,9 @@ apiClient.interceptors.response.use(
 
 // Function to get CSRF cookie from Sanctum (call before login)
 export async function getCsrfCookie(): Promise<void> {
-    await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sanctum/csrf-cookie`, {
+    const rawBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const baseUrl = rawBaseUrl && rawBaseUrl !== 'undefined' ? rawBaseUrl.replace(/\/+$/, '') : '';
+    await axios.get(`${baseUrl}/sanctum/csrf-cookie`, {
         withCredentials: true,
     });
 }

@@ -2,9 +2,9 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
 
-const BACKEND_URL = isProd
-  ? "https://gso-backend-ldns.onrender.com"
-  : "http://localhost:8000";
+const BACKEND_URL =
+  process.env.BACKEND_URL ||
+  (isProd ? "https://gso-backend-ldns.onrender.com" : "http://localhost:8000");
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
@@ -26,6 +26,26 @@ const nextConfig: NextConfig = {
       {
         source: "/api/:path*",
         destination: `${BACKEND_URL}/api/:path*`,
+      },
+      {
+        source: "/login",
+        destination: `${BACKEND_URL}/login`,
+      },
+      {
+        source: "/logout",
+        destination: `${BACKEND_URL}/logout`,
+      },
+      {
+        source: "/auth/:path*",
+        destination: `${BACKEND_URL}/auth/:path*`,
+      },
+      {
+        source: "/mfa/:path*",
+        destination: `${BACKEND_URL}/mfa/:path*`,
+      },
+      {
+        source: "/storage/:path*",
+        destination: `${BACKEND_URL}/storage/:path*`,
       },
     ];
   },
