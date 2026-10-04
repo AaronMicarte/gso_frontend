@@ -7,7 +7,11 @@ import { ChangeTemporaryPasswordPayload, LoginCredentials, AuthResponse, User } 
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   // Get CSRF cookie first (required by Sanctum for SPA auth)
-  await getCsrfCookie();
+  try {
+    await getCsrfCookie();
+  } catch (err) {
+    console.warn('Pre-fetch CSRF cookie warning:', err);
+  }
 
   const response = await apiClient.post<AuthResponse>('../login', credentials);
   return response.data;
@@ -29,7 +33,11 @@ export async function logout(): Promise<void> {
 }
 
 export async function changeTemporaryPassword(payload: ChangeTemporaryPasswordPayload): Promise<{ message: string; user_id?: number; username?: string }> {
-  await getCsrfCookie();
+  try {
+    await getCsrfCookie();
+  } catch (err) {
+    console.warn('Pre-fetch CSRF cookie warning:', err);
+  }
   const response = await apiClient.post<{ message: string; user_id?: number; username?: string }>('../auth/change-temporary-password', payload);
   return response.data;
 }
