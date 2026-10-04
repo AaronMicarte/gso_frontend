@@ -11,6 +11,20 @@ const nextConfig: NextConfig = {
     "http://10.95.50.25:3000", // PC Wi-Fi IP (from ipconfig)
   ],
 
+  async rewrites() {
+    return [
+      {
+        source: "/sanctum/:path*",
+        destination:
+          "https://gso-backend-ldns.onrender.com/sanctum/:path*",
+      },
+      {
+        source: "/api/:path*",
+        destination: "https://gso-backend-ldns.onrender.com/api/:path*",
+      },
+    ];
+  },
+
   images: {
     remotePatterns: [
       {
@@ -23,6 +37,11 @@ const nextConfig: NextConfig = {
         protocol: "http",
         hostname: "127.0.0.1",
         port: "8000",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "gso-backend-ldns.onrender.com",
         pathname: "/**",
       },
     ],
