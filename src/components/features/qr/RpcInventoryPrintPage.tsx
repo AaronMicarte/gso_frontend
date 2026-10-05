@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { FileSpreadsheet } from 'lucide-react';
+import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { getRpcInventoryReport } from '@/lib/api/rpcInventory';
 import type { RpcInventoryReportResponse, RpcType } from '@/types/rpcInventory';
@@ -76,6 +76,13 @@ export function RpcInventoryPrintPage() {
                     {reportType} Report - {report.cycle.cycle_label}
                 </h1>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => window.location.href = `?type=${reportType}&fresh=1`}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        Refresh report
+                    </button>
                     <button
                         onClick={handleExcelExport}
                         disabled={isExporting}
