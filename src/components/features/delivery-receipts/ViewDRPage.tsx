@@ -199,7 +199,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                             Print RIS
                         </button>
                     )}
-                    {canEdit && (
+                    {canEdit && workflowStatus !== 'acknowledged' && workflowStatus !== 'partially_acknowledged' && (
                         <Link
                             href={`${baseRoute}/delivery-receipts/${dr.DRID}/edit`}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium"
