@@ -218,7 +218,7 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
 
     const resolvedId = reportId ?? (params?.id ? Number(params.id) : null);
     const { user } = useAuth();
-    const isPrivileged = user?.Role === 'Admin' || user?.Role === 'GSO Staff';
+    const isPrivileged = user?.Role === 'Admin';
 
     const fetchReport = useCallback(async (isSilent = false) => {
         if (!resolvedId) return;
