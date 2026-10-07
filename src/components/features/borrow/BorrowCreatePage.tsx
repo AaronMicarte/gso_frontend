@@ -186,7 +186,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                 if (endUsers.length === 0) {
                     setToEndUserId('');
                     setReceivingEndUser(null);
-                    setReceivingError('No available borrowing custodian for the selected department.');
+                    setReceivingError('No active Department Head found for the selected department.');
                     return;
                 }
 
@@ -194,7 +194,9 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                     const autoSelected = endUsers.find((entry) => entry.EndUserID === Number(toEndUserId)) || endUsers[0];
                     setReceivingEndUser(autoSelected);
                     setToEndUserId(autoSelected.EndUserID);
-                    setReceivingDepartmentQuery(`${autoSelected.FullName}${autoSelected.DepartmentName ? ` - ${autoSelected.DepartmentName}` : ''}`);
+                    if (autoSelected.DepartmentName) {
+                        setReceivingDepartmentQuery(autoSelected.DepartmentName);
+                    }
                     setReceivingError(null);
                 } else {
                     const requesterName = (user?.FullName || '').trim().toLowerCase();
@@ -202,11 +204,13 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                     const autoSelected = match || endUsers[0];
                     setReceivingEndUser(autoSelected);
                     setToEndUserId(autoSelected.EndUserID);
-                    setReceivingDepartmentQuery(`${autoSelected.FullName}${autoSelected.DepartmentName ? ` - ${autoSelected.DepartmentName}` : ''}`);
+                    if (autoSelected.DepartmentName) {
+                        setReceivingDepartmentQuery(autoSelected.DepartmentName);
+                    }
                     setReceivingError(null);
                 }
             })
-            .catch(() => toast.error('Failed to load borrowing end users'));
+            .catch(() => toast.error('Failed to load borrowing Department Head'));
     }, [toDepartmentId, user?.FullName, isDepartmentHead, toEndUserId]);
 
     useEffect(() => {
@@ -522,7 +526,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
 
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div>
-                                    <label className="text-sm font-medium text-slate-700">Releasing Custodian (Current Holder)</label>
+                                    <label className="text-sm font-medium text-slate-700">Releasing Custodian (Department Head)</label>
                                     <div className="relative mt-2" ref={releasingComboboxRef}>
                                         <input
                                             type="text"
@@ -556,7 +560,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                         setFromEndUserId(selected.EndUserID);
                                                         setFromDepartmentId(selected.DepartmentID ?? '');
                                                         setRequestingDepartmentQuery(selected.DepartmentName || '');
-                                                        setFromEndUserSearch(`${selected.FullName} ${selected.DepartmentName ? `- ${selected.DepartmentName}` : ''}`.trim());
+                                                        setFromEndUserSearch(`${selected.FullName} (Department Head)${selected.DepartmentName ? ` - ${selected.DepartmentName}` : ''}`.trim());
                                                         setReleasingComboboxOpen(false);
                                                         setReleasingHighlightedIndex(-1);
                                                     }
@@ -566,7 +570,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                     setReleasingHighlightedIndex(-1);
                                                 }
                                             }}
-                                            placeholder="Search releasing custodian"
+                                            placeholder="Search releasing Department Head"
                                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                                         />
 
@@ -577,7 +581,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                 className="absolute z-10 mt-2 w-full max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
                                             >
                                                 {filteredFromEndUsers.length === 0 ? (
-                                                    <div className="px-3 py-2 text-sm text-slate-500">No matching end users</div>
+                                                    <div className="px-3 py-2 text-sm text-slate-500">No matching Department Heads</div>
                                                 ) : (
                                                     filteredFromEndUsers.map((endUser, index) => (
                                                         <button
@@ -591,12 +595,12 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                                 setFromEndUserId(endUser.EndUserID);
                                                                 setFromDepartmentId(endUser.DepartmentID ?? '');
                                                                 setRequestingDepartmentQuery(endUser.DepartmentName || '');
-                                                                setFromEndUserSearch(`${endUser.FullName} ${endUser.DepartmentName ? `- ${endUser.DepartmentName}` : ''}`.trim());
+                                                                setFromEndUserSearch(`${endUser.FullName} (Department Head)${endUser.DepartmentName ? ` - ${endUser.DepartmentName}` : ''}`.trim());
                                                                 setReleasingComboboxOpen(false);
                                                                 setReleasingHighlightedIndex(-1);
                                                             }}
                                                         >
-                                                            <div className="font-medium text-slate-700">{endUser.FullName}</div>
+                                                            <div className="font-medium text-slate-700">{endUser.FullName} (Department Head)</div>
                                                             <div className="text-xs text-slate-500">{endUser.DepartmentName || 'Missing department'}</div>
                                                         </button>
                                                     ))
@@ -641,7 +645,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                     setRequestingDepartmentHighlightedIndex(-1);
                                                 }
                                             }}
-                                            placeholder="Search requesting department or user"
+                                            placeholder="Search requesting department"
                                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                                         />
                                         {requestingDepartmentComboboxOpen && (
@@ -662,7 +666,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                             className={`px-3 py-2 text-sm cursor-pointer ${requestingDepartmentHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
                                                         >
                                                             <div>{department.DepartmentName}</div>
-                                                            <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).slice(0, 2).join(', ') || 'No users'}</div>
+                                                            <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).map(u => `${u} (Head)`).slice(0, 2).join(', ') || 'No Department Head'}</div>
                                                         </li>
                                                     ))
                                                 )}
@@ -675,9 +679,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                     {isDepartmentHead ? (
                                         <input
                                             type="text"
-                                            value={receivingEndUser
-                                                ? `${receivingEndUser.FullName}${receivingEndUser.DepartmentName ? ` - ${receivingEndUser.DepartmentName}` : ''}`
-                                                : (selectedReceivingDepartment?.DepartmentName || user?.Department || 'Missing department')}
+                                            value={selectedReceivingDepartment?.DepartmentName || user?.Department || 'Missing department'}
                                             readOnly
                                             className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
                                         />
@@ -719,7 +721,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                         setReceivingDepartmentHighlightedIndex(-1);
                                                     }
                                                 }}
-                                                placeholder="Search borrowing department or user"
+                                                placeholder="Search borrowing department"
                                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                                             />
                                             {receivingDepartmentComboboxOpen && (
@@ -740,7 +742,7 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                                                 className={`px-3 py-2 text-sm cursor-pointer ${receivingDepartmentHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
                                                             >
                                                                 <div>{department.DepartmentName}</div>
-                                                                <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).slice(0, 2).join(', ') || 'No users'}</div>
+                                                                <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).map(u => `${u} (Head)`).slice(0, 2).join(', ') || 'No Department Head'}</div>
                                                             </li>
                                                         ))
                                                     )}
@@ -750,12 +752,12 @@ export function BorrowCreatePage({ baseRoute }: BorrowCreatePageProps) {
                                     )}
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-slate-700">Borrowing Custodian</label>
+                                    <label className="text-sm font-medium text-slate-700">Borrowing Custodian (Department Head)</label>
                                     <input
                                         type="text"
-                                        value={selectedReceivingDepartment?.DepartmentName
-                                            || receivingEndUser?.DepartmentName
-                                            || 'Auto-selected based on borrowing department'}
+                                        value={receivingEndUser
+                                            ? `${receivingEndUser.FullName} (Department Head)${receivingEndUser.DepartmentName ? ` - ${receivingEndUser.DepartmentName}` : ''}`
+                                            : (toDepartmentId ? 'No active Department Head for this department' : 'Auto-selected based on borrowing department')}
                                         readOnly
                                         className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
                                     />

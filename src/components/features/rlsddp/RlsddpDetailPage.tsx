@@ -616,7 +616,7 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
             </div>
 
             {/* Removed Items Table */}
-            {isPrivileged && report.ApprovalStatus !== 'Rejected' && (report.removedItems ?? []).length > 0 && (
+            {(report.removedItems ?? []).length > 0 && (
                 <div className="space-y-2">
                     <h3 className="text-base font-bold text-rose-600 flex items-center gap-2">
                         <Trash2 className="w-4 h-4" />
@@ -646,19 +646,21 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                                             {item.Description?.replace(/\b(Brand|Model|S\.?N\.?|Serial\s*No\.?|Serial\s*Number):\s*/gi, '').trim() || '—'}
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <button
-                                                onClick={() => item.RlsddpItemID && handleRestoreItem(item.RlsddpItemID, true)}
-                                                disabled={isRestoring === item.RlsddpItemID}
-                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors disabled:opacity-50"
-                                                title="Restore to active inventory"
-                                            >
-                                                {isRestoring === item.RlsddpItemID ? (
-                                                    <span className="w-3.5 h-3.5 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
-                                                ) : (
-                                                    <RotateCcw className="w-3.5 h-3.5" />
-                                                )}
-                                                Restore
-                                            </button>
+                                            {isPrivileged && (
+                                                <button
+                                                    onClick={() => item.RlsddpItemID && handleRestoreItem(item.RlsddpItemID, true)}
+                                                    disabled={isRestoring === item.RlsddpItemID}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors disabled:opacity-50"
+                                                    title="Restore to active inventory"
+                                                >
+                                                    {isRestoring === item.RlsddpItemID ? (
+                                                        <span className="w-3.5 h-3.5 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
+                                                    ) : (
+                                                        <RotateCcw className="w-3.5 h-3.5" />
+                                                    )}
+                                                    Restore
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

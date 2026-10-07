@@ -162,7 +162,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                 if (endUsers.length === 0) {
                     setToEndUserId('');
                     setReceivingEndUser(null);
-                    setReceivingError('No available receiving custodian for the selected department.');
+                    setReceivingError('No active Department Head found for the selected department.');
                     return;
                 }
 
@@ -170,7 +170,9 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                     const autoSelected = endUsers.find((entry) => entry.EndUserID === Number(toEndUserId)) || endUsers[0];
                     setReceivingEndUser(autoSelected);
                     setToEndUserId(autoSelected.EndUserID);
-                    setReceivingDepartmentQuery(`${autoSelected.FullName}${autoSelected.DepartmentName ? ` - ${autoSelected.DepartmentName}` : ''}`);
+                    if (autoSelected.DepartmentName) {
+                        setReceivingDepartmentQuery(autoSelected.DepartmentName);
+                    }
                     setReceivingError(null);
                 } else {
                     const requesterName = (user?.FullName || '').trim().toLowerCase();
@@ -178,11 +180,13 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                     const autoSelected = match || endUsers[0];
                     setReceivingEndUser(autoSelected);
                     setToEndUserId(autoSelected.EndUserID);
-                    setReceivingDepartmentQuery(`${autoSelected.FullName}${autoSelected.DepartmentName ? ` - ${autoSelected.DepartmentName}` : ''}`);
+                    if (autoSelected.DepartmentName) {
+                        setReceivingDepartmentQuery(autoSelected.DepartmentName);
+                    }
                     setReceivingError(null);
                 }
             })
-            .catch(() => toast.error('Failed to load receiving end users'));
+            .catch(() => toast.error('Failed to load receiving Department Head'));
     }, [toDepartmentId, user?.FullName, isDepartmentHead, toEndUserId]);
 
     useEffect(() => {
@@ -515,7 +519,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
 
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div>
-                                    <label className="text-sm font-medium text-slate-700">Releasing Custodian (Current Holder)</label>
+                                    <label className="text-sm font-medium text-slate-700">Releasing Custodian (Department Head)</label>
                                     <div className="relative mt-2" ref={releasingComboboxRef}>
                                         <input
                                             type="text"
@@ -547,7 +551,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                         setFromEndUserId(selected.EndUserID);
                                                         setFromDepartmentId(selected.DepartmentID ?? '');
                                                         setRequestingDepartmentQuery(selected.DepartmentName || '');
-                                                        setFromEndUserSearch(`${selected.FullName}${selected.DepartmentName ? ` - ${selected.DepartmentName}` : ''}`);
+                                                        setFromEndUserSearch(`${selected.FullName} (Department Head)${selected.DepartmentName ? ` - ${selected.DepartmentName}` : ''}`);
                                                         setReleasingComboboxOpen(false);
                                                     }
                                                 } else if (event.key === 'Escape') {
@@ -555,13 +559,13 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                     setReleasingHighlightedIndex(-1);
                                                 }
                                             }}
-                                            placeholder="Search custodian"
+                                            placeholder="Search releasing Department Head"
                                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
                                         />
                                         {releasingComboboxOpen && (
                                             <ul id="releasing-listbox" role="listbox" className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded shadow-sm max-h-48 overflow-auto">
                                                 {filteredFromEndUsers.length === 0 ? (
-                                                    <li className="px-3 py-2 text-sm text-slate-500">No matching custodians.</li>
+                                                    <li className="px-3 py-2 text-sm text-slate-500">No matching Department Heads.</li>
                                                 ) : (
                                                     filteredFromEndUsers.map((endUser, idx) => (
                                                         <li
@@ -573,13 +577,13 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                                 setFromEndUserId(endUser.EndUserID);
                                                                 setFromDepartmentId(endUser.DepartmentID ?? '');
                                                                 setRequestingDepartmentQuery(endUser.DepartmentName || '');
-                                                                setFromEndUserSearch(`${endUser.FullName}${endUser.DepartmentName ? ` - ${endUser.DepartmentName}` : ''}`);
+                                                                setFromEndUserSearch(`${endUser.FullName} (Department Head)${endUser.DepartmentName ? ` - ${endUser.DepartmentName}` : ''}`);
                                                                 setReleasingComboboxOpen(false);
                                                             }}
                                                             onMouseEnter={() => setReleasingHighlightedIndex(idx)}
                                                             className={`px-3 py-2 text-sm cursor-pointer ${releasingHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
                                                         >
-                                                            {endUser.FullName}{endUser.DepartmentName ? ` - ${endUser.DepartmentName}` : ''}
+                                                            {endUser.FullName} (Department Head){endUser.DepartmentName ? ` - ${endUser.DepartmentName}` : ''}
                                                         </li>
                                                     ))
                                                 )}
@@ -623,7 +627,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                     setRequestingDepartmentHighlightedIndex(-1);
                                                 }
                                             }}
-                                            placeholder="Search requesting department or user"
+                                            placeholder="Search requesting department"
                                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
                                         />
                                         {requestingDepartmentComboboxOpen && (
@@ -644,7 +648,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                             className={`px-3 py-2 text-sm cursor-pointer ${requestingDepartmentHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
                                                         >
                                                             <div>{department.DepartmentName}</div>
-                                                            <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).slice(0, 2).join(', ') || 'No users'}</div>
+                                                            <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).map(u => `${u} (Head)`).slice(0, 2).join(', ') || 'No Department Head'}</div>
                                                         </li>
                                                     ))
                                                 )}
@@ -657,9 +661,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                     {isDepartmentHead ? (
                                         <input
                                             type="text"
-                                            value={receivingEndUser
-                                                ? `${receivingEndUser.FullName}${receivingEndUser.DepartmentName ? ` - ${receivingEndUser.DepartmentName}` : ''}`
-                                                : (selectedReceivingDepartment?.DepartmentName || user?.Department || 'Missing department')}
+                                            value={selectedReceivingDepartment?.DepartmentName || user?.Department || 'Missing department'}
                                             readOnly
                                             className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
                                         />
@@ -701,7 +703,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                         setReceivingDepartmentHighlightedIndex(-1);
                                                     }
                                                 }}
-                                                placeholder="Search receiving department or user"
+                                                placeholder="Search receiving department"
                                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                                             />
                                             {receivingDepartmentComboboxOpen && (
@@ -722,7 +724,7 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                                                 className={`px-3 py-2 text-sm cursor-pointer ${receivingDepartmentHighlightedIndex === idx ? 'bg-[var(--primary)] text-white' : 'hover:bg-slate-100'}`}
                                                             >
                                                                 <div>{department.DepartmentName}</div>
-                                                                <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).slice(0, 2).join(', ') || 'No users'}</div>
+                                                                <div className="text-xs opacity-75">{(usersByDepartment[department.DepartmentID] || []).map(u => `${u} (Head)`).slice(0, 2).join(', ') || 'No Department Head'}</div>
                                                             </li>
                                                         ))
                                                     )}
@@ -732,12 +734,12 @@ export function TransferCreatePage({ baseRoute }: TransferCreatePageProps) {
                                     )}
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-slate-700">Receiving Custodian</label>
+                                    <label className="text-sm font-medium text-slate-700">Receiving Custodian (Department Head)</label>
                                     <input
                                         type="text"
-                                        value={selectedReceivingDepartment?.DepartmentName
-                                            || receivingEndUser?.DepartmentName
-                                            || 'Auto-selected based on receiving department'}
+                                        value={receivingEndUser
+                                            ? `${receivingEndUser.FullName} (Department Head)${receivingEndUser.DepartmentName ? ` - ${receivingEndUser.DepartmentName}` : ''}`
+                                            : (toDepartmentId ? 'No active Department Head for this department' : 'Auto-selected based on receiving department')}
                                         readOnly
                                         className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-700"
                                     />

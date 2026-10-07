@@ -282,6 +282,13 @@ async function writeReceiverSheet(
         });
     });
 
+    // ── Clear the "Received from the City Mayor..." header rows (6–7) ─────────
+    for (let r = 6; r <= 7; r++) {
+        for (let c = 1; c <= 6; c++) {
+            ws.getCell(r, c).value = null;
+        }
+    }
+
     // ── Clear data zone ────────────────────────────────────────────────────────
     for (let r = DATA_START; r <= DATA_END; r++) {
         for (let c = 1; c <= 6; c++) {
@@ -492,7 +499,7 @@ export async function exportPTRToExcel(transfer: PropertyTransfer, receiverKey?:
             witnessedName,
             witnessedOffice,
             docDate,
-            receivingOffice, // fallback department name for receiver position
+            receivingOffice,
         );
     }
 

@@ -57,19 +57,18 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const transferId = params?.id ? parseInt(params.id as string) : null;
 
     const isPrivilegedUser = user?.UserRoleID === 1 || user?.UserRoleID === 2;
+    const isAdmin = user?.UserRoleID === 1;
     const isDepartmentHead = user?.UserRoleID === 4 && !isPrivilegedUser;
-    const canApprove = false;
-    const canReleasingReview = isPrivilegedUser
-        && transfer?.Status === 'approved'
-        && (transfer?.ReleasingDecision ?? 'pending') === 'pending';
-    const canCompleteTransfer = isPrivilegedUser
-        && transfer?.Status === 'approved'
-        && Boolean(transfer?.ReleasingReviewedAt);
+    const canApprove = isAdmin && transfer?.Status === 'pending';
+    const canReject = isAdmin && transfer?.Status === 'pending';
+    const canReleasingReview = false;
+    const canCompleteTransfer = isAdmin
+        && transfer?.Status === 'approved';
     const isReleasingDepartmentViewer = user?.UserRoleID === 4
         && !isPrivilegedUser
         && Number(user?.DepartmentID ?? 0) === Number(transfer?.FromDepartmentID ?? 0);
 
-    const canPrint = (transfer?.Status === 'approved' || transfer?.Status === 'completed') && !isDepartmentHead;
+    const canPrint = transfer?.Status === 'completed';
 
     const groupedRequestedItems = useMemo(() => {
         const groups = new Map<string, {
@@ -255,7 +254,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         try {
             setIsProcessing(true);
             await transferAPI.approve(transfer.TransferID);
-            toast.success('Transfer approved by GSO/Admin. Releasing review can now proceed.');
+            toast.success('Transfer approved by Admin.');
             await loadTransfer();
         } catch {
             toast.error('Failed to approve transfer');
@@ -383,8 +382,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const confirmDialogConfig = () => {
         if (pendingConfirmAction === 'approve') {
             return {
-                title: 'Confirm GSO Approval',
-                description: 'Are you sure you want to approve this transfer as GSO/Admin?',
+                title: 'Confirm Admin Approval',
+                description: 'Are you sure you want to approve this transfer as Admin?',
                 confirmText: 'Confirm Approval',
             };
         }
@@ -433,25 +432,27 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
     const approvalDisplay = () => {
         if (!transfer) return '';
         if (transfer.Status === 'pending') {
-            return 'Pending GSO/Admin approval';
+            return 'Pending Admin approval';
         }
         if (transfer.Status === 'rejected') {
-            return formatDisplayDateTime(transfer.ApprovedAt) || 'Rejected (approval date missing)';
+            return formatDisplayDateTime(transfer.ApprovedAt) || 'Rejected by Admin';
         }
-        return formatDisplayDateTime(transfer.ApprovedAt) || 'Approved (date missing)';
+        return formatDisplayDateTime(transfer.ApprovedAt) || 'Approved by Admin';
     };
 
     const releasingDecisionLabel = () => {
         if (!transfer) return 'Workflow in progress';
         if (transfer.Status === 'completed') return 'Completed';
         if (transfer.Status === 'rejected') return 'Rejected';
-        return 'Auto-approved by GSO';
+        if (transfer.Status === 'pending') return 'Pending Admin Approval';
+        return 'Approved';
     };
 
     const releasingDecisionBadgeClass = () => {
         if (!transfer) return 'bg-slate-100 text-slate-700';
         if (transfer.Status === 'completed') return 'bg-emerald-100 text-emerald-700';
         if (transfer.Status === 'rejected') return 'bg-rose-100 text-rose-700';
+        if (transfer.Status === 'pending') return 'bg-amber-100 text-amber-700';
         return 'bg-blue-100 text-blue-700';
     };
 
@@ -473,26 +474,19 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                 completed: Boolean(transfer?.created_at),
             },
             {
-                label: 'GSO Approved',
+                label: 'Admin Approval',
                 value: approvalDisplay(),
                 completed: Boolean(transfer?.ApprovedAt),
             },
             {
-                label: 'Releasing Review',
-                value: transfer?.ReleasingReviewedAt
-                    ? formatDisplayDateTime(transfer.ReleasingReviewedAt)
-                    : 'Pending releasing review',
-                completed: Boolean(transfer?.ReleasingReviewedAt),
-            },
-            {
-                label: 'GSO Finalized',
+                label: 'Finalized / Completed',
                 value: completedDisplay(),
                 completed: transfer?.Status === 'completed',
             },
         ];
 
-        return isReleasingDepartmentViewer ? items.slice(0, 3) : items;
-    }, [approvalDisplay, completedDisplay, formatDisplayDateTime, isReleasingDepartmentViewer, transfer]);
+        return items;
+    }, [approvalDisplay, completedDisplay, formatDisplayDateTime, transfer]);
 
     const transferRequestedQty = useMemo(
         () => groupedTransferRows.reduce((sum, row) => sum + Number(row.requestedQty || 0), 0),
@@ -705,7 +699,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 Approve
                             </button>
                         )}
-                        {isPrivilegedUser && (transfer.Status === 'pending' || transfer.Status === 'approved') && (
+                        {canReject && (
                             <Dialog.Root open={rejectOpen} onOpenChange={setRejectOpen}>
                                 <Dialog.Trigger asChild>
                                     <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
@@ -786,9 +780,14 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 </Dialog.Portal>
                             </Dialog.Root>
                         )}
-                        {isPrivilegedUser && transfer.Status === 'approved' && (
+                        {transfer.Status === 'approved' && !isAdmin && (
+                            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                Approved. Waiting for Admin to mark as completed.
+                            </div>
+                        )}
+                        {isAdmin && transfer.Status === 'approved' && (
                             <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                                Ready for final GSO completion.
+                                Approved. Ready to mark as completed.
                             </div>
                         )}
                     </div>
@@ -838,7 +837,15 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                             </div>
                             <div>
                                 <div className="text-xs text-slate-500 uppercase">Workflow</div>
-                                <div className="text-sm font-semibold text-slate-900">Auto-approved by GSO</div>
+                                <div className="text-sm font-semibold text-slate-900">
+                                    {transfer.Status === 'pending'
+                                        ? 'Pending Admin Approval'
+                                        : transfer.Status === 'rejected'
+                                        ? 'Rejected by Admin'
+                                        : transfer.Status === 'completed'
+                                        ? 'Completed'
+                                        : 'Approved by Admin'}
+                                </div>
                             </div>
                         </div>
 
