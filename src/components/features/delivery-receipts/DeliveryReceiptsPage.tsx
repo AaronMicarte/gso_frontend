@@ -431,6 +431,7 @@ export function DeliveryReceiptsPage({ baseRoute, canDelete = false }: DeliveryR
                             <ViewDRPage
                                 baseRoute={baseRoute}
                                 drId={selectedDrId}
+                                initialData={tableRows.find((r) => r.DRID === selectedDrId) ?? null}
                                 isModal
                                 onClose={() => handleOpenChange(false)}
                             />

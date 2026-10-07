@@ -17,19 +17,21 @@ interface ViewDRPageProps {
     drId?: number;
     isModal?: boolean;
     onClose?: () => void;
+    initialData?: DeliveryReceipt | null;
 }
+
 
 interface IssuanceIds {
     PAR?: number;
     ICS?: number;
 }
 
-export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDRPageProps) {
+export function ViewDRPage({ baseRoute, drId, isModal = false, onClose, initialData }: ViewDRPageProps) {
     const params = useParams();
     const router = useRouter();
     const { user } = useAuth();
-    const [dr, setDr] = useState<DeliveryReceipt | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [dr, setDr] = useState<DeliveryReceipt | null>(initialData ?? null);
+    const [isLoading, setIsLoading] = useState(!initialData);
     const [issuanceIds, setIssuanceIds] = useState<IssuanceIds>({});
 
     const resolvedId = drId ?? (params.id ? parseInt(params.id as string, 10) : null);
@@ -49,17 +51,20 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                 if (!resolvedId) return;
                 const data = await getDeliveryReceipt(resolvedId);
                 setDr(data);
+                setIsLoading(false);   // ← unblock immediately
 
-                try {
-                    const ensured = await issuanceAPI.ensureIssuances({ dr_id: resolvedId });
-                    const byType = ensured.data?.issuances_by_document_type ?? {};
-                    setIssuanceIds({
-                        PAR: byType.PAR?.IssuanceID,
-                        ICS: byType.ICS?.IssuanceID,
+                // Fire ensureIssuances in the background — don't block the UI
+                issuanceAPI.ensureIssuances({ dr_id: resolvedId })
+                    .then((ensured) => {
+                        const byType = ensured.data?.issuances_by_document_type ?? {};
+                        setIssuanceIds({
+                            PAR: byType.PAR?.IssuanceID,
+                            ICS: byType.ICS?.IssuanceID,
+                        });
+                    })
+                    .catch(() => {
+                        setIssuanceIds({});
                     });
-                } catch {
-                    setIssuanceIds({});
-                }
             } catch {
                 toast.error('Failed to load delivery receipt');
                 if (isModal) {
@@ -67,7 +72,6 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                 } else {
                     router.push(`${baseRoute}/delivery-receipts`);
                 }
-            } finally {
                 setIsLoading(false);
             }
         };
@@ -113,12 +117,29 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
         return sum + cost;
     }, 0) : 0;
 
-    const handlePrint = (type: 'PAR' | 'ICS') => {
-        const id = type === 'PAR' ? issuanceIds.PAR : issuanceIds.ICS;
+    const handlePrint = async (type: 'PAR' | 'ICS') => {
+        let id = type === 'PAR' ? issuanceIds.PAR : issuanceIds.ICS;
+
+        if (!id && resolvedId) {
+            try {
+                const ensured = await issuanceAPI.ensureIssuances({ dr_id: resolvedId });
+                const byType = ensured.data?.issuances_by_document_type ?? {};
+                id = byType[type]?.IssuanceID;
+                setIssuanceIds({
+                    PAR: byType.PAR?.IssuanceID,
+                    ICS: byType.ICS?.IssuanceID,
+                });
+            } catch {
+                toast.error(`Could not prepare ${type} document`);
+                return;
+            }
+        }
+
         if (!id) {
             toast.error(`No ${type} document available yet`);
             return;
         }
+
         window.open(`/admin/issuance/${id}/print?type=${type}`, '_blank');
     };
 
@@ -166,17 +187,15 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose }: ViewDR
                         <Printer className="w-4 h-4" />
                         Print IAR
                     </Link>
-                    {issuanceIds.PAR && (
-                        <button
-                            type="button"
-                            onClick={() => handlePrint('PAR')}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
-                            title="Print Property Acknowledgment Receipt"
-                        >
-                            <FileText className="w-4 h-4" />
-                            Print PAR
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={() => void handlePrint('PAR')}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
+                        title="Print Property Acknowledgment Receipt"
+                    >
+                        <FileText className="w-4 h-4" />
+                        Print PAR
+                    </button>
                     {issuanceIds.ICS && (
                         <button
                             type="button"
