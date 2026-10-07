@@ -183,13 +183,13 @@ export default function AdminUsersCreatePage() {
 
                     <Input
                         label="Email"
-                        placeholder="e.g. juan.delacruz@elsalvador.gov.ph"
+                        placeholder="e.g. juan.delacruz@gmail.com"
                         value={Email}
                         onChange={(e) => setEmail(e.target.value)}
                     />
 
                     <Input
-                        label="Full name (optional)"
+                        label="Full Name"
                         placeholder="e.g. Juan Dela Cruz"
                         value={FullName}
                         onChange={(e) => setFullName(e.target.value)}

@@ -161,13 +161,13 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
             ],
             roles: ['admin', 'staff', 'department_head'],
         },
-        // {
-        //     section: 'MAINTENANCE',
-        //     items: [
-        //         { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
-        //     ],
-        //     roles: ['admin', 'staff', 'department_head'],
-        // },
+        {
+            section: 'MAINTENANCE',
+            items: [
+                { label: 'Service Records', href: `${baseRoute}/service-records`, icon: Wrench },
+            ],
+            roles: ['admin', 'staff', 'department_head'],
+        },
         {
             section: 'QR MANAGEMENT',
             items: [
@@ -185,7 +185,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                 {
                     label: 'Users & Roles', icon: Users, children: [
                         { label: 'Users', href: `${baseRoute}/users`, icon: Users },
-                        { label: 'Roles', href: `${baseRoute}/masterdata/user-roles`, icon: Shield },
+                        // { label: 'Roles', href: `${baseRoute}/masterdata/user-roles`, icon: Shield },
                         { label: 'Departments', href: `${baseRoute}/masterdata/departments`, icon: Building2 },
                     ]
                 },

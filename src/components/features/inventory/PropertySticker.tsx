@@ -288,13 +288,15 @@ const buildPrintHtml = (
     flex: 1;
     min-height: 0;
     padding: 1mm 0 0.6mm;
+    overflow: hidden;
   }
   .left {
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     min-width: 0;
+    overflow: hidden;
     padding-right: 1.5mm;
   }
   .field {
@@ -303,24 +305,27 @@ const buildPrintHtml = (
     font-size: 5.5px;
     line-height: 1.2;
     min-width: 0;
+    overflow: hidden;
+    width: 100%;
   }
   .fl { 
     font-weight: 900; 
     white-space: nowrap; 
     flex-shrink: 0; 
-    width: 17mm; /* 👈 INCREASED: 17mm to give more room for labels */
+    width: 18mm;                   /* 👈 bumped 17mm → 18mm */
   }
   .fv {
-    flex: 1;
+    flex: 1 1 0;
     font-weight: 700;
     border-bottom: 0.5px solid #000;
-    margin-left: 1mm;
-    padding: 0 0.5mm;
+    margin-left: 2mm;              /* 👈 FIX: was 1mm — pushes value right */
+    padding: 0 1mm;                /* 👈 FIX: was 0 0.5mm — more breathing room */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: left;
     min-width: 0;
+    max-width: 100%;
   }
   .vert-divider { width: 0.7px; background: #000; flex-shrink: 0; align-self: stretch; }
   .right {
@@ -387,18 +392,17 @@ function StickerPreview({
     const copy = getDocCopy(docType);
     const fields = getFields(item);
 
-    // 👇 INCREASED WIDTH AND HEIGHT HERE
     const S = {
         root: {
-            width: 360, // 👈 was 288
-            height: 240, // 👈 was 192
+            width: 360,
+            height: 240,
             background: '#fff',
             color: '#000',
             border: '1.5px solid #000',
             fontFamily: 'Arial, Helvetica, sans-serif',
             display: 'flex' as const,
             flexDirection: 'column' as const,
-            padding: '6px 8px 5px', // 👈 slightly more padding
+            padding: '6px 8px 5px',
             textTransform: 'uppercase' as const,
             overflow: 'hidden',
         },
@@ -413,7 +417,15 @@ function StickerPreview({
         headerText: { flex: 1, textAlign: 'center' as const, display: 'flex' as const, flexDirection: 'column' as const, gap: 1 },
         divider: { borderTop: '1px solid #000', width: '100%', flexShrink: 0 },
         body: { display: 'flex' as const, alignItems: 'stretch' as const, flex: 1, overflow: 'hidden', padding: '4px 0 3px' },
-        left: { flex: 1, display: 'flex' as const, flexDirection: 'column' as const, justifyContent: 'space-between' as const, overflow: 'hidden', paddingRight: 6 },
+        left: {
+            flex: 1,
+            display: 'flex' as const,
+            flexDirection: 'column' as const,
+            justifyContent: 'space-between' as const,
+            overflow: 'hidden',
+            minWidth: 0,
+            paddingRight: 6,
+        },
         right: { width: 80, display: 'flex' as const, flexDirection: 'column' as const, alignItems: 'center' as const, justifyContent: 'center' as const, paddingLeft: 6, flexShrink: 0 },
         sigRow: { display: 'flex' as const, justifyContent: 'center' as const, flexShrink: 0, paddingTop: 3 },
         sigBlock: { width: 160, textAlign: 'center' as const },
@@ -445,14 +457,24 @@ function StickerPreview({
                 {/* Left — fields */}
                 <div style={S.left}>
                     {fields.map(([label, value]) => (
-                        <div key={label} style={{ display: 'flex', alignItems: 'flex-end', fontSize: 8.5, lineHeight: 1.2, minWidth: 0 }}>
-                            <span style={{ fontWeight: 900, whiteSpace: 'nowrap', flexShrink: 0, width: 120 }}>{label}</span>
+                        <div
+                            key={label}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'flex-end',
+                                fontSize: 8.5,
+                                lineHeight: 1.2,
+                                minWidth: 0,
+                                overflow: 'hidden',
+                            }}
+                        >
+                            <span style={{ fontWeight: 900, whiteSpace: 'nowrap', flexShrink: 0, width: 124 }}>{label}</span>
                             <span style={{
                                 flex: 1,
                                 fontWeight: 700,
                                 borderBottom: '0.7px solid #000',
-                                marginLeft: 4,
-                                padding: '0 2px',
+                                marginLeft: 8,             /* 👈 FIX: was 4 — pushes value right */
+                                padding: '0 4px',          /* 👈 FIX: was '0 2px' */
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
@@ -473,7 +495,7 @@ function StickerPreview({
                     <div id={`sticker-qr-${idx}`} style={{ border: '1px solid #000', padding: 2, background: '#fff', display: 'inline-block' }}>
                         <QRCodeCanvas
                             value={item.url || 'https://iams-gso.gov.ph'}
-                            size={72} // 👈 slightly bigger QR
+                            size={72}
                             level="M"
                             includeMargin={false}
                             bgColor="#ffffff"
@@ -662,4 +684,61 @@ export function PropertySticker({
             </Dialog.Portal>
         </Dialog.Root>
     );
+}
+
+// ── Standalone bulk-print helper (used by AllItemsPage selection mode) ─────────
+// Renders QR codes off-screen, captures them, then opens a print window.
+export async function printPropertyStickers(items: PropertyStickerItem[]): Promise<void> {
+    if (items.length === 0) return;
+
+    // Render QR codes into hidden container to get canvas data URLs
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;pointer-events:none;';
+    document.body.appendChild(container);
+
+    // Create a temporary React root to render QRCodeCanvas elements
+    const { createRoot } = await import('react-dom/client');
+    const root = createRoot(container);
+
+    await new Promise<void>(resolve => {
+        root.render(
+            React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap' } },
+                ...items.map((item, i) =>
+                    React.createElement('div', { key: i, id: `bulk-sticker-qr-${i}` },
+                        React.createElement(QRCodeCanvas, {
+                            value: item.url || 'https://iams-gso.gov.ph',
+                            size: 80,
+                            level: 'M',
+                            includeMargin: false,
+                            bgColor: '#ffffff',
+                            fgColor: '#000000',
+                        })
+                    )
+                )
+            )
+        );
+        // Allow React to flush
+        setTimeout(resolve, 200);
+    });
+
+    const qrDataUrls = items.map((_, i) => {
+        const wrapper = container.querySelector<HTMLElement>(`#bulk-sticker-qr-${i}`);
+        const canvas = wrapper?.querySelector<HTMLCanvasElement>('canvas');
+        return canvas ? canvas.toDataURL('image/png') : '';
+    });
+
+    const origin = window.location.origin;
+    const [logoLeftDataUrl, logoRightDataUrl] = await Promise.all([
+        imgToDataUrl(origin + LOGO_LEFT_SRC),
+        imgToDataUrl(origin + LOGO_RIGHT_SRC),
+    ]);
+
+    root.unmount();
+    document.body.removeChild(container);
+
+    const win = window.open('', 'gso-property-sticker-print');
+    if (!win) return;
+    win.document.open();
+    win.document.write(buildPrintHtml(items, qrDataUrls, logoLeftDataUrl, logoRightDataUrl));
+    win.document.close();
 }

@@ -2,7 +2,7 @@
 
 import { useAllInventoryItems } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
-import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2, FileWarning, Download, Filter, PackageX } from 'lucide-react';
+import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2, FileWarning, Download, Filter, PackageX, Layers, Printer } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -13,7 +13,7 @@ import { TableSkeletonRows } from '@/components/ui/ListSkeletons';
 import { useAllDepartments } from '@/lib/hooks/masterData/useDepartments';
 import { exportDepartmentItemsToExcel, exportAllItemsToExcel } from './DepartmentExport';
 
-import { PropertySticker, type PropertyStickerItem } from './PropertySticker';
+import { PropertySticker, type PropertyStickerItem, printPropertyStickers } from './PropertySticker';
 import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 import { PropertyCardDialog } from './PropertyCardDialog';
 import { InventoryReceiptDialog } from './InventoryReceiptDialog';
@@ -101,6 +101,28 @@ export function AllItemsPage() {
     const [movingToRemoved, setMovingToRemoved] = useState<number | null>(null);
     const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
 
+    // ── Sticker selection mode state ─────────────────────────────────────
+    // Map<primaryInventoryDetailID, chosenQty>  (0 = deselected, 1‥N = partially/fully selected)
+    const [stickerSelectionMode, setStickerSelectionMode] = useState(false);
+    const [stickerQuantities, setStickerQuantities] = useState<Map<number, number>>(new Map());
+    const [isPrintingStickers, setIsPrintingStickers] = useState(false);
+
+    const toggleStickerSelectionMode = () => {
+        setStickerSelectionMode(prev => !prev);
+        setStickerQuantities(new Map());
+    };
+
+    /** Set the quantity for a single row; 0 effectively deselects it. */
+    const setStickerQty = (primaryId: number, qty: number, maxQty: number) => {
+        const clamped = Math.max(0, Math.min(qty, maxQty));
+        setStickerQuantities(prev => {
+            const next = new Map(prev);
+            if (clamped === 0) next.delete(primaryId);
+            else next.set(primaryId, clamped);
+            return next;
+        });
+    };
+
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
             setDebouncedSearch(search.trim());
@@ -108,6 +130,14 @@ export function AllItemsPage() {
         }, 500);
         return () => window.clearTimeout(timeoutId);
     }, [search]);
+
+    // Clear sticker selections whenever display mode changes — combined and
+    // individual rows have different IDs and maxQty values, so stale entries
+    // from the previous mode would show wrong quantities (e.g. qty=2 on a
+    // single-item row whose maxQty=1).
+    useEffect(() => {
+        setStickerQuantities(new Map());
+    }, [displayMode]);
 
     const { data, isLoading, isFetching, refetch } = useAllInventoryItems({
         page,
@@ -174,6 +204,7 @@ export function AllItemsPage() {
         }
     };
 
+    // ── displayedItems MUST come before any block that references it ─────
     const displayedItems = useMemo<CombinedInventoryItem[]>(() => {
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         return ((data?.data ?? []) as CombinedInventoryItem[]).map(item => {
@@ -207,6 +238,94 @@ export function AllItemsPage() {
             return { ...item, combinedItems, stickerItems };
         });
     }, [data?.data]);
+
+    // ── Sticker selection helpers (AFTER displayedItems) ────────────────
+
+    /** True when every visible row has qty === its max */
+    const allVisibleSelected = displayedItems.length > 0 && displayedItems.every(item => {
+        const max = Math.max(item.stickerItems?.length ?? 0, 1);
+        return (stickerQuantities.get(item.InventoryDetailID) ?? 0) === max;
+    });
+
+    const toggleSelectAllVisible = () => {
+        setStickerQuantities(prev => {
+            const next = new Map(prev);
+            if (allVisibleSelected) {
+                // deselect all visible
+                displayedItems.forEach(item => next.delete(item.InventoryDetailID));
+            } else {
+                // select all visible at full quantity
+                displayedItems.forEach(item => {
+                    const max = Math.max(item.stickerItems?.length ?? 0, 1);
+                    next.set(item.InventoryDetailID, max);
+                });
+            }
+            return next;
+        });
+    };
+
+    const selectedStickerData = useMemo(() => {
+        const par: PropertyStickerItem[] = [];
+        const ics: PropertyStickerItem[] = [];
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        displayedItems.forEach(item => {
+            const qty = stickerQuantities.get(item.InventoryDetailID) ?? 0;
+            if (qty === 0) return;
+
+            const stickerItems = item.stickerItems || [];
+
+            if (stickerItems.length > 0) {
+                // Slice to the chosen quantity
+                stickerItems.slice(0, qty).forEach(si => {
+                    const docType = (si.documentType || '').toUpperCase();
+                    if (docType === 'ICS') ics.push(si);
+                    else par.push(si);
+                });
+            } else {
+                // Row has no PropertyNumber — build a single synthetic sticker
+                const qrCodeData = getQrCodeData(item);
+                const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                const url = match?.[1]
+                    ? `${origin}/qr/scan/${match[1]}`
+                    : `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
+                const si: PropertyStickerItem = {
+                    propertyNumber: item.PropertyNumber || '',
+                    parIcsNumber: (item as any).par_ics_number || '',
+                    office: (item as any).locationDepartment || '',
+                    custodianName: item.custodianName || '',
+                    itemName: getItemName(item),
+                    brand: item.Brand || '',
+                    category: item.PropertyName || item.ClassificationName || '-',
+                    date: item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-',
+                    unitCost: item.UnitCost,
+                    url,
+                    serialNumber: item.SerialNumber || '',
+                    modelNumber: item.ModelNumber || '',
+                    endUserName: (item as any).endUserName || '',
+                    currentDepartmentHead: (item as any).currentDepartmentHead || '',
+                    documentType: (item as any).par_ics_type || item.DocumentType || '',
+                };
+                const dt = (si.documentType || '').toUpperCase();
+                if (dt === 'ICS') ics.push(si);
+                else par.push(si);
+            }
+        });
+        return { par, ics };
+    }, [stickerQuantities, displayedItems]);
+
+    const handleBulkPrintPar = async () => {
+        if (selectedStickerData.par.length === 0) return;
+        setIsPrintingStickers(true);
+        try { await printPropertyStickers(selectedStickerData.par); }
+        finally { setIsPrintingStickers(false); }
+    };
+
+    const handleBulkPrintIcs = async () => {
+        if (selectedStickerData.ics.length === 0) return;
+        setIsPrintingStickers(true);
+        try { await printPropertyStickers(selectedStickerData.ics); }
+        finally { setIsPrintingStickers(false); }
+    };
 
     const isInitialLoading = isLoading && !data;
 
@@ -330,6 +449,16 @@ export function AllItemsPage() {
                         >
                             <Download className={`w-4 h-4 ${isExportingAll ? 'animate-pulse' : ''}`} />
                             {isExportingAll ? 'Exporting...' : 'Export All Items'}
+                        </button>
+                        <button
+                            onClick={toggleStickerSelectionMode}
+                            className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors text-sm font-medium shadow-sm ${stickerSelectionMode
+                                ? 'bg-violet-600 border-violet-600 text-white hover:bg-violet-700'
+                                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                }`}
+                        >
+                            <Layers className="w-4 h-4" />
+                            {stickerSelectionMode ? 'Exit Sticker Mode' : 'Print Stickers'}
                         </button>
                         {selectedDepartment && (
                             <button
@@ -594,13 +723,24 @@ export function AllItemsPage() {
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
                                 <tr>
+                                    {stickerSelectionMode && (
+                                        <th className="px-4 py-4 w-10">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded border-gray-300 text-violet-600 cursor-pointer"
+                                                checked={allVisibleSelected}
+                                                onChange={toggleSelectAllVisible}
+                                                title="Select / deselect all on this page at full quantity"
+                                            />
+                                        </th>
+                                    )}
                                     <th className="px-6 py-4">Article</th>
                                     <th className="px-6 py-4">Description</th>
                                     <th className="px-6 py-4">Property Type</th>
                                     <th className="px-6 py-4">Inventory No.</th>
                                     <th className="px-6 py-4">Status / Condition</th>
                                     <th className="px-6 py-4">Custodian</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
+                                    <th className="px-6 py-4 text-right">{stickerSelectionMode ? 'Select' : 'Actions'}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -608,7 +748,7 @@ export function AllItemsPage() {
                                     <TableSkeletonRows columns={7} rows={10} />
                                 ) : displayedItems.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                                        <td colSpan={stickerSelectionMode ? 8 : 7} className="px-6 py-8 text-center text-gray-500">
                                             <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                                             {debouncedSearch || selectedCondition || selectedPropertyType || selectedRlsddpStatus
                                                 ? 'No items found for the current search/filter'
@@ -619,8 +759,43 @@ export function AllItemsPage() {
                                     displayedItems.map((item) => {
                                         const borrowedLabel = getBorrowedLabel(item.currentBorrowerName, item.currentBorrowerDepartment);
                                         const stickerItems = item.stickerItems || [];
+                                        // max = number of sticker-able sub-items (at least 1 for rows without a PropertyNumber)
+                                        const maxQty = Math.max(stickerItems.length, 1);
+                                        const currentQty = stickerQuantities.get(item.InventoryDetailID) ?? 0;
+                                        const isSelected = currentQty > 0;
                                         return (
-                                            <tr key={item.InventoryDetailID} className="hover:bg-gray-50 transition-colors">
+                                            <tr
+                                                key={item.InventoryDetailID}
+                                                className={`transition-colors ${stickerSelectionMode ? (isSelected ? 'bg-violet-50 hover:bg-violet-100' : 'hover:bg-violet-50/50') : 'hover:bg-gray-50'} ${stickerSelectionMode ? 'cursor-pointer select-none' : ''}`}
+                                                onClick={stickerSelectionMode ? () => setStickerQty(item.InventoryDetailID, isSelected ? 0 : maxQty, maxQty) : undefined}
+                                            >
+                                                {stickerSelectionMode && (
+                                                    <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setStickerQty(item.InventoryDetailID, currentQty - 1, maxQty)}
+                                                                disabled={currentQty === 0}
+                                                                className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 text-gray-500 hover:border-violet-400 hover:text-violet-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold leading-none transition-colors"
+                                                            >−</button>
+                                                            <input
+                                                                type="number"
+                                                                min={0}
+                                                                max={maxQty}
+                                                                value={currentQty}
+                                                                onChange={e => setStickerQty(item.InventoryDetailID, Number(e.target.value), maxQty)}
+                                                                className="w-8 text-center text-xs font-semibold border border-gray-300 rounded py-0.5 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-300"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setStickerQty(item.InventoryDetailID, currentQty + 1, maxQty)}
+                                                                disabled={currentQty === maxQty}
+                                                                className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 text-gray-500 hover:border-violet-400 hover:text-violet-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold leading-none transition-colors"
+                                                            >+</button>
+                                                            <span className="text-[10px] text-gray-400 whitespace-nowrap">/{maxQty}</span>
+                                                        </div>
+                                                    </td>
+                                                )}
                                                 <td className="px-6 py-4">
                                                     <div className="font-medium text-gray-900">{getItemName(item)}</div>
                                                     {item.CombinedQuantity && item.CombinedQuantity > 1 && (
@@ -685,87 +860,97 @@ export function AllItemsPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        <PropertyCardDialog
-                                                            inventoryDetailId={item.InventoryDetailID}
-                                                            propertyNumber={item.PropertyNumber}
-                                                            itemName={getItemName(item)}
-                                                            description={item.Description}
-                                                            category={item.PropertyName || item.ClassificationName}
-                                                            custodianName={getCustodianDisplayName(item.custodianName)}
-                                                        />
-                                                        {stickerItems.length > 0 && (
-                                                            <PropertySticker
-                                                                items={stickerItems}
+                                                    {stickerSelectionMode ? (
+                                                        <div className="flex items-center justify-end">
+                                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${isSelected
+                                                                    ? 'bg-violet-100 text-violet-700 border-violet-300'
+                                                                    : 'bg-gray-100 text-gray-400 border-gray-200'
+                                                                }`}>
+                                                                {isSelected ? `✓ ${currentQty} sticker${currentQty !== 1 ? 's' : ''}` : 'Not selected'}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            <PropertyCardDialog
+                                                                inventoryDetailId={item.InventoryDetailID}
                                                                 propertyNumber={item.PropertyNumber}
                                                                 itemName={getItemName(item)}
-                                                                category={item.PropertyName || item.ClassificationName || '-'}
-                                                                // 👇 OFFICE — pass locationDepartment
-                                                                office={item.locationDepartment || ''}
-                                                                url={(() => {
-                                                                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                                    const qrCodeData = getQrCodeData(item);
-                                                                    const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
-                                                                    if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
-                                                                    return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
-                                                                })()}
-                                                                custodianName={item.custodianName || ''}
-                                                                date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
-                                                                unitCost={item.UnitCost}
-                                                                brand={item.Brand || ''}
-                                                                serialNumber={item.SerialNumber || ''}
-                                                                modelNumber={item.ModelNumber || ''}
-                                                                endUserName={item.endUserName || ''}
-                                                                currentDepartmentHead={item.currentDepartmentHead || ''}
-                                                                parIcsNumber={(item as any).par_ics_number || ''}
-                                                                documentType={(item as any).par_ics_type || item.DocumentType || ''}
+                                                                description={item.Description}
+                                                                category={item.PropertyName || item.ClassificationName}
+                                                                custodianName={getCustodianDisplayName(item.custodianName)}
                                                             />
-                                                        )}
-                                                        <InventoryHistoryDialog inventoryDetailId={item.InventoryDetailID} itemName={getItemName(item)} />
-                                                        <InventoryReceiptDialog
-                                                            inventoryDetailId={item.InventoryDetailID}
-                                                            inventoryId={item.InventoryID}
-                                                            articleName={item.dr_article_name ?? item.PropertyName}
-                                                            unitOfMeasureId={item.UnitOfMeasureID}
-                                                        />
-                                                        <button
-                                                            onClick={() => openEditModal(item)}
-                                                            className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                            title="Edit item details"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </button>
-                                                        {item.ConditionName?.toLowerCase().includes('unserviceable') && (
-                                                            confirmRemove === item.InventoryDetailID ? (
-                                                                <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">
-                                                                    <span className="text-xs text-rose-700 font-medium whitespace-nowrap">Move to Removed?</span>
+                                                            {stickerItems.length > 0 && (
+                                                                <PropertySticker
+                                                                    items={stickerItems}
+                                                                    propertyNumber={item.PropertyNumber}
+                                                                    itemName={getItemName(item)}
+                                                                    category={item.PropertyName || item.ClassificationName || '-'}
+                                                                    office={item.locationDepartment || ''}
+                                                                    url={(() => {
+                                                                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                                        const qrCodeData = getQrCodeData(item);
+                                                                        const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                                        if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+                                                                        return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
+                                                                    })()}
+                                                                    custodianName={item.custodianName || ''}
+                                                                    date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
+                                                                    unitCost={item.UnitCost}
+                                                                    brand={item.Brand || ''}
+                                                                    serialNumber={item.SerialNumber || ''}
+                                                                    modelNumber={item.ModelNumber || ''}
+                                                                    endUserName={item.endUserName || ''}
+                                                                    currentDepartmentHead={item.currentDepartmentHead || ''}
+                                                                    parIcsNumber={(item as any).par_ics_number || ''}
+                                                                    documentType={(item as any).par_ics_type || item.DocumentType || ''}
+                                                                />
+                                                            )}
+                                                            <InventoryHistoryDialog inventoryDetailId={item.InventoryDetailID} itemName={getItemName(item)} />
+                                                            <InventoryReceiptDialog
+                                                                inventoryDetailId={item.InventoryDetailID}
+                                                                inventoryId={item.InventoryID}
+                                                                articleName={item.dr_article_name ?? item.PropertyName}
+                                                                unitOfMeasureId={item.UnitOfMeasureID}
+                                                            />
+                                                            <button
+                                                                onClick={() => openEditModal(item)}
+                                                                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                title="Edit item details"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                            {item.ConditionName?.toLowerCase().includes('unserviceable') && (
+                                                                confirmRemove === item.InventoryDetailID ? (
+                                                                    <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">
+                                                                        <span className="text-xs text-rose-700 font-medium whitespace-nowrap">Move to Removed?</span>
+                                                                        <button
+                                                                            onClick={() => handleMoveToRemoved(item)}
+                                                                            disabled={movingToRemoved === item.InventoryDetailID}
+                                                                            className="text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
+                                                                        >
+                                                                            {movingToRemoved === item.InventoryDetailID
+                                                                                ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                                                                : 'Yes'}
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => setConfirmRemove(null)}
+                                                                            className="text-xs font-medium text-gray-500 hover:text-gray-700 px-1"
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
                                                                     <button
-                                                                        onClick={() => handleMoveToRemoved(item)}
-                                                                        disabled={movingToRemoved === item.InventoryDetailID}
-                                                                        className="text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
+                                                                        onClick={() => setConfirmRemove(item.InventoryDetailID)}
+                                                                        className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                        title="Move to Removed Items"
                                                                     >
-                                                                        {movingToRemoved === item.InventoryDetailID
-                                                                            ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                                                                            : 'Yes'}
+                                                                        <PackageX className="w-4 h-4" />
                                                                     </button>
-                                                                    <button
-                                                                        onClick={() => setConfirmRemove(null)}
-                                                                        className="text-xs font-medium text-gray-500 hover:text-gray-700 px-1"
-                                                                    >
-                                                                        Cancel
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => setConfirmRemove(item.InventoryDetailID)}
-                                                                    className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                                    title="Move to Removed Items"
-                                                                >
-                                                                    <PackageX className="w-4 h-4" />
-                                                                </button>
-                                                            )
-                                                        )}
-                                                    </div>
+                                                                )
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );
@@ -803,6 +988,64 @@ export function AllItemsPage() {
                     <EditInventoryDetailModal open={editModalOpen} onOpenChange={setEditModalOpen} item={editingItem} />
                 </div>
             </div>
+
+            {/* ── Sticky Sticker Selection Bar ── */}
+            {stickerSelectionMode && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-gray-900/95 backdrop-blur-sm text-white rounded-2xl shadow-2xl border border-white/10">
+                    <div className="flex items-center gap-2 pr-3 border-r border-white/20">
+                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+                        <span className="text-sm font-semibold">
+                            {stickerQuantities.size} row{stickerQuantities.size !== 1 ? 's' : ''} selected
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            PAR: {selectedStickerData.par.length}
+                        </span>
+                        <button
+                            onClick={handleBulkPrintPar}
+                            disabled={selectedStickerData.par.length === 0 || isPrintingStickers}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-500/30 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition-colors"
+                        >
+                            <Printer className="w-3.5 h-3.5" />
+                            Print PAR Stickers
+                        </button>
+                    </div>
+
+                    <div className="w-px h-5 bg-white/20" />
+
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            ICS: {selectedStickerData.ics.length}
+                        </span>
+                        <button
+                            onClick={handleBulkPrintIcs}
+                            disabled={selectedStickerData.ics.length === 0 || isPrintingStickers}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-500/30 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition-colors"
+                        >
+                            <Printer className="w-3.5 h-3.5" />
+                            Print ICS Stickers
+                        </button>
+                    </div>
+
+                    <div className="w-px h-5 bg-white/20" />
+
+                    <button
+                        onClick={() => setStickerQuantities(new Map())}
+                        disabled={stickerQuantities.size === 0}
+                        className="text-xs text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
+                    >
+                        Clear
+                    </button>
+                    <button
+                        onClick={toggleStickerSelectionMode}
+                        className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                    >
+                        ✕ Exit
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
