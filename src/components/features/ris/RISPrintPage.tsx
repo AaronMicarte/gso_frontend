@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Printer, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet } from 'lucide-react';
 import { getRis } from '@/lib/api/ris';
 import type { RisRecord } from '@/types/ris';
 import { RISPrintView } from './RISPrintView';
@@ -41,9 +41,6 @@ export function RISPrintPage() {
         };
     }, []);
 
-    const doPrint = () => {
-        window.print();
-    };
 
     const doExport = async () => {
         if (!ris) return;
@@ -97,9 +94,9 @@ export function RISPrintPage() {
                             </>
                         )}
                     </button>
-                    <button onClick={doPrint} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90">
+                    {/* <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90">
                         <Printer className="h-4 w-4" /> Print
-                    </button>
+                    </button> */}
                 </div>
             </div>
 

@@ -228,12 +228,12 @@ export function IssuanceCombinedPrintView({ backHref }: CombinedIssuancePrintVie
                             )}
                         </button>
                     )}
-                    <button
+                    {/* <button
                         onClick={() => window.print()}
                         className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)]"
                     >
                         Print {printLabel}
-                    </button>
+                    </button> */}
                 </div>
             </div>
 

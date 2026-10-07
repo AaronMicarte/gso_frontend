@@ -99,12 +99,12 @@ export function RsmiPrintPage() {
                         )}
                     </button>
 
-                    <button
+                    {/* <button
                         onClick={() => window.print()}
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90"
                     >
                         <Printer className="h-4 w-4" /> Print
-                    </button>
+                    </button> */}
                 </div>
             </div>
 

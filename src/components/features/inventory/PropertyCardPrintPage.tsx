@@ -112,12 +112,12 @@ export function PropertyCardPrintPage({ baseRoute }: PropertyCardPrintPageProps)
                             </>
                         )}
                     </button>
-                    <button
+                    {/* <button
                         onClick={() => window.print()}
                         className="inline-flex items-center px-4 py-2 rounded-md text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)]"
                     >
                         Print
-                    </button>
+                    </button> */}
                 </div>
             </div>
 

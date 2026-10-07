@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+
 import { getRpcInventoryReport } from '@/lib/api/rpcInventory';
 import type { RpcInventoryReportResponse, RpcType } from '@/types/rpcInventory';
 import { RpcInventoryPrintView } from './RpcInventoryPrintView';
@@ -100,9 +100,9 @@ export function RpcInventoryPrintPage() {
                             </>
                         )}
                     </button>
-                    <Button size="sm" className="w-auto" onClick={() => window.print()}>
+                    {/* <Button size="sm" className="w-auto" onClick={() => window.print()}>
                         Print / Save PDF
-                    </Button>
+                    </Button> */}
                 </div>
             </div>
 
