@@ -199,6 +199,11 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
     ws.getCell('F10').font = { name: FONT, size: 11, bold: false };
     ws.getCell('F10').alignment = { horizontal: 'center', vertical: 'middle' };
 
+    // ── Date label + value on one cell (G11) ──────────────────────────────────
+    ws.getCell('G11').value = `Date: ${docDate}`;
+    ws.getCell('G11').font = { name: FONT, size: 11, bold: false };
+    ws.getCell('G11').alignment = { horizontal: 'left', vertical: 'middle' };
+
     // ── Clear data rows 14–47 ─────────────────────────────────────────────────
 
     for (let r = DATA_START; r <= DATA_END; r++) {
@@ -280,7 +285,6 @@ export async function exportRISToExcel(ris: RisRecord): Promise<void> {
             estimateWrappedRowHeight(descriptionText ?? '', COL_D_WIDTH, descFontSize),
         ];
 
-        // Minimum 28 gives enough height for 2-line stock numbers without going overboard
         ws.getRow(currentRow).height = Math.max(28, ...rowHeights);
 
         currentRow++;
