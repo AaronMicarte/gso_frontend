@@ -3,14 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, AlertCircle, Printer, Plus, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, AlertCircle, Download, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getDeliveryReceipt } from '@/lib/api/deliveryReceipts';
 import issuanceAPI from '@/lib/api/issuance';
+import { getRis } from '@/lib/api/ris';
 import { DeliveryReceipt } from '@/types/procurement';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { exportIARToExcel } from '@/components/features/delivery-receipts/IARExport';
+import { exportPARToExcel } from '@/components/features/issuance/PARExport';
+import { exportICSToExcel } from '@/components/features/issuance/ICSExport';
+import { exportRISToExcel } from '@/components/features/ris/RISExport';
 
 interface ViewDRPageProps {
     baseRoute: string;
@@ -33,6 +38,7 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose, initialD
     const [dr, setDr] = useState<DeliveryReceipt | null>(initialData ?? null);
     const [isLoading, setIsLoading] = useState(!initialData);
     const [issuanceIds, setIssuanceIds] = useState<IssuanceIds>({});
+    const [exporting, setExporting] = useState<Record<string, boolean>>({});
 
     const resolvedId = drId ?? (params.id ? parseInt(params.id as string, 10) : null);
 
@@ -117,38 +123,68 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose, initialD
         return sum + cost;
     }, 0) : 0;
 
-    const handlePrint = async (type: 'PAR' | 'ICS') => {
+    const resolveIssuanceId = async (type: 'PAR' | 'ICS'): Promise<number | undefined> => {
         let id = type === 'PAR' ? issuanceIds.PAR : issuanceIds.ICS;
-
         if (!id && resolvedId) {
-            try {
-                const ensured = await issuanceAPI.ensureIssuances({ dr_id: resolvedId });
-                const byType = ensured.data?.issuances_by_document_type ?? {};
-                id = byType[type]?.IssuanceID;
-                setIssuanceIds({
-                    PAR: byType.PAR?.IssuanceID,
-                    ICS: byType.ICS?.IssuanceID,
-                });
-            } catch {
-                toast.error(`Could not prepare ${type} document`);
-                return;
-            }
+            const ensured = await issuanceAPI.ensureIssuances({ dr_id: resolvedId });
+            const byType = ensured.data?.issuances_by_document_type ?? {};
+            id = byType[type]?.IssuanceID;
+            setIssuanceIds({ PAR: byType.PAR?.IssuanceID, ICS: byType.ICS?.IssuanceID });
         }
-
-        if (!id) {
-            toast.error(`No ${type} document available yet`);
-            return;
-        }
-
-        window.open(`/admin/issuance/${id}/print?type=${type}`, '_blank');
+        return id;
     };
 
-    const handlePrintRis = () => {
-        if (!risId) {
-            toast.error('No RIS available for this DR yet');
-            return;
+    const handleExportIAR = async () => {
+        if (!dr) return;
+        setExporting((p) => ({ ...p, IAR: true }));
+        try {
+            await exportIARToExcel(dr);
+        } catch {
+            toast.error('Failed to export IAR');
+        } finally {
+            setExporting((p) => ({ ...p, IAR: false }));
         }
-        window.open(`/admin/ris/${risId}`, '_blank');
+    };
+
+    const handleExportPAR = async () => {
+        setExporting((p) => ({ ...p, PAR: true }));
+        try {
+            const id = await resolveIssuanceId('PAR');
+            if (!id) { toast.error('No PAR document available yet'); return; }
+            const issuance = await issuanceAPI.getById(id);
+            await exportPARToExcel(issuance);
+        } catch {
+            toast.error('Failed to export PAR');
+        } finally {
+            setExporting((p) => ({ ...p, PAR: false }));
+        }
+    };
+
+    const handleExportICS = async () => {
+        setExporting((p) => ({ ...p, ICS: true }));
+        try {
+            const id = await resolveIssuanceId('ICS');
+            if (!id) { toast.error('No ICS document available yet'); return; }
+            const issuance = await issuanceAPI.getById(id);
+            await exportICSToExcel(issuance);
+        } catch {
+            toast.error('Failed to export ICS');
+        } finally {
+            setExporting((p) => ({ ...p, ICS: false }));
+        }
+    };
+
+    const handleExportRIS = async () => {
+        if (!risId) { toast.error('No RIS available for this DR yet'); return; }
+        setExporting((p) => ({ ...p, RIS: true }));
+        try {
+            const ris = await getRis(risId);
+            await exportRISToExcel(ris);
+        } catch {
+            toast.error('Failed to export RIS');
+        } finally {
+            setExporting((p) => ({ ...p, RIS: false }));
+        }
     };
 
     return (
@@ -180,42 +216,48 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose, initialD
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3 flex-wrap">
-                    <Link
-                        href={`${baseRoute}/delivery-receipts/${dr.DRID}/print`}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
-                    >
-                        <Printer className="w-4 h-4" />
-                        Print IAR
-                    </Link>
                     <button
                         type="button"
-                        onClick={() => void handlePrint('PAR')}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
-                        title="Print Property Acknowledgment Receipt"
+                        onClick={() => void handleExportIAR()}
+                        disabled={exporting.IAR}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-60 transition-colors font-medium"
+                        title="Export Inspection and Acceptance Report"
                     >
-                        <FileText className="w-4 h-4" />
-                        Print PAR
+                        <Download className="w-4 h-4" />
+                        {exporting.IAR ? 'Exporting…' : 'Export IAR'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => void handleExportPAR()}
+                        disabled={exporting.PAR}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-60 transition-colors font-medium"
+                        title="Export Property Acknowledgment Receipt"
+                    >
+                        <Download className="w-4 h-4" />
+                        {exporting.PAR ? 'Exporting…' : 'Export PAR'}
                     </button>
                     {issuanceIds.ICS && (
                         <button
                             type="button"
-                            onClick={() => handlePrint('ICS')}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                            title="Print Inventory Custodian Slip"
+                            onClick={() => void handleExportICS()}
+                            disabled={exporting.ICS}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-60 transition-colors font-medium"
+                            title="Export Inventory Custodian Slip"
                         >
-                            <FileText className="w-4 h-4" />
-                            Print ICS
+                            <Download className="w-4 h-4" />
+                            {exporting.ICS ? 'Exporting…' : 'Export ICS'}
                         </button>
                     )}
                     {risId && (
                         <button
                             type="button"
-                            onClick={handlePrintRis}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
-                            title={`Print Requisition and Issue Slip${risNumber ? ` (${risNumber})` : ''}`}
+                            onClick={() => void handleExportRIS()}
+                            disabled={exporting.RIS}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors font-medium"
+                            title={`Export Requisition and Issue Slip${risNumber ? ` (${risNumber})` : ''}`}
                         >
-                            <FileText className="w-4 h-4" />
-                            Print RIS
+                            <Download className="w-4 h-4" />
+                            {exporting.RIS ? 'Exporting…' : 'Export RIS'}
                         </button>
                     )}
                     {canEdit && workflowStatus !== 'acknowledged' && workflowStatus !== 'partially_acknowledged' && (
