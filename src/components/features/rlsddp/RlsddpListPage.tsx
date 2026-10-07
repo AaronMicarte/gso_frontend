@@ -348,13 +348,15 @@ export function RlsddpListPage({
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <Link
-                                                        href={`${baseRoute}/${report.RlsddpID}/edit`}
-                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="Edit"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </Link>
+                                                    {(report.ApprovalStatus ?? 'Pending') === 'Pending' && (
+                                                        <Link
+                                                            href={`${baseRoute}/${report.RlsddpID}/edit`}
+                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="Edit"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </Link>
+                                                    )}
                                                     {/* {((report.ApprovalStatus ?? 'Pending') !== 'Approved') && (['Lost', 'Stolen', 'Destroyed'] as RlsddpStatus[]).includes(report.Status) && (
                                                         <button
                                                             type="button"

@@ -399,13 +399,15 @@ export function RlsddpDetailPage({ baseRoute, reportId, isModal = false, onClose
                             </>
                         )}
                     </button>
-                    <Link
-                        href={`${baseRoute}/${report.RlsddpID}/edit`}
-                        className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-sm font-medium"
-                    >
-                        <Edit className="w-4 h-4" />
-                        Edit Report
-                    </Link>
+                    {(report.ApprovalStatus ?? 'Pending') === 'Pending' && (
+                        <Link
+                            href={`${baseRoute}/${report.RlsddpID}/edit`}
+                            className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-sm font-medium"
+                        >
+                            <Edit className="w-4 h-4" />
+                            Edit Report
+                        </Link>
+                    )}
                     {isModal && (
                         <button
                             type="button"
