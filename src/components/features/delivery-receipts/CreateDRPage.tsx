@@ -166,10 +166,11 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const [isAddingItem, setIsAddingItem] = useState(false);
 
     // ─────────────────────────────────────────────────────────────
-    // Review modal state
+    // Review modal + saving state
     // ─────────────────────────────────────────────────────────────
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [pendingFormData, setPendingFormData] = useState<DRFormValues | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     // ─────────────────────────────────────────────────────────────
 
     const updateRow = (index: number) => {
@@ -494,10 +495,11 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                     .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs[0] : msgs}`)
                     .join(', ');
                 toast.error(`Validation failed: ${errorList}`);
-                return;
+                throw err; // re-throw so handleConfirmSave keeps modal open
             }
 
             toast.error(resp?.message || 'Failed to create delivery receipt');
+            throw err; // re-throw so handleConfirmSave keeps modal open
         }
     };
 
@@ -505,6 +507,8 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     // NEW onSubmit — validates, stashes data, opens review modal
     // ─────────────────────────────────────────────────────────────
     const onSubmit = (data: DRFormValues) => {
+        if (isSaving) return; // hard guard
+
         if (data.date_received > manilaToday) {
             toast.error('Date received cannot be in the future.');
             return;
@@ -519,12 +523,20 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     };
 
     const handleConfirmSave = async () => {
+        if (isSaving) return; // guard against double-click
         if (!pendingFormData) return;
-        await performSubmit(pendingFormData);
-        // Only close if we didn't error out (performSubmit handles its own toasts).
-        // We close regardless; user can retry from the form if needed.
-        setShowReviewModal(false);
-        setPendingFormData(null);
+
+        setIsSaving(true);
+        try {
+            await performSubmit(pendingFormData);
+            // Only close the modal on success.
+            setShowReviewModal(false);
+            setPendingFormData(null);
+        } catch {
+            // performSubmit already toasted the error — keep modal open so user can retry.
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const addItem = () => {
@@ -558,28 +570,52 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         );
     };
 
+    // ─────────────────────────────────────────────────────────────
+    // UPDATED: addAssignmentRow — skip fully-assigned items
+    // ─────────────────────────────────────────────────────────────
     const addAssignmentRow = (itemIndex = 0, defaultReceiver = '', defaultPosition = '') => {
         if (isEverythingAssigned) {
             toast.info('All delivered quantities are already assigned.');
             return;
         }
 
-        const targetItem = details?.[itemIndex];
+        // Helper: is this item already fully assigned?
+        const isItemFull = (idx: number) => {
+            const delivered = Number(details?.[idx]?.quantity_delivered) || 0;
+            const assigned = assignments
+                .filter(a => a.item_index === idx)
+                .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+            return delivered > 0 && assigned >= delivered;
+        };
+
+        // If requested item is full, find the next available one
+        let targetIndex = itemIndex;
+        if (isItemFull(targetIndex)) {
+            const nextIdx = (details || []).findIndex((_, idx) => !isItemFull(idx));
+            if (nextIdx === -1) {
+                toast.info('All delivered quantities are already assigned.');
+                return;
+            }
+            targetIndex = nextIdx;
+        }
+
+        const targetItem = details?.[targetIndex];
         const deliveredQty = targetItem ? Number(targetItem.quantity_delivered) || 1 : 1;
         const alreadyAssigned = assignments
-            .filter(a => a.item_index === itemIndex)
+            .filter(a => a.item_index === targetIndex)
             .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
-        const remaining = Math.max(1, deliveredQty - alreadyAssigned);
+        const remaining = Math.max(0, deliveredQty - alreadyAssigned);
+        const startingQty = Math.min(Math.max(1, remaining), remaining);
 
         const newId = Math.random().toString(36).slice(2, 9);
         setAssignments(prev => [
             ...prev,
             {
                 id: newId,
-                item_index: itemIndex,
+                item_index: targetIndex,
                 receiver_name: defaultReceiver,
                 position_office: defaultPosition,
-                quantity: remaining,
+                quantity: startingQty,
             }
         ]);
     };
@@ -588,18 +624,29 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         setAssignments(prev => prev.filter(a => a.id !== id));
     };
 
+    // ─────────────────────────────────────────────────────────────
+    // UPDATED: updateAssignmentRow — always re-clamp quantity
+    // ─────────────────────────────────────────────────────────────
     const updateAssignmentRow = (id: string, patch: Partial<DRAssignmentRow>) => {
         setAssignments(prev => prev.map(a => {
             if (a.id !== id) return a;
             const updated = { ...a, ...patch };
-            if (patch.item_index !== undefined && patch.item_index !== a.item_index) {
-                const targetItem = details?.[patch.item_index];
-                const deliveredQty = targetItem ? Number(targetItem.quantity_delivered) || 1 : 1;
-                const otherAssigned = prev
-                    .filter(row => row.item_index === patch.item_index && row.id !== id)
-                    .reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
-                updated.quantity = Math.max(1, deliveredQty - otherAssigned);
+
+            // Always re-clamp quantity against remaining room for the target item
+            const targetItem = details?.[updated.item_index];
+            const deliveredQty = targetItem ? Number(targetItem.quantity_delivered) || 1 : 1;
+            const otherAssigned = prev
+                .filter(row => row.item_index === updated.item_index && row.id !== id)
+                .reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+            const maxAllowed = Math.max(1, deliveredQty - otherAssigned);
+
+            if (updated.quantity > maxAllowed) {
+                updated.quantity = maxAllowed;
             }
+            if (updated.quantity < 1) {
+                updated.quantity = 1;
+            }
+
             return updated;
         }));
     };
@@ -1109,9 +1156,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                         </span>
                                     )}
                                 </div>
-                                {/* <p className="text-slate-500 text-xs mt-1">
-                                    All delivered quantities must be assigned to end users before saving.
-                                </p> */}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -1323,9 +1367,28 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                                             const it = details?.[fIdx];
                                                             const artName = articles.find(a => a.id === it?.article_id)?.name || 'Item';
                                                             const dsc = [it?.brand, it?.model_number].filter(Boolean).join(' ') || it?.item_description || '';
-                                                            const fullLabel = `${artName}${dsc ? ` - ${dsc}` : ''} (Qty: ${it?.quantity_delivered || 1})`;
+                                                            const delivered = Number(it?.quantity_delivered) || 1;
+
+                                                            // Assigned by OTHER rows for this item
+                                                            const assignedByOthers = assignments
+                                                                .filter(a => a.item_index === fIdx && a.id !== row.id)
+                                                                .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+
+                                                            const isCurrent = fIdx === row.item_index;
+                                                            const totalAssignedForLabel = assignedByOthers + (isCurrent ? Number(row.quantity) || 0 : 0);
+                                                            const remaining = delivered - assignedByOthers;
+
+                                                            // Disable items that are full AND not currently selected by this row
+                                                            const isFull = remaining <= 0 && !isCurrent;
+
+                                                            const fullLabel = `${artName}${dsc ? ` - ${dsc}` : ''} (${totalAssignedForLabel}/${delivered})${isFull ? ' — FULL' : ''}`;
+
                                                             return (
-                                                                <option key={f.id} value={fIdx}>
+                                                                <option
+                                                                    key={f.id}
+                                                                    value={fIdx}
+                                                                    disabled={isFull}
+                                                                >
                                                                     {fullLabel}
                                                                 </option>
                                                             );
@@ -1342,7 +1405,11 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                                         min={1}
                                                         max={maxAllowed}
                                                         value={row.quantity}
-                                                        onChange={(e) => updateAssignmentRow(row.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                                                        onChange={(e) => {
+                                                            const val = Number(e.target.value) || 1;
+                                                            const clamped = Math.max(1, Math.min(val, maxAllowed));
+                                                            updateAssignmentRow(row.id, { quantity: clamped });
+                                                        }}
                                                         className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm text-center font-bold focus:ring-2 focus:ring-[var(--primary)] outline-none"
                                                     />
                                                 </div>
@@ -1354,7 +1421,7 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                                                         disabled={rowItemFullyAssigned}
                                                         title={
                                                             rowItemFullyAssigned
-                                                                ? 'This item is fully assigned'
+                                                                ? 'This item is fully assigned — cannot add more'
                                                                 : 'Add another item for this receiver'
                                                         }
                                                         className="p-1.5 text-slate-400 hover:text-[var(--primary)] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400 disabled:hover:bg-transparent"
@@ -1410,16 +1477,16 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                             type="button"
                             onClick={() => router.back()}
                             className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isSaving}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isSaving}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isSubmitting ? (
+                            {isSubmitting || isSaving ? (
                                 <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                     Creating...
@@ -1441,15 +1508,24 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             <DialogPrimitive.Root
                 open={showReviewModal}
                 onOpenChange={(open) => {
-                    if (!isSubmitting) {
-                        setShowReviewModal(open);
-                        if (!open) setPendingFormData(null);
-                    }
+                    if (isSaving) return; // block close while saving
+                    setShowReviewModal(open);
+                    if (!open) setPendingFormData(null);
                 }}
             >
                 <DialogPrimitive.Portal>
                     <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40 z-40" />
                     <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-xl p-6">
+                        {/* Saving overlay */}
+                        {isSaving && (
+                            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center z-10 pointer-events-none">
+                                <div className="flex flex-col items-center gap-2">
+                                    <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
+                                    <span className="text-sm font-semibold text-slate-700">Saving delivery receipt...</span>
+                                </div>
+                            </div>
+                        )}
+
                         <DialogPrimitive.Title className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                             <AlertTriangle className="w-5 h-5 text-amber-500" />
                             Review Before Saving
@@ -1558,18 +1634,18 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                             <button
                                 type="button"
                                 onClick={() => { setShowReviewModal(false); setPendingFormData(null); }}
-                                disabled={isSubmitting}
-                                className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Go Back &amp; Edit
                             </button>
                             <button
                                 type="button"
                                 onClick={handleConfirmSave}
-                                disabled={isSubmitting}
-                                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] disabled:opacity-50 inline-flex items-center gap-2"
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 min-w-[210px] justify-center"
                             >
-                                {isSubmitting ? (
+                                {isSaving ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                         Saving...

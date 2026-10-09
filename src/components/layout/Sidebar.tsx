@@ -198,11 +198,11 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                 {
                     label: 'Configuration', icon: FolderTree, children: [
                         { label: 'Articles', href: `${baseRoute}/masterdata/articles`, icon: Package },
-                        { label: 'Conditions', href: `${baseRoute}/masterdata/conditions`, icon: Activity },
+                        // { label: 'Conditions', href: `${baseRoute}/masterdata/conditions`, icon: Activity },
                         { label: 'Disposal Methods', href: `${baseRoute}/masterdata/disposal-methods`, icon: Trash2 },
-                        { label: 'Property Classifications', href: `${baseRoute}/masterdata/property-classifications`, icon: Tag },
+                        // { label: 'Property Classifications', href: `${baseRoute}/masterdata/property-classifications`, icon: Tag },
                         { label: 'Property Types', href: `${baseRoute}/masterdata/property-types`, icon: Box },
-                        { label: 'Property Status', href: `${baseRoute}/masterdata/property-statuses`, icon: Tag },
+                        // { label: 'Property Status', href: `${baseRoute}/masterdata/property-statuses`, icon: Tag },
                         { label: 'Suppliers', href: `${baseRoute}/masterdata/suppliers`, icon: Truck },
                         { label: 'Repair Vendors', href: `${baseRoute}/masterdata/vendors`, icon: Wrench },
                         { label: 'Units of Measure', href: `${baseRoute}/masterdata/units-of-measure`, icon: Ruler },
