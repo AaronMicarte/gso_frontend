@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit, AlertTriangle, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit, AlertTriangle, Copy, User } from 'lucide-react';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { ItemDetailsModal } from './ItemDetailsModal';
 import { useForm, useFieldArray, Path } from 'react-hook-form';
@@ -15,7 +15,10 @@ import issuanceAPI from '@/lib/api/issuance';
 import { getActiveArticles } from '@/lib/api/masterData';
 import { Article } from '@/types/masterData';
 import { useUpdateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
+import { deliveryReceiptKeys } from '@/lib/hooks/useDeliveryReceipts';
+import { useQueryClient } from '@tanstack/react-query';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 
 const drItemSchema = z.object({
     dr_detail_id: z.number().optional(),
@@ -103,6 +106,7 @@ interface DRAssignmentRow {
 export function EditDRPage({ baseRoute }: EditDRPageProps) {
     const params = useParams();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const updateMutation = useUpdateDeliveryReceipt();
     const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
     const [articles, setArticles] = useState<Article[]>([]);
@@ -153,6 +157,14 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [isAddingItem, setIsAddingItem] = useState(false);
+
+    // ─────────────────────────────────────────────────────────────
+    // Review modal + saving state
+    // ─────────────────────────────────────────────────────────────
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [pendingFormData, setPendingFormData] = useState<DRFormValues | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    // ─────────────────────────────────────────────────────────────
 
     const updateRow = (index: number) => {
         setIsAddingItem(false);
@@ -512,7 +524,10 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [watch('supplier_name'), suppliers]);
 
-    const onSubmit = async (data: DRFormValues) => {
+    // ─────────────────────────────────────────────────────────────
+    // ACTUAL SUBMIT (called after user confirms in review modal)
+    // ─────────────────────────────────────────────────────────────
+    const performSubmit = async (data: DRFormValues) => {
         if (data.date_received > manilaToday) {
             toast.error('Date received cannot be in the future.');
             return;
@@ -525,8 +540,8 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         const formData = new FormData();
         Object.entries(data).forEach(([key, value]) => {
             if (key === 'details') {
-                const details = value as typeof data.details;
-                details.forEach((item, index) => {
+                const detailsVal = value as typeof data.details;
+                detailsVal.forEach((item, index) => {
                     Object.entries(item).forEach(([itemKey, itemValue]) => {
                         if (itemValue !== undefined && itemValue !== null) {
                             formData.append(`details[${index}][${itemKey}]`, String(itemValue));
@@ -552,7 +567,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         const payloadAssignments = assignments
             .filter(a => Number(a.quantity) > 0)
             .map(a => {
-                const targetDetail = details?.[a.item_index];
+                const targetDetail = data.details?.[a.item_index];
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const detailId = (targetDetail as any)?.dr_detail_id || (targetDetail as any)?.DRDetailID;
                 return {
@@ -572,6 +587,10 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 data: formData
             });
             toast.success('Delivery receipt updated successfully');
+
+            await queryClient.invalidateQueries({ queryKey: deliveryReceiptKeys.all });
+            await queryClient.refetchQueries({ queryKey: deliveryReceiptKeys.all });
+
             router.push(`${baseRoute}/delivery-receipts`);
         } catch (err: unknown) {
             console.error('Full error object:', err);
@@ -591,10 +610,46 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                     .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs[0] : msgs}`)
                     .join(', ');
                 toast.error(`Validation failed: ${errorList}`);
-                return;
+                throw err; // keep modal open
             }
 
             toast.error(resp?.message || 'Failed to update delivery receipt');
+            throw err; // keep modal open
+        }
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // NEW onSubmit — validates, stashes data, opens review modal
+    // ─────────────────────────────────────────────────────────────
+    const onSubmit = (data: DRFormValues) => {
+        if (isSaving) return;
+
+        if (data.date_received > manilaToday) {
+            toast.error('Date received cannot be in the future.');
+            return;
+        }
+        if (data.date_received < manilaMin) {
+            toast.error(`Date received is too old. Minimum allowed is ${manilaMin}.`);
+            return;
+        }
+
+        setPendingFormData(data);
+        setShowReviewModal(true);
+    };
+
+    const handleConfirmSave = async () => {
+        if (isSaving) return;
+        if (!pendingFormData) return;
+
+        setIsSaving(true);
+        try {
+            await performSubmit(pendingFormData);
+            setShowReviewModal(false);
+            setPendingFormData(null);
+        } catch {
+            // performSubmit already toasted — keep modal open
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -644,28 +699,50 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         );
     };
 
+    // ─────────────────────────────────────────────────────────────
+    // UPDATED: addAssignmentRow — skip fully-assigned items
+    // ─────────────────────────────────────────────────────────────
     const addAssignmentRow = (itemIndex = 0, defaultReceiver = '', defaultPosition = '') => {
         if (isEverythingAssigned) {
             toast.info('All delivered quantities are already assigned.');
             return;
         }
 
-        const targetItem = details?.[itemIndex];
+        const isItemFull = (idx: number) => {
+            const delivered = Number(details?.[idx]?.quantity_delivered) || 0;
+            const assigned = assignments
+                .filter(a => a.item_index === idx)
+                .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+            return delivered > 0 && assigned >= delivered;
+        };
+
+        let targetIndex = itemIndex;
+        if (isItemFull(targetIndex)) {
+            const nextIdx = (details || []).findIndex((_, idx) => !isItemFull(idx));
+            if (nextIdx === -1) {
+                toast.info('All delivered quantities are already assigned.');
+                return;
+            }
+            targetIndex = nextIdx;
+        }
+
+        const targetItem = details?.[targetIndex];
         const deliveredQty = targetItem ? Number(targetItem.quantity_delivered) || 1 : 1;
         const alreadyAssigned = assignments
-            .filter(a => a.item_index === itemIndex)
+            .filter(a => a.item_index === targetIndex)
             .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
-        const remaining = Math.max(1, deliveredQty - alreadyAssigned);
+        const remaining = Math.max(0, deliveredQty - alreadyAssigned);
+        const startingQty = Math.min(Math.max(1, remaining), remaining);
 
         const newId = Math.random().toString(36).slice(2, 9);
         setAssignments(prev => [
             ...prev,
             {
                 id: newId,
-                item_index: itemIndex,
+                item_index: targetIndex,
                 receiver_name: defaultReceiver,
                 position_office: defaultPosition,
-                quantity: remaining,
+                quantity: startingQty,
             }
         ]);
     };
@@ -674,21 +751,74 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
         setAssignments(prev => prev.filter(a => a.id !== id));
     };
 
+    // ─────────────────────────────────────────────────────────────
+    // UPDATED: updateAssignmentRow — always re-clamp quantity
+    // ─────────────────────────────────────────────────────────────
     const updateAssignmentRow = (id: string, patch: Partial<DRAssignmentRow>) => {
         setAssignments(prev => prev.map(a => {
             if (a.id !== id) return a;
             const updated = { ...a, ...patch };
-            if (patch.item_index !== undefined && patch.item_index !== a.item_index) {
-                const targetItem = details?.[patch.item_index];
-                const deliveredQty = targetItem ? Number(targetItem.quantity_delivered) || 1 : 1;
-                const otherAssigned = prev
-                    .filter(row => row.item_index === patch.item_index && row.id !== id)
-                    .reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
-                updated.quantity = Math.max(1, deliveredQty - otherAssigned);
-            }
+
+            const targetItem = details?.[updated.item_index];
+            const deliveredQty = targetItem ? Number(targetItem.quantity_delivered) || 1 : 1;
+            const otherAssigned = prev
+                .filter(row => row.item_index === updated.item_index && row.id !== id)
+                .reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+            const maxAllowed = Math.max(1, deliveredQty - otherAssigned);
+
+            if (updated.quantity > maxAllowed) updated.quantity = maxAllowed;
+            if (updated.quantity < 1) updated.quantity = 1;
+
             return updated;
         }));
     };
+
+    // ─────────────────────────────────────────────────────────────
+    // Review modal — grouped assignments + warnings
+    // ─────────────────────────────────────────────────────────────
+    const reviewAssignments = assignments
+        .filter(a => Number(a.quantity) > 0)
+        .map(a => {
+            const item = details?.[a.item_index];
+            const artName = articles.find(ar => ar.id === item?.article_id)?.name || 'Item';
+            const desc = [item?.brand, item?.model_number].filter(Boolean).join(' ');
+            return {
+                itemLabel: `${artName}${desc ? ` (${desc})` : ''}`,
+                receiver_name: a.receiver_name?.trim() || '',
+                position_office: a.position_office?.trim() || '',
+                quantity: Number(a.quantity) || 1,
+            };
+        });
+
+    const groupedReview = reviewAssignments.reduce<
+        Record<string, { name: string; position: string; items: typeof reviewAssignments }>
+    >((acc, a) => {
+        const key = `${a.receiver_name}|||${a.position_office}`;
+        if (!acc[key]) acc[key] = { name: a.receiver_name, position: a.position_office, items: [] };
+        acc[key].items.push(a);
+        return acc;
+    }, {});
+
+    const reviewWarnings: string[] = [];
+    if (assignments.length === 0) {
+        reviewWarnings.push(
+            'No end-user assignments added — all items will be issued to the requesting officer.'
+        );
+    }
+    const blankReceiverCount = assignments.filter(
+        a => !a.receiver_name?.trim() && Number(a.quantity) > 0
+    ).length;
+    if (blankReceiverCount > 0) {
+        reviewWarnings.push(
+            `${blankReceiverCount} assignment(s) have no receiver name — they will fall back to the requesting officer.`
+        );
+    }
+    if (hasUnassignedItems) {
+        reviewWarnings.push(
+            `Some items are not fully assigned (${unassignedItems.reduce((s, x) => s + x.remaining, 0)} qty remaining).`
+        );
+    }
+    // ─────────────────────────────────────────────────────────────
 
     function SearchableType({ index }: { index: number }) {
         const selectedId = watch(`details.${index}.property_type_id`);
@@ -1121,7 +1251,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                             <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Item Description</th>
                                             <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Brand / Model / SN</th>
                                             <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 min-w-[220px]">Property Type</th>
-                                            <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-32">Requested / Delivered</th>
+                                            <th className="text-left py-2 px-3 text-sm font-medium text-slate-700 w-32">Requested</th>
                                             <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Unit Cost</th>
                                             <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Total Cost</th>
                                             <th className="text-left py-2 px-3 text-sm font-medium text-slate-700">Actions</th>
@@ -1152,8 +1282,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                 </td>
                                                 <td className="py-3 px-3 w-32 text-center">
                                                     <div className="text-sm">
-                                                        <span className="font-medium">R:</span>{' '}{(details[index]?.quantity_requested ?? details[index]?.quantity_delivered ?? 0)}{' '}
-                                                        <span className="font-medium">D:</span>{' '}{details[index]?.quantity_delivered ?? 0}
+                                                        {(details[index]?.quantity_requested ?? details[index]?.quantity_delivered ?? 0)}{' '}
                                                     </div>
                                                     <div className="text-xs text-slate-500 mt-1">{units.find(u => u.id === details[index]?.unit_of_measure_id)?.name || ''}</div>
                                                     {details[index]?.quantity_requested !== details[index]?.quantity_delivered && details[index]?.change_reason && (
@@ -1267,9 +1396,6 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                             </span>
                                         )}
                                     </div>
-                                    {/* <p className="text-slate-500 text-xs mt-1">
-                                        All delivered quantities must be assigned to end users before saving.
-                                    </p> */}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
@@ -1479,9 +1605,25 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                                 const it = details?.[fIdx];
                                                                 const artName = articles.find(a => a.id === it?.article_id)?.name || 'Item';
                                                                 const dsc = [it?.brand, it?.model_number].filter(Boolean).join(' ') || it?.item_description || '';
-                                                                const fullLabel = `${artName}${dsc ? ` - ${dsc}` : ''} (Qty: ${it?.quantity_delivered || 1})`;
+                                                                const delivered = Number(it?.quantity_delivered) || 1;
+
+                                                                const assignedByOthers = assignments
+                                                                    .filter(a => a.item_index === fIdx && a.id !== row.id)
+                                                                    .reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+
+                                                                const isCurrent = fIdx === row.item_index;
+                                                                const totalAssignedForLabel = assignedByOthers + (isCurrent ? Number(row.quantity) || 0 : 0);
+                                                                const remaining = delivered - assignedByOthers;
+                                                                const isFull = remaining <= 0 && !isCurrent;
+
+                                                                const fullLabel = `${artName}${dsc ? ` - ${dsc}` : ''} (${totalAssignedForLabel}/${delivered})${isFull ? ' — FULL' : ''}`;
+
                                                                 return (
-                                                                    <option key={f.id} value={fIdx}>
+                                                                    <option
+                                                                        key={f.id}
+                                                                        value={fIdx}
+                                                                        disabled={isFull}
+                                                                    >
                                                                         {fullLabel}
                                                                     </option>
                                                                 );
@@ -1498,7 +1640,11 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                             min={1}
                                                             max={maxAllowed}
                                                             value={row.quantity}
-                                                            onChange={(e) => updateAssignmentRow(row.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                                                            onChange={(e) => {
+                                                                const val = Number(e.target.value) || 1;
+                                                                const clamped = Math.max(1, Math.min(val, maxAllowed));
+                                                                updateAssignmentRow(row.id, { quantity: clamped });
+                                                            }}
                                                             className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm text-center font-bold focus:ring-2 focus:ring-[var(--primary)] outline-none"
                                                         />
                                                     </div>
@@ -1510,7 +1656,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                             disabled={rowItemFullyAssigned}
                                                             title={
                                                                 rowItemFullyAssigned
-                                                                    ? 'This item is fully assigned'
+                                                                    ? 'This item is fully assigned — cannot add more'
                                                                     : 'Add another item for this receiver'
                                                             }
                                                             className="p-1.5 text-slate-400 hover:text-[var(--primary)] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400 disabled:hover:bg-transparent"
@@ -1566,13 +1712,13 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 type="button"
                                 onClick={() => router.back()}
                                 className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-                                disabled={updateMutation.isPending}
+                                disabled={updateMutation.isPending || isSaving}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
-                                disabled={updateMutation.isPending || hasUnassignedItems}
+                                disabled={updateMutation.isPending || isSaving || hasUnassignedItems}
                                 title={
                                     hasUnassignedItems
                                         ? 'All delivered items must be assigned to an end user before saving'
@@ -1580,7 +1726,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 }
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {updateMutation.isPending ? (
+                                {updateMutation.isPending || isSaving ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                         Updating...
@@ -1596,6 +1742,153 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                     </form>
                 )}
             </div>
+
+            {/* ───────────────────────────────────────────────────────────── */}
+            {/* Review Before Saving Modal */}
+            {/* ───────────────────────────────────────────────────────────── */}
+            <DialogPrimitive.Root
+                open={showReviewModal}
+                onOpenChange={(open) => {
+                    if (isSaving) return; // block close while saving
+                    setShowReviewModal(open);
+                    if (!open) setPendingFormData(null);
+                }}
+            >
+                <DialogPrimitive.Portal>
+                    <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40 z-40" />
+                    <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-xl p-6">
+                        <DialogPrimitive.Title className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-amber-500" />
+                            Review Before Saving
+                        </DialogPrimitive.Title>
+                        <DialogPrimitive.Description className="mt-2 text-sm text-slate-600">
+                            Please confirm the details below — especially the{' '}
+                            <span className="font-semibold text-slate-800">end-user names</span>.
+                        </DialogPrimitive.Description>
+
+                        {/* DR Header info */}
+                        <div className="mt-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div>
+                                    <span className="text-slate-500 text-xs">DR Number</span>
+                                    <div className="font-semibold text-slate-900">
+                                        {pendingFormData?.dr_number || '—'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Supplier</span>
+                                    <div className="font-semibold text-slate-900">
+                                        {pendingFormData?.supplier_name || '—'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Requested By</span>
+                                    <div className="font-semibold text-slate-900">
+                                        {requesterQuery || '—'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Date Received</span>
+                                    <div className="font-semibold text-slate-900">
+                                        {pendingFormData?.date_received || '—'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Total Items</span>
+                                    <div className="font-semibold text-slate-900">{totalDeliveredQty}</div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Total Amount</span>
+                                    <div className="font-semibold text-slate-900">
+                                        ₱{totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Warnings */}
+                        {reviewWarnings.length > 0 && (
+                            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-1">
+                                {reviewWarnings.map((w, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-xs text-amber-800">
+                                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                                        <span>{w}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* End-user assignments */}
+                        <div className="mt-5">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5" />
+                                End-User Assignments
+                            </h3>
+
+                            {Object.keys(groupedReview).length === 0 ? (
+                                <div className="text-sm text-slate-500 italic bg-slate-50 rounded-lg p-4 text-center border border-dashed border-slate-200">
+                                    No assignments — all items will be issued to the requesting officer.
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {Object.entries(groupedReview).map(([key, group]) => (
+                                        <div key={key} className="border border-slate-200 rounded-lg overflow-hidden">
+                                            <div className="bg-slate-50 px-3 py-2 flex items-center justify-between border-b border-slate-200">
+                                                <div>
+                                                    <div className="text-sm font-semibold text-slate-900">
+                                                        {group.name || <span className="text-red-600">(No name)</span>}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">
+                                                        {group.position || 'No position'}
+                                                    </div>
+                                                </div>
+                                                <span className="text-xs font-semibold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                                                    {group.items.reduce((s, i) => s + i.quantity, 0)} item(s)
+                                                </span>
+                                            </div>
+                                            <ul className="divide-y divide-slate-100">
+                                                {group.items.map((item, idx) => (
+                                                    <li key={idx} className="px-3 py-1.5 flex items-center justify-between text-sm">
+                                                        <span className="truncate text-slate-700">{item.itemLabel}</span>
+                                                        <span className="text-xs text-slate-500 ml-2 flex-shrink-0">×{item.quantity}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="mt-6 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => { setShowReviewModal(false); setPendingFormData(null); }}
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Go Back &amp; Edit
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmSave}
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 min-w-[210px] justify-center"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Yes, Update Delivery Receipt'
+                                )}
+                            </button>
+                        </div>
+                    </DialogPrimitive.Content>
+                </DialogPrimitive.Portal>
+            </DialogPrimitive.Root>
         </div>
     );
 }

@@ -1516,16 +1516,6 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                 <DialogPrimitive.Portal>
                     <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40 z-40" />
                     <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-xl p-6">
-                        {/* Saving overlay */}
-                        {isSaving && (
-                            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center z-10 pointer-events-none">
-                                <div className="flex flex-col items-center gap-2">
-                                    <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-                                    <span className="text-sm font-semibold text-slate-700">Saving delivery receipt...</span>
-                                </div>
-                            </div>
-                        )}
-
                         <DialogPrimitive.Title className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                             <AlertTriangle className="w-5 h-5 text-amber-500" />
                             Review Before Saving
