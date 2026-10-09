@@ -10,13 +10,14 @@ import { z } from 'zod';
 import { useCreateDeliveryReceipt } from '@/lib/hooks/useDeliveryReceipts';
 import { useAllUnitsOfMeasure } from '@/lib/hooks/masterData/useUnitsOfMeasure';
 import { ItemDetailsModal } from './ItemDetailsModal';
-import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit, Copy, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, Loader2, Edit, Copy, AlertTriangle, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { getDeliveryReceiptRequesters, getPropertyTypes, getSuppliers, getUsedSerialNumbers } from '@/lib/api/deliveryReceipts';
 import issuanceAPI from '@/lib/api/issuance';
 import { getActiveArticles } from '@/lib/api/masterData';
 import { Article } from '@/types/masterData';
 import { formatInTimeZone } from 'date-fns-tz';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 
 const drItemSchema = z.object({
     article_id: z.number().min(1, 'Article is required'),
@@ -163,6 +164,13 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [isAddingItem, setIsAddingItem] = useState(false);
+
+    // ─────────────────────────────────────────────────────────────
+    // Review modal state
+    // ─────────────────────────────────────────────────────────────
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [pendingFormData, setPendingFormData] = useState<DRFormValues | null>(null);
+    // ─────────────────────────────────────────────────────────────
 
     const updateRow = (index: number) => {
         setIsAddingItem(false);
@@ -407,7 +415,10 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [watch('supplier_name'), suppliers]);
 
-    const onSubmit = async (data: DRFormValues) => {
+    // ─────────────────────────────────────────────────────────────
+    // ACTUAL SUBMIT (called after user confirms in review modal)
+    // ─────────────────────────────────────────────────────────────
+    const performSubmit = async (data: DRFormValues) => {
         if (data.date_received > manilaToday) {
             toast.error('Date received cannot be in the future.');
             return;
@@ -420,8 +431,8 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
         const formData = new FormData();
         Object.entries(data).forEach(([key, value]) => {
             if (key === 'details') {
-                const details = value as typeof data.details;
-                details.forEach((item, index) => {
+                const detailsVal = value as typeof data.details;
+                detailsVal.forEach((item, index) => {
                     Object.entries(item).forEach(([itemKey, itemValue]) => {
                         if (itemValue !== undefined && itemValue !== null) {
                             formData.append(`details[${index}][${itemKey}]`, String(itemValue));
@@ -488,6 +499,32 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
 
             toast.error(resp?.message || 'Failed to create delivery receipt');
         }
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // NEW onSubmit — validates, stashes data, opens review modal
+    // ─────────────────────────────────────────────────────────────
+    const onSubmit = (data: DRFormValues) => {
+        if (data.date_received > manilaToday) {
+            toast.error('Date received cannot be in the future.');
+            return;
+        }
+        if (data.date_received < manilaMin) {
+            toast.error(`Date received is too old. Minimum allowed is ${manilaMin}.`);
+            return;
+        }
+
+        setPendingFormData(data);
+        setShowReviewModal(true);
+    };
+
+    const handleConfirmSave = async () => {
+        if (!pendingFormData) return;
+        await performSubmit(pendingFormData);
+        // Only close if we didn't error out (performSubmit handles its own toasts).
+        // We close regardless; user can retry from the form if needed.
+        setShowReviewModal(false);
+        setPendingFormData(null);
     };
 
     const addItem = () => {
@@ -566,6 +603,55 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
             return updated;
         }));
     };
+
+    // ─────────────────────────────────────────────────────────────
+    // Review modal — grouped assignments + warnings
+    // ─────────────────────────────────────────────────────────────
+    const reviewAssignments = assignments
+        .filter(a => Number(a.quantity) > 0)
+        .map(a => {
+            const item = details?.[a.item_index];
+            const artName = articles.find(ar => ar.id === item?.article_id)?.name || 'Item';
+            const desc = [item?.brand, item?.model_number].filter(Boolean).join(' ');
+            return {
+                itemLabel: `${artName}${desc ? ` (${desc})` : ''}`,
+                receiver_name: a.receiver_name?.trim() || '',
+                position_office: a.position_office?.trim() || '',
+                quantity: Number(a.quantity) || 1,
+            };
+        });
+
+    const groupedReview = reviewAssignments.reduce<
+        Record<string, { name: string; position: string; items: typeof reviewAssignments }>
+    >((acc, a) => {
+        const key = `${a.receiver_name}|||${a.position_office}`;
+        if (!acc[key]) {
+            acc[key] = { name: a.receiver_name, position: a.position_office, items: [] };
+        }
+        acc[key].items.push(a);
+        return acc;
+    }, {});
+
+    const reviewWarnings: string[] = [];
+    if (assignments.length === 0) {
+        reviewWarnings.push(
+            'No end-user assignments added — all items will be issued to the requesting officer.'
+        );
+    }
+    const blankReceiverCount = assignments.filter(
+        a => !a.receiver_name?.trim() && Number(a.quantity) > 0
+    ).length;
+    if (blankReceiverCount > 0) {
+        reviewWarnings.push(
+            `${blankReceiverCount} assignment(s) have no receiver name — they will fall back to the requesting officer.`
+        );
+    }
+    if (hasUnassignedItems) {
+        reviewWarnings.push(
+            `Some items are not fully assigned (${unassignedItems.reduce((s, x) => s + x.remaining, 0)} qty remaining).`
+        );
+    }
+    // ─────────────────────────────────────────────────────────────
 
     return (
         <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: "fixed" }}>
@@ -1348,6 +1434,154 @@ export function CreateDRPage({ baseRoute }: CreateDRPageProps) {
                     </div>
                 </form>
             </div>
+
+            {/* ───────────────────────────────────────────────────────────── */}
+            {/* Review Before Saving Modal */}
+            {/* ───────────────────────────────────────────────────────────── */}
+            <DialogPrimitive.Root
+                open={showReviewModal}
+                onOpenChange={(open) => {
+                    if (!isSubmitting) {
+                        setShowReviewModal(open);
+                        if (!open) setPendingFormData(null);
+                    }
+                }}
+            >
+                <DialogPrimitive.Portal>
+                    <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40 z-40" />
+                    <DialogPrimitive.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-xl p-6">
+                        <DialogPrimitive.Title className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-amber-500" />
+                            Review Before Saving
+                        </DialogPrimitive.Title>
+                        <DialogPrimitive.Description className="mt-2 text-sm text-slate-600">
+                            Please confirm the details below — especially the{' '}
+                            <span className="font-semibold text-slate-800">end-user names</span>.
+                        </DialogPrimitive.Description>
+
+                        {/* DR Header info */}
+                        <div className="mt-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div>
+                                    <span className="text-slate-500 text-xs">DR Number</span>
+                                    <div className="font-semibold text-slate-900">
+                                        {pendingFormData?.dr_number || '(Temporary)'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Supplier</span>
+                                    <div className="font-semibold text-slate-900">
+                                        {pendingFormData?.supplier_name || '—'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Requested By</span>
+                                    <div className="font-semibold text-slate-900">
+                                        {requesterQuery || '—'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Date Received</span>
+                                    <div className="font-semibold text-slate-900">
+                                        {pendingFormData?.date_received || '—'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Total Items</span>
+                                    <div className="font-semibold text-slate-900">{totalDeliveredQty}</div>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 text-xs">Total Amount</span>
+                                    <div className="font-semibold text-slate-900">
+                                        ₱{totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Warnings */}
+                        {reviewWarnings.length > 0 && (
+                            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-1">
+                                {reviewWarnings.map((w, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-xs text-amber-800">
+                                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                                        <span>{w}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* End-user assignments */}
+                        <div className="mt-5">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5" />
+                                End-User Assignments
+                            </h3>
+
+                            {Object.keys(groupedReview).length === 0 ? (
+                                <div className="text-sm text-slate-500 italic bg-slate-50 rounded-lg p-4 text-center border border-dashed border-slate-200">
+                                    No assignments — all items will be issued to the requesting officer.
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {Object.entries(groupedReview).map(([key, group]) => (
+                                        <div key={key} className="border border-slate-200 rounded-lg overflow-hidden">
+                                            <div className="bg-slate-50 px-3 py-2 flex items-center justify-between border-b border-slate-200">
+                                                <div>
+                                                    <div className="text-sm font-semibold text-slate-900">
+                                                        {group.name || <span className="text-red-600">(No name)</span>}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">
+                                                        {group.position || 'No position'}
+                                                    </div>
+                                                </div>
+                                                <span className="text-xs font-semibold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                                                    {group.items.reduce((s, i) => s + i.quantity, 0)} item(s)
+                                                </span>
+                                            </div>
+                                            <ul className="divide-y divide-slate-100">
+                                                {group.items.map((item, idx) => (
+                                                    <li key={idx} className="px-3 py-1.5 flex items-center justify-between text-sm">
+                                                        <span className="truncate text-slate-700">{item.itemLabel}</span>
+                                                        <span className="text-xs text-slate-500 ml-2 flex-shrink-0">×{item.quantity}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="mt-6 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => { setShowReviewModal(false); setPendingFormData(null); }}
+                                disabled={isSubmitting}
+                                className="px-4 py-2 text-sm border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Go Back &amp; Edit
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmSave}
+                                disabled={isSubmitting}
+                                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] disabled:opacity-50 inline-flex items-center gap-2"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Yes, Save Delivery Receipt'
+                                )}
+                            </button>
+                        </div>
+                    </DialogPrimitive.Content>
+                </DialogPrimitive.Portal>
+            </DialogPrimitive.Root>
         </div>
     );
 }
