@@ -187,7 +187,10 @@ export function AllItemsPage() {
     };
 
     const getItemName = (item: InventoryItem) => item.dr_article_name || item.PropertyName || 'Unknown Item';
-    const getCustodianDisplayName = (custodianName?: string) => custodianName || 'Requester not set';
+    const getCustodianDisplayName = (item: CombinedInventoryItem) => {
+        if (item.endUserName?.trim()) return item.endUserName.trim();
+        return 'Not yet issued';
+    };
     const getQrCodeData = (item: InventoryItem): string | null => item.qrCodeData ?? null;
 
     const handleMoveToRemoved = async (item: InventoryItem) => {
@@ -221,7 +224,7 @@ export function AllItemsPage() {
                         propertyNumber: ci.PropertyNumber || '',
                         parIcsNumber: (ci as any).par_ics_number || '',
                         office: (ci as any).locationDepartment || '',
-                        custodianName: ci.custodianName || '',
+                        custodianName: ci.endUserName || ci.custodianName || '',
                         itemName: getItemName(ci),
                         brand: ci.Brand || '',
                         category: ci.PropertyName || ci.ClassificationName || '-',
@@ -292,7 +295,7 @@ export function AllItemsPage() {
                     propertyNumber: item.PropertyNumber || '',
                     parIcsNumber: (item as any).par_ics_number || '',
                     office: (item as any).locationDepartment || '',
-                    custodianName: item.custodianName || '',
+                    custodianName: item.endUserName || item.custodianName || '',
                     itemName: getItemName(item),
                     brand: item.Brand || '',
                     category: item.PropertyName || item.ClassificationName || '-',
@@ -848,8 +851,13 @@ export function AllItemsPage() {
                                                         <>
                                                             <div className="flex items-center gap-1 text-sm">
                                                                 <User className="w-3 h-3 shrink-0" />
-                                                                {getCustodianDisplayName(item.custodianName)}
+                                                                {getCustodianDisplayName(item)}
                                                             </div>
+                                                            {item.endUserPosition && (
+                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                    {item.endUserPosition}
+                                                                </div>
+                                                            )}
                                                             {item.locationDepartment && (
                                                                 <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                                                                     <Building2 className="w-3 h-3 shrink-0" />
@@ -863,8 +871,8 @@ export function AllItemsPage() {
                                                     {stickerSelectionMode ? (
                                                         <div className="flex items-center justify-end">
                                                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${isSelected
-                                                                    ? 'bg-violet-100 text-violet-700 border-violet-300'
-                                                                    : 'bg-gray-100 text-gray-400 border-gray-200'
+                                                                ? 'bg-violet-100 text-violet-700 border-violet-300'
+                                                                : 'bg-gray-100 text-gray-400 border-gray-200'
                                                                 }`}>
                                                                 {isSelected ? `✓ ${currentQty} sticker${currentQty !== 1 ? 's' : ''}` : 'Not selected'}
                                                             </span>
@@ -877,7 +885,7 @@ export function AllItemsPage() {
                                                                 itemName={getItemName(item)}
                                                                 description={item.Description}
                                                                 category={item.PropertyName || item.ClassificationName}
-                                                                custodianName={getCustodianDisplayName(item.custodianName)}
+                                                                custodianName={getCustodianDisplayName(item)}
                                                             />
                                                             {stickerItems.length > 0 && (
                                                                 <PropertySticker
@@ -893,7 +901,7 @@ export function AllItemsPage() {
                                                                         if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
                                                                         return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
                                                                     })()}
-                                                                    custodianName={item.custodianName || ''}
+                                                                    custodianName={item.endUserName || item.custodianName || ''}
                                                                     date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
                                                                     unitCost={item.UnitCost}
                                                                     brand={item.Brand || ''}
