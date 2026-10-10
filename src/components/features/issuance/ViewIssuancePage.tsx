@@ -24,7 +24,8 @@ import { AssetIssuance, AcknowledgeAssetData, InventoryDetail } from '@/types/as
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import React from 'react';
-import AssignReceiversModal, { AssignReceiversModalItem, AssignReceiversSaveResult } from './AssignReceiversModal';
+import AssignReceiversModal, { AssignReceiversModalItem, AssignReceiversRequestingOfficer, AssignReceiversSaveResult } from './AssignReceiversModal';
+import { formatAssignmentPositionForPrint } from '@/lib/deliveryReceiptAssignments';
 
 const statusConfig = {
     pending_acknowledgment: {
@@ -258,6 +259,21 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
 
         return issuance?.deliveryReceipt?.DepartmentName || issuance?.request?.department?.DepartmentName || issuance?.issuedToUser?.department?.DepartmentName || '—';
     }, [assignments, issuance]);
+
+    const assignRequestingOfficer = useMemo((): AssignReceiversRequestingOfficer | null => {
+        if (!issuance) return null;
+        const fullName = (
+            issuance.IssuedToName
+            ?? issuance.issuedToUser?.FullName
+            ?? ''
+        ).trim();
+        const departmentName =
+            issuance.deliveryReceipt?.DepartmentName
+            ?? issuance.request?.department?.DepartmentName
+            ?? issuance.issuedToUser?.department?.DepartmentName
+            ?? null;
+        return fullName ? { fullName, departmentName } : null;
+    }, [issuance]);
 
     const getRecipientUserId = (): number | null => {
         if (!issuance) return null;
@@ -754,12 +770,17 @@ export function ViewIssuancePage({ baseRoute }: ViewIssuancePageProps) {
                     issuanceId={issuance?.IssuanceID ?? null}
                     documentType={issuance?.DocumentType}
                     items={modalItems}
+                    requestingOfficer={assignRequestingOfficer}
                     onSaved={handleAssignSaved}
                     onPreparePrintTabs={(assignments, id) => {
                         const grouped = new Map<string, { receiverName: string; receiverOffice: string }>();
                         assignments.forEach((assignment) => {
                             const receiverName = assignment.receiver_name.trim() || 'Receiving Custodian';
-                            const receiverOffice = assignment.position_office?.trim() || '';
+                            const receiverOffice = formatAssignmentPositionForPrint(
+                                assignment.position_office,
+                                assignment.office_name,
+                                assignment.is_department_head
+                            );
                             const key = `${receiverName}||${receiverOffice}`;
                             if (!grouped.has(key)) grouped.set(key, { receiverName, receiverOffice });
                         });

@@ -13,6 +13,7 @@ import { DeliveryReceipt } from '@/types/procurement';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { exportIARToExcel } from '@/components/features/delivery-receipts/IARExport';
+import { formatAssignmentPositionDisplay } from '@/lib/deliveryReceiptAssignments';
 import { exportPARToExcel } from '@/components/features/issuance/PARExport';
 import { exportICSToExcel } from '@/components/features/issuance/ICSExport';
 import { exportRISToExcel } from '@/components/features/ris/RISExport';
@@ -391,11 +392,32 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose, initialD
                             <tbody className="divide-y divide-slate-200">
                                 {dr.details?.map((item, index) => {
                                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    const assignments: { inventory_detail_id: number; receiver_name: string; position_office: string | null }[] = (item as any).end_user_assignments ?? [];
-                                    const uniqueReceivers = assignments.reduce<{ receiver_name: string; position_office: string | null; count: number }[]>((acc, a) => {
-                                        const existing = acc.find(r => r.receiver_name === a.receiver_name);
+                                    const assignments: {
+                                        inventory_detail_id: number;
+                                        receiver_name: string;
+                                        position_office: string | null;
+                                        office_name?: string | null;
+                                    }[] = (item as any).end_user_assignments ?? [];
+                                    const uniqueReceivers = assignments.reduce<{
+                                        receiver_name: string;
+                                        position_office: string | null;
+                                        office_name: string | null;
+                                        count: number;
+                                    }[]>((acc, a) => {
+                                        const existing = acc.find(r =>
+                                            r.receiver_name === a.receiver_name
+                                            && r.position_office === a.position_office
+                                            && r.office_name === (a.office_name ?? null)
+                                        );
                                         if (existing) { existing.count++; }
-                                        else { acc.push({ receiver_name: a.receiver_name, position_office: a.position_office, count: 1 }); }
+                                        else {
+                                            acc.push({
+                                                receiver_name: a.receiver_name,
+                                                position_office: a.position_office,
+                                                office_name: a.office_name ?? null,
+                                                count: 1,
+                                            });
+                                        }
                                         return acc;
                                     }, []);
 
@@ -431,8 +453,10 @@ export function ViewDRPage({ baseRoute, drId, isModal = false, onClose, initialD
                                                                         ? <span className="ml-1 text-slate-400 font-normal">×{r.count}</span>
                                                                         : null}
                                                                 </span>
-                                                                {r.position_office && (
-                                                                    <span className="text-xs text-slate-500">{r.position_office}</span>
+                                                                {(r.position_office || r.office_name) && (
+                                                                    <span className="text-xs text-slate-500 whitespace-pre-line">
+                                                                        {formatAssignmentPositionDisplay(r.position_office, r.office_name)}
+                                                                    </span>
                                                                 )}
                                                             </div>
                                                         ))}

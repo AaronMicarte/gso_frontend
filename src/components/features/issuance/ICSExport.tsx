@@ -4,6 +4,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { AssetIssuance } from '@/types/assetIssuance';
 import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import issuanceAPI from '@/lib/api/issuance';
+import { formatAssignmentPositionForPrint } from '@/lib/deliveryReceiptAssignments';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,7 +85,13 @@ const TOTAL_ROW = 40;
 // ── Build receiver groups from assignments ────────────────────────────────────
 
 function buildReceiverGroups(
-    assignments: Array<{ issuance_detail_id?: number; receiver_name?: string; position_office?: string }>,
+    assignments: Array<{
+        issuance_detail_id?: number;
+        receiver_name?: string;
+        position_office?: string;
+        office_name?: string;
+        is_department_head?: boolean;
+    }>,
     allDetailIds: number[],
     fallbackName: string,
     fallbackOffice: string,
@@ -93,7 +100,11 @@ function buildReceiverGroups(
 
     assignments.forEach((a) => {
         const name = String(a.receiver_name || '').trim() || fallbackName;
-        const office = String(a.position_office || '').trim();
+        const office = formatAssignmentPositionForPrint(
+            a.position_office,
+            a.office_name,
+            a.is_department_head
+        ) || fallbackOffice;
         const key = `${name}||${office}`;
         if (!grouped.has(key)) {
             grouped.set(key, { receiverName: name, receiverOffice: office, detailIds: new Set() });
@@ -318,11 +329,11 @@ async function writeReceiverSheet(
     ws.getCell(46, 4).font = { name: FONT, size: 11, bold: true, underline: true };
 
     ws.getCell(47, 1).value = (group.receiverOffice || departmentName).toUpperCase();
-    ws.getCell(47, 1).font = { name: FONT, size: 11, bold: true };
+    ws.getCell(47, 1).font = { name: FONT, size: 11, bold: false };
     ws.getCell(47, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
     ws.getCell(47, 4).value = receivedFromOffice;
-    ws.getCell(47, 4).font = { name: FONT, size: 11, bold: true };
+    ws.getCell(47, 4).font = { name: FONT, size: 11, bold: false };
 
     ws.getCell(50, 1).value = receivedDate;
     ws.getCell(50, 1).font = { name: FONT, size: 11 };
@@ -399,7 +410,13 @@ export async function exportICSToExcel(
     const poNumber = ensureText(dr?.PONumber, '');
 
     // ── Load assignments & build receiver groups ──────────────────────────────
-    let rawAssignments: Array<{ issuance_detail_id?: number; receiver_name?: string; position_office?: string }> = [];
+    let rawAssignments: Array<{
+        issuance_detail_id?: number;
+        receiver_name?: string;
+        position_office?: string;
+        office_name?: string;
+        is_department_head?: boolean;
+    }> = [];
     try {
         const id = issuance.IssuanceID;
         if (id) {

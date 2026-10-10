@@ -246,7 +246,16 @@ const issuanceAPI = {
         return data;
     },
 
-    saveAssignments: async (id: number, payload: { assignments: Array<{ issuance_detail_id: number; receiver_name: string; position_office?: string; quantity: number; }> }) => {
+    saveAssignments: async (id: number, payload: {
+        assignments: Array<{
+            issuance_detail_id: number;
+            receiver_name: string;
+            position_office?: string;
+            office_name?: string;
+            is_department_head?: boolean;
+            quantity: number;
+        }>;
+    }) => {
         const { data } = await apiClient.post(`/property-issuances/${id}/assignments`, payload);
         return data;
     },

@@ -19,6 +19,12 @@ import { deliveryReceiptKeys } from '@/lib/hooks/useDeliveryReceipts';
 import { useQueryClient } from '@tanstack/react-query';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import {
+    buildDeptHeadAssignment,
+    formatAssignmentOfficeName,
+    formatAssignmentPositionDisplay,
+    inferDeptHeadAssignment,
+} from '@/lib/deliveryReceiptAssignments';
 
 const drItemSchema = z.object({
     dr_detail_id: z.number().optional(),
@@ -100,7 +106,9 @@ interface DRAssignmentRow {
     item_index: number;
     receiver_name: string;
     position_office: string;
+    office_name: string;
     quantity: number;
+    assign_to_dept_head: boolean;
 }
 
 export function EditDRPage({ baseRoute }: EditDRPageProps) {
@@ -270,6 +278,10 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 setValue('details', loadedDetails);
 
                 const loadedAssignments: DRAssignmentRow[] = [];
+                const requesterForInfer = {
+                    FullName: reqName,
+                };
+                const defaultOffice = formatAssignmentOfficeName(deptName);
 
                 const detailIdToIndex = new Map<number, number>();
                 (drData.details || []).forEach((d, idx) => {
@@ -280,12 +292,19 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                     const invDetails = detail.inventoryDetails || detail.inventoryDetails || [];
                     const endUserAssignments = detail.end_user_assignments || [];
 
-                    const assignByInvId = new Map<number, { receiver_name: string; position_office: string }>();
+                    const assignByInvId = new Map<number, {
+                        receiver_name: string;
+                        position_office: string;
+                        office_name: string;
+                        is_department_head?: boolean;
+                    }>();
                     endUserAssignments.forEach((a) => {
                         if (a && a.inventory_detail_id) {
                             assignByInvId.set(Number(a.inventory_detail_id), {
                                 receiver_name: (a.receiver_name || '').toString(),
                                 position_office: (a.position_office || '').toString(),
+                                office_name: (a.office_name || defaultOffice || '').toString(),
+                                is_department_head: Boolean(a.is_department_head),
                             });
                         }
                     });
@@ -297,7 +316,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                         const a = assignByInvId.get(invId);
                         if (!a || !a.receiver_name) return;
                         hasAssignedForDetail = true;
-                        const key = `${a.receiver_name}||${a.position_office}`;
+                        const key = `${a.receiver_name}||${a.position_office}||${a.office_name}`;
                         if (grouped.has(key)) {
                             grouped.get(key)!.quantity += 1;
                         } else {
@@ -306,6 +325,8 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                 item_index: idx,
                                 receiver_name: a.receiver_name,
                                 position_office: a.position_office,
+                                office_name: a.office_name || defaultOffice,
+                                assign_to_dept_head: inferDeptHeadAssignment(a, requesterForInfer),
                                 quantity: 1,
                             });
                         }
@@ -314,7 +335,8 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                     if (!hasAssignedForDetail && endUserAssignments.length > 0) {
                         endUserAssignments.forEach(a => {
                             if (!a?.receiver_name) return;
-                            const key = `${a.receiver_name}||${a.position_office || ''}`;
+                            const officeName = (a.office_name || defaultOffice || '').toString();
+                            const key = `${a.receiver_name}||${a.position_office || ''}||${officeName}`;
                             if (grouped.has(key)) {
                                 grouped.get(key)!.quantity += 1;
                             } else {
@@ -323,6 +345,13 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                     item_index: idx,
                                     receiver_name: a.receiver_name,
                                     position_office: a.position_office || '',
+                                    office_name: officeName,
+                                    assign_to_dept_head: inferDeptHeadAssignment({
+                                        receiver_name: a.receiver_name,
+                                        position_office: a.position_office || '',
+                                        office_name: officeName,
+                                        is_department_head: a.is_department_head,
+                                    }, requesterForInfer),
                                     quantity: 1,
                                 });
                             }
@@ -356,6 +385,15 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
 
     const details = watch('details');
     const watchedRequesterId = watch('requested_by_user_id');
+    const resolveRequester = () => requesters.find(u => u.UserID === watchedRequesterId);
+    const defaultOfficeForRequester = () => formatAssignmentOfficeName(resolveRequester()?.DepartmentName);
+
+    useEffect(() => {
+        const office = defaultOfficeForRequester();
+        if (!office) return;
+        setAssignments(prev => prev.map(a => ({ ...a, office_name: office })));
+    }, [watchedRequesterId, requesters]);
+
     const totalAmount = details?.reduce((sum, item) => {
         return sum + (item.quantity_delivered * item.unit_cost || 0);
     }, 0) || 0;
@@ -575,6 +613,8 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                     dr_detail_id: detailId ? Number(detailId) : undefined,
                     receiver_name: a.receiver_name ? a.receiver_name.trim() : '',
                     position_office: a.position_office?.trim() || null,
+                    office_name: a.office_name?.trim() || null,
+                    is_department_head: Boolean(a.assign_to_dept_head),
                     quantity: Number(a.quantity) || 1,
                 };
             });
@@ -702,7 +742,14 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
     // ─────────────────────────────────────────────────────────────
     // UPDATED: addAssignmentRow — skip fully-assigned items
     // ─────────────────────────────────────────────────────────────
-    const addAssignmentRow = (itemIndex = 0, defaultReceiver = '', defaultPosition = '') => {
+    const addAssignmentRow = (
+        itemIndex = 0,
+        defaults: Partial<Pick<DRAssignmentRow, 'receiver_name' | 'position_office' | 'office_name' | 'assign_to_dept_head'>> = {}
+    ) => {
+        const defaultReceiver = defaults.receiver_name ?? '';
+        const defaultPosition = defaults.position_office ?? '';
+        const defaultOffice = defaults.office_name ?? defaultOfficeForRequester();
+        const defaultDeptHead = defaults.assign_to_dept_head ?? false;
         if (isEverythingAssigned) {
             toast.info('All delivered quantities are already assigned.');
             return;
@@ -742,7 +789,9 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 item_index: targetIndex,
                 receiver_name: defaultReceiver,
                 position_office: defaultPosition,
+                office_name: defaultOffice,
                 quantity: startingQty,
+                assign_to_dept_head: defaultDeptHead,
             }
         ]);
     };
@@ -786,15 +835,23 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                 itemLabel: `${artName}${desc ? ` (${desc})` : ''}`,
                 receiver_name: a.receiver_name?.trim() || '',
                 position_office: a.position_office?.trim() || '',
+                office_name: a.office_name?.trim() || '',
                 quantity: Number(a.quantity) || 1,
             };
         });
 
     const groupedReview = reviewAssignments.reduce<
-        Record<string, { name: string; position: string; items: typeof reviewAssignments }>
+        Record<string, { name: string; position: string; office: string; items: typeof reviewAssignments }>
     >((acc, a) => {
-        const key = `${a.receiver_name}|||${a.position_office}`;
-        if (!acc[key]) acc[key] = { name: a.receiver_name, position: a.position_office, items: [] };
+        const key = `${a.receiver_name}|||${a.position_office}|||${a.office_name}`;
+        if (!acc[key]) {
+            acc[key] = {
+                name: a.receiver_name,
+                position: a.position_office,
+                office: a.office_name,
+                items: [],
+            };
+        }
         acc[key].items.push(a);
         return acc;
     }, {});
@@ -1501,14 +1558,44 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
 
                                                 <div className="p-4 pt-5 grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
                                                     <div className="sm:col-span-4 relative">
-                                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                                                            Receiver Name *
-                                                        </label>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                                Receiver Name *
+                                                            </label>
+                                                            <label className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 cursor-pointer select-none hover:text-indigo-800 transition-colors">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={row.assign_to_dept_head}
+                                                                    onChange={(e) => {
+                                                                        const checked = e.target.checked;
+                                                                        if (checked) {
+                                                                            const requester = resolveRequester();
+                                                                            if (!requester) {
+                                                                                toast.warning('Select a Requested By person first.');
+                                                                                return;
+                                                                            }
+                                                                            updateAssignmentRow(row.id, buildDeptHeadAssignment(requester));
+                                                                        } else {
+                                                                            updateAssignmentRow(row.id, {
+                                                                                assign_to_dept_head: false,
+                                                                                receiver_name: '',
+                                                                                position_office: '',
+                                                                                office_name: defaultOfficeForRequester(),
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className="w-3 h-3 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 cursor-pointer"
+                                                                />
+                                                                Assign to Dept Head
+                                                            </label>
+                                                        </div>
                                                         <input
                                                             type="text"
                                                             value={row.receiver_name}
-                                                            onFocus={() => setActiveReceiverDropdown(row.id)}
+                                                            readOnly={row.assign_to_dept_head}
+                                                            onFocus={() => !row.assign_to_dept_head && setActiveReceiverDropdown(row.id)}
                                                             onChange={(e) => {
+                                                                if (row.assign_to_dept_head) return;
                                                                 updateAssignmentRow(row.id, { receiver_name: e.target.value });
                                                                 setActiveReceiverDropdown(row.id);
                                                             }}
@@ -1516,7 +1603,11 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                                 if (e.key === 'Escape') setActiveReceiverDropdown(null);
                                                             }}
                                                             placeholder="Enter complete name..."
-                                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium text-slate-800"
+                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${
+                                                                row.assign_to_dept_head
+                                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
+                                                                    : 'border-slate-300 text-slate-800'
+                                                            }`}
                                                         />
 
                                                         {activeReceiverDropdown === row.id && (
@@ -1551,6 +1642,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                                                     updateAssignmentRow(row.id, {
                                                                                         receiver_name: s.receiver_name,
                                                                                         position_office: s.position_office || row.position_office || '',
+                                                                                        assign_to_dept_head: false,
                                                                                     });
                                                                                     setActiveReceiverDropdown(null);
                                                                                 }}
@@ -1579,20 +1671,42 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                         )}
                                                     </div>
 
-                                                    <div className="sm:col-span-3">
+                                                    <div className="sm:col-span-2">
                                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                                                            Position / Office
+                                                            Position
                                                         </label>
                                                         <input
                                                             type="text"
                                                             value={row.position_office}
-                                                            onChange={(e) => updateAssignmentRow(row.id, { position_office: e.target.value })}
-                                                            placeholder="e.g. Admin Officer"
-                                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium text-slate-800"
+                                                            readOnly={row.assign_to_dept_head}
+                                                            onChange={(e) => {
+                                                                if (row.assign_to_dept_head) return;
+                                                                updateAssignmentRow(row.id, { position_office: e.target.value });
+                                                            }}
+                                                            placeholder="e.g. Multimedia Artist"
+                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${
+                                                                row.assign_to_dept_head
+                                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
+                                                                    : 'border-slate-300 text-slate-800'
+                                                            }`}
                                                         />
                                                     </div>
 
-                                                    <div className="sm:col-span-3">
+                                                    <div className="sm:col-span-2">
+                                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                                            Office / Dept
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={row.office_name}
+                                                            readOnly
+                                                            tabIndex={-1}
+                                                            placeholder="From Requested By department"
+                                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none font-medium bg-slate-50 text-slate-700 cursor-not-allowed"
+                                                        />
+                                                    </div>
+
+                                                    <div className="sm:col-span-2">
                                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                                                             Assigned Item *
                                                         </label>
@@ -1652,7 +1766,12 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                     <div className="sm:col-span-1 flex items-center justify-end gap-1.5 pt-6">
                                                         <button
                                                             type="button"
-                                                            onClick={() => addAssignmentRow(row.item_index, row.receiver_name, row.position_office)}
+                                                            onClick={() => addAssignmentRow(row.item_index, {
+                                                                receiver_name: row.receiver_name,
+                                                                position_office: row.position_office,
+                                                                office_name: row.office_name,
+                                                                assign_to_dept_head: row.assign_to_dept_head,
+                                                            })}
                                                             disabled={rowItemFullyAssigned}
                                                             title={
                                                                 rowItemFullyAssigned
@@ -1839,7 +1958,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                         {group.name || <span className="text-red-600">(No name)</span>}
                                                     </div>
                                                     <div className="text-xs text-slate-500">
-                                                        {group.position || 'No position'}
+                                                        {formatAssignmentPositionDisplay(group.position, group.office) || 'No position'}
                                                     </div>
                                                 </div>
                                                 <span className="text-xs font-semibold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">

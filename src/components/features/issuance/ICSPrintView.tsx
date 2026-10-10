@@ -5,6 +5,7 @@ import { toZonedTime } from 'date-fns-tz';
 import Image from 'next/image';
 import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import issuanceAPI from '@/lib/api/issuance';
+import { formatAssignmentPositionForPrint } from '@/lib/deliveryReceiptAssignments';
 
 interface ICSPrintViewProps {
     issuance: AssetIssuance;
@@ -99,7 +100,12 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         docDate
     );
 
-    const [assignments, setAssignments] = React.useState<Array<{ receiver_name: string; position_office?: string }>>([]);
+    const [assignments, setAssignments] = React.useState<Array<{
+        receiver_name: string;
+        position_office?: string;
+        office_name?: string;
+        is_department_head?: boolean;
+    }>>([]);
 
     React.useEffect(() => {
         let mounted = true;
@@ -108,21 +114,43 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
         issuanceAPI.getAssignments(id).then((res) => {
             if (!mounted) return;
             const rows = res?.data ?? [];
-            const mapped: Array<{ receiver_name: string; position_office?: string }> = rows
+            const mapped: Array<{
+                receiver_name: string;
+                position_office?: string;
+                office_name?: string;
+                is_department_head?: boolean;
+            }> = rows
                 .filter((row: { issuance_detail_id?: number }) => {
                     if (!selectedDetailIds?.length) return true;
                     return selectedDetailIds.includes(Number(row.issuance_detail_id));
                 })
-                .map((row: { receiver_name?: string; position_office?: string }) => ({
+                .map((row: {
+                    receiver_name?: string;
+                    position_office?: string;
+                    office_name?: string;
+                    is_department_head?: boolean;
+                }) => ({
                     receiver_name: String(row.receiver_name || '').trim(),
                     position_office: String(row.position_office || '').trim(),
+                    office_name: String(row.office_name || '').trim(),
+                    is_department_head: Boolean(row.is_department_head),
                 }))
                 .filter((row: { receiver_name: string }) => row.receiver_name.length > 0);
 
             const seen = new Set<string>();
-            const unique: Array<{ receiver_name: string; position_office?: string }> = [];
+            const unique: Array<{
+                receiver_name: string;
+                position_office?: string;
+                office_name?: string;
+                is_department_head?: boolean;
+            }> = [];
             mapped.forEach((item) => {
-                const key = `${item.receiver_name}||${item.position_office || ''}`;
+                const printOffice = formatAssignmentPositionForPrint(
+                    item.position_office,
+                    item.office_name,
+                    item.is_department_head
+                );
+                const key = `${item.receiver_name}||${printOffice}`;
                 if (!seen.has(key)) {
                     seen.add(key);
                     unique.push(item);
@@ -331,7 +359,13 @@ export const ICSPrintView = React.forwardRef<HTMLDivElement, ICSPrintViewProps>(
                         <div className="border-b border-black mt-2 pb-1 text-center">
                             {assignments.length > 0 ? (
                                 <span className="text-xs">
-                                    {assignments.map(a => a.position_office || receivedByOffice).join(', ')}
+                                    {assignments.map(a =>
+                                        formatAssignmentPositionForPrint(
+                                            a.position_office,
+                                            a.office_name,
+                                            a.is_department_head
+                                        ) || receivedByOffice
+                                    ).join(', ')}
                                 </span>
                             ) : (
                                 receivedByOffice

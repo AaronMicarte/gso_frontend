@@ -14,7 +14,11 @@ import transferAPI from '@/lib/api/transfer';
 import { compressPropertyNumbers } from '@/lib/utils/propertyNumbers';
 import { PropertyTransfer, PropertyTransferItem, TransferStatus } from '@/types/propertyTransfer';
 import { useAuth } from '@/lib/hooks/useAuth';
-import AssignReceiversModal, { AssignReceiversModalItem } from '@/components/features/issuance/AssignReceiversModal';
+import AssignReceiversModal, {
+    AssignReceiversModalItem,
+    AssignReceiversRequestingOfficer,
+} from '@/components/features/issuance/AssignReceiversModal';
+import { formatAssignmentPositionForPrint } from '@/lib/deliveryReceiptAssignments';
 
 const statusConfig: Record<TransferStatus, { label: string; className: string; icon: typeof Clock }> = {
     pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -497,6 +501,17 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
         () => groupedTransferRows.reduce((sum, row) => sum + Number(row.approvedQty || 0), 0),
         [groupedTransferRows]
     );
+
+    /** Receiving-side custodian + department (PTR “dept head” checkbox target). */
+    const ptrReceivingOfficer = useMemo((): AssignReceiversRequestingOfficer | null => {
+        if (!transfer) return null;
+        const fullName = (transfer.toEndUser?.FullName ?? '').trim();
+        const departmentName =
+            transfer.toDepartment?.DepartmentName
+            ?? transfer.toEndUser?.DepartmentName
+            ?? null;
+        return fullName ? { fullName, departmentName } : null;
+    }, [transfer]);
 
     const statusBadge = useMemo(() => {
         if (!transfer) return null;
@@ -1028,6 +1043,7 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                     open={ptrAssignOpen}
                     onOpenChange={setPtrAssignOpen}
                     issuanceId={transfer?.TransferID ?? null}
+                    requestingOfficer={ptrReceivingOfficer}
                     items={(transfer?.items ?? [])
                         .filter(item => Number(item.InventoryDetailID ?? 0) > 0)
                         .map((item): AssignReceiversModalItem => ({
@@ -1051,6 +1067,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                             issuance_detail_id: r.inventory_detail_id,
                             receiver_name: r.receiver_name,
                             position_office: r.position_office,
+                            office_name: r.office_name,
+                            is_department_head: r.is_department_head,
                             quantity: r.quantity,
                         }));
                     }}
@@ -1060,6 +1078,8 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                                 inventory_detail_id: a.issuance_detail_id,
                                 receiver_name: a.receiver_name,
                                 position_office: a.position_office,
+                                office_name: a.office_name,
+                                is_department_head: a.is_department_head,
                                 quantity: a.quantity,
                             })),
                         });
@@ -1068,7 +1088,11 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                         const grouped = new Map<string, { receiverName: string; receiverOffice: string }>();
                         assignments.forEach((assignment) => {
                             const receiverName = assignment.receiver_name.trim() || 'Receiving Custodian';
-                            const receiverOffice = assignment.position_office?.trim() || '';
+                            const receiverOffice = formatAssignmentPositionForPrint(
+                                assignment.position_office,
+                                assignment.office_name,
+                                assignment.is_department_head
+                            );
                             const key = `${receiverName}||${receiverOffice}`;
                             if (!grouped.has(key)) {
                                 grouped.set(key, { receiverName, receiverOffice });

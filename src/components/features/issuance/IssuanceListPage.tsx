@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 
 import issuanceAPI from '@/lib/api/issuance';
 import { CardListSkeleton } from '@/components/ui/ListSkeletons';
-import AssignReceiversModal from './AssignReceiversModal';
+import AssignReceiversModal, { AssignReceiversRequestingOfficer } from './AssignReceiversModal';
+import { formatAssignmentPositionForPrint } from '@/lib/deliveryReceiptAssignments';
 
 interface DeliveryReceiptForIssuance {
     DRID: number;
@@ -294,6 +295,7 @@ export function IssuanceListPage({
         ModelNumber?: string | null;
         SerialNumber?: string | null;
     }>>([]);
+    const [assignRequestingOfficer, setAssignRequestingOfficer] = useState<AssignReceiversRequestingOfficer | null>(null);
 
     const openAssignModalForIssuance = async (
         issuanceId: number,
@@ -362,9 +364,23 @@ export function IssuanceListPage({
                 return;
             }
 
+            const fullName = (
+                issuance.IssuedToName
+                ?? issuance.deliveryReceipt?.requestedByUser?.FullName
+                ?? issuance.issuedToUser?.FullName
+                ?? row.RequestedBy
+                ?? ''
+            ).toString().trim();
+            const departmentName =
+                issuance.deliveryReceipt?.DepartmentName
+                ?? issuance.deliveryReceipt?.requestedByUser?.department?.DepartmentName
+                ?? row.DepartmentName
+                ?? null;
+
             setAssignItems(items);
             setAssignIssuanceId(issuanceId);
             setAssignDocumentType(documentType);
+            setAssignRequestingOfficer(fullName ? { fullName, departmentName } : null);
             setAssignOpen(true);
         } catch {
             toast.error('Failed to load issuance for assignment');
@@ -728,6 +744,7 @@ export function IssuanceListPage({
                 issuanceId={assignIssuanceId}
                 documentType={assignDocumentType ?? undefined}
                 items={assignItems}
+                requestingOfficer={assignRequestingOfficer}
                 onSaved={(result) => {
                     // Close modal and refresh list; printing handled by onPreparePrintTabs
                     setAssignOpen(false);
@@ -737,7 +754,11 @@ export function IssuanceListPage({
                     const grouped = new Map<string, { receiverName: string; receiverOffice: string }>();
                     assignments.forEach((assignment) => {
                         const receiverName = assignment.receiver_name.trim() || 'Receiving Custodian';
-                        const receiverOffice = assignment.position_office?.trim() || '';
+                        const receiverOffice = formatAssignmentPositionForPrint(
+                            assignment.position_office,
+                            assignment.office_name,
+                            assignment.is_department_head
+                        );
                         const key = `${receiverName}||${receiverOffice}`;
                         if (!grouped.has(key)) grouped.set(key, { receiverName, receiverOffice });
                     });
