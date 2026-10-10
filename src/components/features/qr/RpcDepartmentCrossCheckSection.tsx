@@ -158,7 +158,8 @@ export function RpcDepartmentCrossCheckSection({
     // Filter & Sort States
     const [scanFilter, setScanFilter] = useState<ScanFilterOption>('ALL');
     const [sortBy, setSortBy] = useState<SortOption>('PROPERTY_ASC');
-    const [selectedEndUser, setSelectedEndUser] = useState<string>('ALL');
+    const [endUserSearch, setEndUserSearch] = useState<string>('');
+    const [debouncedEndUserSearch, setDebouncedEndUserSearch] = useState<string>('');
     const [selectedSupplier, setSelectedSupplier] = useState<string>('ALL');
 
     useEffect(() => {
@@ -177,6 +178,18 @@ export function RpcDepartmentCrossCheckSection({
             if (debounceRef.current) window.clearTimeout(debounceRef.current);
         };
     }, [localSearch, onSearchChange, search]);
+
+    const endUserDebounceRef = useRef<number | null>(null);
+    useEffect(() => {
+        if (endUserDebounceRef.current) window.clearTimeout(endUserDebounceRef.current);
+        endUserDebounceRef.current = window.setTimeout(() => {
+            setDebouncedEndUserSearch(endUserSearch.trim());
+            setPage(1);
+        }, 300);
+        return () => {
+            if (endUserDebounceRef.current) window.clearTimeout(endUserDebounceRef.current);
+        };
+    }, [endUserSearch]);
 
     const items = data?.data || [];
     const summary = data?.summary;
@@ -216,15 +229,6 @@ export function RpcDepartmentCrossCheckSection({
         };
     }, [items]);
 
-    // Unique End Users and Suppliers
-    const uniqueEndUsers = useMemo(() => {
-        const set = new Set<string>();
-        items.forEach((i) => {
-            if (i.end_user && i.end_user !== '-') set.add(i.end_user);
-        });
-        return Array.from(set).sort();
-    }, [items]);
-
     const uniqueSuppliers = useMemo(() => {
         const set = new Set<string>();
         items.forEach((i) => {
@@ -248,9 +252,10 @@ export function RpcDepartmentCrossCheckSection({
             result = result.filter((i) => getScanCategory(i) === 'SCANNED');
         }
 
-        // Filter by End User
-        if (selectedEndUser !== 'ALL') {
-            result = result.filter((i) => i.end_user === selectedEndUser);
+        // Filter by End User (partial, case-insensitive)
+        if (debouncedEndUserSearch) {
+            const lower = debouncedEndUserSearch.toLowerCase();
+            result = result.filter((i) => (i.end_user || '').toLowerCase().includes(lower));
         }
 
         // Filter by Supplier
@@ -295,7 +300,7 @@ export function RpcDepartmentCrossCheckSection({
         });
 
         return result;
-    }, [items, scanFilter, selectedEndUser, selectedSupplier, sortBy]);
+    }, [items, scanFilter, debouncedEndUserSearch, selectedSupplier, sortBy]);
 
     const totalPages = Math.max(1, Math.ceil(filteredAndSortedItems.length / PER_PAGE));
 
@@ -306,14 +311,15 @@ export function RpcDepartmentCrossCheckSection({
 
     const hasActiveFilters =
         scanFilter !== 'ALL' ||
-        selectedEndUser !== 'ALL' ||
+        debouncedEndUserSearch !== '' ||
         selectedSupplier !== 'ALL' ||
         sortBy !== 'PROPERTY_ASC';
 
     const handleResetFilters = () => {
         setScanFilter('ALL');
         setSortBy('PROPERTY_ASC');
-        setSelectedEndUser('ALL');
+        setEndUserSearch('');
+        setDebouncedEndUserSearch('');
         setSelectedSupplier('ALL');
         setPage(1);
     };
@@ -501,28 +507,30 @@ export function RpcDepartmentCrossCheckSection({
                 {/* Secondary Dropdown Filter Row (End User, Supplier, Reset) */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* End User Dropdown */}
-                        {uniqueEndUsers.length > 0 && (
-                            <div className="flex items-center gap-1.5">
-                                <User className="w-3.5 h-3.5 text-slate-500" />
-                                <span className="text-xs text-slate-600 font-medium">End User:</span>
-                                <select
-                                    value={selectedEndUser}
-                                    onChange={(e) => {
-                                        setSelectedEndUser(e.target.value);
-                                        setPage(1);
-                                    }}
-                                    className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                                >
-                                    <option value="ALL">All End Users ({uniqueEndUsers.length})</option>
-                                    {uniqueEndUsers.map((eu) => (
-                                        <option key={eu} value={eu}>
-                                            {eu}
-                                        </option>
-                                    ))}
-                                </select>
+                        {/* End User Search */}
+                        <div className="flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-slate-500" />
+                            <span className="text-xs text-slate-600 font-medium whitespace-nowrap">End User:</span>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={endUserSearch}
+                                    onChange={(e) => setEndUserSearch(e.target.value)}
+                                    placeholder="Search name..."
+                                    className="pl-2.5 pr-7 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 w-44"
+                                />
+                                {endUserSearch && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setEndUserSearch(''); setDebouncedEndUserSearch(''); setPage(1); }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                                        aria-label="Clear end user filter"
+                                    >
+                                        ×
+                                    </button>
+                                )}
                             </div>
-                        )}
+                        </div>
 
                         {/* Supplier Dropdown */}
                         {uniqueSuppliers.length > 0 && (
