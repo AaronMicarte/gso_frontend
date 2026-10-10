@@ -94,6 +94,8 @@ export function AllItemsPage() {
     const [selectedPropertyType, setSelectedPropertyType] = useState<number | null>(null);
     const [selectedDocumentType, setSelectedDocumentType] = useState<'PAR' | 'ICS' | null>(null);
     const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
+    const [selectedAccountableOfficer, setSelectedAccountableOfficer] = useState<string>('');
+    const [debouncedAccountableOfficer, setDebouncedAccountableOfficer] = useState<string>('');
     const [displayMode, setDisplayMode] = useState<'individual' | 'combined'>('individual');
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -131,6 +133,14 @@ export function AllItemsPage() {
         return () => window.clearTimeout(timeoutId);
     }, [search]);
 
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setDebouncedAccountableOfficer(selectedAccountableOfficer.trim());
+            setPage(1);
+        }, 500);
+        return () => window.clearTimeout(timeoutId);
+    }, [selectedAccountableOfficer]);
+
     // Clear sticker selections whenever display mode changes — combined and
     // individual rows have different IDs and maxQty values, so stale entries
     // from the previous mode would show wrong quantities (e.g. qty=2 on a
@@ -150,6 +160,7 @@ export function AllItemsPage() {
         display_mode: displayMode,
         rlsddp_status: selectedRlsddpStatus || undefined,
         department_id: selectedDepartment || undefined,
+        accountable_officer: debouncedAccountableOfficer || undefined,
     });
     const { data: propertyTypes } = useAllPropertyTypes();
     const { data: allDepartments } = useAllDepartments();
@@ -166,6 +177,8 @@ export function AllItemsPage() {
                 property_status_id: 2,
                 rlsddp_status: 'active',
                 condition_id: 1,
+                accountable_officer: debouncedAccountableOfficer || undefined,
+                department_id: selectedDepartment || undefined,
             });
             const totalItems = initialData.total || 1000;
 
@@ -175,6 +188,8 @@ export function AllItemsPage() {
                 rlsddp_status: 'active',
                 property_status_id: 2,
                 condition_id: 1,
+                accountable_officer: debouncedAccountableOfficer || undefined,
+                department_id: selectedDepartment || undefined,
             });
 
             await exportAllItemsToExcel(allItemsData.data || []);
@@ -424,7 +439,7 @@ export function AllItemsPage() {
         );
     };
 
-    const activeFilterCount = [selectedCondition, selectedPropertyStatus, selectedRlsddpStatus, selectedPropertyType, selectedDocumentType, selectedDepartment].filter(Boolean).length;
+    const activeFilterCount = [selectedCondition, selectedPropertyStatus, selectedRlsddpStatus, selectedPropertyType, selectedDocumentType, selectedDepartment, debouncedAccountableOfficer || null].filter(Boolean).length;
 
     return (
         <div className="min-h-screen bg-fixed bg-cover bg-center bg-no-repeat print:hidden" style={{ backgroundImage: "url('/assets/images/background/bg.jpg')", backgroundAttachment: 'fixed' }}>
@@ -475,6 +490,7 @@ export function AllItemsPage() {
                                             property_status_id: 2,
                                             rlsddp_status: 'active',
                                             condition_id: 1,
+                                            accountable_officer: debouncedAccountableOfficer || undefined,
                                         });
                                         const totalDeptItems = initialData.total || 1000;
                                         const deptAllItems = await getAllInventoryItems({
@@ -484,6 +500,7 @@ export function AllItemsPage() {
                                             rlsddp_status: 'active',
                                             property_status_id: 2,
                                             condition_id: 1,
+                                            accountable_officer: debouncedAccountableOfficer || undefined,
                                         });
                                         await exportDepartmentItemsToExcel(deptAllItems.data || [], dept.name);
                                     } catch {
@@ -520,6 +537,8 @@ export function AllItemsPage() {
                                     setSelectedPropertyType(null);
                                     setSelectedDocumentType(null);
                                     setSelectedDepartment(null);
+                                    setSelectedAccountableOfficer('');
+                                    setDebouncedAccountableOfficer('');
                                     setPage(1);
                                 }}
                                 className="text-[11px] font-medium text-gray-400 hover:text-red-500 transition-colors"
@@ -613,6 +632,20 @@ export function AllItemsPage() {
                                 <option value="ICS">ICS</option>
                             </select>
                         </div>
+
+                        <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+                            <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Accountable Officer</label>
+                            <div className="relative">
+                                <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Aaron Micarte"
+                                    value={selectedAccountableOfficer}
+                                    onChange={(e) => setSelectedAccountableOfficer(e.target.value)}
+                                    className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] text-sm text-gray-900 transition-colors placeholder:text-gray-400"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {activeFilterCount > 0 && (
@@ -651,6 +684,12 @@ export function AllItemsPage() {
                                 <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-700 text-xs font-medium">
                                     Doc: {selectedDocumentType}
                                     <button onClick={() => { setSelectedDocumentType(null); setPage(1); }} className="hover:text-gray-900">✕</button>
+                                </span>
+                            )}
+                            {debouncedAccountableOfficer && (
+                                <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-medium">
+                                    Officer: {debouncedAccountableOfficer}
+                                    <button onClick={() => { setSelectedAccountableOfficer(''); setDebouncedAccountableOfficer(''); setPage(1); }} className="hover:text-indigo-900">✕</button>
                                 </span>
                             )}
                         </div>

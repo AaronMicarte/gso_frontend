@@ -202,7 +202,7 @@ export const getInventories = async (params?: { page?: number; per_page?: number
     return response.data;
 };
 
-export const getAllInventoryItems = async (params?: { page?: number; per_page?: number; search?: string; condition_id?: number; property_status_id?: number; property_type_id?: number; document_type?: 'PAR' | 'ICS'; display_mode?: 'individual' | 'combined'; rlsddp_status?: string; department_id?: number }): Promise<InventoryItemsListResponse> => {
+export const getAllInventoryItems = async (params?: { page?: number; per_page?: number; search?: string; condition_id?: number; property_status_id?: number; property_type_id?: number; document_type?: 'PAR' | 'ICS'; display_mode?: 'individual' | 'combined'; rlsddp_status?: string; department_id?: number; accountable_officer?: string }): Promise<InventoryItemsListResponse> => {
     const qs = new URLSearchParams();
     if (params?.page) qs.append('page', String(params.page));
     if (params?.per_page) qs.append('per_page', String(params.per_page));
@@ -214,6 +214,7 @@ export const getAllInventoryItems = async (params?: { page?: number; per_page?: 
     if (params?.display_mode) qs.append('display_mode', params.display_mode);
     if (params?.rlsddp_status) qs.append('rlsddp_status', params.rlsddp_status);
     if (params?.department_id) qs.append('department_id', String(params.department_id));
+    if (params?.accountable_officer) qs.append('accountable_officer', params.accountable_officer);
 
     const response: AxiosResponse<InventoryItemsListResponse> = await apiClient.get(`/inventory/all-items?${qs.toString()}`);
     return response.data;
