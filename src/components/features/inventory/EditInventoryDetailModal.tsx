@@ -62,6 +62,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
 
     const [form, setForm] = useState<InventoryDetailEditForm | null>(null);
     const [applyScope, setApplyScope] = useState<'this' | 'siblings'>('this');
+    const [errors, setErrors] = useState<Record<string, string>>({}); // NEW
 
     const inventoryQuery = useInventory(form?.inventoryId ?? 0, open && !!form?.inventoryId) as { data?: InventoryQueryData; isLoading: boolean; refetch?: () => void };
 
@@ -77,17 +78,41 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
 
     const siblingCount = Math.max(0, assetInstances.length - 1);
 
+    // NEW: client-side duplicate detection (UX only; backend still enforces).
+    const duplicateSerial = useMemo(() => {
+        const serial = (form?.SerialNumber ?? '').trim().toLowerCase();
+        if (!serial) return null;
+
+        const details = inventoryQuery.data?.details ?? [];
+        return (
+            details.find((d) => {
+                if (d.InventoryDetailID === form?.id) return false; // itself
+                return (d.SerialNumber ?? '').trim().toLowerCase() === serial;
+            }) ?? null
+        );
+    }, [form?.SerialNumber, form?.id, inventoryQuery.data]);
+
     useEffect(() => {
         if (open && item) {
             setForm({ ...item });
             setApplyScope('this');
+            setErrors({}); // NEW: clear stale errors
         } else if (!open) {
             setForm(null);
+            setErrors({}); // NEW
         }
     }, [open, item]);
 
     const handleSaveDetails = async () => {
         if (!form) return;
+
+        // NEW: block submit if we already know it's a duplicate.
+        if (duplicateSerial) {
+            const msg = `Serial number already used.`;
+            setErrors({ SerialNumber: msg });
+            toast.error(msg);
+            return;
+        }
 
         const payload: InventoryDetailEditData = {
             Description: form.Description,
@@ -121,18 +146,35 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
             }
 
             onOpenChange(false);
-        } catch {
-            toast.error('Failed to update item details');
+        } catch (err: any) {
+            // NEW: read Laravel's 422 payload and surface the field error.
+            const fieldErrors = err?.response?.data?.errors;
+            const serialError = fieldErrors?.SerialNumber?.[0];
+
+            if (serialError) {
+                setErrors({ SerialNumber: serialError });
+                toast.error(serialError);
+            } else {
+                toast.error(
+                    err?.response?.data?.message ?? 'Failed to update item details'
+                );
+            }
         }
     };
 
     const updateField = (field: keyof Omit<InventoryDetailEditForm, 'id'>, value: string) => {
         setForm((prev) => (prev ? { ...prev, [field]: value } : null));
+        // NEW: clear the error for the field being edited.
+        setErrors((prev) => {
+            if (!prev[field]) return prev;
+            const next = { ...prev };
+            delete next[field];
+            return next;
+        });
     };
 
     const isSiblingsMode = applyScope === 'siblings';
     const isPending = updateInventoryDetail.isPending;
-
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>
             <Dialog.Portal>
@@ -160,114 +202,126 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                     {/* Body */}
                     <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4 bg-slate-50/40">
                         <div className="space-y-4">
-                                <div>
-                                    <FieldLabel htmlFor="edit-description">Description</FieldLabel>
-                                    <textarea
-                                        id="edit-description"
-                                        value={form?.Description ?? ''}
-                                        onChange={(e) => updateField('Description', e.target.value)}
-                                        className={`${inputClass} bg-white resize-vertical min-h-[88px]`}
-                                        placeholder="Enter item description..."
-                                        rows={3}
-                                        maxLength={255}
-                                    />
-                                </div>
+                            <div>
+                                <FieldLabel htmlFor="edit-description">Description</FieldLabel>
+                                <textarea
+                                    id="edit-description"
+                                    value={form?.Description ?? ''}
+                                    onChange={(e) => updateField('Description', e.target.value)}
+                                    className={`${inputClass} bg-white resize-vertical min-h-[88px]`}
+                                    placeholder="Enter item description..."
+                                    rows={3}
+                                    maxLength={255}
+                                />
+                            </div>
 
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <FieldLabel htmlFor="edit-brand">Brand</FieldLabel>
-                                        <textarea
-                                            id="edit-brand"
-                                            value={form?.Brand ?? ''}
-                                            onChange={(e) => updateField('Brand', e.target.value)}
-                                            className={`${inputClass} bg-white resize-vertical min-h-[38px] max-h-[120px]`}
-                                            placeholder="e.g. Dell, Canon..."
-                                            rows={1}
-                                            maxLength={100}
-                                        />
-                                    </div>
-                                    <div>
-                                        <FieldLabel htmlFor="edit-model">Model</FieldLabel>
-                                        <textarea
-                                            id="edit-model"
-                                            value={form?.ModelNumber ?? ''}
-                                            onChange={(e) => updateField('ModelNumber', e.target.value)}
-                                            className={`${inputClass} bg-white resize-vertical min-h-[38px] max-h-[120px]`}
-                                            placeholder="e.g. XPS 15, EOS R..."
-                                            rows={1}
-                                            maxLength={100}
-                                        />
-                                    </div>
-                                </div>
-
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <FieldLabel
-                                        htmlFor="edit-serial"
-                                        badge={
-                                            isSiblingsMode ? (
-                                                <span className="text-[10px] text-amber-700 font-medium bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded normal-case tracking-normal">
-                                                    Cannot bulk-edit
-                                                </span>
-                                            ) : null
-                                        }
-                                    >
-                                        Serial Number
-                                    </FieldLabel>
+                                    <FieldLabel htmlFor="edit-brand">Brand</FieldLabel>
                                     <textarea
-                                        id="edit-serial"
-                                        value={isSiblingsMode ? (item?.SerialNumber ?? '') : (form?.SerialNumber ?? '')}
-                                        onChange={(e) => updateField('SerialNumber', e.target.value)}
-                                        disabled={isSiblingsMode}
-                                        className={`${inputClass} resize-vertical min-h-[38px] max-h-[120px] disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed bg-white`}
-                                        placeholder="Enter serial number..."
+                                        id="edit-brand"
+                                        value={form?.Brand ?? ''}
+                                        onChange={(e) => updateField('Brand', e.target.value)}
+                                        className={`${inputClass} bg-white resize-vertical min-h-[38px] max-h-[120px]`}
+                                        placeholder="e.g. Dell, Canon..."
                                         rows={1}
                                         maxLength={100}
                                     />
                                 </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                                        Apply Changes To
-                                    </p>
-                                    <div className="flex flex-col sm:flex-row gap-3">
-                                        {(
-                                            [
-                                                { value: 'this', label: 'This item only' },
-                                                {
-                                                    value: 'siblings',
-                                                    label: `All identical items${siblingCount > 0 ? ` (${siblingCount + 1})` : ''}`,
-                                                },
-                                            ] as const
-                                        ).map(({ value, label }) => (
-                                            <label
-                                                key={value}
-                                                className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer select-none text-sm font-medium transition-colors ${applyScope === value
-                                                    ? 'border-slate-800 bg-white text-slate-900 shadow-sm'
-                                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800'
-                                                    }`}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="applyScope"
-                                                    checked={applyScope === value}
-                                                    onChange={() => setApplyScope(value)}
-                                                    className="h-3.5 w-3.5 text-slate-800 border-slate-300 focus:ring-slate-500"
-                                                />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-
-                                    {applyScope === 'this' && siblingCount > 0 && (
-                                        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2.5 text-xs">
-                                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                                            <p>
-                                                <span className="font-semibold">{siblingCount} other matching item lines</span> won't receive these field modifications.
-                                            </p>
-                                        </div>
-                                    )}
+                                <div>
+                                    <FieldLabel htmlFor="edit-model">Model</FieldLabel>
+                                    <textarea
+                                        id="edit-model"
+                                        value={form?.ModelNumber ?? ''}
+                                        onChange={(e) => updateField('ModelNumber', e.target.value)}
+                                        className={`${inputClass} bg-white resize-vertical min-h-[38px] max-h-[120px]`}
+                                        placeholder="e.g. XPS 15, EOS R..."
+                                        rows={1}
+                                        maxLength={100}
+                                    />
                                 </div>
                             </div>
+
+                            <div>
+                                <FieldLabel
+                                    htmlFor="edit-serial"
+                                    badge={
+                                        isSiblingsMode ? (
+                                            <span className="text-[10px] text-amber-700 font-medium bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded normal-case tracking-normal">
+                                                Cannot bulk-edit
+                                            </span>
+                                        ) : null
+                                    }
+                                >
+                                    Serial Number
+                                </FieldLabel>
+                                <textarea
+                                    id="edit-serial"
+                                    value={isSiblingsMode ? (item?.SerialNumber ?? '') : (form?.SerialNumber ?? '')}
+                                    onChange={(e) => updateField('SerialNumber', e.target.value)}
+                                    disabled={isSiblingsMode}
+                                    className={`${inputClass} resize-vertical min-h-[38px] max-h-[120px] disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed bg-white ${(errors.SerialNumber || duplicateSerial) && !isSiblingsMode
+                                        ? 'border-red-400 focus:border-red-400 focus:ring-red-500/20'
+                                        : ''
+                                        }`}
+                                    placeholder="Enter serial number..."
+                                    rows={1}
+                                    maxLength={100}
+                                />
+
+                                {/* NEW: inline error from backend or client-side duplicate check */}
+                                {!isSiblingsMode && (errors.SerialNumber || duplicateSerial) && (
+                                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3 shrink-0" />
+                                        {errors.SerialNumber ??
+                                            `Serial number already used.`}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                                    Apply Changes To
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    {(
+                                        [
+                                            { value: 'this', label: 'This item only' },
+                                            {
+                                                value: 'siblings',
+                                                label: `All identical items${siblingCount > 0 ? ` (${siblingCount + 1})` : ''}`,
+                                            },
+                                        ] as const
+                                    ).map(({ value, label }) => (
+                                        <label
+                                            key={value}
+                                            className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer select-none text-sm font-medium transition-colors ${applyScope === value
+                                                ? 'border-slate-800 bg-white text-slate-900 shadow-sm'
+                                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800'
+                                                }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="applyScope"
+                                                checked={applyScope === value}
+                                                onChange={() => setApplyScope(value)}
+                                                className="h-3.5 w-3.5 text-slate-800 border-slate-300 focus:ring-slate-500"
+                                            />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {applyScope === 'this' && siblingCount > 0 && (
+                                    <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2.5 text-xs">
+                                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                        <p>
+                                            <span className="font-semibold">{siblingCount} other matching item lines</span> won't receive these field modifications.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Footer */}
@@ -284,7 +338,7 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                         <button
                             type="button"
                             onClick={handleSaveDetails}
-                            disabled={isPending || !form}
+                            disabled={isPending || !form || !!duplicateSerial || !!errors.SerialNumber}
                             className="px-4 py-2 text-sm font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-slate-900"
                         >
                             {isPending ? 'Saving…' : 'Save Changes'}
