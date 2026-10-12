@@ -6,6 +6,8 @@ export interface DeliveryReceiptEndUserAssignment {
     inventory_detail_id: number;
     receiver_name: string | null;
     position_office: string | null;
+    office_name?: string | null;
+    is_department_head?: boolean | null;
 }
 
 export interface DeliveryReceiptDetail {

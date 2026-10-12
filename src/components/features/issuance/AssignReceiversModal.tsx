@@ -187,7 +187,7 @@ export default function AssignReceiversModal({
                             position_office: positionOffice,
                             office_name: officeName,
                             is_department_head: dbRow.is_department_head,
-                        }, requestingOfficer);
+                        }, requestingOfficer ? { FullName: requestingOfficer.fullName } : null);
                         const groupingKey = `${receiverName}_${positionOffice}_${officeName}_${assignToDeptHead}_${itemUiId}`;
                         const qty = Number(dbRow.quantity || 1);
                         if (aggregatedMap[groupingKey]) aggregatedMap[groupingKey].quantity += qty;
@@ -573,11 +573,10 @@ export default function AssignReceiversModal({
                                                         if (e.key === 'Escape') setActiveReceiverDropdown(null);
                                                     }}
                                                     placeholder="Enter complete name..."
-                                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${
-                                                        row.assign_to_dept_head
-                                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
-                                                            : 'border-slate-300 text-slate-800'
-                                                    }`}
+                                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${row.assign_to_dept_head
+                                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
+                                                        : 'border-slate-300 text-slate-800'
+                                                        }`}
                                                 />
 
                                                 {activeReceiverDropdown === row.id && !row.assign_to_dept_head && (
@@ -657,11 +656,10 @@ export default function AssignReceiversModal({
                                                         updateRow(row.id, { position_office: e.target.value });
                                                     }}
                                                     placeholder="e.g. Multimedia Artist"
-                                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${
-                                                        row.assign_to_dept_head
-                                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
-                                                            : 'border-slate-300 text-slate-800'
-                                                    }`}
+                                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${row.assign_to_dept_head
+                                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
+                                                        : 'border-slate-300 text-slate-800'
+                                                        }`}
                                                 />
                                             </div>
                                             <div className="sm:col-span-4">

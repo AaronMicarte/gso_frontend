@@ -32,6 +32,7 @@ export function inferDeptHeadAssignment(
     row: {
         receiver_name?: string;
         position_office?: string;
+        office_name?: string;
         is_department_head?: boolean;
         assign_to_dept_head?: boolean;
     },

@@ -366,14 +366,12 @@ export function IssuanceListPage({
 
             const fullName = (
                 issuance.IssuedToName
-                ?? issuance.deliveryReceipt?.requestedByUser?.FullName
                 ?? issuance.issuedToUser?.FullName
                 ?? row.RequestedBy
                 ?? ''
             ).toString().trim();
             const departmentName =
                 issuance.deliveryReceipt?.DepartmentName
-                ?? issuance.deliveryReceipt?.requestedByUser?.department?.DepartmentName
                 ?? row.DepartmentName
                 ?? null;
 

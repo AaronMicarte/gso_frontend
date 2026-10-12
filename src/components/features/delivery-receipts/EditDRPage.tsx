@@ -350,7 +350,7 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                         receiver_name: a.receiver_name,
                                         position_office: a.position_office || '',
                                         office_name: officeName,
-                                        is_department_head: a.is_department_head,
+                                        is_department_head: Boolean(a.is_department_head),
                                     }, requesterForInfer),
                                     quantity: 1,
                                 });
@@ -1603,11 +1603,10 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                                 if (e.key === 'Escape') setActiveReceiverDropdown(null);
                                                             }}
                                                             placeholder="Enter complete name..."
-                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${
-                                                                row.assign_to_dept_head
-                                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
-                                                                    : 'border-slate-300 text-slate-800'
-                                                            }`}
+                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${row.assign_to_dept_head
+                                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
+                                                                : 'border-slate-300 text-slate-800'
+                                                                }`}
                                                         />
 
                                                         {activeReceiverDropdown === row.id && (
@@ -1684,11 +1683,10 @@ export function EditDRPage({ baseRoute }: EditDRPageProps) {
                                                                 updateAssignmentRow(row.id, { position_office: e.target.value });
                                                             }}
                                                             placeholder="e.g. Multimedia Artist"
-                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${
-                                                                row.assign_to_dept_head
-                                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
-                                                                    : 'border-slate-300 text-slate-800'
-                                                            }`}
+                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none font-medium ${row.assign_to_dept_head
+                                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-800 cursor-not-allowed'
+                                                                : 'border-slate-300 text-slate-800'
+                                                                }`}
                                                         />
                                                     </div>
 
