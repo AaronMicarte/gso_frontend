@@ -61,7 +61,7 @@ function IiruspRangePrintPageContent({ baseRoute = '/admin' }: IiruspRangePrintP
                 const formattedItems: UnserviceableItemRow[] = rawItems.map((it: any) => {
                     const inv = it?.inventoryDetail || null;
                     return {
-                        id: it.PropertyUnserviceableItemID ?? it.PropertyWasteItemID ?? Math.floor(Math.random() * 1000000),
+                        id: it.InventoryDetailID ?? it.PropertyUnserviceableItemID ?? it.PropertyWasteItemID ?? Math.floor(Math.random() * 1000000),
                         dateAcquired: it.DateAcquired || null,
                         particulars: it.ItemDescription || inv?.Description || '-',
                         propertyNumber: it.PropertyNumber || inv?.PropertyNumber || '-',

@@ -130,7 +130,16 @@ export function ReportUnserviceableModal({ open, onOpenChange, onSuccess }: Prop
         if (activePreview?.id === id) setActivePreview(null);
     }
 
+    function isItemUnserviceable(item: InventoryItem) {
+        return item.ConditionName?.toLowerCase().includes('unserviceable') ?? false;
+    }
+
     function toggleItem(item: InventoryItem) {
+        if (isItemUnserviceable(item)) {
+            toast.error('This item is already unserviceable and cannot be reported again.');
+            return;
+        }
+
         setSelectedItems((prev) => {
             const next = new Map(prev);
             if (next.has(item.InventoryDetailID)) {
@@ -145,7 +154,7 @@ export function ReportUnserviceableModal({ open, onOpenChange, onSuccess }: Prop
     function selectAllVisible() {
         setSelectedItems((prev) => {
             const next = new Map(prev);
-            itemsList.forEach((i) => next.set(i.InventoryDetailID, i));
+            itemsList.filter((i) => !isItemUnserviceable(i)).forEach((i) => next.set(i.InventoryDetailID, i));
             return next;
         });
     }
@@ -302,23 +311,28 @@ export function ReportUnserviceableModal({ open, onOpenChange, onSuccess }: Prop
                                                         .filter(Boolean)
                                                         .join(' · ') || '—';
 
+                                                const alreadyUnserviceable = isItemUnserviceable(item);
+
                                                 return (
                                                     <tr
                                                         key={item.InventoryDetailID}
-                                                        onClick={() => toggleItem(item)}
+                                                        onClick={() => !alreadyUnserviceable && toggleItem(item)}
                                                         className={
-                                                            checked
-                                                                ? 'bg-amber-50 cursor-pointer'
-                                                                : 'hover:bg-slate-50 cursor-pointer'
+                                                            alreadyUnserviceable
+                                                                ? 'opacity-60 bg-slate-50 cursor-not-allowed'
+                                                                : checked
+                                                                    ? 'bg-amber-50 cursor-pointer'
+                                                                    : 'hover:bg-slate-50 cursor-pointer'
                                                         }
                                                     >
                                                         <td className="px-3 py-2">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={checked}
-                                                                onChange={() => toggleItem(item)}
+                                                                disabled={alreadyUnserviceable}
+                                                                onChange={() => !alreadyUnserviceable && toggleItem(item)}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                className="h-4 w-4 rounded border-slate-300"
+                                                                className="h-4 w-4 rounded border-slate-300 disabled:opacity-40"
                                                             />
                                                         </td>
                                                         <td className="px-3 py-2">

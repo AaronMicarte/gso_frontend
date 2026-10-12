@@ -102,7 +102,7 @@ function IirupPageContent({ baseRoute = '/admin', initialType }: IirupPageProps)
                 const inv = it?.inventoryDetail || null;
 
                 return {
-                    id: it.PropertyUnserviceableItemID ?? it.PropertyWasteItemID ?? Math.floor(Math.random() * 1000000),
+                    id: it.InventoryDetailID ?? it.PropertyUnserviceableItemID ?? it.PropertyWasteItemID ?? Math.floor(Math.random() * 1000000),
                     dateAcquired: it.DateAcquired || null, // Maps the true history tracking date
                     particulars: it.ItemDescription || inv?.Description || '-',
                     propertyNumber: it.PropertyNumber || inv?.PropertyNumber || '-',
