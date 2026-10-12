@@ -206,6 +206,7 @@ export function AllItemsPage() {
     const getItemName = (item: InventoryItem) => item.dr_article_name || item.PropertyName || 'Unknown Item';
     const getCustodianDisplayName = (item: CombinedInventoryItem) => {
         if (item.endUserName?.trim()) return item.endUserName.trim();
+        if ((item as any).custodianName?.trim()) return (item as any).custodianName.trim();
         return 'Not yet issued';
     };
     const getQrCodeData = (item: InventoryItem): string | null => item.qrCodeData ?? null;
@@ -644,7 +645,7 @@ export function AllItemsPage() {
                         </div>
 
                         <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-                            <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Accountable Officer</label>
+                            <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Accountable Officer / End User</label>
                             <div className="relative">
                                 <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                                 <input
@@ -652,8 +653,21 @@ export function AllItemsPage() {
                                     placeholder="e.g. Aaron Micarte"
                                     value={selectedAccountableOfficer}
                                     onChange={(e) => setSelectedAccountableOfficer(e.target.value)}
-                                    className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] text-sm text-gray-900 transition-colors placeholder:text-gray-400"
+                                    className="w-full pl-8 pr-7 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] text-sm text-gray-900 transition-colors placeholder:text-gray-400"
                                 />
+                                {selectedAccountableOfficer && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedAccountableOfficer('');
+                                            setDebouncedAccountableOfficer('');
+                                            setPage(1);
+                                        }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs p-0.5 rounded"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -739,7 +753,7 @@ export function AllItemsPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <input
                             type="text"
-                            placeholder="Search by description, brand, model, serial number, or inventory number..."
+                            placeholder="Search by description, brand, model, serial number, end user, or inventory number..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 text-sm text-gray-900 placeholder:text-gray-400"
