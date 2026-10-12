@@ -18,6 +18,7 @@ import { InventoryHistoryDialog } from './InventoryHistoryDialog';
 import { PropertyCardDialog } from './PropertyCardDialog';
 import { InventoryReceiptDialog } from './InventoryReceiptDialog';
 import { EditInventoryDetailModal, toInventoryDetailEditForm, type InventoryDetailEditForm } from './EditInventoryDetailModal';
+import { ReportUnserviceableModal } from './ReportUnserviceableModal';
 
 type StickerItem = PropertyStickerItem;
 
@@ -99,6 +100,7 @@ export function AllItemsPage() {
     const [displayMode, setDisplayMode] = useState<'individual' | 'combined'>('individual');
     const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
     const [editModalOpen, setEditModalOpen] = useState(false);
+    const [reportUnserviceableModalOpen, setReportUnserviceableModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryDetailEditForm | null>(null);
     const [movingToRemoved, setMovingToRemoved] = useState<number | null>(null);
     const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
@@ -477,6 +479,14 @@ export function AllItemsPage() {
                         >
                             <Layers className="w-4 h-4" />
                             {stickerSelectionMode ? 'Exit Sticker Mode' : 'Print Stickers'}
+                        </button>
+                        <button
+                            onClick={() => setReportUnserviceableModalOpen(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2 border border-rose-300 bg-white text-rose-700 rounded-lg hover:bg-rose-50 hover:border-rose-400 transition-colors text-sm font-medium shadow-sm"
+                            title="File an Unserviceable Item Report with required proof"
+                        >
+                            <AlertTriangle className="w-4 h-4 text-rose-600" />
+                            Report Unserviceable
                         </button>
                         {selectedDepartment && (
                             <button
@@ -1033,6 +1043,7 @@ export function AllItemsPage() {
                     )}
 
                     <EditInventoryDetailModal open={editModalOpen} onOpenChange={setEditModalOpen} item={editingItem} />
+                    <ReportUnserviceableModal open={reportUnserviceableModalOpen} onOpenChange={setReportUnserviceableModalOpen} onSuccess={handleRefresh} />
                 </div>
             </div>
 

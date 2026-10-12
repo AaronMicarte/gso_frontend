@@ -284,8 +284,51 @@ export const getRemovedItems = async (params?: { search?: string; page?: number;
     const response: AxiosResponse<any> = await apiClient.get(`/inventory/removed-items?${qs.toString()}`);
     return response.data;
 };
-
 export const getInventoryPropertyCard = async (id: number): Promise<PropertyCardResponse> => {
     const response: AxiosResponse<PropertyCardResponse> = await apiClient.get(`/inventory/details/${id}/property-card`);
     return response.data;
 };
+
+export type UnserviceableReportAttachment = {
+    id: number;
+    file_name: string;
+    file_mime: string | null;
+    file_size: number | null;
+    is_image: boolean;
+    is_pdf: boolean;
+    view_url: string;
+    download_url: string;
+};
+
+export type UnserviceableReport = {
+    id: number;
+    report_number: string;
+    status: string;
+    remarks: string | null;
+    created_at: string;
+    reported_by: { id: number; name: string } | null;
+    item_remarks?: string | null;
+    affected_property_number?: string | null;
+    affected_item_description?: string | null;
+    attachments: UnserviceableReportAttachment[];
+};
+
+export type UnserviceableReportResponse = {
+    has_report: boolean;
+    report: UnserviceableReport | null;
+};
+
+export const submitUnserviceableReport = async (formData: FormData): Promise<{ message: string; report: any }> => {
+    const response: AxiosResponse<{ message: string; report: any }> = await apiClient.post('/inventory/unserviceable-reports', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+    return response.data;
+};
+
+export const getUnserviceableReportForDetail = async (detailId: number, siblingIds?: number[]): Promise<UnserviceableReportResponse> => {
+    const qs = siblingIds && siblingIds.length > 0 ? `?detail_ids=${siblingIds.join(',')}` : '';
+    const response: AxiosResponse<UnserviceableReportResponse> = await apiClient.get(`/inventory/details/${detailId}/unserviceable-report${qs}`);
+    return response.data;
+};

@@ -83,6 +83,12 @@ const getSerial = (recordDetail: AssetServiceRecord['details'][number]): string 
     return recordDetail.inventoryDetail?.SerialNumber?.trim() || 'Not recorded';
 };
 
+const isRecordFinalized = (row: AssetServiceRecord): boolean => {
+    const details = row.details ?? [];
+    if (details.length === 0) return false;
+    return details.every((d) => d.Status === 'fixed' || d.Status === 'unserviceable');
+};
+
 interface ServiceRecordsPageProps {
     baseRoute: string;
     title: string;
@@ -176,7 +182,9 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
     const beginVerificationReview = async (record: AssetServiceRecord) => {
         const statusMap: Record<number, 'fixed' | 'unserviceable' | 'repair_in_progress'> = {};
         (record.details ?? []).forEach((item) => {
-            statusMap[item.ServiceRecordDetailID] = 'fixed';
+            if (item.Status === 'fixed' || item.Status === 'unserviceable' || item.Status === 'repair_in_progress') {
+                statusMap[item.ServiceRecordDetailID] = item.Status;
+            }
         });
 
         setReviewRecord(record);
@@ -186,20 +194,24 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
 
         try {
             setReviewLoading(true);
-            await serviceApi.update(record.ServiceRecordID, { status: 'verification' });
             const refreshed = await serviceApi.getById(record.ServiceRecordID);
             setReviewRecord(refreshed);
 
             const refreshedStatusMap: Record<number, 'fixed' | 'unserviceable' | 'repair_in_progress'> = {};
             (refreshed.details ?? []).forEach((item) => {
-                refreshedStatusMap[item.ServiceRecordDetailID] = detailReviewStatus[item.ServiceRecordDetailID] ?? 'fixed';
+                const previous = detailReviewStatus[item.ServiceRecordDetailID];
+                if (previous) {
+                    refreshedStatusMap[item.ServiceRecordDetailID] = previous;
+                } else if (item.Status === 'fixed' || item.Status === 'unserviceable' || item.Status === 'repair_in_progress') {
+                    refreshedStatusMap[item.ServiceRecordDetailID] = item.Status;
+                }
             });
             setDetailReviewStatus(refreshedStatusMap);
             setHeaderFinalNote(refreshed.FinalNotes ?? '');
             await load(page);
             setSelectedRecordId(refreshed.ServiceRecordID);
         } catch {
-            toast.error('Failed to set record to verification');
+            toast.error('Failed to load record for review');
         } finally {
             setReviewLoading(false);
         }
@@ -314,7 +326,6 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
         () => Object.values(detailReviewStatus).some((status) => status === 'repair_in_progress'),
         [detailReviewStatus]
     );
-
 
     const totalCount = rows.length;
 
@@ -458,9 +469,20 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                                                     </button>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusClasses[row.Status]}`}>
-                                                        {statusLabel(row.Status)}
-                                                    </span>
+                                                    {(() => {
+                                                        const details = row.details ?? [];
+                                                        if (details.length === 0) return <span className="text-xs text-slate-500">—</span>;
+                                                        const fixed = details.filter((d) => d.Status === 'fixed').length;
+                                                        const unserviceable = details.filter((d) => d.Status === 'unserviceable').length;
+                                                        const other = details.length - fixed - unserviceable;
+                                                        return (
+                                                            <div className="text-xs flex flex-col gap-0.5">
+                                                                {fixed > 0 && <span className="text-emerald-700 font-medium">Fixed: {fixed}</span>}
+                                                                {unserviceable > 0 && <span className="text-rose-700 font-medium">Unserviceable: {unserviceable}</span>}
+                                                                {other > 0 && <span className="text-amber-700 font-medium">In progress: {other}</span>}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <div className="inline-flex gap-2 items-center justify-center">
@@ -475,32 +497,36 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
                                                             <Eye className="w-4 h-4" />
                                                         </button>
 
-                                                        <span className="h-5 border-r border-slate-300" />
+                                                        {!isRecordFinalized(row) && (
+                                                            <>
+                                                                <span className="h-5 border-r border-slate-300" />
 
-                                                        {row.Status === 'repair_in_progress' || row.Status === 'verification' ? (
-                                                            <button
-                                                                onClick={() => beginVerificationReview(row)}
-                                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
-                                                            >
-                                                                <Clock className="w-3 h-3" />
-                                                                <span className="text-[11px]">Review Items</span>
-                                                            </button>
-                                                        ) : getNextStatusFor(row.Status) ? (
-                                                            <button
-                                                                onClick={() => {
-                                                                    const detail = row.details?.[0];
-                                                                    if (!detail) return;
-                                                                    handleStatusRequest(row, detail, getNextStatusFor(row.Status) as AssetServiceStatus);
-                                                                }}
-                                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
-                                                            >
-                                                                {(() => {
-                                                                    const Icon = statusTransitionMap[row.Status].icon;
-                                                                    return <Icon className="w-3 h-3" />;
-                                                                })()}
-                                                                <span className="text-[11px]">{statusTransitionMap[row.Status].label}</span>
-                                                            </button>
-                                                        ) : null}
+                                                                {(row.Status === 'repair_in_progress' || row.Status === 'verification' || row.Status === 'fixed' || row.Status === 'unserviceable') ? (
+                                                                    <button
+                                                                        onClick={() => beginVerificationReview(row)}
+                                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+                                                                    >
+                                                                        <Clock className="w-3 h-3" />
+                                                                        <span className="text-[11px]">Review Items</span>
+                                                                    </button>
+                                                                ) : getNextStatusFor(row.Status) ? (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const detail = row.details?.[0];
+                                                                            if (!detail) return;
+                                                                            handleStatusRequest(row, detail, getNextStatusFor(row.Status) as AssetServiceStatus);
+                                                                        }}
+                                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+                                                                    >
+                                                                        {(() => {
+                                                                            const Icon = statusTransitionMap[row.Status].icon;
+                                                                            return <Icon className="w-3 h-3" />;
+                                                                        })()}
+                                                                        <span className="text-[11px]">{statusTransitionMap[row.Status].label}</span>
+                                                                    </button>
+                                                                ) : null}
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -618,48 +644,17 @@ export function ServiceRecordsPage({ baseRoute, title, description, showCreate =
 
                                             <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Model</p>
                                             <p className="font-medium text-slate-800">{getModel(detail)}</p>
-
-                                            <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Budget</p>
-                                            <p className="font-medium text-slate-800">{detail.BudgetStatus.replaceAll('_', ' ')}</p>
                                         </div>
 
                                         <div className="space-y-1">
                                             <p className="text-slate-500 text-xs uppercase tracking-wide">Serial</p>
                                             <p className="font-medium text-slate-800">{getSerial(detail)}</p>
 
-                                            <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Provider</p>
-                                            <p className="font-medium text-slate-800">{detail.assigned_provider_name || '-'}</p>
-
                                             <p className="text-slate-500 text-xs uppercase tracking-wide mt-2">Handling</p>
                                             <p className="font-medium text-slate-800">{detail.HandlingDecision?.replaceAll('_', ' ') || '-'}</p>
                                         </div>
                                     </div>
 
-                                    <div className="mt-4 border-t border-slate-100 pt-3 flex flex-wrap gap-2 items-center">
-                                        <span className="text-slate-500 text-xs uppercase tracking-wide">Actions</span>
-                                        {detail.Status === 'repair_in_progress' || detail.Status === 'verification' ? (
-                                            <button
-                                                onClick={() => beginVerificationReview(selectedRecord!)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
-                                            >
-                                                <Clock className="w-3 h-3" />
-                                                <span className="text-[11px]">Review Items</span>
-                                            </button>
-                                        ) : getNextStatusFor(detail.Status) ? (
-                                            <button
-                                                onClick={() => handleStatusRequest(selectedRecord!, detail, getNextStatusFor(detail.Status) as AssetServiceStatus)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
-                                            >
-                                                {(() => {
-                                                    const Icon = statusTransitionMap[detail.Status].icon;
-                                                    return <Icon className="w-3 h-3" />;
-                                                })()}
-                                                <span className="text-[11px]">{statusTransitionMap[detail.Status].label}</span>
-                                            </button>
-                                        ) : (
-                                            <span className="text-xs text-slate-400">No further action</span>
-                                        )}
-                                    </div>
                                     <div className="mt-2 border-t border-slate-100 pt-3">
                                         <p className="text-slate-500 text-xs uppercase tracking-wide">Issue</p>
                                         <p className="text-sm text-slate-700 mt-1">{detail.ProblemDescription}</p>

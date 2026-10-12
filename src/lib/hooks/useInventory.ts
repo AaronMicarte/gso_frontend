@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getInventories, getInventory, postIssuance, postGenerateQr, updateInventoryDetail, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar, getAllInventoryItems, InventoryItemsListResponse, getInventoryDetailHistory, InventoryHistoryResponse, getInventoryPropertyCard, PropertyCardResponse, InventoryDetailEditData } from '@/lib/api/inventory';
+import { getInventories, getInventory, postIssuance, postGenerateQr, updateInventoryDetail, getPendingIngestion, ingestFromIar, InventoryListResponse, InventoryResponse, PendingIar, getAllInventoryItems, InventoryItemsListResponse, getInventoryDetailHistory, InventoryHistoryResponse, getInventoryPropertyCard, PropertyCardResponse, InventoryDetailEditData, getUnserviceableReportForDetail, UnserviceableReportResponse } from '@/lib/api/inventory';
 
 export const useInventories = (options?: { page?: number; per_page?: number; search?: string; sort_by?: 'date' | 'inventory_number'; sort_dir?: 'asc' | 'desc' }) => {
     return useQuery<InventoryListResponse>({
@@ -95,5 +95,13 @@ export const useInventoryPropertyCard = (id: number, enabled = true) => {
         queryFn: () => getInventoryPropertyCard(id),
         enabled: !!id && enabled,
         staleTime: 60_000,
+    });
+};
+
+export const useUnserviceableReportForDetail = (detailId: number, enabled = true, siblingIds?: number[]) => {
+    return useQuery({
+        queryKey: ['unserviceable-report-detail', detailId, siblingIds],
+        queryFn: () => getUnserviceableReportForDetail(detailId, siblingIds),
+        enabled: !!detailId && enabled,
     });
 };

@@ -5,7 +5,7 @@ import { useUpdateInventoryDetail, useInventory } from '@/lib/hooks/useInventory
 import type { InventoryDetailEditData } from '@/lib/api/inventory';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertCircle, X, CheckCircle2, AlertTriangle, Pencil, Settings2 } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 
 export type InventoryDetailEditForm = {
     id: number;
@@ -60,13 +60,8 @@ const inputClass =
 export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedInventoryModalProps) {
     const updateInventoryDetail = useUpdateInventoryDetail();
 
-    const [activeTab, setActiveTab] = useState<'details' | 'condition'>('details');
-
     const [form, setForm] = useState<InventoryDetailEditForm | null>(null);
     const [applyScope, setApplyScope] = useState<'this' | 'siblings'>('this');
-
-    const [localConditions, setLocalConditions] = useState<Record<number, 'Serviceable' | 'Unserviceable'>>({});
-    const [savingConditionId, setSavingConditionId] = useState<number | null>(null);
 
     const inventoryQuery = useInventory(form?.inventoryId ?? 0, open && !!form?.inventoryId) as { data?: InventoryQueryData; isLoading: boolean; refetch?: () => void };
 
@@ -86,21 +81,10 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
         if (open && item) {
             setForm({ ...item });
             setApplyScope('this');
-            setActiveTab('details');
         } else if (!open) {
             setForm(null);
         }
     }, [open, item]);
-
-    useEffect(() => {
-        if (open && assetInstances.length > 0) {
-            const stateMap: Record<number, 'Serviceable' | 'Unserviceable'> = {};
-            assetInstances.forEach((inst) => {
-                stateMap[inst.InventoryDetailID] = inst.ConditionName === 'Unserviceable' ? 'Unserviceable' : 'Serviceable';
-            });
-            setLocalConditions(stateMap);
-        }
-    }, [open, assetInstances, activeTab]);
 
     const handleSaveDetails = async () => {
         if (!form) return;
@@ -142,32 +126,6 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
         }
     };
 
-    const handleToggleCondition = async (targetId: number, targetCondition: 'Serviceable' | 'Unserviceable') => {
-        setSavingConditionId(targetId);
-        const previousCondition = localConditions[targetId];
-
-        setLocalConditions(prev => ({ ...prev, [targetId]: targetCondition }));
-
-        try {
-            await updateInventoryDetail.mutateAsync({
-                id: targetId,
-                data: { Condition: targetCondition }
-            });
-
-            try {
-                inventoryQuery.refetch?.();
-            } catch { }
-
-            setLocalConditions(prev => ({ ...prev, [targetId]: targetCondition }));
-            toast.success(`Unit status updated to ${targetCondition.toLowerCase()}`);
-        } catch {
-            setLocalConditions(prev => ({ ...prev, [targetId]: previousCondition }));
-            toast.error('Failed to change unit condition');
-        } finally {
-            setSavingConditionId(null);
-        }
-    };
-
     const updateField = (field: keyof Omit<InventoryDetailEditForm, 'id'>, value: string) => {
         setForm((prev) => (prev ? { ...prev, [field]: value } : null));
     };
@@ -183,58 +141,25 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                 <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150 focus:outline-none">
 
                     {/* Header */}
-                    <div className="px-6 pt-4 pb-2 flex-shrink-0">
+                    <div className="px-6 py-4 border-b border-slate-200 flex-shrink-0 bg-white">
                         <div className="flex items-center justify-between">
                             <div>
                                 <Dialog.Title className="text-base font-bold text-slate-900 leading-tight">
-                                    Asset Control Hub
+                                    Edit Item Details
                                 </Dialog.Title>
                                 <Dialog.Description className="text-xs text-slate-600 mt-0.5">
-                                    Target Batch Line: <span className="font-semibold text-slate-800">{form?.articleName || 'Dynamic Ledger'}</span>
+                                    Target Asset: <span className="font-semibold text-slate-800">{form?.articleName || 'Inventory Item'}</span>
                                 </Dialog.Description>
                             </div>
                             <Dialog.Close className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none">
                                 <X className="w-4 h-4" />
                             </Dialog.Close>
                         </div>
-
-                        {/* Tabs */}
-                        <div className="flex gap-1 border-b border-slate-200 mt-4">
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab('details')}
-                                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 transition-all focus:outline-none ${activeTab === 'details'
-                                    ? 'border-slate-900 text-slate-900'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                                    }`}
-                            >
-                                <Pencil className="w-3.5 h-3.5" />
-                                Change Details
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab('condition')}
-                                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 transition-all focus:outline-none ${activeTab === 'condition'
-                                    ? 'border-slate-900 text-slate-900'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                                    }`}
-                            >
-                                <Settings2 className="w-3.5 h-3.5" />
-                                Change Condition
-                                {assetInstances.length > 0 && (
-                                    <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'condition' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                                        {assetInstances.length}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
                     </div>
 
                     {/* Body */}
                     <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4 bg-slate-50/40">
-
-                        {activeTab === 'details' && (
-                            <div className="space-y-4 animate-in fade-in duration-100">
+                        <div className="space-y-4">
                                 <div>
                                     <FieldLabel htmlFor="edit-description">Description</FieldLabel>
                                     <textarea
@@ -343,79 +268,6 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                     )}
                                 </div>
                             </div>
-                        )}
-
-                        {activeTab === 'condition' && (
-                            <div className="space-y-3 animate-in fade-in duration-100">
-                                {inventoryQuery.isLoading ? (
-                                    <div className="py-12 text-center text-xs text-slate-500 font-medium">Resolving individual operational units...</div>
-                                ) : assetInstances.length === 0 ? (
-                                    <div className="py-12 text-center text-xs text-slate-500">No individual component lines registered under this asset type.</div>
-                                ) : (
-                                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                                                    <th className="px-4 py-3">Property Number</th>
-                                                    <th className="px-4 py-3">Serial Number</th>
-                                                    <th className="px-4 py-3 text-right">Condition Toggle Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100 text-slate-800 text-xs">
-                                                {assetInstances.map((inst) => {
-                                                    const currentCondition = localConditions[inst.InventoryDetailID] || 'Serviceable';
-                                                    const isItemProcessing = savingConditionId === inst.InventoryDetailID;
-
-                                                    return (
-                                                        <tr key={inst.InventoryDetailID} className={`hover:bg-slate-50 transition-colors ${inst.InventoryDetailID === item?.id ? 'bg-blue-50/30 font-medium' : ''}`}>
-                                                            <td className="px-4 py-3 font-mono font-semibold text-slate-900">
-                                                                {inst.PropertyNumber || <span className="text-slate-400 font-normal">No Prop #</span>}
-                                                                {inst.InventoryDetailID === item?.id && (
-                                                                    <span className="ml-1.5 text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-sans font-medium">Focused Target</span>
-                                                                )}
-                                                            </td>
-
-                                                            <td className="px-4 py-3 font-mono text-slate-600">
-                                                                {inst.SerialNumber || <span className="text-slate-400 font-normal">--</span>}
-                                                            </td>
-
-                                                            <td className="px-4 py-3 text-right">
-                                                                <div className="inline-flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={isItemProcessing}
-                                                                        onClick={() => handleToggleCondition(inst.InventoryDetailID, 'Serviceable')}
-                                                                        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all ${currentCondition === 'Serviceable'
-                                                                            ? 'bg-white text-emerald-700 shadow-sm'
-                                                                            : 'text-slate-500 hover:text-slate-700'
-                                                                            }`}
-                                                                    >
-                                                                        <CheckCircle2 className={`w-3 h-3 ${currentCondition === 'Serviceable' ? 'text-emerald-600' : ''}`} />
-                                                                        Serviceable
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={isItemProcessing}
-                                                                        onClick={() => handleToggleCondition(inst.InventoryDetailID, 'Unserviceable')}
-                                                                        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all ${currentCondition === 'Unserviceable'
-                                                                            ? 'bg-white text-rose-600 shadow-sm'
-                                                                            : 'text-slate-500 hover:text-slate-700'
-                                                                            }`}
-                                                                    >
-                                                                        <AlertTriangle className={`w-3 h-3 ${currentCondition === 'Unserviceable' ? 'text-rose-500' : ''}`} />
-                                                                        Unserviceable
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
 
                     {/* Footer */}
@@ -425,20 +277,18 @@ export function EditInventoryDetailModal({ open, onOpenChange, item }: UnifiedIn
                                 type="button"
                                 className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors focus:outline-none"
                             >
-                                {activeTab === 'condition' ? 'Close Control' : 'Cancel'}
+                                Cancel
                             </button>
                         </Dialog.Close>
 
-                        {activeTab === 'details' && (
-                            <button
-                                type="button"
-                                onClick={handleSaveDetails}
-                                disabled={isPending || !form}
-                                className="px-4 py-2 text-sm font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-slate-900"
-                            >
-                                {isPending ? 'Saving…' : 'Save Changes'}
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={handleSaveDetails}
+                            disabled={isPending || !form}
+                            className="px-4 py-2 text-sm font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        >
+                            {isPending ? 'Saving…' : 'Save Changes'}
+                        </button>
                     </div>
                 </Dialog.Content>
             </Dialog.Portal>
