@@ -29,10 +29,6 @@ type AttachedFile = {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-function isUnserviceable(item: InventoryItem) {
-    return item.ConditionName?.toLowerCase().includes('unserviceable') ?? false;
-}
-
 function formatBytes(bytes: number) {
     if (!bytes) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB'];
@@ -135,11 +131,6 @@ export function ReportUnserviceableModal({ open, onOpenChange, onSuccess }: Prop
     }
 
     function toggleItem(item: InventoryItem) {
-        if (isUnserviceable(item)) {
-            toast.error('That item is already marked unserviceable.');
-            return;
-        }
-
         setSelectedItems((prev) => {
             const next = new Map(prev);
             if (next.has(item.InventoryDetailID)) {
@@ -154,7 +145,7 @@ export function ReportUnserviceableModal({ open, onOpenChange, onSuccess }: Prop
     function selectAllVisible() {
         setSelectedItems((prev) => {
             const next = new Map(prev);
-            itemsList.filter((i) => !isUnserviceable(i)).forEach((i) => next.set(i.InventoryDetailID, i));
+            itemsList.forEach((i) => next.set(i.InventoryDetailID, i));
             return next;
         });
     }
@@ -304,7 +295,6 @@ export function ReportUnserviceableModal({ open, onOpenChange, onSuccess }: Prop
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {itemsList.map((item) => {
-                                                const already = isUnserviceable(item);
                                                 const checked = selectedItems.has(item.InventoryDetailID);
                                                 const article = item.dr_article_name || item.PropertyName || 'Asset';
                                                 const specs =
@@ -315,20 +305,17 @@ export function ReportUnserviceableModal({ open, onOpenChange, onSuccess }: Prop
                                                 return (
                                                     <tr
                                                         key={item.InventoryDetailID}
-                                                        onClick={() => !already && toggleItem(item)}
+                                                        onClick={() => toggleItem(item)}
                                                         className={
-                                                            already
-                                                                ? 'opacity-50 cursor-not-allowed'
-                                                                : checked
-                                                                    ? 'bg-amber-50 cursor-pointer'
-                                                                    : 'hover:bg-slate-50 cursor-pointer'
+                                                            checked
+                                                                ? 'bg-amber-50 cursor-pointer'
+                                                                : 'hover:bg-slate-50 cursor-pointer'
                                                         }
                                                     >
                                                         <td className="px-3 py-2">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={checked}
-                                                                disabled={already}
                                                                 onChange={() => toggleItem(item)}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 className="h-4 w-4 rounded border-slate-300"
@@ -359,15 +346,15 @@ export function ReportUnserviceableModal({ open, onOpenChange, onSuccess }: Prop
                                                             </div>
                                                         </td>
                                                         <td className="px-3 py-2">
-                                                            {already ? (
-                                                                <span className="text-rose-600 text-[11px] font-medium">
-                                                                    Unserviceable
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-emerald-700 text-[11px]">
-                                                                    {item.ConditionName || 'Serviceable'}
-                                                                </span>
-                                                            )}
+                                                            <span
+                                                                className={
+                                                                    item.ConditionName?.toLowerCase().includes('unserviceable')
+                                                                        ? 'text-rose-600 text-[11px] font-medium'
+                                                                        : 'text-emerald-700 text-[11px]'
+                                                                }
+                                                            >
+                                                                {item.ConditionName || 'Serviceable'}
+                                                            </span>
                                                         </td>
                                                     </tr>
                                                 );
