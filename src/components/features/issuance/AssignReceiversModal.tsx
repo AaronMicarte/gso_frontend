@@ -125,7 +125,7 @@ export default function AssignReceiversModal({
 
     React.useEffect(() => {
         if (!open || !defaultOfficeName) return;
-        setRows(prev => prev.map(row => ({ ...row, office_name: defaultOfficeName })));
+        setRows(prev => prev.map(row => (row.office_name ? row : { ...row, office_name: defaultOfficeName })));
     }, [open, defaultOfficeName, requestingOfficer?.fullName]);
 
     React.useEffect(() => {
@@ -311,11 +311,10 @@ export default function AssignReceiversModal({
             const oldReceiverName = editedRow?.receiver_name?.trim().toLowerCase() ?? '';
             // Determine which receiver fields are changing
             const isReceiverInfoChanging = patch.receiver_name !== undefined || patch.position_office !== undefined;
-            // Build the cascade patch (only receiver-related fields)
+            // Build the cascade patch (only name/position — NOT office_name, which can differ per issuance/transfer)
             const cascadePatch: Partial<Omit<AssignmentRow, 'id'>> = {};
             if (patch.receiver_name !== undefined) cascadePatch.receiver_name = patch.receiver_name;
             if (patch.position_office !== undefined) cascadePatch.position_office = patch.position_office;
-            if (patch.office_name !== undefined) cascadePatch.office_name = patch.office_name;
             if (patch.assign_to_dept_head !== undefined) cascadePatch.assign_to_dept_head = patch.assign_to_dept_head;
 
             return prev.map(row => {
