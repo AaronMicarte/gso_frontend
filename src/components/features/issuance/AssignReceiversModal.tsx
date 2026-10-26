@@ -12,6 +12,7 @@ import {
 
 interface AssignmentRow {
     id: string;
+    dbIds?: number[];
     receiver_name: string;
     position_office?: string;
     office_name?: string;
@@ -66,6 +67,7 @@ interface Props {
         issuanceId: number,
     ) => { windows: Array<Window | null>; urls: string[] } | undefined;
     onCustomLoad?: (id: number) => Promise<Array<{
+        id?: number;
         issuance_detail_id: number;
         receiver_name: string;
         position_office?: string;
@@ -74,6 +76,7 @@ interface Props {
         quantity: number;
     }>>;
     onCustomSave?: (id: number, assignments: Array<{
+        id?: number | null;
         issuance_detail_id: number;
         receiver_name: string;
         position_office?: string;
@@ -101,6 +104,7 @@ export default function AssignReceiversModal({
     const canAssignDeptHead = Boolean(requestingOfficer?.fullName?.trim());
 
     const [rows, setRows] = React.useState<AssignmentRow[]>([]);
+    const [deletedDbIds, setDeletedDbIds] = React.useState<number[]>([]);
     const [saving, setSaving] = React.useState(false);
     const [savingRows, setSavingRows] = React.useState<Record<string, boolean>>({});
     const [loadingHistory, setLoadingHistory] = React.useState(false);
@@ -165,10 +169,12 @@ export default function AssignReceiversModal({
         async function loadSavedAssignments(validId: number) {
             try {
                 setLoadingHistory(true);
+                setDeletedDbIds([]);
                 const response = onCustomLoad ? await onCustomLoad(validId) : await issuanceAPI.getAssignments(validId);
                 const savedRows = Array.isArray(response) ? response : (response?.data || response || []);
                 if (Array.isArray(savedRows) && savedRows.length > 0) {
                     const aggregatedMap: Record<string, {
+                        dbIds: number[];
                         receiver_name: string;
                         position_office: string;
                         office_name: string;
@@ -190,9 +196,15 @@ export default function AssignReceiversModal({
                         }, requestingOfficer ? { FullName: requestingOfficer.fullName } : null);
                         const groupingKey = `${receiverName}_${positionOffice}_${officeName}_${assignToDeptHead}_${itemUiId}`;
                         const qty = Number(dbRow.quantity || 1);
-                        if (aggregatedMap[groupingKey]) aggregatedMap[groupingKey].quantity += qty;
-                        else {
+                        const rowDbId = dbRow.id ? Number(dbRow.id) : undefined;
+                        if (aggregatedMap[groupingKey]) {
+                            aggregatedMap[groupingKey].quantity += qty;
+                            if (rowDbId && !aggregatedMap[groupingKey].dbIds.includes(rowDbId)) {
+                                aggregatedMap[groupingKey].dbIds.push(rowDbId);
+                            }
+                        } else {
                             aggregatedMap[groupingKey] = {
+                                dbIds: rowDbId ? [rowDbId] : [],
                                 receiver_name: receiverName,
                                 position_office: positionOffice,
                                 office_name: officeName,
@@ -204,6 +216,7 @@ export default function AssignReceiversModal({
                     });
                     setRows(Object.values(aggregatedMap).map(group => ({
                         id: uid(),
+                        dbIds: group.dbIds,
                         receiver_name: group.receiver_name,
                         position_office: group.position_office,
                         office_name: group.office_name,
@@ -216,6 +229,7 @@ export default function AssignReceiversModal({
                 } else {
                     setRows([{
                         id: uid(),
+                        dbIds: [],
                         receiver_name: '',
                         position_office: '',
                         office_name: defaultOfficeName,
@@ -230,6 +244,7 @@ export default function AssignReceiversModal({
                 console.error("Failed fetching saved indices:", err);
                 setRows([{
                     id: uid(),
+                    dbIds: [],
                     receiver_name: '',
                     position_office: '',
                     office_name: defaultOfficeName,
@@ -252,6 +267,7 @@ export default function AssignReceiversModal({
     const addAssignmentRow = () => {
         setRows(prev => [...prev, {
             id: uid(),
+            dbIds: [],
             receiver_name: '',
             position_office: '',
             office_name: defaultOfficeName,
@@ -267,6 +283,7 @@ export default function AssignReceiversModal({
     const addItemForReceiver = (sourceRow: AssignmentRow) => {
         setRows(prev => [...prev, {
             id: uid(),
+            dbIds: [],
             receiver_name: sourceRow.receiver_name,
             position_office: sourceRow.position_office || '',
             office_name: sourceRow.office_name || defaultOfficeName,
@@ -279,27 +296,57 @@ export default function AssignReceiversModal({
         setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }), 50);
     };
 
-    const removeAssignmentRow = (id: string) => setRows(prev => prev.filter(r => r.id !== id));
+    const removeAssignmentRow = (id: string) => {
+        const row = rows.find(r => r.id === id);
+        if (row?.dbIds && row.dbIds.length > 0) {
+            setDeletedDbIds(prev => [...new Set([...prev, ...(row.dbIds || [])])]);
+        }
+        setRows(prev => prev.filter(r => r.id !== id));
+    };
 
     const updateRow = (id: string, patch: Partial<Omit<AssignmentRow, 'id'>>) => {
-        setRows(prev => prev.map(row => {
-            if (row.id !== id) return row;
-            const updatedRow = { ...row, ...patch };
-            if (patch.issuance_detail_id !== undefined && updatedRow.issuance_detail_id !== '') {
-                const targetItem = availableItems.find(i => i.id === updatedRow.issuance_detail_id);
-                if (targetItem) {
-                    const alreadyAssigned = getAssignedQtySumExceptRow(targetItem.id, id, prev);
-                    updatedRow.quantity = Math.max(1, targetItem.maxQty - alreadyAssigned);
+        setRows(prev => {
+            // Find the row being edited to get its current (old) receiver info
+            const editedRow = prev.find(r => r.id === id);
+            const oldReceiverName = editedRow?.receiver_name?.trim().toLowerCase() ?? '';
+            // Determine which receiver fields are changing
+            const isReceiverInfoChanging = patch.receiver_name !== undefined || patch.position_office !== undefined;
+            // Build the cascade patch (only receiver-related fields)
+            const cascadePatch: Partial<Omit<AssignmentRow, 'id'>> = {};
+            if (patch.receiver_name !== undefined) cascadePatch.receiver_name = patch.receiver_name;
+            if (patch.position_office !== undefined) cascadePatch.position_office = patch.position_office;
+            if (patch.office_name !== undefined) cascadePatch.office_name = patch.office_name;
+            if (patch.assign_to_dept_head !== undefined) cascadePatch.assign_to_dept_head = patch.assign_to_dept_head;
+
+            return prev.map(row => {
+                if (row.id === id) {
+                    // Primary row: apply full patch
+                    const updatedRow = { ...row, ...patch };
+                    if (patch.issuance_detail_id !== undefined && updatedRow.issuance_detail_id !== '') {
+                        const targetItem = availableItems.find(i => i.id === updatedRow.issuance_detail_id);
+                        if (targetItem) {
+                            const alreadyAssigned = getAssignedQtySumExceptRow(targetItem.id, id, prev);
+                            updatedRow.quantity = Math.max(1, targetItem.maxQty - alreadyAssigned);
+                        }
+                    } else if (updatedRow.issuance_detail_id !== '') {
+                        const targetItem = availableItems.find(i => i.id === updatedRow.issuance_detail_id);
+                        if (targetItem) {
+                            const remainingAllowed = targetItem.maxQty - getAssignedQtySumExceptRow(targetItem.id, id, prev);
+                            if (updatedRow.quantity > remainingAllowed) updatedRow.quantity = Math.max(1, remainingAllowed);
+                        }
+                    }
+                    return updatedRow;
                 }
-            } else if (updatedRow.issuance_detail_id !== '') {
-                const targetItem = availableItems.find(i => i.id === updatedRow.issuance_detail_id);
-                if (targetItem) {
-                    const remainingAllowed = targetItem.maxQty - getAssignedQtySumExceptRow(targetItem.id, id, prev);
-                    if (updatedRow.quantity > remainingAllowed) updatedRow.quantity = Math.max(1, remainingAllowed);
+                // Cascade receiver info changes to sibling rows with the same old receiver name
+                if (isReceiverInfoChanging && oldReceiverName && Object.keys(cascadePatch).length > 0) {
+                    const thisName = row.receiver_name?.trim().toLowerCase() ?? '';
+                    if (thisName === oldReceiverName && !row.assign_to_dept_head) {
+                        return { ...row, ...cascadePatch };
+                    }
                 }
-            }
-            return updatedRow;
-        }));
+                return row;
+            });
+        });
     };
 
     const validate = (): { ok: boolean; message?: string } => {
@@ -318,6 +365,7 @@ export default function AssignReceiversModal({
 
     const buildFinalAssignments = (targetRows: AssignmentRow[]) => {
         const finalAssignments: Array<{
+            id?: number | null;
             issuance_detail_id: number;
             receiver_name: string;
             position_office?: string;
@@ -331,6 +379,7 @@ export default function AssignReceiversModal({
             const detailsPool = [...item.allDetailIds];
             relevantRows.forEach(row => {
                 let remaining = row.quantity;
+                const dbIdsPool = [...(row.dbIds || [])];
                 while (remaining > 0 && detailsPool.length > 0) {
                     const activeDetailId = detailsPool[0];
                     const sourceQty = items.filter(it => it.IssuanceDetailID === activeDetailId).reduce((acc, it) => acc + Math.max(1, Number(it.QuantityIssued ?? 1)), 0);
@@ -338,7 +387,9 @@ export default function AssignReceiversModal({
                     const capacity = sourceQty - alreadySaved;
                     if (capacity <= 0) { detailsPool.shift(); continue; }
                     const take = Math.min(remaining, capacity);
+                    const assignedId = dbIdsPool.shift() ?? null;
                     finalAssignments.push({
+                        id: assignedId,
                         issuance_detail_id: activeDetailId,
                         receiver_name: row.receiver_name.trim(),
                         position_office: row.assign_to_dept_head
@@ -416,7 +467,7 @@ export default function AssignReceiversModal({
         try {
             setSaving(true);
             if (onCustomSave) await onCustomSave(issuanceId!, finalAssignments);
-            else await issuanceAPI.saveAssignments(issuanceId!, { assignments: finalAssignments });
+            else await issuanceAPI.saveAssignments(issuanceId!, { assignments: finalAssignments, deleted_ids: deletedDbIds });
             toast.success('Receiver assignments saved successfully!');
             handlePrintTabs(assignments, true);
             onSaved?.({ assignments, documentType });
@@ -446,7 +497,7 @@ export default function AssignReceiversModal({
         try {
             setSavingRows(prev => ({ ...prev, [rowId]: true }));
             if (onCustomSave) await onCustomSave(issuanceId!, finalAssignments);
-            else await issuanceAPI.saveAssignments(issuanceId!, { assignments: finalAssignments });
+            else await issuanceAPI.saveAssignments(issuanceId!, { assignments: finalAssignments, deleted_ids: [] });
             toast.success('Receiver assignment saved!');
             handlePrintTabs(assignments, true);
             onSaved?.({ assignments, documentType });
