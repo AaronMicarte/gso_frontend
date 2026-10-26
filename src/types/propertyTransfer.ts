@@ -12,6 +12,13 @@ export interface TransferEndUser {
     FullName: string;
     DepartmentID?: number | null;
     DepartmentName?: string | null;
+    PositionID?: number | null;
+    PositionName?: string | null;
+    is_department_head?: boolean;
+    position?: {
+        PositionID: number;
+        PositionName: string;
+    } | null;
 }
 
 export interface TransferUser {
