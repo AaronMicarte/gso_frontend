@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import issuanceAPI from '@/lib/api/issuance';
 import { toast } from 'sonner';
 import {
+    DEPT_HEAD_POSITION_TITLE,
     buildDeptHeadAssignment,
     formatAssignmentOfficeName,
     formatAssignmentPositionForPrint,
@@ -110,6 +111,7 @@ export default function AssignReceiversModal({
     const [loadingHistory, setLoadingHistory] = React.useState(false);
     const [receiverSuggestions, setReceiverSuggestions] = React.useState<Array<{ receiver_name: string; position_office?: string | null }>>([]);
     const [activeReceiverDropdown, setActiveReceiverDropdown] = React.useState<string | null>(null);
+    const [deptHeadByOffice, setDeptHeadByOffice] = React.useState<Record<string, string>>({});
     const scrollRef = React.useRef<HTMLDivElement>(null);
 
     const endUserSuggestions = React.useMemo(() => {
@@ -172,6 +174,18 @@ export default function AssignReceiversModal({
                 setDeletedDbIds([]);
                 const response = onCustomLoad ? await onCustomLoad(validId) : await issuanceAPI.getAssignments(validId);
                 const savedRows = Array.isArray(response) ? response : (response?.data || response || []);
+                // Extract per-office dept head lookup from backend data
+                const headMap: Record<string, string> = {};
+                if (Array.isArray(savedRows)) {
+                    for (const dbRow of savedRows) {
+                        const office = ((dbRow as any).office_name || '').trim().toLowerCase();
+                        const headName = ((dbRow as any).dept_head_name || '').trim();
+                        if (office && headName && !headMap[office]) {
+                            headMap[office] = headName;
+                        }
+                    }
+                }
+                setDeptHeadByOffice(headMap);
                 if (Array.isArray(savedRows) && savedRows.length > 0) {
                     const aggregatedMap: Record<string, {
                         dbIds: number[];
@@ -590,16 +604,30 @@ export default function AssignReceiversModal({
                                                                 onChange={(e) => {
                                                                     const checked = e.target.checked;
                                                                     if (checked && requestingOfficer) {
-                                                                        updateRow(row.id, buildDeptHeadAssignment({
-                                                                            FullName: requestingOfficer.fullName,
-                                                                            DepartmentName: requestingOfficer.departmentName,
-                                                                        }));
+                                                                        // If the row's office differs from the default (transferred item),
+                                                                        // resolve the dept head for that office instead of the original requester
+                                                                        const rowOffice = (row.office_name || '').trim();
+                                                                        const defOffice = (defaultOfficeName || '').trim();
+                                                                        const officeKey = rowOffice.toLowerCase();
+                                                                        if (rowOffice && officeKey !== defOffice.toLowerCase() && deptHeadByOffice[officeKey]) {
+                                                                            updateRow(row.id, {
+                                                                                assign_to_dept_head: true,
+                                                                                receiver_name: deptHeadByOffice[officeKey],
+                                                                                position_office: DEPT_HEAD_POSITION_TITLE,
+                                                                                office_name: rowOffice,
+                                                                            });
+                                                                        } else {
+                                                                            updateRow(row.id, buildDeptHeadAssignment({
+                                                                                FullName: requestingOfficer.fullName,
+                                                                                DepartmentName: requestingOfficer.departmentName,
+                                                                            }));
+                                                                        }
                                                                     } else {
                                                                         updateRow(row.id, {
                                                                             assign_to_dept_head: false,
                                                                             receiver_name: '',
                                                                             position_office: '',
-                                                                            office_name: defaultOfficeName,
+                                                                            office_name: row.office_name || defaultOfficeName,
                                                                         });
                                                                     }
                                                                 }}
