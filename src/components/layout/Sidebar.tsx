@@ -149,7 +149,7 @@ function getNavSections(user: User, baseRoute: string, unreadCount: number): Nav
                 {
                     label: 'Transfer & Disposal', icon: ArrowRightLeft, children: [
                         { label: 'Property Transfer', href: `${baseRoute}/transfer`, icon: ArrowRightLeft },
-                        { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
+                        // { label: 'Property Borrowing', href: `${baseRoute}/borrow`, icon: CalendarClock },
                         ...((isAdmin || isGSOStaff) ? [
                             { label: 'RLSDDP Reports', href: `${baseRoute}/rlsddp`, icon: ShieldAlert },
                         ] : []),
