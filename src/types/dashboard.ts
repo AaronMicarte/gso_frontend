@@ -8,6 +8,10 @@ export interface DashboardStats {
     totalDepartments: number;
     forDisposal: number;
     forRepair: number;
+    serviceable?: number;
+    unserviceable?: number;
+    serviceableInventory?: number;
+    unserviceableInventory?: number;
 }
 
 export interface DashboardStatsResponse {

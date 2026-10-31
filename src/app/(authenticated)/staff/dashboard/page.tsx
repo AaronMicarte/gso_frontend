@@ -258,8 +258,8 @@ interface SystemStatusProps {
 }
 
 function SystemStatus({ stats, loading }: SystemStatusProps) {
-    const unserviceableItems = (stats?.forRepair ?? 0) + (stats?.forDisposal ?? 0);
-    const serviceableItems = Math.max((stats?.totalInventory ?? 0) - unserviceableItems, 0);
+    const unserviceableItems = stats?.unserviceableInventory ?? stats?.unserviceable ?? ((stats?.forRepair ?? 0) + (stats?.forDisposal ?? 0));
+    const serviceableItems = stats?.serviceableInventory ?? stats?.serviceable ?? Math.max((stats?.totalInventory ?? 0) - unserviceableItems, 0);
 
     const statusItems = [
         {
@@ -268,6 +268,7 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
             icon: Building2,
             color: 'text-blue-500',
             bgColor: 'bg-blue-50',
+            href: '/staff/departments',
         },
         {
             label: 'Serviceable',
@@ -275,6 +276,7 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
             icon: CheckCircle2,
             color: 'text-emerald-500',
             bgColor: 'bg-emerald-50',
+            href: '/staff/inventory/all-items?condition=serviceable',
         },
         {
             label: 'Unserviceable',
@@ -282,8 +284,8 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
             icon: AlertTriangle,
             color: 'text-amber-500',
             bgColor: 'bg-amber-50',
+            href: '/staff/inventory/all-items?condition=unserviceable',
         }
-
     ];
 
     return (
@@ -293,24 +295,33 @@ function SystemStatus({ stats, loading }: SystemStatusProps) {
                 System Status
             </h3>
             <div className="space-y-3">
-                {statusItems.map((item) => (
-                    <div
-                        key={item.label}
-                        className={`flex items-center justify-between p-3 rounded-lg ${item.bgColor}`}
-                    >
-                        <div className="flex items-center gap-3">
-                            <item.icon className={`w-5 h-5 ${item.color}`} />
-                            <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                {statusItems.map((item) => {
+                    const content = (
+                        <div
+                            className={`flex items-center justify-between p-3 rounded-lg ${item.bgColor} transition-opacity ${item.href ? 'hover:opacity-90 cursor-pointer' : ''}`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <item.icon className={`w-5 h-5 ${item.color}`} />
+                                <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                            </div>
+                            {loading ? (
+                                <div className="h-6 w-8 bg-slate-200 rounded animate-pulse" />
+                            ) : (
+                                <span className={`text-lg font-bold ${item.color}`}>
+                                    {item.value.toLocaleString()}
+                                </span>
+                            )}
                         </div>
-                        {loading ? (
-                            <div className="h-6 w-8 bg-slate-200 rounded animate-pulse" />
-                        ) : (
-                            <span className={`text-lg font-bold ${item.color}`}>
-                                {item.value.toLocaleString()}
-                            </span>
-                        )}
-                    </div>
-                ))}
+                    );
+
+                    return item.href ? (
+                        <Link key={item.label} href={item.href} className="block">
+                            {content}
+                        </Link>
+                    ) : (
+                        <div key={item.label}>{content}</div>
+                    );
+                })}
             </div>
         </div>
     );
