@@ -2,8 +2,8 @@
 
 import { useAllInventoryItems } from '@/lib/hooks/useInventory';
 import { useAllPropertyTypes } from '@/lib/hooks/masterData/usePropertyTypes';
-import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2, FileWarning, Download, Filter, PackageX, Layers, Printer } from 'lucide-react';
-import { useEffect, useState, useMemo } from 'react';
+import { Package, User, AlertTriangle, CheckCircle, RefreshCw, Edit, Search, Building2, FileWarning, Download, Filter, PackageX, Layers, Printer, MoreVertical } from 'lucide-react';
+import { useEffect, useState, useMemo, type ReactNode, type MouseEvent as ReactMouseEvent } from 'react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useSearchParams, usePathname } from 'next/navigation';
@@ -40,6 +40,25 @@ const RLSDDP_STATUS_STYLES: Record<string, { bg: string; text: string; border: s
 
 const selectClass =
     'w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] text-sm text-gray-900 transition-colors';
+
+/** A single row inside the three-dot menu. Clicking anywhere on the row triggers the inner button. */
+function ActionMenuRow({ label, children, onSelect }: { label: string; children: ReactNode; onSelect?: () => void }) {
+    return (
+        <div
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-sm text-gray-700"
+            onClick={(e) => {
+                const clickedButton = (e.target as HTMLElement).closest('button');
+                if (!clickedButton) {
+                    (e.currentTarget.querySelector('button') as HTMLButtonElement | null)?.click();
+                }
+                onSelect?.();
+            }}
+        >
+            {children}
+            <span className="font-medium">{label}</span>
+        </div>
+    );
+}
 
 export function AllItemsPage() {
     const searchParams = useSearchParams();
@@ -105,6 +124,63 @@ export function AllItemsPage() {
     const [movingToRemoved, setMovingToRemoved] = useState<number | null>(null);
     const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
 
+    // ── Action menu (three-dot) ──────────────────────────────────────────
+    // Only ONE action menu can be open at a time (single state = auto-closes the previous row)
+    const [actionMenu, setActionMenu] = useState<{ id: number; right: number; top?: number; bottom?: number } | null>(null);
+
+    const closeActionMenu = () => {
+        setActionMenu(null);
+        setConfirmRemove(null);
+    };
+
+    const openActionMenu = (e: ReactMouseEvent<HTMLButtonElement>, id: number) => {
+        e.stopPropagation();
+        if (actionMenu?.id === id) {
+            closeActionMenu();
+            return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        const MENU_HEIGHT = 300;
+        const openUp = rect.bottom + MENU_HEIGHT > window.innerHeight && rect.top > MENU_HEIGHT;
+        setConfirmRemove(null);
+        setActionMenu({
+            id,
+            right: window.innerWidth - rect.right,
+            top: openUp ? undefined : rect.bottom + 4,
+            bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,
+        });
+    };
+
+    useEffect(() => {
+        if (!actionMenu) return;
+        const onMouseDown = (e: MouseEvent) => {
+            if (!(e.target as HTMLElement).closest('[data-action-menu-root]')) {
+                setActionMenu(null);
+                setConfirmRemove(null);
+            }
+        };
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setActionMenu(null);
+                setConfirmRemove(null);
+            }
+        };
+        const onScrollOrResize = () => {
+            setActionMenu(null);
+            setConfirmRemove(null);
+        };
+        document.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('keydown', onKeyDown);
+        window.addEventListener('scroll', onScrollOrResize, true);
+        window.addEventListener('resize', onScrollOrResize);
+        return () => {
+            document.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('scroll', onScrollOrResize, true);
+            window.removeEventListener('resize', onScrollOrResize);
+        };
+    }, [actionMenu]);
+
     // ── Sticker selection mode state ─────────────────────────────────────
     // Map<primaryInventoryDetailID, chosenQty>  (0 = deselected, 1‥N = partially/fully selected)
     const [stickerSelectionMode, setStickerSelectionMode] = useState(false);
@@ -114,6 +190,7 @@ export function AllItemsPage() {
     const toggleStickerSelectionMode = () => {
         setStickerSelectionMode(prev => !prev);
         setStickerQuantities(new Map());
+        setActionMenu(null);
     };
 
     /** Set the quantity for a single row; 0 effectively deselects it. */
@@ -213,7 +290,7 @@ export function AllItemsPage() {
 
     const handleMoveToRemoved = async (item: InventoryItem) => {
         setMovingToRemoved(item.InventoryDetailID);
-        setConfirmRemove(null);
+        closeActionMenu();
         try {
             await removeInventoryDetail(item.InventoryDetailID);
             toast.success(`${getItemName(item)} moved to Removed Items.`);
@@ -829,6 +906,7 @@ export function AllItemsPage() {
                                         const maxQty = Math.max(stickerItems.length, 1);
                                         const currentQty = stickerQuantities.get(item.InventoryDetailID) ?? 0;
                                         const isSelected = currentQty > 0;
+                                        const isMenuOpen = actionMenu?.id === item.InventoryDetailID;
                                         return (
                                             <tr
                                                 key={item.InventoryDetailID}
@@ -941,85 +1019,131 @@ export function AllItemsPage() {
                                                             </span>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex items-center justify-end gap-1.5">
-                                                            <PropertyCardDialog
-                                                                inventoryDetailId={item.InventoryDetailID}
-                                                                propertyNumber={item.PropertyNumber}
-                                                                itemName={getItemName(item)}
-                                                                description={item.Description}
-                                                                category={item.PropertyName || item.ClassificationName}
-                                                                custodianName={getCustodianDisplayName(item)}
-                                                            />
-                                                            {stickerItems.length > 0 && (
-                                                                <PropertySticker
-                                                                    items={stickerItems}
-                                                                    propertyNumber={item.PropertyNumber}
-                                                                    itemName={getItemName(item)}
-                                                                    category={item.PropertyName || item.ClassificationName || '-'}
-                                                                    office={item.locationDepartment || ''}
-                                                                    url={(() => {
-                                                                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                                        const qrCodeData = getQrCodeData(item);
-                                                                        const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
-                                                                        if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
-                                                                        return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
-                                                                    })()}
-                                                                    custodianName={item.endUserName || item.custodianName || ''}
-                                                                    date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
-                                                                    unitCost={item.UnitCost}
-                                                                    brand={item.Brand || ''}
-                                                                    serialNumber={item.SerialNumber || ''}
-                                                                    modelNumber={item.ModelNumber || ''}
-                                                                    endUserName={item.endUserName || ''}
-                                                                    currentDepartmentHead={item.currentDepartmentHead || ''}
-                                                                    parIcsNumber={(item as any).par_ics_number || ''}
-                                                                    documentType={(item as any).par_ics_type || item.DocumentType || ''}
-                                                                />
-                                                            )}
-                                                            <InventoryHistoryDialog inventoryDetailId={item.InventoryDetailID} itemName={getItemName(item)} />
-                                                            <InventoryReceiptDialog
-                                                                inventoryDetailId={item.InventoryDetailID}
-                                                                inventoryId={item.InventoryID}
-                                                                articleName={item.dr_article_name ?? item.PropertyName}
-                                                                unitOfMeasureId={item.UnitOfMeasureID}
-                                                            />
+                                                        <div className="flex items-center justify-end">
                                                             <button
-                                                                onClick={() => openEditModal(item)}
-                                                                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                                title="Edit item details"
+                                                                type="button"
+                                                                data-action-menu-root
+                                                                onClick={(e) => openActionMenu(e, item.InventoryDetailID)}
+                                                                className={`p-2 rounded-lg transition-colors ${isMenuOpen ? 'bg-gray-100 text-gray-700' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                                                                title="Actions"
+                                                                aria-haspopup="menu"
+                                                                aria-expanded={isMenuOpen}
                                                             >
-                                                                <Edit className="w-4 h-4" />
+                                                                <MoreVertical className="w-4 h-4" />
                                                             </button>
-                                                            {item.ConditionName?.toLowerCase().includes('unserviceable') && (
-                                                                confirmRemove === item.InventoryDetailID ? (
-                                                                    <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">
-                                                                        <span className="text-xs text-rose-700 font-medium whitespace-nowrap">Move to Removed?</span>
-                                                                        <button
-                                                                            onClick={() => handleMoveToRemoved(item)}
-                                                                            disabled={movingToRemoved === item.InventoryDetailID}
-                                                                            className="text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
-                                                                        >
-                                                                            {movingToRemoved === item.InventoryDetailID
-                                                                                ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                                                                                : 'Yes'}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => setConfirmRemove(null)}
-                                                                            className="text-xs font-medium text-gray-500 hover:text-gray-700 px-1"
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
-                                                                    </div>
-                                                                ) : (
+
+                                                            {/* Always mounted (just hidden) so the dialogs keep working after the menu closes */}
+                                                            <div
+                                                                data-action-menu-root
+                                                                role="menu"
+                                                                className={`fixed z-50 w-56 p-1.5 bg-white border border-gray-200 rounded-xl shadow-xl text-left ${isMenuOpen ? '' : 'hidden'}`}
+                                                                style={isMenuOpen && actionMenu
+                                                                    ? { right: actionMenu.right, top: actionMenu.top, bottom: actionMenu.bottom }
+                                                                    : undefined}
+                                                            >
+                                                                <ActionMenuRow label="Property Card" onSelect={closeActionMenu}>
+                                                                    <PropertyCardDialog
+                                                                        inventoryDetailId={item.InventoryDetailID}
+                                                                        propertyNumber={item.PropertyNumber}
+                                                                        itemName={getItemName(item)}
+                                                                        description={item.Description}
+                                                                        category={item.PropertyName || item.ClassificationName}
+                                                                        custodianName={getCustodianDisplayName(item)}
+                                                                    />
+                                                                </ActionMenuRow>
+
+                                                                {stickerItems.length > 0 && (
+                                                                    <ActionMenuRow label="Print Sticker" onSelect={closeActionMenu}>
+                                                                        <PropertySticker
+                                                                            items={stickerItems}
+                                                                            propertyNumber={item.PropertyNumber}
+                                                                            itemName={getItemName(item)}
+                                                                            category={item.PropertyName || item.ClassificationName || '-'}
+                                                                            office={item.locationDepartment || ''}
+                                                                            url={(() => {
+                                                                                const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                                                const qrCodeData = getQrCodeData(item);
+                                                                                const match = qrCodeData?.match(/\/qr\/scan\/(\d+)/);
+                                                                                if (match?.[1]) return `${origin}/qr/scan/${match[1]}`;
+                                                                                return `${origin}/admin/inventory/${item.InventoryID}?detail=${item.InventoryDetailID}`;
+                                                                            })()}
+                                                                            custodianName={item.endUserName || item.custodianName || ''}
+                                                                            date={item.CreatedDate ? format(new Date(item.CreatedDate), 'MM/dd/yyyy') : '-'}
+                                                                            unitCost={item.UnitCost}
+                                                                            brand={item.Brand || ''}
+                                                                            serialNumber={item.SerialNumber || ''}
+                                                                            modelNumber={item.ModelNumber || ''}
+                                                                            endUserName={item.endUserName || ''}
+                                                                            currentDepartmentHead={item.currentDepartmentHead || ''}
+                                                                            parIcsNumber={(item as any).par_ics_number || ''}
+                                                                            documentType={(item as any).par_ics_type || item.DocumentType || ''}
+                                                                        />
+                                                                    </ActionMenuRow>
+                                                                )}
+
+                                                                <ActionMenuRow label="History" onSelect={closeActionMenu}>
+                                                                    <InventoryHistoryDialog inventoryDetailId={item.InventoryDetailID} itemName={getItemName(item)} />
+                                                                </ActionMenuRow>
+
+                                                                <ActionMenuRow label="Details" onSelect={closeActionMenu}>
+                                                                    <InventoryReceiptDialog
+                                                                        inventoryDetailId={item.InventoryDetailID}
+                                                                        inventoryId={item.InventoryID}
+                                                                        articleName={item.dr_article_name ?? item.PropertyName}
+                                                                        unitOfMeasureId={item.UnitOfMeasureID}
+                                                                    />
+                                                                </ActionMenuRow>
+
+                                                                <ActionMenuRow label="Edit Details" onSelect={closeActionMenu}>
                                                                     <button
-                                                                        onClick={() => setConfirmRemove(item.InventoryDetailID)}
-                                                                        className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                                        title="Move to Removed Items"
+                                                                        type="button"
+                                                                        onClick={() => openEditModal(item)}
+                                                                        className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                        title="Edit item details"
                                                                     >
-                                                                        <PackageX className="w-4 h-4" />
+                                                                        <Edit className="w-4 h-4" />
                                                                     </button>
-                                                                )
-                                                            )}
+                                                                </ActionMenuRow>
+
+                                                                {item.ConditionName?.toLowerCase().includes('unserviceable') && (
+                                                                    <>
+                                                                        <div className="my-1 border-t border-gray-100" />
+                                                                        {confirmRemove === item.InventoryDetailID ? (
+                                                                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 bg-rose-50 border border-rose-200 rounded-lg">
+                                                                                <span className="text-xs text-rose-700 font-medium">Move to Removed?</span>
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleMoveToRemoved(item)}
+                                                                                        disabled={movingToRemoved === item.InventoryDetailID}
+                                                                                        className="text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded px-2 py-0.5 transition-colors disabled:opacity-50"
+                                                                                    >
+                                                                                        {movingToRemoved === item.InventoryDetailID
+                                                                                            ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                                                                            : 'Yes'}
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setConfirmRemove(null)}
+                                                                                        className="text-xs font-medium text-gray-500 hover:text-gray-700 px-1"
+                                                                                    >
+                                                                                        Cancel
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setConfirmRemove(item.InventoryDetailID)}
+                                                                                className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+                                                                            >
+                                                                                <span className="p-2"><PackageX className="w-4 h-4" /></span>
+                                                                                Move to Removed
+                                                                            </button>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </td>
