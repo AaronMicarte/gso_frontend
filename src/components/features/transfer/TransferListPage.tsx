@@ -101,6 +101,9 @@ export function TransferListPage({
             row.TransferNumber?.toLowerCase().includes(searchLower) ||
             row.fromDepartment?.DepartmentName?.toLowerCase().includes(searchLower) ||
             row.toDepartment?.DepartmentName?.toLowerCase().includes(searchLower) ||
+            row.toEndUser?.FullName?.toLowerCase().includes(searchLower) ||
+            row.toEndUser?.DepartmentName?.toLowerCase().includes(searchLower) ||
+            row.toEndUser?.department?.DepartmentName?.toLowerCase().includes(searchLower) ||
             row.requestedBy?.FullName?.toLowerCase().includes(searchLower) ||
             row.requestedBy?.department?.DepartmentName?.toLowerCase().includes(searchLower)
         ));
@@ -200,9 +203,9 @@ export function TransferListPage({
                                                     {displayText(transfer.toDepartment?.DepartmentName, 'Missing department')}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-slate-700">
-                                                    {displayText(transfer.requestedBy?.FullName, 'Missing requester')}
-                                                    {transfer.requestedBy?.department?.DepartmentName
-                                                        ? ` - ${transfer.requestedBy.department.DepartmentName}`
+                                                    {displayText(transfer.toEndUser?.FullName || transfer.requestedBy?.FullName, 'Missing receiver')}
+                                                    {transfer.toEndUser?.DepartmentName || transfer.toEndUser?.department?.DepartmentName || transfer.toDepartment?.DepartmentName
+                                                        ? ` - ${transfer.toEndUser?.DepartmentName || transfer.toEndUser?.department?.DepartmentName || transfer.toDepartment?.DepartmentName}`
                                                         : ''}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-slate-700">

@@ -15,6 +15,7 @@ export interface TransferEndUser {
     PositionID?: number | null;
     PositionName?: string | null;
     is_department_head?: boolean;
+    department?: TransferDepartment | null;
     position?: {
         PositionID: number;
         PositionName: string;

@@ -832,9 +832,9 @@ export function TransferDetailPage({ baseRoute }: TransferDetailPageProps) {
                             <div>
                                 <div className="text-xs text-slate-500 uppercase">Requested By</div>
                                 <div className="text-sm font-semibold text-slate-900">
-                                    {displayText(transfer.requestedBy?.FullName, 'Missing requester')}
-                                    {transfer.requestedBy?.department?.DepartmentName
-                                        ? ` - ${transfer.requestedBy.department.DepartmentName}`
+                                    {displayText(transfer.toEndUser?.FullName || transfer.requestedBy?.FullName, 'Missing receiving custodian')}
+                                    {transfer.toEndUser?.DepartmentName || transfer.toEndUser?.department?.DepartmentName || transfer.toDepartment?.DepartmentName
+                                        ? ` - ${transfer.toEndUser?.DepartmentName || transfer.toEndUser?.department?.DepartmentName || transfer.toDepartment?.DepartmentName}`
                                         : ''}
                                 </div>
                             </div>
